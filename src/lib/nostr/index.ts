@@ -1,1 +1,1 @@
-export { getNDK, connectToRelays, fetchGlobalFeed, publishNote, publishReaction, publishReply, fetchProfile } from "./client";
+export { getNDK, connectToRelays, fetchGlobalFeed, publishNote, publishReaction, publishReply, fetchUserNotes, fetchProfile } from "./client";

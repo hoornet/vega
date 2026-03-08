@@ -2,6 +2,7 @@ import { useState, useRef } from "react";
 import { NDKEvent } from "@nostr-dev-kit/ndk";
 import { useProfile } from "../../hooks/useProfile";
 import { useUserStore } from "../../stores/user";
+import { useUIStore } from "../../stores/ui";
 import { timeAgo, shortenPubkey } from "../../lib/utils";
 import { publishReaction, publishReply } from "../../lib/nostr";
 import { NoteContent } from "./NoteContent";
@@ -18,6 +19,7 @@ export function NoteCard({ event }: NoteCardProps) {
   const time = event.created_at ? timeAgo(event.created_at) : "";
 
   const { loggedIn } = useUserStore();
+  const { openProfile } = useUIStore();
   const [liked, setLiked] = useState(false);
   const [liking, setLiking] = useState(false);
   const [showReply, setShowReply] = useState(false);
@@ -68,19 +70,19 @@ export function NoteCard({ event }: NoteCardProps) {
     <article className="border-b border-border px-4 py-3 hover:bg-bg-hover transition-colors duration-100">
       <div className="flex gap-3">
         {/* Avatar */}
-        <div className="shrink-0">
+        <div className="shrink-0 cursor-pointer" onClick={() => openProfile(event.pubkey)}>
           {avatar ? (
             <img
               src={avatar}
               alt=""
-              className="w-9 h-9 rounded-sm object-cover bg-bg-raised"
+              className="w-9 h-9 rounded-sm object-cover bg-bg-raised hover:opacity-80 transition-opacity"
               loading="lazy"
               onError={(e) => {
                 (e.target as HTMLImageElement).style.display = "none";
               }}
             />
           ) : (
-            <div className="w-9 h-9 rounded-sm bg-bg-raised border border-border flex items-center justify-center text-text-dim text-xs">
+            <div className="w-9 h-9 rounded-sm bg-bg-raised border border-border flex items-center justify-center text-text-dim text-xs hover:border-accent/40 transition-colors">
               {name.charAt(0).toUpperCase()}
             </div>
           )}
@@ -89,7 +91,10 @@ export function NoteCard({ event }: NoteCardProps) {
         {/* Content */}
         <div className="min-w-0 flex-1">
           <div className="flex items-baseline gap-2 mb-0.5">
-            <span className="text-text font-medium truncate text-[13px]">{name}</span>
+            <span
+              className="text-text font-medium truncate text-[13px] cursor-pointer hover:text-accent transition-colors"
+              onClick={() => openProfile(event.pubkey)}
+            >{name}</span>
             {nip05 && (
               <span className="text-text-dim text-[10px] truncate max-w-40">{nip05}</span>
             )}
