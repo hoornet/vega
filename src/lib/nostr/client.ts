@@ -99,6 +99,18 @@ export async function publishNote(content: string): Promise<void> {
   await event.publish();
 }
 
+export async function fetchReplies(eventId: string): Promise<NDKEvent[]> {
+  const instance = getNDK();
+  const filter: NDKFilter = {
+    kinds: [NDKKind.Text],
+    "#e": [eventId],
+  };
+  const events = await instance.fetchEvents(filter, {
+    cacheUsage: NDKSubscriptionCacheUsage.ONLY_RELAY,
+  });
+  return Array.from(events).sort((a, b) => (a.created_at ?? 0) - (b.created_at ?? 0));
+}
+
 export async function fetchFollowFeed(pubkeys: string[], limit = 80): Promise<NDKEvent[]> {
   if (pubkeys.length === 0) return [];
   const instance = getNDK();

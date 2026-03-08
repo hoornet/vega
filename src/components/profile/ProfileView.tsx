@@ -7,7 +7,7 @@ import { shortenPubkey } from "../../lib/utils";
 import { NoteCard } from "../feed/NoteCard";
 
 export function ProfileView() {
-  const { selectedPubkey, setView } = useUIStore();
+  const { selectedPubkey, goBack } = useUIStore();
   const pubkey = selectedPubkey!;
   const profile = useProfile(pubkey);
 
@@ -33,7 +33,7 @@ export function ProfileView() {
       {/* Header */}
       <header className="border-b border-border px-4 py-2.5 flex items-center gap-3 shrink-0">
         <button
-          onClick={() => setView("feed")}
+          onClick={goBack}
           className="text-text-dim hover:text-text text-[11px] transition-colors"
         >
           ← back

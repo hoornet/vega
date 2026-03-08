@@ -3,6 +3,7 @@ import { Feed } from "./components/feed/Feed";
 import { RelaysView } from "./components/shared/RelaysView";
 import { SettingsView } from "./components/shared/SettingsView";
 import { ProfileView } from "./components/profile/ProfileView";
+import { ThreadView } from "./components/thread/ThreadView";
 import { useUIStore } from "./stores/ui";
 
 function App() {
@@ -16,6 +17,7 @@ function App() {
         {currentView === "relays" && <RelaysView />}
         {currentView === "settings" && <SettingsView />}
         {currentView === "profile" && <ProfileView />}
+        {currentView === "thread" && <ThreadView />}
       </main>
     </div>
   );

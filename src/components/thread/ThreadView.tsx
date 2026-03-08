@@ -1,0 +1,146 @@
+import { useEffect, useRef, useState } from "react";
+import { NDKEvent } from "@nostr-dev-kit/ndk";
+import { useUIStore } from "../../stores/ui";
+import { useUserStore } from "../../stores/user";
+import { useProfile } from "../../hooks/useProfile";
+import { fetchReplies, publishReply } from "../../lib/nostr";
+import { shortenPubkey, timeAgo } from "../../lib/utils";
+import { NoteContent } from "../feed/NoteContent";
+import { NoteCard } from "../feed/NoteCard";
+
+function RootNote({ event }: { event: NDKEvent }) {
+  const { openProfile } = useUIStore();
+  const profile = useProfile(event.pubkey);
+  const name = profile?.displayName || profile?.name || shortenPubkey(event.pubkey);
+  const avatar = profile?.picture;
+  const nip05 = profile?.nip05;
+  const time = event.created_at ? timeAgo(event.created_at) : "";
+
+  return (
+    <div className="px-4 py-4 border-b border-border">
+      <div className="flex gap-3 mb-3">
+        <div className="shrink-0 cursor-pointer" onClick={() => openProfile(event.pubkey)}>
+          {avatar ? (
+            <img src={avatar} alt="" className="w-10 h-10 rounded-sm object-cover bg-bg-raised hover:opacity-80 transition-opacity" />
+          ) : (
+            <div className="w-10 h-10 rounded-sm bg-bg-raised border border-border flex items-center justify-center text-text-dim text-sm">
+              {name.charAt(0).toUpperCase()}
+            </div>
+          )}
+        </div>
+        <div>
+          <span
+            className="text-text font-medium text-[13px] cursor-pointer hover:text-accent transition-colors"
+            onClick={() => openProfile(event.pubkey)}
+          >{name}</span>
+          {nip05 && <div className="text-text-dim text-[10px]">{nip05}</div>}
+        </div>
+      </div>
+      <NoteContent content={event.content} />
+      <div className="text-text-dim text-[10px] mt-3">{time}</div>
+    </div>
+  );
+}
+
+export function ThreadView() {
+  const { selectedNote, goBack } = useUIStore();
+  const { loggedIn } = useUserStore();
+  const event = selectedNote!;
+
+  const [replies, setReplies] = useState<NDKEvent[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [replyText, setReplyText] = useState("");
+  const [replying, setReplying] = useState(false);
+  const [replySent, setReplySent] = useState(false);
+  const replyRef = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    fetchReplies(event.id).then((r) => {
+      setReplies(r);
+      setLoading(false);
+    }).catch(() => setLoading(false));
+  }, [event.id]);
+
+  const handleReply = async () => {
+    if (!replyText.trim() || replying) return;
+    setReplying(true);
+    try {
+      await publishReply(replyText.trim(), { id: event.id, pubkey: event.pubkey });
+      setReplyText("");
+      setReplySent(true);
+      // Re-fetch replies to show the new one
+      const updated = await fetchReplies(event.id);
+      setReplies(updated);
+      setTimeout(() => setReplySent(false), 2000);
+    } finally {
+      setReplying(false);
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) handleReply();
+    if (e.key === "Escape") replyRef.current?.blur();
+  };
+
+  return (
+    <div className="h-full flex flex-col">
+      {/* Header */}
+      <header className="border-b border-border px-4 py-2.5 flex items-center gap-3 shrink-0">
+        <button
+          onClick={goBack}
+          className="text-text-dim hover:text-text text-[11px] transition-colors"
+        >
+          ← back
+        </button>
+        <h1 className="text-text text-sm font-medium">Thread</h1>
+      </header>
+
+      <div className="flex-1 overflow-y-auto">
+        {/* Root note */}
+        <RootNote event={event} />
+
+        {/* Reply composer */}
+        {loggedIn && (
+          <div className="border-b border-border px-4 py-3">
+            <textarea
+              ref={replyRef}
+              value={replyText}
+              onChange={(e) => setReplyText(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder="Write a reply…"
+              rows={2}
+              className="w-full bg-transparent text-text text-[13px] placeholder:text-text-dim resize-none focus:outline-none"
+            />
+            <div className="flex items-center justify-end gap-2 mt-1">
+              <span className="text-text-dim text-[10px]">Ctrl+Enter</span>
+              <button
+                onClick={handleReply}
+                disabled={!replyText.trim() || replying}
+                className="px-3 py-1 text-[11px] bg-accent hover:bg-accent-hover text-white transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+              >
+                {replySent ? "replied ✓" : replying ? "posting…" : "reply"}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Replies */}
+        {loading && (
+          <div className="px-4 py-6 text-text-dim text-[12px] text-center">
+            Loading replies…
+          </div>
+        )}
+
+        {!loading && replies.length === 0 && (
+          <div className="px-4 py-6 text-text-dim text-[12px] text-center">
+            No replies yet.
+          </div>
+        )}
+
+        {replies.map((reply) => (
+          <NoteCard key={reply.id} event={reply} />
+        ))}
+      </div>
+    </div>
+  );
+}

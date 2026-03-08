@@ -19,7 +19,7 @@ export function NoteCard({ event }: NoteCardProps) {
   const time = event.created_at ? timeAgo(event.created_at) : "";
 
   const { loggedIn } = useUserStore();
-  const { openProfile } = useUIStore();
+  const { openProfile, openThread, currentView } = useUIStore();
   const likedKey = "wrystr_liked";
   const getLiked = () => {
     try { return new Set<string>(JSON.parse(localStorage.getItem(likedKey) || "[]")); }
@@ -109,7 +109,12 @@ export function NoteCard({ event }: NoteCardProps) {
             <span className="text-text-dim text-[11px] shrink-0">{time}</span>
           </div>
 
-          <NoteContent content={event.content} />
+          <div
+            className="cursor-pointer"
+            onClick={() => openThread(event, currentView as "feed" | "profile")}
+          >
+            <NoteContent content={event.content} />
+          </div>
 
           {/* Actions */}
           {loggedIn && (
