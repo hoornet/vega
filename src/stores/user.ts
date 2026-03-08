@@ -7,6 +7,7 @@ interface UserState {
   pubkey: string | null;
   npub: string | null;
   profile: any | null;
+  follows: string[];
   loggedIn: boolean;
   loginError: string | null;
 
@@ -14,12 +15,14 @@ interface UserState {
   loginWithPubkey: (pubkey: string) => Promise<void>;
   logout: () => void;
   fetchOwnProfile: () => Promise<void>;
+  fetchFollows: () => Promise<void>;
 }
 
 export const useUserStore = create<UserState>((set, get) => ({
   pubkey: null,
   npub: null,
   profile: null,
+  follows: [],
   loggedIn: false,
   loginError: null,
 
@@ -54,8 +57,9 @@ export const useUserStore = create<UserState>((set, get) => ({
       localStorage.setItem("wrystr_pubkey", pubkey);
       localStorage.setItem("wrystr_login_type", "nsec");
 
-      // Fetch profile
+      // Fetch profile and follows
       get().fetchOwnProfile();
+      get().fetchFollows();
     } catch (err) {
       set({ loginError: `Login failed: ${err}` });
     }
@@ -84,6 +88,7 @@ export const useUserStore = create<UserState>((set, get) => ({
       localStorage.setItem("wrystr_login_type", "pubkey");
 
       get().fetchOwnProfile();
+      get().fetchFollows();
     } catch (err) {
       set({ loginError: `Login failed: ${err}` });
     }
@@ -94,7 +99,7 @@ export const useUserStore = create<UserState>((set, get) => ({
     ndk.signer = undefined;
     localStorage.removeItem("wrystr_pubkey");
     localStorage.removeItem("wrystr_login_type");
-    set({ pubkey: null, npub: null, profile: null, loggedIn: false, loginError: null });
+    set({ pubkey: null, npub: null, profile: null, follows: [], loggedIn: false, loginError: null });
   },
 
   fetchOwnProfile: async () => {
@@ -108,6 +113,21 @@ export const useUserStore = create<UserState>((set, get) => ({
       set({ profile: user.profile });
     } catch {
       // Profile fetch is non-critical
+    }
+  },
+
+  fetchFollows: async () => {
+    const { pubkey } = get();
+    if (!pubkey) return;
+
+    try {
+      const ndk = getNDK();
+      const user = ndk.getUser({ pubkey });
+      const followSet = await user.follows();
+      const follows = Array.from(followSet).map((u) => u.pubkey);
+      set({ follows });
+    } catch {
+      // Non-critical
     }
   },
 }));

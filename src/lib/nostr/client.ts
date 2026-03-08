@@ -99,6 +99,23 @@ export async function publishNote(content: string): Promise<void> {
   await event.publish();
 }
 
+export async function fetchFollowFeed(pubkeys: string[], limit = 80): Promise<NDKEvent[]> {
+  if (pubkeys.length === 0) return [];
+  const instance = getNDK();
+
+  const filter: NDKFilter = {
+    kinds: [NDKKind.Text],
+    authors: pubkeys,
+    limit,
+  };
+
+  const events = await instance.fetchEvents(filter, {
+    cacheUsage: NDKSubscriptionCacheUsage.ONLY_RELAY,
+  });
+
+  return Array.from(events).sort((a, b) => (b.created_at ?? 0) - (a.created_at ?? 0));
+}
+
 export async function fetchUserNotes(pubkey: string, limit = 30): Promise<NDKEvent[]> {
   const instance = getNDK();
   const filter: NDKFilter = {

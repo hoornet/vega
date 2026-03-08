@@ -20,7 +20,12 @@ export function NoteCard({ event }: NoteCardProps) {
 
   const { loggedIn } = useUserStore();
   const { openProfile } = useUIStore();
-  const [liked, setLiked] = useState(false);
+  const likedKey = "wrystr_liked";
+  const getLiked = () => {
+    try { return new Set<string>(JSON.parse(localStorage.getItem(likedKey) || "[]")); }
+    catch { return new Set<string>(); }
+  };
+  const [liked, setLiked] = useState(() => getLiked().has(event.id));
   const [liking, setLiking] = useState(false);
   const [showReply, setShowReply] = useState(false);
   const [replyText, setReplyText] = useState("");
@@ -34,6 +39,9 @@ export function NoteCard({ event }: NoteCardProps) {
     setLiking(true);
     try {
       await publishReaction(event.id, event.pubkey);
+      const liked = getLiked();
+      liked.add(event.id);
+      localStorage.setItem(likedKey, JSON.stringify(Array.from(liked)));
       setLiked(true);
     } finally {
       setLiking(false);
