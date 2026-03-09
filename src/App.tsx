@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Sidebar } from "./components/sidebar/Sidebar";
 import { Feed } from "./components/feed/Feed";
 import { SearchView } from "./components/search/SearchView";
@@ -6,10 +7,18 @@ import { SettingsView } from "./components/shared/SettingsView";
 import { ProfileView } from "./components/profile/ProfileView";
 import { ThreadView } from "./components/thread/ThreadView";
 import { ArticleEditor } from "./components/article/ArticleEditor";
+import { OnboardingFlow } from "./components/onboarding/OnboardingFlow";
 import { useUIStore } from "./stores/ui";
 
 function App() {
   const currentView = useUIStore((s) => s.currentView);
+  const [onboardingDone, setOnboardingDone] = useState(
+    () => !!localStorage.getItem("wrystr_pubkey")
+  );
+
+  if (!onboardingDone) {
+    return <OnboardingFlow onComplete={() => setOnboardingDone(true)} />;
+  }
 
   return (
     <div className="flex h-screen w-screen bg-bg">
