@@ -5,7 +5,7 @@ import { useReactionCount } from "../../hooks/useReactionCount";
 import { useUserStore } from "../../stores/user";
 import { useUIStore } from "../../stores/ui";
 import { timeAgo, shortenPubkey } from "../../lib/utils";
-import { publishReaction, publishReply } from "../../lib/nostr";
+import { publishReaction, publishReply, getNDK } from "../../lib/nostr";
 import { NoteContent } from "./NoteContent";
 import { ZapModal } from "../zap/ZapModal";
 
@@ -122,7 +122,7 @@ export function NoteCard({ event }: NoteCardProps) {
           </div>
 
           {/* Actions */}
-          {loggedIn && (
+          {loggedIn && !!getNDK().signer && (
             <div className="flex items-center gap-4 mt-2">
               <button
                 onClick={handleReply}

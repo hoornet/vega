@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useUIStore } from "../../stores/ui";
 import { useFeedStore } from "../../stores/feed";
 import { useUserStore } from "../../stores/user";
+import { getNDK } from "../../lib/nostr";
 import { LoginModal } from "../shared/LoginModal";
 import { shortenPubkey } from "../../lib/utils";
 
@@ -44,7 +45,7 @@ export function Sidebar() {
 
         {/* Nav */}
         <nav className="flex-1 overflow-y-auto py-2">
-          {loggedIn && !sidebarCollapsed && (
+          {loggedIn && !!getNDK().signer && !sidebarCollapsed && (
             <button
               onClick={() => setView("article-editor")}
               className={`w-full text-left px-3 py-1.5 flex items-center gap-2 text-[12px] transition-colors mb-1 ${

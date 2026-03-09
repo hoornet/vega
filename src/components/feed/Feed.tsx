@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useFeedStore } from "../../stores/feed";
 import { useUserStore } from "../../stores/user";
-import { fetchFollowFeed } from "../../lib/nostr";
+import { fetchFollowFeed, getNDK } from "../../lib/nostr";
 import { NoteCard } from "./NoteCard";
 import { ComposeBox } from "./ComposeBox";
 import { NDKEvent } from "@nostr-dev-kit/ndk";
@@ -95,7 +95,7 @@ export function Feed() {
       </header>
 
       {/* Compose */}
-      {loggedIn && <ComposeBox onPublished={loadFeed} />}
+      {loggedIn && !!getNDK().signer && <ComposeBox onPublished={loadFeed} />}
 
       {/* Feed */}
       <div className="flex-1 overflow-y-auto">
