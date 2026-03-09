@@ -1,6 +1,7 @@
 import { useState, useRef } from "react";
 import { NDKEvent } from "@nostr-dev-kit/ndk";
 import { useProfile } from "../../hooks/useProfile";
+import { useReactionCount } from "../../hooks/useReactionCount";
 import { useUserStore } from "../../stores/user";
 import { useUIStore } from "../../stores/ui";
 import { timeAgo, shortenPubkey } from "../../lib/utils";
@@ -27,6 +28,7 @@ export function NoteCard({ event }: NoteCardProps) {
   };
   const [liked, setLiked] = useState(() => getLiked().has(event.id));
   const [liking, setLiking] = useState(false);
+  const [reactionCount, adjustReactionCount] = useReactionCount(event.id);
   const [showReply, setShowReply] = useState(false);
   const [replyText, setReplyText] = useState("");
   const [replying, setReplying] = useState(false);
@@ -43,6 +45,7 @@ export function NoteCard({ event }: NoteCardProps) {
       liked.add(event.id);
       localStorage.setItem(likedKey, JSON.stringify(Array.from(liked)));
       setLiked(true);
+      adjustReactionCount(1);
     } finally {
       setLiking(false);
     }
@@ -134,7 +137,7 @@ export function NoteCard({ event }: NoteCardProps) {
                   liked ? "text-accent" : "text-text-dim hover:text-accent"
                 } disabled:cursor-default`}
               >
-                {liked ? "♥ liked" : "♡ like"}
+                {liked ? "♥" : "♡"}{reactionCount !== null && reactionCount > 0 ? ` ${reactionCount}` : liked ? " liked" : " like"}
               </button>
             </div>
           )}
