@@ -1,21 +1,56 @@
-import NDK, { NDKEvent, NDKFilter, NDKKind, NDKSubscriptionCacheUsage } from "@nostr-dev-kit/ndk";
+import NDK, { NDKEvent, NDKFilter, NDKKind, NDKRelay, NDKSubscriptionCacheUsage } from "@nostr-dev-kit/ndk";
 
-const DEFAULT_RELAYS = [
-  "ws://umbrel.local:4848",
+const RELAY_STORAGE_KEY = "wrystr_relays";
+
+const FALLBACK_RELAYS = [
   "wss://relay.damus.io",
   "wss://nos.lol",
   "wss://relay.snort.social",
 ];
+
+export function getStoredRelayUrls(): string[] {
+  try {
+    const stored = localStorage.getItem(RELAY_STORAGE_KEY);
+    if (stored) return JSON.parse(stored);
+  } catch { /* ignore */ }
+  return FALLBACK_RELAYS;
+}
+
+function saveRelayUrls(urls: string[]) {
+  localStorage.setItem(RELAY_STORAGE_KEY, JSON.stringify(urls));
+}
 
 let ndk: NDK | null = null;
 
 export function getNDK(): NDK {
   if (!ndk) {
     ndk = new NDK({
-      explicitRelayUrls: DEFAULT_RELAYS,
+      explicitRelayUrls: getStoredRelayUrls(),
     });
   }
   return ndk;
+}
+
+export function addRelay(url: string): void {
+  const instance = getNDK();
+  const urls = getStoredRelayUrls();
+  if (!urls.includes(url)) {
+    saveRelayUrls([...urls, url]);
+  }
+  if (!instance.pool?.relays.has(url)) {
+    const relay = new NDKRelay(url, undefined, instance);
+    instance.pool?.addRelay(relay, true);
+  }
+}
+
+export function removeRelay(url: string): void {
+  const instance = getNDK();
+  const relay = instance.pool?.relays.get(url);
+  if (relay) {
+    relay.disconnect();
+    instance.pool?.relays.delete(url);
+  }
+  saveRelayUrls(getStoredRelayUrls().filter((u) => u !== url));
 }
 
 function waitForConnectedRelay(instance: NDK, timeoutMs = 10000): Promise<void> {
