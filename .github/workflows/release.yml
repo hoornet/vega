@@ -1,0 +1,79 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  release:
+    permissions:
+      contents: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: ubuntu-22.04
+            args: ''
+          - platform: windows-latest
+            args: ''
+
+    runs-on: ${{ matrix.platform }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 'lts/*'
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install Linux dependencies
+        if: matrix.platform == 'ubuntu-22.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            build-essential \
+            libssl-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            patchelf
+
+      - name: Install frontend dependencies
+        run: npm install
+
+      - name: Build and release
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tagName: ${{ github.ref_name }}
+          releaseName: Wrystr ${{ github.ref_name }}
+          releaseBody: |
+            ## Wrystr ${{ github.ref_name }}
+
+            Cross-platform Nostr desktop client — first public release.
+
+            ### What's in this release
+            - Full onboarding with in-app key generation and nsec backup
+            - Global + following feed, compose, replies, thread view
+            - Reactions with live network counts (NIP-25)
+            - Follow / unfollow (NIP-02)
+            - Profile view + edit
+            - Long-form article editor (NIP-23) with draft auto-save
+            - Zaps via NWC wallet connect (NIP-47 + NIP-57)
+            - Search: NIP-50 full-text, #hashtag, people
+            - Settings: relay management, wallet connection, identity
+
+            ### Install
+            **Linux:** Download the `.AppImage`, make it executable (`chmod +x`), and run it.
+            **Windows:** Download the `.exe` installer and run it.
+
+            ### Requirements
+            No dependencies required — everything is bundled.
+          releaseDraft: false
+          prerelease: false
