@@ -1,5 +1,6 @@
 import { Sidebar } from "./components/sidebar/Sidebar";
 import { Feed } from "./components/feed/Feed";
+import { SearchView } from "./components/search/SearchView";
 import { RelaysView } from "./components/shared/RelaysView";
 import { SettingsView } from "./components/shared/SettingsView";
 import { ProfileView } from "./components/profile/ProfileView";
@@ -15,6 +16,7 @@ function App() {
       <Sidebar />
       <main className="flex-1 min-w-0">
         {currentView === "feed" && <Feed />}
+        {currentView === "search" && <SearchView />}
         {currentView === "relays" && <RelaysView />}
         {currentView === "settings" && <SettingsView />}
         {currentView === "profile" && <ProfileView />}

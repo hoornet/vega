@@ -7,6 +7,7 @@ import { shortenPubkey } from "../../lib/utils";
 
 const NAV_ITEMS = [
   { id: "feed" as const, label: "feed", icon: "◈" },
+  { id: "search" as const, label: "search", icon: "⌕" },
   { id: "relays" as const, label: "relays", icon: "⟐" },
   { id: "settings" as const, label: "settings", icon: "⚙" },
 ] as const;

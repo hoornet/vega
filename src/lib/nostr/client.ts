@@ -226,6 +226,31 @@ export async function fetchUserNotes(pubkey: string, limit = 30): Promise<NDKEve
   return Array.from(events).sort((a, b) => (b.created_at ?? 0) - (a.created_at ?? 0));
 }
 
+export async function searchNotes(query: string, limit = 50): Promise<NDKEvent[]> {
+  const instance = getNDK();
+  const isHashtag = query.startsWith("#");
+  const filter: NDKFilter & { search?: string } = isHashtag
+    ? { kinds: [NDKKind.Text], "#t": [query.slice(1).toLowerCase()], limit }
+    : { kinds: [NDKKind.Text], search: query, limit };
+  const events = await instance.fetchEvents(filter, {
+    cacheUsage: NDKSubscriptionCacheUsage.ONLY_RELAY,
+  });
+  return Array.from(events).sort((a, b) => (b.created_at ?? 0) - (a.created_at ?? 0));
+}
+
+export async function searchUsers(query: string, limit = 20): Promise<NDKEvent[]> {
+  const instance = getNDK();
+  const filter: NDKFilter & { search?: string } = {
+    kinds: [NDKKind.Metadata],
+    search: query,
+    limit,
+  };
+  const events = await instance.fetchEvents(filter, {
+    cacheUsage: NDKSubscriptionCacheUsage.ONLY_RELAY,
+  });
+  return Array.from(events);
+}
+
 export async function fetchReactionCount(eventId: string): Promise<number> {
   const instance = getNDK();
   const filter: NDKFilter = {

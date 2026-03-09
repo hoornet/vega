@@ -2,7 +2,7 @@ import { create } from "zustand";
 
 import { NDKEvent } from "@nostr-dev-kit/ndk";
 
-type View = "feed" | "relays" | "settings" | "profile" | "thread" | "article-editor";
+type View = "feed" | "search" | "relays" | "settings" | "profile" | "thread" | "article-editor";
 
 interface UIState {
   currentView: View;
