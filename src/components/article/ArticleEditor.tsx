@@ -55,7 +55,7 @@ export function ArticleEditor() {
         content: content.trim(),
         summary: summary.trim() || undefined,
         image: image.trim() || undefined,
-        tags: tags.split(",").map((t) => t.trim()).filter(Boolean),
+        tags: tags.split(",").map((t: string) => t.trim()).filter(Boolean),
       });
       clearDraft();
       setPublished(true);

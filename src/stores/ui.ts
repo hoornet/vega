@@ -17,7 +17,7 @@ interface UIState {
   toggleSidebar: () => void;
 }
 
-export const useUIStore = create<UIState>((set, get) => ({
+export const useUIStore = create<UIState>((set, _get) => ({
   currentView: "feed",
   sidebarCollapsed: false,
   selectedPubkey: null,
