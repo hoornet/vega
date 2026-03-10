@@ -58,10 +58,6 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
-          # Exclude Wayland libs from AppImage — the bundled ubuntu-22.04 versions
-          # conflict with mesa 26+ on Arch/modern distros causing EGL_BAD_PARAMETER.
-          # System libs are always used instead (correct behaviour for Wayland).
-          LINUXDEPLOY_EXCLUDELIST: "libwayland-egl.so.1 libwayland-client.so.0 libwayland-cursor.so.0 libwayland-server.so.0"
         with:
           tagName: ${{ github.ref_name }}
           releaseName: Wrystr ${{ github.ref_name }}
@@ -70,47 +66,44 @@ jobs:
 
             Cross-platform Nostr desktop client — polished UI, deep Lightning integration, first-class long-form writing.
 
+            ### New in 0.1.6
+            - **Linux packaging** — ships `.deb` (Ubuntu/Debian/Mint) and `.rpm` (Fedora/openSUSE) instead of AppImage; Arch users see PKGBUILD in the repo
+
             ### New in 0.1.5
-            - **Article reader** — click any `nostr:naddr1…` link or long-form article reference to open it in a clean reader with cover image, author, tags, and full markdown content; zap the author inline
-            - **Zap counts on notes** — ⚡ N sats shown on each note; visible to logged-out users too
-            - **Quoted note preview** — `nostr:note1…` and `nostr:nevent1…` references render as inline bordered cards with author and content preview; click to open thread
-            - **Auto-updater** — "Update & restart" banner appears when a new version is available; installs and relaunches automatically
+            - **Article reader** — click any `nostr:naddr1…` link to open it in a clean reader with cover image, author, tags, and full markdown; zap the author inline
+            - **Zap counts on notes** — ⚡ N sats shown on each note
+            - **Quoted note preview** — `nostr:note1…` / `nostr:nevent1…` references render as inline bordered cards; click to open thread
+            - **Auto-updater** — "Update & restart" banner appears when a new version is available
 
             ### New in 0.1.4
-            - **Sidebar** — explicit ‹/› collapse toggle always visible; collapsed state persisted across restarts; nav icons + tooltips in collapsed mode
-            - **Profile image upload** — "upload" button next to picture/banner fields; uploads to nostr.build, auto-fills URL
-            - **NIP-05 live verification** — checks your domain's /.well-known/nostr.json in real time; shows ✓ verified / ✗ mismatch / ✗ not found
-            - **Search improvements** — detects which relays support NIP-50 full-text; zero-results state shows relay count and one-click "Search #hashtag" fallback; tabs always shown after search
+            - **Sidebar** — explicit ‹/› collapse toggle, state persisted across restarts
+            - **Profile image upload** — uploads to nostr.build, auto-fills URL field
+            - **NIP-05 live verification** — real-time domain check with ✓/✗ status
+            - **Search improvements** — NIP-50 relay detection, hashtag fallback suggestion
 
             ### New in 0.1.3
-            - **OS keychain** — nsec stored securely; sessions survive restarts (macOS Keychain, Windows Credential Manager, Linux Secret Service)
-            - **Multi-account switcher** — save multiple identities, switch instantly from the sidebar footer
-            - **SQLite note + profile cache** — feed loads from local cache instantly on startup
-            - **Quote & Repost** (NIP-18) — one-click repost or compose a quote reply
-            - **Mute users** (NIP-51) — mute list synced to relays, muted accounts filtered from feed
-            - **NWC setup wizard** — guided wallet picker (Alby Hub, Alby Extension, Mutiny, Phoenix) with inline validation
-            - **System tray** — close hides to tray, "Quit" in tray menu exits
-            - **Zap history** — Received and Sent tabs with amounts, counterparts, comments
-            - **About / Support page** — in-app zap button, Lightning + Bitcoin QR codes
-
-            ### All features
-            - Onboarding: key generation, nsec backup, plain-language UX
-            - Global + following feed, compose, replies, thread view
-            - Reactions (NIP-25) with live network counts
-            - Follow / unfollow (NIP-02), profile view + edit
-            - Long-form article editor (NIP-23) with draft auto-save
-            - Zaps via NWC (NIP-47 + NIP-57) with amount presets and comments
-            - Search: NIP-50 full-text, #hashtag, people with inline follow
-            - Relay management with live connection status
-            - Collapsible sidebar, read-only (npub) login mode
+            - **OS keychain** — sessions survive restarts (macOS Keychain, Windows Credential Manager, Linux Secret Service)
+            - **Multi-account switcher** — instant switch from sidebar footer
+            - **SQLite note + profile cache** — feed loads instantly on startup
+            - **Quote & Repost** (NIP-18), **Mute users** (NIP-51), **NWC setup wizard**
+            - **System tray**, **Zap history**, **About / Support page**
 
             ### Install
-            **Linux:** Download the `.AppImage`, make it executable (`chmod +x`), and run it.
+
+            **Linux (Ubuntu / Debian / Mint):** Download the `.deb` and run:
+            ```
+            sudo dpkg -i wrystr_*.deb
+            ```
+            **Linux (Fedora / openSUSE):** Download the `.rpm` and run:
+            ```
+            sudo rpm -i wrystr-*.rpm          # Fedora
+            sudo zypper install wrystr-*.rpm  # openSUSE
+            ```
+            **Linux (Arch / Manjaro):** See [`PKGBUILD`](https://github.com/hoornet/wrystr/blob/main/PKGBUILD) in the repo, or build from source with `npm run tauri build`.
+
             **Windows:** Download the `.exe` installer and run it.
             **macOS (Apple Silicon):** Download the `aarch64.dmg` and open it.
             **macOS (Intel):** Download the `x86_64.dmg` and open it.
-
-            No dependencies required — everything is bundled.
 
             ---
             ⚡ Find Wrystr useful? [Zap the developer](https://github.com/hoornet/wrystr#support) or star the repo.

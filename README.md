@@ -8,14 +8,15 @@ A cross-platform desktop Nostr client built with Tauri 2.0 + React + TypeScript.
 
 Grab the latest release from the [Releases page](https://github.com/hoornet/wrystr/releases).
 
-| Platform | File |
-|---|---|
-| Linux | `.AppImage` (make executable, then run) |
-| Windows | `.exe` installer |
-| macOS (Apple Silicon) | `aarch64.dmg` |
-| macOS (Intel) | `x86_64.dmg` |
-
-No dependencies required — everything is bundled.
+| Platform | File | Command |
+|---|---|---|
+| Ubuntu / Debian / Mint | `.deb` | `sudo dpkg -i wrystr_*.deb` |
+| Fedora | `.rpm` | `sudo rpm -i wrystr-*.rpm` |
+| openSUSE | `.rpm` | `sudo zypper install wrystr-*.rpm` |
+| Arch / Manjaro | build from source | see [`PKGBUILD`](./PKGBUILD) |
+| Windows | `.exe` installer | run the installer |
+| macOS (Apple Silicon) | `aarch64.dmg` | open and drag to Applications |
+| macOS (Intel) | `x86_64.dmg` | open and drag to Applications |
 
 ## Features
 
