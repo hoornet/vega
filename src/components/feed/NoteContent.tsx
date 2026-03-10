@@ -1,6 +1,9 @@
-import { ReactNode } from "react";
-import { nip19 } from "@nostr-dev-kit/ndk";
+import { ReactNode, useEffect, useState } from "react";
+import { NDKEvent, nip19 } from "@nostr-dev-kit/ndk";
 import { useUIStore } from "../../stores/ui";
+import { fetchNoteById } from "../../lib/nostr";
+import { useProfile } from "../../hooks/useProfile";
+import { shortenPubkey } from "../../lib/utils";
 
 // Regex patterns
 const URL_REGEX = /https?:\/\/[^\s<>"')\]]+/g;
@@ -10,8 +13,8 @@ const NOSTR_MENTION_REGEX = /nostr:(npub1[a-z0-9]+|note1[a-z0-9]+|nevent1[a-z0-9
 const HASHTAG_REGEX = /(?<=\s|^)#(\w{2,})/g;
 
 interface ContentSegment {
-  type: "text" | "link" | "image" | "video" | "mention" | "hashtag";
-  value: string;
+  type: "text" | "link" | "image" | "video" | "mention" | "hashtag" | "quote";
+  value: string;  // for "quote": the hex event ID
   display?: string;
 }
 
@@ -62,21 +65,34 @@ function parseContent(content: string): ContentSegment[] {
     const raw = match[1];
     let display = raw.slice(0, 12) + "…";
 
+    let isQuote = false;
+    let eventId = "";
     try {
       const decoded = nip19.decode(raw);
       if (decoded.type === "npub") {
         display = raw.slice(0, 12) + "…";
       } else if (decoded.type === "note") {
-        display = "note:" + raw.slice(5, 13) + "…";
+        // Always treat note1 references as inline quotes
+        isQuote = true;
+        eventId = decoded.data as string;
       } else if (decoded.type === "nevent") {
-        display = "event:" + raw.slice(7, 15) + "…";
+        const d = decoded.data as { id: string; kind?: number };
+        // Only quote kind-1 notes (or unknown kind)
+        if (!d.kind || d.kind === 1) {
+          isQuote = true;
+          eventId = d.id;
+        } else {
+          display = "event:" + raw.slice(7, 15) + "…";
+        }
       }
     } catch { /* keep default */ }
 
     allMatches.push({
       index: match.index,
       length: match[0].length,
-      segment: { type: "mention", value: raw, display },
+      segment: isQuote
+        ? { type: "quote", value: eventId }
+        : { type: "mention", value: raw, display },
     });
   }
 
@@ -155,11 +171,44 @@ function tryOpenNostrEntity(raw: string): boolean {
   return false;
 }
 
+function QuotePreview({ eventId }: { eventId: string }) {
+  const [event, setEvent] = useState<NDKEvent | null>(null);
+  const { openThread } = useUIStore();
+  const profile = useProfile(event?.pubkey ?? "");
+
+  useEffect(() => {
+    if (!eventId) return;
+    fetchNoteById(eventId).then(setEvent);
+  }, [eventId]);
+
+  if (!event) return null;
+
+  const name = profile?.displayName || profile?.name || shortenPubkey(event.pubkey);
+  const preview = event.content.slice(0, 160) + (event.content.length > 160 ? "…" : "");
+
+  return (
+    <div
+      className="mt-2 border border-border bg-bg-raised px-3 py-2 cursor-pointer hover:bg-bg-hover transition-colors"
+      onClick={(e) => { e.stopPropagation(); openThread(event, "feed"); }}
+    >
+      <div className="flex items-center gap-2 mb-1">
+        {profile?.picture && (
+          <img src={profile.picture} alt="" className="w-4 h-4 rounded-sm object-cover shrink-0"
+            onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
+        )}
+        <span className="text-text-muted text-[11px] font-medium truncate">{name}</span>
+      </div>
+      <p className="text-text-dim text-[11px] leading-relaxed whitespace-pre-wrap break-words">{preview}</p>
+    </div>
+  );
+}
+
 export function NoteContent({ content }: { content: string }) {
   const { openSearch } = useUIStore();
   const segments = parseContent(content);
   const images: string[] = segments.filter((s) => s.type === "image").map((s) => s.value);
   const videos: string[] = segments.filter((s) => s.type === "video").map((s) => s.value);
+  const quoteIds: string[] = segments.filter((s) => s.type === "quote").map((s) => s.value);
 
   const inlineElements: ReactNode[] = [];
 
@@ -214,6 +263,7 @@ export function NoteContent({ content }: { content: string }) {
         break;
       case "image":
       case "video":
+      case "quote":
         // Rendered separately below the text
         break;
     }
@@ -242,6 +292,11 @@ export function NoteContent({ content }: { content: string }) {
           ))}
         </div>
       )}
+
+      {/* Quoted notes */}
+      {quoteIds.map((id) => (
+        <QuotePreview key={id} eventId={id} />
+      ))}
 
       {/* Videos */}
       {videos.length > 0 && (

@@ -282,6 +282,15 @@ export async function searchUsers(query: string, limit = 20): Promise<NDKEvent[]
   return Array.from(events);
 }
 
+export async function fetchNoteById(eventId: string): Promise<NDKEvent | null> {
+  const instance = getNDK();
+  const filter: NDKFilter = { ids: [eventId], limit: 1 };
+  const events = await instance.fetchEvents(filter, {
+    cacheUsage: NDKSubscriptionCacheUsage.ONLY_RELAY,
+  });
+  return Array.from(events)[0] ?? null;
+}
+
 export async function fetchZapCount(eventId: string): Promise<{ count: number; totalSats: number }> {
   const instance = getNDK();
   const filter: NDKFilter = { kinds: [NDKKind.Zap], "#e": [eventId] };
