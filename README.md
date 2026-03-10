@@ -81,6 +81,18 @@ Up next:
 - Direct messages (NIP-44/17)
 - Long-form article reader view
 
+## Support
+
+Wrystr is free and open-source. If it's useful to you:
+
+| Method | Details |
+|---|---|
+| ⚡ Zap (in-app) | Open the **support** view in Wrystr's sidebar and zap directly |
+| ⚡ Lightning | `harpos@getalby.com` |
+| ₿ Bitcoin | `bc1qcgaupf80j28ca537xjlcs9dm9s03khezjs7crp` |
+| ☕ Ko-fi | [ko-fi.com/jure](https://ko-fi.com/jure) |
+| ★ GitHub star | Helps with visibility and grant applications |
+
 ## License
 
 MIT — [hoornet](https://github.com/hoornet)
