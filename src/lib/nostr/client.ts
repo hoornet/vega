@@ -1,4 +1,4 @@
-import NDK, { NDKEvent, NDKFilter, NDKKind, NDKRelay, NDKSubscriptionCacheUsage } from "@nostr-dev-kit/ndk";
+import NDK, { NDKEvent, NDKFilter, NDKKind, NDKRelay, NDKSubscriptionCacheUsage, nip19 } from "@nostr-dev-kit/ndk";
 
 const RELAY_STORAGE_KEY = "wrystr_relays";
 
@@ -144,6 +144,37 @@ export async function publishArticle(opts: {
   if (opts.tags) opts.tags.forEach((t) => event.tags.push(["t", t]));
 
   await event.publish();
+}
+
+export async function publishRepost(event: NDKEvent): Promise<void> {
+  const instance = getNDK();
+  if (!instance.signer) throw new Error("Not logged in");
+
+  const repost = new NDKEvent(instance);
+  repost.kind = NDKKind.Repost; // kind 6
+  repost.content = JSON.stringify(event.rawEvent());
+  repost.tags = [
+    ["e", event.id!, "", "mention"],
+    ["p", event.pubkey],
+  ];
+  await repost.publish();
+}
+
+export async function publishQuote(content: string, quotedEvent: NDKEvent): Promise<void> {
+  const instance = getNDK();
+  if (!instance.signer) throw new Error("Not logged in");
+
+  const nevent = nip19.neventEncode({ id: quotedEvent.id!, author: quotedEvent.pubkey });
+  const fullContent = content.trim() + "\n\nnostr:" + nevent;
+
+  const note = new NDKEvent(instance);
+  note.kind = NDKKind.Text;
+  note.content = fullContent;
+  note.tags = [
+    ["q", quotedEvent.id!, ""],
+    ["p", quotedEvent.pubkey],
+  ];
+  await note.publish();
 }
 
 export async function publishReaction(eventId: string, eventPubkey: string, reaction = "+"): Promise<void> {

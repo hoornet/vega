@@ -6,9 +6,10 @@ import { useUserStore } from "../../stores/user";
 import { useMuteStore } from "../../stores/mute";
 import { useUIStore } from "../../stores/ui";
 import { timeAgo, shortenPubkey } from "../../lib/utils";
-import { publishReaction, publishReply, getNDK } from "../../lib/nostr";
+import { publishReaction, publishReply, publishRepost, getNDK } from "../../lib/nostr";
 import { NoteContent } from "./NoteContent";
 import { ZapModal } from "../zap/ZapModal";
+import { QuoteModal } from "./QuoteModal";
 
 interface NoteCardProps {
   event: NDKEvent;
@@ -40,6 +41,9 @@ export function NoteCard({ event }: NoteCardProps) {
   const [replySent, setReplySent] = useState(false);
   const replyRef = useRef<HTMLTextAreaElement>(null);
   const [showZap, setShowZap] = useState(false);
+  const [showQuote, setShowQuote] = useState(false);
+  const [reposting, setReposting] = useState(false);
+  const [reposted, setReposted] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
 
   const handleLike = async () => {
@@ -81,6 +85,17 @@ export function NoteCard({ event }: NoteCardProps) {
   const handleReplyKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) handleReplySubmit();
     if (e.key === "Escape") setShowReply(false);
+  };
+
+  const handleRepost = async () => {
+    if (reposting || reposted) return;
+    setReposting(true);
+    try {
+      await publishRepost(event);
+      setReposted(true);
+    } finally {
+      setReposting(false);
+    }
   };
 
   return (
@@ -170,6 +185,21 @@ export function NoteCard({ event }: NoteCardProps) {
                 {liked ? "♥" : "♡"}{reactionCount !== null && reactionCount > 0 ? ` ${reactionCount}` : liked ? " liked" : " like"}
               </button>
               <button
+                onClick={handleRepost}
+                disabled={reposting || reposted}
+                className={`text-[11px] transition-colors disabled:cursor-default ${
+                  reposted ? "text-accent" : "text-text-dim hover:text-accent"
+                }`}
+              >
+                {reposted ? "reposted ✓" : reposting ? "…" : "repost"}
+              </button>
+              <button
+                onClick={() => setShowQuote(true)}
+                className="text-[11px] text-text-dim hover:text-text transition-colors"
+              >
+                quote
+              </button>
+              <button
                 onClick={() => setShowZap(true)}
                 className="text-[11px] text-text-dim hover:text-zap transition-colors"
               >
@@ -183,6 +213,15 @@ export function NoteCard({ event }: NoteCardProps) {
               target={{ type: "note", event, recipientPubkey: event.pubkey }}
               recipientName={name}
               onClose={() => setShowZap(false)}
+            />
+          )}
+
+          {showQuote && (
+            <QuoteModal
+              event={event}
+              authorName={name}
+              authorAvatar={avatar}
+              onClose={() => setShowQuote(false)}
             />
           )}
 
