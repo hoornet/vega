@@ -365,6 +365,36 @@ export async function decryptDM(event: NDKEvent, myPubkey: string): Promise<stri
   return instance.signer.decrypt(otherUser, event.content, "nip04");
 }
 
+export async function fetchArticle(naddr: string): Promise<NDKEvent | null> {
+  const instance = getNDK();
+  try {
+    const decoded = nip19.decode(naddr);
+    if (decoded.type !== "naddr") return null;
+    const { identifier, pubkey, kind } = decoded.data;
+    const filter: NDKFilter = {
+      kinds: [kind as NDKKind],
+      authors: [pubkey],
+      "#d": [identifier],
+      limit: 1,
+    };
+    const events = await instance.fetchEvents(filter, {
+      cacheUsage: NDKSubscriptionCacheUsage.ONLY_RELAY,
+    });
+    return Array.from(events)[0] ?? null;
+  } catch {
+    return null;
+  }
+}
+
+export async function fetchAuthorArticles(pubkey: string, limit = 20): Promise<NDKEvent[]> {
+  const instance = getNDK();
+  const filter: NDKFilter = { kinds: [NDKKind.Article], authors: [pubkey], limit };
+  const events = await instance.fetchEvents(filter, {
+    cacheUsage: NDKSubscriptionCacheUsage.ONLY_RELAY,
+  });
+  return Array.from(events).sort((a, b) => (b.created_at ?? 0) - (a.created_at ?? 0));
+}
+
 export async function fetchZapsReceived(pubkey: string, limit = 50): Promise<NDKEvent[]> {
   const instance = getNDK();
   const filter: NDKFilter = { kinds: [NDKKind.Zap], "#p": [pubkey], limit };

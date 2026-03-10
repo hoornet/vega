@@ -134,7 +134,7 @@ function tryHandleUrlInternally(url: string): boolean {
 function tryOpenNostrEntity(raw: string): boolean {
   try {
     const decoded = nip19.decode(raw);
-    const { openProfile } = useUIStore.getState();
+    const { openProfile, openArticle } = useUIStore.getState();
     if (decoded.type === "npub") {
       openProfile(decoded.data as string);
       return true;
@@ -143,7 +143,14 @@ function tryOpenNostrEntity(raw: string): boolean {
       openProfile((decoded.data as { pubkey: string }).pubkey);
       return true;
     }
-    // note / nevent / naddr — no internal reader yet, fall through to njump.me
+    if (decoded.type === "naddr") {
+      const { kind } = decoded.data as { kind: number; pubkey: string; identifier: string };
+      if (kind === 30023) {
+        openArticle(raw);
+        return true;
+      }
+    }
+    // note / nevent / other naddr kinds — fall through to njump.me
   } catch { /* invalid entity */ }
   return false;
 }

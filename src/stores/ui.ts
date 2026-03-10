@@ -2,7 +2,7 @@ import { create } from "zustand";
 
 import { NDKEvent } from "@nostr-dev-kit/ndk";
 
-type View = "feed" | "search" | "relays" | "settings" | "profile" | "thread" | "article-editor" | "about" | "zaps" | "dm";
+type View = "feed" | "search" | "relays" | "settings" | "profile" | "thread" | "article-editor" | "article" | "about" | "zaps" | "dm";
 
 interface UIState {
   currentView: View;
@@ -12,11 +12,13 @@ interface UIState {
   previousView: View;
   pendingSearch: string | null;
   pendingDMPubkey: string | null;
+  pendingArticleNaddr: string | null;
   setView: (view: View) => void;
   openProfile: (pubkey: string) => void;
   openThread: (note: NDKEvent, from: View) => void;
   openSearch: (query: string) => void;
   openDM: (pubkey: string) => void;
+  openArticle: (naddr: string) => void;
   goBack: () => void;
   toggleSidebar: () => void;
 }
@@ -31,11 +33,13 @@ export const useUIStore = create<UIState>((set, _get) => ({
   previousView: "feed",
   pendingSearch: null,
   pendingDMPubkey: null,
+  pendingArticleNaddr: null,
   setView: (currentView) => set({ currentView }),
   openProfile: (pubkey) => set((s) => ({ currentView: "profile", selectedPubkey: pubkey, previousView: s.currentView as View })),
   openThread: (note, from) => set({ currentView: "thread", selectedNote: note, previousView: from }),
   openSearch: (query) => set({ currentView: "search", pendingSearch: query }),
   openDM: (pubkey) => set({ currentView: "dm", pendingDMPubkey: pubkey }),
+  openArticle: (naddr) => set((s) => ({ currentView: "article", pendingArticleNaddr: naddr, previousView: s.currentView as View })),
   goBack: () => set((s) => ({
     currentView: s.previousView !== s.currentView ? s.previousView : "feed",
     selectedNote: null,
