@@ -2,6 +2,7 @@ import { useState, useRef } from "react";
 import { NDKEvent } from "@nostr-dev-kit/ndk";
 import { useProfile } from "../../hooks/useProfile";
 import { useReactionCount } from "../../hooks/useReactionCount";
+import { useZapCount } from "../../hooks/useZapCount";
 import { useUserStore } from "../../stores/user";
 import { useMuteStore } from "../../stores/mute";
 import { useUIStore } from "../../stores/ui";
@@ -34,6 +35,7 @@ export function NoteCard({ event }: NoteCardProps) {
   const [liked, setLiked] = useState(() => getLiked().has(event.id));
   const [liking, setLiking] = useState(false);
   const [reactionCount, adjustReactionCount] = useReactionCount(event.id);
+  const zapData = useZapCount(event.id);
   const [showReply, setShowReply] = useState(false);
   const [replyText, setReplyText] = useState("");
   const [replying, setReplying] = useState(false);
@@ -203,8 +205,22 @@ export function NoteCard({ event }: NoteCardProps) {
                 onClick={() => setShowZap(true)}
                 className="text-[11px] text-text-dim hover:text-zap transition-colors"
               >
-                ⚡ zap
+                {zapData && zapData.totalSats > 0
+                  ? `⚡ ${zapData.totalSats.toLocaleString()} sats`
+                  : "⚡ zap"}
               </button>
+            </div>
+          )}
+
+          {/* Stats visible when logged out */}
+          {!loggedIn && (reactionCount !== null && reactionCount > 0 || zapData !== null && zapData.totalSats > 0) && (
+            <div className="flex items-center gap-3 mt-1.5">
+              {reactionCount !== null && reactionCount > 0 && (
+                <span className="text-text-dim text-[11px]">♥ {reactionCount}</span>
+              )}
+              {zapData !== null && zapData.totalSats > 0 && (
+                <span className="text-zap text-[11px]">⚡ {zapData.totalSats.toLocaleString()} sats</span>
+              )}
             </div>
           )}
 

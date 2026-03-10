@@ -282,6 +282,26 @@ export async function searchUsers(query: string, limit = 20): Promise<NDKEvent[]
   return Array.from(events);
 }
 
+export async function fetchZapCount(eventId: string): Promise<{ count: number; totalSats: number }> {
+  const instance = getNDK();
+  const filter: NDKFilter = { kinds: [NDKKind.Zap], "#e": [eventId] };
+  const events = await instance.fetchEvents(filter, {
+    cacheUsage: NDKSubscriptionCacheUsage.ONLY_RELAY,
+  });
+  let totalSats = 0;
+  for (const event of events) {
+    const desc = event.tags.find((t) => t[0] === "description")?.[1];
+    if (desc) {
+      try {
+        const zapReq = JSON.parse(desc) as { tags?: string[][] };
+        const amountTag = zapReq.tags?.find((t) => t[0] === "amount");
+        if (amountTag?.[1]) totalSats += Math.round(parseInt(amountTag[1]) / 1000);
+      } catch { /* malformed */ }
+    }
+  }
+  return { count: events.size, totalSats };
+}
+
 export async function fetchReactionCount(eventId: string): Promise<number> {
   const instance = getNDK();
   const filter: NDKFilter = {
