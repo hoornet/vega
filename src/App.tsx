@@ -13,6 +13,30 @@ import { AboutView } from "./components/shared/AboutView";
 import { ZapHistoryView } from "./components/zap/ZapHistoryView";
 import { DMView } from "./components/dm/DMView";
 import { useUIStore } from "./stores/ui";
+import { useUpdater } from "./hooks/useUpdater";
+
+function UpdateBanner() {
+  const { available, version, installing, error, install, dismiss } = useUpdater();
+  if (!available) return null;
+  return (
+    <div className="flex items-center justify-between px-4 py-2 bg-accent/10 border-b border-accent/30 text-[12px] shrink-0">
+      <span className="text-text">
+        Wrystr {version} is available.{" "}
+        {error && <span className="text-danger ml-1">{error}</span>}
+      </span>
+      <div className="flex items-center gap-3">
+        <button
+          onClick={install}
+          disabled={installing}
+          className="text-accent hover:text-accent-hover transition-colors disabled:opacity-50"
+        >
+          {installing ? "Installing…" : "Update & restart"}
+        </button>
+        <button onClick={dismiss} className="text-text-dim hover:text-text transition-colors">×</button>
+      </div>
+    </div>
+  );
+}
 
 function App() {
   const currentView = useUIStore((s) => s.currentView);
@@ -25,7 +49,9 @@ function App() {
   }
 
   return (
-    <div className="flex h-screen w-screen bg-bg">
+    <div className="flex flex-col h-screen w-screen bg-bg">
+      <UpdateBanner />
+      <div className="flex flex-1 min-h-0">
       <Sidebar />
       <main className="flex-1 min-w-0">
         {currentView === "feed" && <Feed />}
@@ -40,6 +66,7 @@ function App() {
         {currentView === "zaps" && <ZapHistoryView />}
         {currentView === "dm" && <DMView />}
       </main>
+      </div>
     </div>
   );
 }
