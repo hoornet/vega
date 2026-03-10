@@ -10,6 +10,7 @@ import { ArticleEditor } from "./components/article/ArticleEditor";
 import { OnboardingFlow } from "./components/onboarding/OnboardingFlow";
 import { AboutView } from "./components/shared/AboutView";
 import { ZapHistoryView } from "./components/zap/ZapHistoryView";
+import { DMView } from "./components/dm/DMView";
 import { useUIStore } from "./stores/ui";
 
 function App() {
@@ -35,6 +36,7 @@ function App() {
         {currentView === "article-editor" && <ArticleEditor />}
         {currentView === "about" && <AboutView />}
         {currentView === "zaps" && <ZapHistoryView />}
+        {currentView === "dm" && <DMView />}
       </main>
     </div>
   );

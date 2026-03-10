@@ -7,6 +7,7 @@ import { AccountSwitcher } from "./AccountSwitcher";
 const NAV_ITEMS = [
   { id: "feed" as const, label: "feed", icon: "◈" },
   { id: "search" as const, label: "search", icon: "⌕" },
+  { id: "dm" as const, label: "messages", icon: "✉" },
   { id: "zaps" as const, label: "zaps", icon: "⚡" },
   { id: "relays" as const, label: "relays", icon: "⟐" },
   { id: "settings" as const, label: "settings", icon: "⚙" },

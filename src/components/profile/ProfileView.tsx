@@ -212,7 +212,7 @@ function EditProfileForm({ pubkey, onSaved }: { pubkey: string; onSaved: () => v
 }
 
 export function ProfileView() {
-  const { selectedPubkey, goBack } = useUIStore();
+  const { selectedPubkey, goBack, openDM } = useUIStore();
   const { pubkey: ownPubkey, profile: ownProfile, loggedIn, follows, follow, unfollow } = useUserStore();
   const pubkey = selectedPubkey!;
   const isOwn = pubkey === ownPubkey;
@@ -309,6 +309,12 @@ export function ProfileView() {
               }`}
             >
               {isMuted ? "unmute" : "mute"}
+            </button>
+            <button
+              onClick={() => openDM(pubkey)}
+              className="text-[11px] px-3 py-1 border border-border text-text-muted hover:text-accent hover:border-accent/40 transition-colors"
+            >
+              ✉ message
             </button>
           </div>
         )}

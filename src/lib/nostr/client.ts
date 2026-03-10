@@ -305,6 +305,66 @@ export async function publishContactList(pubkeys: string[]): Promise<void> {
   await event.publish();
 }
 
+// ── Direct Messages (NIP-04) ─────────────────────────────────────────────────
+
+export async function fetchDMConversations(myPubkey: string): Promise<NDKEvent[]> {
+  const instance = getNDK();
+  const [received, sent] = await Promise.all([
+    instance.fetchEvents(
+      { kinds: [NDKKind.EncryptedDirectMessage], "#p": [myPubkey], limit: 500 },
+      { cacheUsage: NDKSubscriptionCacheUsage.ONLY_RELAY }
+    ),
+    instance.fetchEvents(
+      { kinds: [NDKKind.EncryptedDirectMessage], authors: [myPubkey], limit: 500 },
+      { cacheUsage: NDKSubscriptionCacheUsage.ONLY_RELAY }
+    ),
+  ]);
+  const seen = new Set<string>();
+  return [...Array.from(received), ...Array.from(sent)]
+    .filter((e) => { if (seen.has(e.id!)) return false; seen.add(e.id!); return true; })
+    .sort((a, b) => (b.created_at ?? 0) - (a.created_at ?? 0));
+}
+
+export async function fetchDMThread(myPubkey: string, theirPubkey: string): Promise<NDKEvent[]> {
+  const instance = getNDK();
+  const [fromThem, fromMe] = await Promise.all([
+    instance.fetchEvents(
+      { kinds: [NDKKind.EncryptedDirectMessage], "#p": [myPubkey], authors: [theirPubkey], limit: 200 },
+      { cacheUsage: NDKSubscriptionCacheUsage.ONLY_RELAY }
+    ),
+    instance.fetchEvents(
+      { kinds: [NDKKind.EncryptedDirectMessage], "#p": [theirPubkey], authors: [myPubkey], limit: 200 },
+      { cacheUsage: NDKSubscriptionCacheUsage.ONLY_RELAY }
+    ),
+  ]);
+  return [...Array.from(fromThem), ...Array.from(fromMe)]
+    .sort((a, b) => (a.created_at ?? 0) - (b.created_at ?? 0));
+}
+
+export async function sendDM(recipientPubkey: string, content: string): Promise<void> {
+  const instance = getNDK();
+  if (!instance.signer) throw new Error("Not logged in");
+  const recipient = instance.getUser({ pubkey: recipientPubkey });
+  const encrypted = await instance.signer.encrypt(recipient, content, "nip04");
+  const event = new NDKEvent(instance);
+  event.kind = NDKKind.EncryptedDirectMessage;
+  event.content = encrypted;
+  event.tags = [["p", recipientPubkey]];
+  await event.publish();
+}
+
+export async function decryptDM(event: NDKEvent, myPubkey: string): Promise<string> {
+  const instance = getNDK();
+  if (!instance.signer) throw new Error("No signer");
+  // ECDH shared secret is symmetric — always pass the OTHER party
+  const otherPubkey =
+    event.pubkey === myPubkey
+      ? (event.tags.find((t) => t[0] === "p")?.[1] ?? "")
+      : event.pubkey;
+  const otherUser = instance.getUser({ pubkey: otherPubkey });
+  return instance.signer.decrypt(otherUser, event.content, "nip04");
+}
+
 export async function fetchZapsReceived(pubkey: string, limit = 50): Promise<NDKEvent[]> {
   const instance = getNDK();
   const filter: NDKFilter = { kinds: [NDKKind.Zap], "#p": [pubkey], limit };
