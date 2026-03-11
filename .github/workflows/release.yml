@@ -66,6 +66,16 @@ jobs:
 
             Cross-platform Nostr desktop client — polished UI, deep Lightning integration, first-class long-form writing.
 
+            ### New in 0.1.7
+            - **Per-account Lightning wallet** — NWC connection is now stored per account; switching accounts loads the correct wallet automatically
+            - **New account creation in-app** — "Add account" now has a "New account" tab that generates a fresh keypair (no need to go through onboarding again)
+            - **Zap button on thread root note** — like and zap the main note in a thread view
+            - **Conditional zap button** — zap only shown for profiles that have a Lightning address (lud16/lud06)
+            - **Image paste in compose** — paste an image from clipboard → auto-uploads to nostr.build and inserts the URL
+            - **Account switcher redesign** — cleaner dropdown, sign-out/remove moved into menu
+            - **GitHub Sponsors link** in Support page
+            - Fix: posts no longer sign under the wrong account during rapid account switches
+
             ### New in 0.1.6
             - **Linux packaging** — ships `.deb` (Ubuntu/Debian/Mint) and `.rpm` (Fedora/openSUSE) instead of AppImage; Arch users see PKGBUILD in the repo
 
