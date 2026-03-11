@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useLightningStore } from "../../stores/lightning";
+import { useUserStore } from "../../stores/user";
 import { isValidNwcUri, parseNwcUri } from "../../lib/lightning/nwc";
 
 // ── Wallet catalogue ─────────────────────────────────────────────────────────
@@ -166,6 +167,7 @@ function PasteStep({
   onConnected: () => void;
 }) {
   const { setNwcUri } = useLightningStore();
+  const { pubkey } = useUserStore();
   const [input, setInput] = useState("");
   const [error, setError] = useState<string | null>(null);
 
@@ -191,7 +193,7 @@ function PasteStep({
       return;
     }
     try {
-      setNwcUri(uri);
+      setNwcUri(uri, pubkey ?? undefined);
       onConnected();
     } catch (err) {
       setError(String(err));
@@ -254,11 +256,12 @@ function PasteStep({
 
 export function NWCWizard() {
   const { nwcUri, clearNwcUri } = useLightningStore();
+  const { pubkey } = useUserStore();
   const [step, setStep] = useState<"choose" | "paste">("choose");
   const [selectedWallet, setSelectedWallet] = useState<WalletDef>(GENERIC);
 
   if (nwcUri) {
-    return <ConnectedState nwcUri={nwcUri} onDisconnect={clearNwcUri} />;
+    return <ConnectedState nwcUri={nwcUri} onDisconnect={() => clearNwcUri(pubkey ?? undefined)} />;
   }
 
   if (step === "paste") {

@@ -4,15 +4,14 @@ import { useUIStore } from "../../stores/ui";
 import { LoginModal } from "../shared/LoginModal";
 import { shortenPubkey } from "../../lib/utils";
 
-function Avatar({ account, size = 6 }: { account: SavedAccount; size?: number }) {
+function Avatar({ account, size = "w-6 h-6", textSize = "text-[10px]" }: { account: SavedAccount; size?: string; textSize?: string }) {
   const initial = (account.name || account.npub || "?").charAt(0).toUpperCase();
-  const cls = `w-${size} h-${size} rounded-sm object-cover shrink-0`;
   if (account.picture) {
     return (
       <img
         src={account.picture}
         alt=""
-        className={cls}
+        className={`${size} rounded-sm object-cover shrink-0`}
         onError={(e) => {
           (e.target as HTMLImageElement).style.display = "none";
         }}
@@ -20,7 +19,7 @@ function Avatar({ account, size = 6 }: { account: SavedAccount; size?: number })
     );
   }
   return (
-    <div className={`w-${size} h-${size} rounded-sm bg-accent/20 flex items-center justify-center text-accent text-[10px] shrink-0`}>
+    <div className={`${size} rounded-sm bg-accent/20 flex items-center justify-center text-accent ${textSize} shrink-0`}>
       {initial}
     </div>
   );
@@ -88,13 +87,13 @@ export function AccountSwitcher() {
   return (
     <>
       <div className="border-t border-border shrink-0">
-        {/* Expanded account list */}
+        {/* Dropdown — other accounts + actions */}
         {open && (
           <div className="border-b border-border">
             {others.map((a) => (
               <div
                 key={a.pubkey}
-                className="flex items-center gap-2 px-3 py-1.5 hover:bg-bg-hover cursor-pointer group transition-colors"
+                className="flex items-center gap-2 px-3 py-2 hover:bg-bg-hover cursor-pointer group transition-colors"
                 onClick={() => handleSwitch(a.pubkey)}
               >
                 <Avatar account={a} />
@@ -111,35 +110,15 @@ export function AccountSwitcher() {
 
             <button
               onClick={handleAddAccount}
-              className="w-full flex items-center gap-2 px-3 py-1.5 text-text-dim hover:text-accent hover:bg-bg-hover text-[11px] transition-colors"
+              className="w-full flex items-center gap-2 px-3 py-2 text-text-dim hover:text-accent hover:bg-bg-hover text-[11px] transition-colors"
             >
               <span className="w-6 text-center text-[12px]">+</span>
               <span>add account</span>
             </button>
-          </div>
-        )}
 
-        {/* Current account row */}
-        <div className="px-3 py-2">
-          <div className="flex items-center gap-2">
-            <div
-              className="flex items-center gap-2 flex-1 min-w-0 cursor-pointer hover:opacity-80 transition-opacity"
-              onClick={() => openProfile(pubkey)}
-            >
-              <Avatar account={current} />
-              <span className="text-text text-[11px] truncate flex-1">{displayName(current)}</span>
-            </div>
-            <button
-              onClick={() => setOpen((v) => !v)}
-              className="text-text-dim hover:text-text text-[10px] transition-colors px-0.5"
-              title="Switch account"
-            >
-              {open ? "▲" : "▼"}
-            </button>
-          </div>
+            <div className="border-t border-border mx-3 my-1" />
 
-          {open && (
-            <div className="flex items-center justify-between mt-1.5">
+            <div className="flex items-center justify-between px-3 py-1.5">
               <button
                 onClick={() => { setOpen(false); logout(); }}
                 className="text-text-dim hover:text-danger text-[10px] transition-colors"
@@ -150,10 +129,30 @@ export function AccountSwitcher() {
                 onClick={() => { setOpen(false); removeAccount(pubkey); }}
                 className="text-text-dim hover:text-danger text-[10px] transition-colors"
               >
-                remove account
+                remove
               </button>
             </div>
-          )}
+          </div>
+        )}
+
+        {/* Active account row */}
+        <div className="px-3 py-2">
+          <div className="flex items-center gap-2">
+            <div
+              className="flex items-center gap-2 flex-1 min-w-0 cursor-pointer hover:opacity-80 transition-opacity"
+              onClick={() => openProfile(pubkey)}
+            >
+              <Avatar account={current} size="w-8 h-8" textSize="text-[12px]" />
+              <span className="text-text text-[12px] font-medium truncate flex-1">{displayName(current)}</span>
+            </div>
+            <button
+              onClick={() => setOpen((v) => !v)}
+              className="text-text-dim hover:text-text text-[10px] transition-colors px-0.5"
+              title="Switch account"
+            >
+              {open ? "▲" : "▼"}
+            </button>
+          </div>
         </div>
       </div>
 

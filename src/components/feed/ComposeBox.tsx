@@ -1,11 +1,13 @@
 import { useState, useRef } from "react";
 import { publishNote } from "../../lib/nostr";
+import { uploadImage } from "../../lib/upload";
 import { useUserStore } from "../../stores/user";
 import { shortenPubkey } from "../../lib/utils";
 
 export function ComposeBox({ onPublished }: { onPublished?: () => void }) {
   const [text, setText] = useState("");
   const [publishing, setPublishing] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -15,7 +17,35 @@ export function ComposeBox({ onPublished }: { onPublished?: () => void }) {
 
   const charCount = text.length;
   const overLimit = charCount > 280;
-  const canPost = text.trim().length > 0 && !overLimit && !publishing;
+  const canPost = text.trim().length > 0 && !overLimit && !publishing && !uploading;
+
+  const handlePaste = async (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    const file = Array.from(e.clipboardData.files).find((f) => f.type.startsWith("image/"));
+    if (!file) return;
+    e.preventDefault();
+    setUploading(true);
+    setError(null);
+    try {
+      const url = await uploadImage(file);
+      const ta = textareaRef.current;
+      if (ta) {
+        const start = ta.selectionStart ?? text.length;
+        const end = ta.selectionEnd ?? text.length;
+        const next = text.slice(0, start) + url + text.slice(end);
+        setText(next);
+        setTimeout(() => {
+          ta.selectionStart = ta.selectionEnd = start + url.length;
+          ta.focus();
+        }, 0);
+      } else {
+        setText((t) => t + url);
+      }
+    } catch (err) {
+      setError(`Image upload failed: ${err}`);
+    } finally {
+      setUploading(false);
+    }
+  };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
@@ -66,6 +96,7 @@ export function ComposeBox({ onPublished }: { onPublished?: () => void }) {
             value={text}
             onChange={(e) => setText(e.target.value)}
             onKeyDown={handleKeyDown}
+            onPaste={handlePaste}
             placeholder="What's on your mind?"
             rows={3}
             className="w-full bg-transparent text-text text-[13px] placeholder:text-text-dim resize-none focus:outline-none"
@@ -77,7 +108,7 @@ export function ComposeBox({ onPublished }: { onPublished?: () => void }) {
 
           <div className="flex items-center justify-between mt-1">
             <span className={`text-[10px] ${overLimit ? "text-danger" : "text-text-dim"}`}>
-              {charCount > 0 && `${charCount}/280`}
+              {uploading ? "uploading image…" : charCount > 0 ? `${charCount}/280` : ""}
             </span>
             <div className="flex items-center gap-3">
               <span className="text-text-dim text-[10px]">Ctrl+Enter to post</span>

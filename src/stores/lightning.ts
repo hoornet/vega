@@ -4,6 +4,7 @@ import { getNDK } from "../lib/nostr";
 import { payInvoiceViaNWC, isValidNwcUri } from "../lib/lightning/nwc";
 
 const NWC_STORAGE_KEY = "wrystr_nwc_uri";
+const nwcKeyForAccount = (pubkey: string) => `wrystr_nwc_${pubkey}`;
 
 interface ZapTarget {
   type: "note";
@@ -22,23 +23,33 @@ export type ZapTargetSpec = ZapTarget | ZapProfileTarget;
 
 interface LightningState {
   nwcUri: string | null;
-  setNwcUri: (uri: string) => void;
-  clearNwcUri: () => void;
+  setNwcUri: (uri: string, pubkey?: string) => void;
+  clearNwcUri: (pubkey?: string) => void;
+  loadNwcForAccount: (pubkey: string) => void;
   zap: (target: ZapTargetSpec, amountSats: number, comment?: string) => Promise<void>;
 }
 
 export const useLightningStore = create<LightningState>(() => ({
   nwcUri: localStorage.getItem(NWC_STORAGE_KEY),
 
-  setNwcUri: (uri: string) => {
+  setNwcUri: (uri: string, pubkey?: string) => {
     if (!isValidNwcUri(uri)) throw new Error("Invalid NWC URI");
     localStorage.setItem(NWC_STORAGE_KEY, uri);
+    if (pubkey) localStorage.setItem(nwcKeyForAccount(pubkey), uri);
     useLightningStore.setState({ nwcUri: uri });
   },
 
-  clearNwcUri: () => {
+  clearNwcUri: (pubkey?: string) => {
     localStorage.removeItem(NWC_STORAGE_KEY);
+    if (pubkey) localStorage.removeItem(nwcKeyForAccount(pubkey));
     useLightningStore.setState({ nwcUri: null });
+  },
+
+  loadNwcForAccount: (pubkey: string) => {
+    const uri = localStorage.getItem(nwcKeyForAccount(pubkey));
+    localStorage.setItem(NWC_STORAGE_KEY, uri ?? "");
+    if (!uri) localStorage.removeItem(NWC_STORAGE_KEY);
+    useLightningStore.setState({ nwcUri: uri });
   },
 
   zap: async (targetSpec: ZapTargetSpec, amountSats: number, comment?: string) => {

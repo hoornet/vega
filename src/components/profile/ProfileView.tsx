@@ -283,12 +283,14 @@ export function ProfileView() {
         )}
         {!isOwn && loggedIn && (
           <div className="flex items-center gap-2">
-            <button
-              onClick={() => setShowZap(true)}
-              className="text-[11px] px-3 py-1 border border-border text-zap hover:border-zap/40 hover:bg-zap/5 transition-colors"
-            >
-              ⚡ zap
-            </button>
+            {(lud16 || profile?.lud06) && (
+              <button
+                onClick={() => setShowZap(true)}
+                className="text-[11px] px-3 py-1 border border-border text-zap hover:border-zap/40 hover:bg-zap/5 transition-colors"
+              >
+                ⚡ zap
+              </button>
+            )}
             <button
               onClick={handleFollowToggle}
               disabled={followPending}

@@ -8,6 +8,7 @@ const LIGHTNING_ADDRESS = "harpos@getalby.com";
 const BITCOIN_ADDRESS = "bc1qcgaupf80j28ca537xjlcs9dm9s03khezjs7crp";
 const KOFI_URL = "https://ko-fi.com/jure";
 const GITHUB_URL = "https://github.com/hoornet/wrystr";
+const GITHUB_SPONSORS_URL = "https://github.com/sponsors/hoornet";
 
 function CopyButton({ text }: { text: string }) {
   const [copied, setCopied] = useState(false);
@@ -109,6 +110,17 @@ export function AboutView() {
                 className="text-accent text-[12px] hover:text-accent-hover transition-colors"
               >
                 {GITHUB_URL} ↗
+              </a>
+            </div>
+            <div className="flex items-center gap-3">
+              <span className="text-text-muted text-[12px] w-16 shrink-0">Sponsors</span>
+              <a
+                href={GITHUB_SPONSORS_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-accent text-[12px] hover:text-accent-hover transition-colors"
+              >
+                {GITHUB_SPONSORS_URL} ↗
               </a>
             </div>
           </div>

@@ -4,6 +4,7 @@ import { getNDK, publishContactList } from "../lib/nostr";
 import { nip19 } from "@nostr-dev-kit/ndk";
 import { invoke } from "@tauri-apps/api/core";
 import { useMuteStore } from "./mute";
+import { useLightningStore } from "./lightning";
 
 export interface SavedAccount {
   pubkey: string;
@@ -98,6 +99,9 @@ export const useUserStore = create<UserState>((set, get) => ({
       // Store nsec in OS keychain (best-effort — gracefully ignored if unavailable)
       invoke<void>("store_nsec", { pubkey, nsec: nsecInput }).catch(() => {});
 
+      // Load per-account NWC wallet
+      useLightningStore.getState().loadNwcForAccount(pubkey);
+
       // Fetch profile, follows, and mute list
       get().fetchOwnProfile();
       get().fetchFollows();
@@ -133,6 +137,9 @@ export const useUserStore = create<UserState>((set, get) => ({
 
       localStorage.setItem("wrystr_pubkey", pubkey);
       localStorage.setItem("wrystr_login_type", "pubkey");
+
+      // Load per-account NWC wallet
+      useLightningStore.getState().loadNwcForAccount(pubkey);
 
       get().fetchOwnProfile();
       get().fetchFollows();
@@ -175,6 +182,8 @@ export const useUserStore = create<UserState>((set, get) => ({
   },
 
   switchAccount: async (pubkey: string) => {
+    // Clear signer immediately — no window where old account could sign
+    getNDK().signer = undefined;
     // Try nsec from keychain first; fall back to read-only
     try {
       const nsec = await invoke<string | null>("load_nsec", { pubkey });

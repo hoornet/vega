@@ -3,18 +3,46 @@ import { NDKEvent } from "@nostr-dev-kit/ndk";
 import { useUIStore } from "../../stores/ui";
 import { useUserStore } from "../../stores/user";
 import { useProfile } from "../../hooks/useProfile";
-import { fetchReplies, publishReply } from "../../lib/nostr";
+import { useReactionCount } from "../../hooks/useReactionCount";
+import { useZapCount } from "../../hooks/useZapCount";
+import { fetchReplies, publishReaction, publishReply, getNDK } from "../../lib/nostr";
 import { shortenPubkey, timeAgo } from "../../lib/utils";
 import { NoteContent } from "../feed/NoteContent";
 import { NoteCard } from "../feed/NoteCard";
+import { ZapModal } from "../zap/ZapModal";
 
 function RootNote({ event }: { event: NDKEvent }) {
   const { openProfile } = useUIStore();
+  const { loggedIn } = useUserStore();
   const profile = useProfile(event.pubkey);
   const name = profile?.displayName || profile?.name || shortenPubkey(event.pubkey);
   const avatar = profile?.picture;
   const nip05 = profile?.nip05;
   const time = event.created_at ? timeAgo(event.created_at) : "";
+  const [reactionCount, adjustReactionCount] = useReactionCount(event.id);
+  const zapData = useZapCount(event.id);
+  const [liked, setLiked] = useState(() => {
+    try { return new Set<string>(JSON.parse(localStorage.getItem("wrystr_liked") || "[]")).has(event.id); }
+    catch { return false; }
+  });
+  const [liking, setLiking] = useState(false);
+  const [showZap, setShowZap] = useState(false);
+  const hasLightning = !!(profile?.lud16 || profile?.lud06);
+
+  const handleLike = async () => {
+    if (!loggedIn || liked || liking) return;
+    setLiking(true);
+    try {
+      await publishReaction(event.id, event.pubkey);
+      const likedSet = new Set<string>(JSON.parse(localStorage.getItem("wrystr_liked") || "[]"));
+      likedSet.add(event.id);
+      localStorage.setItem("wrystr_liked", JSON.stringify(Array.from(likedSet)));
+      setLiked(true);
+      adjustReactionCount(1);
+    } finally {
+      setLiking(false);
+    }
+  };
 
   return (
     <div className="px-4 py-4 border-b border-border">
@@ -38,6 +66,39 @@ function RootNote({ event }: { event: NDKEvent }) {
       </div>
       <NoteContent content={event.content} />
       <div className="text-text-dim text-[10px] mt-3">{time}</div>
+
+      {/* Action row */}
+      {loggedIn && !!getNDK().signer && (
+        <div className="flex items-center gap-4 mt-3">
+          <button
+            onClick={handleLike}
+            disabled={liked || liking}
+            className={`text-[11px] transition-colors ${
+              liked ? "text-accent" : "text-text-dim hover:text-accent"
+            } disabled:cursor-default`}
+          >
+            {liked ? "♥" : "♡"}{reactionCount !== null && reactionCount > 0 ? ` ${reactionCount}` : liked ? " liked" : " like"}
+          </button>
+          {hasLightning && (
+            <button
+              onClick={() => setShowZap(true)}
+              className="text-[11px] text-text-dim hover:text-zap transition-colors"
+            >
+              {zapData && zapData.totalSats > 0
+                ? `⚡ ${zapData.totalSats.toLocaleString()} sats`
+                : "⚡ zap"}
+            </button>
+          )}
+        </div>
+      )}
+
+      {showZap && (
+        <ZapModal
+          target={{ type: "note", event, recipientPubkey: event.pubkey }}
+          recipientName={name}
+          onClose={() => setShowZap(false)}
+        />
+      )}
     </div>
   );
 }

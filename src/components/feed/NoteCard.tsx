@@ -201,14 +201,16 @@ export function NoteCard({ event }: NoteCardProps) {
               >
                 quote
               </button>
-              <button
-                onClick={() => setShowZap(true)}
-                className="text-[11px] text-text-dim hover:text-zap transition-colors"
-              >
-                {zapData && zapData.totalSats > 0
-                  ? `⚡ ${zapData.totalSats.toLocaleString()} sats`
-                  : "⚡ zap"}
-              </button>
+              {(profile?.lud16 || profile?.lud06) && (
+                <button
+                  onClick={() => setShowZap(true)}
+                  className="text-[11px] text-text-dim hover:text-zap transition-colors"
+                >
+                  {zapData && zapData.totalSats > 0
+                    ? `⚡ ${zapData.totalSats.toLocaleString()} sats`
+                    : "⚡ zap"}
+                </button>
+              )}
             </div>
           )}
 

@@ -1,6 +1,6 @@
 [package]
 name = "wrystr"
-version = "0.1.6"
+version = "0.1.7"
 description = "Cross-platform Nostr desktop client with Lightning integration"
 authors = ["hoornet"]
 edition = "2021"

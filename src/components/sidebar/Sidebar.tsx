@@ -16,7 +16,7 @@ const NAV_ITEMS = [
 
 export function Sidebar() {
   const { currentView, setView, sidebarCollapsed, toggleSidebar } = useUIStore();
-  const { connected, notes } = useFeedStore();
+  const { connected } = useFeedStore();
   const { loggedIn } = useUserStore();
 
   const c = sidebarCollapsed;
@@ -100,13 +100,10 @@ export function Sidebar() {
             className={`w-2 h-2 rounded-full inline-block ${connected ? "bg-success" : "bg-danger"}`}
           />
         ) : (
-          /* Expanded: dot + label + note count */
-          <div className="text-[10px] text-text-dim">
-            <div className="flex items-center gap-1.5">
-              <span className={`w-1.5 h-1.5 rounded-full ${connected ? "bg-success" : "bg-danger"}`} />
-              <span>{connected ? "online" : "offline"}</span>
-            </div>
-            <div className="mt-0.5">{notes.length} notes</div>
+          /* Expanded: dot + label */
+          <div className="flex items-center gap-1.5 text-[10px] text-text-dim">
+            <span className={`w-1.5 h-1.5 rounded-full ${connected ? "bg-success" : "bg-danger"}`} />
+            <span>{connected ? "online" : "offline"}</span>
           </div>
         )}
       </div>
