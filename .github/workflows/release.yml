@@ -66,8 +66,8 @@ jobs:
 
             > **Windows note:** The installer is not yet code-signed. Windows SmartScreen will show an "Unknown publisher" warning — click "More info → Run anyway" to install.
 
-            ### New in v0.2.5
-            - **Fix: auto-updater signing** — regenerated signing key pair without password so `.sig` files are correctly produced by CI; updates will now be delivered to existing users
+            ### New in v0.2.6
+            - **Fix: auto-updater** — added `createUpdaterArtifacts: true` + regenerated signing key; `.sig` files and `latest.json` are now correctly produced by CI
 
             ### New in v0.2.3
             - **Fix: auto-updater** — `latest.json` now correctly generated via `includeUpdaterJson: true`; users on older versions will receive the update banner
