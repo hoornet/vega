@@ -1,6 +1,6 @@
 # Maintainer: hoornet <harpos@getalby.com>
 pkgname=wrystr
-pkgver=0.1.5
+pkgver=0.2.6
 pkgrel=1
 pkgdesc="Cross-platform Nostr desktop client with Lightning integration"
 arch=('x86_64')

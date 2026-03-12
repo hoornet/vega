@@ -21,10 +21,11 @@ Prerequisites: Node.js 20+, Rust stable, `@tauri-apps/cli`
 
 **Order matters — do not tag before bumping versions.**
 
-1. Bump version to `X.Y.Z` in all three files (they must stay in sync):
+1. Bump version to `X.Y.Z` in all four files (they must stay in sync):
    - `src-tauri/tauri.conf.json` → `"version": "X.Y.Z"`
    - `package.json` → `"version": "X.Y.Z"`
    - `src-tauri/Cargo.toml` → `version = "X.Y.Z"`
+   - `PKGBUILD` → `pkgver=X.Y.Z`
 2. Update the release notes in `.github/workflows/release.yml`
 3. Commit: `git commit -m "Bump to vX.Y.Z — <summary>"`
 4. Tag: `git tag vX.Y.Z`
@@ -34,9 +35,10 @@ CI triggers on the tag and builds all three platforms (Ubuntu, Windows, macOS AR
 
 **Hard-won CI rules:**
 - `includeUpdaterJson: true` must be set in tauri-action — without it `latest.json` is never uploaded and the auto-updater silently does nothing
+- `bundle.createUpdaterArtifacts: true` must be set in `tauri.conf.json` — without it `.sig` files are never generated even if the signing key is set (Tauri 2 requirement)
 - Valid `bundle.targets`: `"deb"`, `"rpm"`, `"nsis"`, `"msi"`, `"dmg"` — do NOT add `"updater"` (that's a plugin, not a bundle format)
 - macOS runner is `macos-latest` (ARM only) — `macos-12`/`macos-13` are gone
-- Verify after CI: `curl -sL https://github.com/hoornet/wrystr/releases/latest/download/latest.json`
+- Verify after CI: `https://api.github.com/repos/hoornet/wrystr/releases/latest` (check for `.sig` assets + `latest.json`)
 
 ## Architecture
 
