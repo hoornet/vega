@@ -17,6 +17,27 @@ npm run tauri build     # Production binary
 
 Prerequisites: Node.js 20+, Rust stable, `@tauri-apps/cli`
 
+## Releasing a New Version
+
+**Order matters — do not tag before bumping versions.**
+
+1. Bump version to `X.Y.Z` in all three files (they must stay in sync):
+   - `src-tauri/tauri.conf.json` → `"version": "X.Y.Z"`
+   - `package.json` → `"version": "X.Y.Z"`
+   - `src-tauri/Cargo.toml` → `version = "X.Y.Z"`
+2. Update the release notes in `.github/workflows/release.yml`
+3. Commit: `git commit -m "Bump to vX.Y.Z — <summary>"`
+4. Tag: `git tag vX.Y.Z`
+5. Push: `git push origin main vX.Y.Z`
+
+CI triggers on the tag and builds all three platforms (Ubuntu, Windows, macOS ARM). All jobs must complete for `latest.json` to be assembled.
+
+**Hard-won CI rules:**
+- `includeUpdaterJson: true` must be set in tauri-action — without it `latest.json` is never uploaded and the auto-updater silently does nothing
+- Valid `bundle.targets`: `"deb"`, `"rpm"`, `"nsis"`, `"msi"`, `"dmg"` — do NOT add `"updater"` (that's a plugin, not a bundle format)
+- macOS runner is `macos-latest` (ARM only) — `macos-12`/`macos-13` are gone
+- Verify after CI: `curl -sL https://github.com/hoornet/wrystr/releases/latest/download/latest.json`
+
 ## Architecture
 
 **Frontend** (`src/`): React 19 + TypeScript + Vite + Tailwind CSS 4
@@ -79,4 +100,8 @@ Prerequisites: Node.js 20+, Rust stable, `@tauri-apps/cli`
 - Reading long-form articles (NIP-23 reader view)
 - Zap counts on notes
 - NIP-65 outbox model
-- GitHub Releases + auto-updater
+- NIP-17 DMs (gift wrap)
+- Image lightbox
+- Bookmark list (NIP-51 kind 10003)
+- Follow suggestions / discovery
+- Language/script feed filter
