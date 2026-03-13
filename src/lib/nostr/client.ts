@@ -191,7 +191,7 @@ export async function publishReaction(eventId: string, eventPubkey: string, reac
   await event.publish();
 }
 
-export async function publishReply(content: string, replyTo: { id: string; pubkey: string }): Promise<void> {
+export async function publishReply(content: string, replyTo: { id: string; pubkey: string }): Promise<NDKEvent> {
   const instance = getNDK();
   if (!instance.signer) throw new Error("Not logged in");
 
@@ -203,6 +203,7 @@ export async function publishReply(content: string, replyTo: { id: string; pubke
     ["p", replyTo.pubkey],
   ];
   await event.publish();
+  return event;
 }
 
 export async function publishNote(content: string): Promise<NDKEvent> {

@@ -166,12 +166,13 @@ export function ThreadView() {
     if (!replyText.trim() || replying) return;
     setReplying(true);
     try {
-      await publishReply(replyText.trim(), { id: event.id, pubkey: event.pubkey });
+      const replyEvent = await publishReply(replyText.trim(), { id: event.id, pubkey: event.pubkey });
       setReplyText("");
       setReplySent(true);
-      // Re-fetch replies to show the new one
-      const updated = await fetchReplies(event.id);
-      setReplies(updated);
+      // Inject reply locally so it appears immediately
+      setReplies((prev) => [...prev, replyEvent]);
+      // Also try fetching from relay in background
+      fetchReplies(event.id).then((updated) => setReplies(updated));
       setTimeout(() => setReplySent(false), 2000);
     } finally {
       setReplying(false);
