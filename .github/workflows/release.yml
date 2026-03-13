@@ -66,9 +66,10 @@ jobs:
 
             > **Windows note:** The installer is not yet code-signed. Windows SmartScreen will show an "Unknown publisher" warning — click "More info → Run anyway" to install.
 
-            ### New in v0.2.7
-            - **Fix: multi-account persistence** — all nsec accounts are now restored from OS keychain on startup; account switching no longer gets stuck after restart
-            - **Fix: account switcher** — shows re-login prompt when keychain entry is missing instead of silently going read-only
+            ### New in v0.2.8
+            - **Fix: OS keychain was a no-op** — `keyring` crate had no platform backends enabled; nsec keys now actually persist to Windows Credential Manager, macOS Keychain, and Linux keyutils
+            - **Fix: multi-account persistence** — all nsec accounts restored from keychain on startup; account switching no longer gets stuck after restart
+            - **Fix: account switcher** — shows re-login prompt when keychain entry is missing
 
             ### New in v0.2.6
             - **Fix: auto-updater** — added `createUpdaterArtifacts: true` + regenerated signing key; `.sig` files and `latest.json` are now correctly produced by CI
