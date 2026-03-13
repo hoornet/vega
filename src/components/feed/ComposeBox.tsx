@@ -2,6 +2,7 @@ import { useState, useRef } from "react";
 import { publishNote } from "../../lib/nostr";
 import { uploadImage } from "../../lib/upload";
 import { useUserStore } from "../../stores/user";
+import { useFeedStore } from "../../stores/feed";
 import { shortenPubkey } from "../../lib/utils";
 
 export function ComposeBox({ onPublished }: { onPublished?: () => void }) {
@@ -59,7 +60,12 @@ export function ComposeBox({ onPublished }: { onPublished?: () => void }) {
     setPublishing(true);
     setError(null);
     try {
-      await publishNote(text.trim());
+      const event = await publishNote(text.trim());
+      // Inject into feed immediately so the user sees their post
+      const { notes } = useFeedStore.getState();
+      useFeedStore.setState({
+        notes: [event, ...notes],
+      });
       setText("");
       textareaRef.current?.focus();
       onPublished?.();

@@ -205,7 +205,7 @@ export async function publishReply(content: string, replyTo: { id: string; pubke
   await event.publish();
 }
 
-export async function publishNote(content: string): Promise<void> {
+export async function publishNote(content: string): Promise<NDKEvent> {
   const instance = getNDK();
   if (!instance.signer) throw new Error("Not logged in");
 
@@ -213,6 +213,7 @@ export async function publishNote(content: string): Promise<void> {
   event.kind = NDKKind.Text;
   event.content = content;
   await event.publish();
+  return event;
 }
 
 export async function fetchReplies(eventId: string): Promise<NDKEvent[]> {
