@@ -186,17 +186,27 @@ export function NoteCard({ event, focused }: NoteCardProps) {
           </div>
 
           {parentEventId && parentAuthorPubkey && (
-            <button
-              onClick={async (e) => {
-                e.stopPropagation();
-                const parent = await fetchNoteById(parentEventId);
-                if (parent) openThread(parent, "feed");
-              }}
-              className="text-text-dim text-[11px] mb-1.5 flex items-center gap-1 hover:text-accent transition-colors"
-            >
-              <span>↩ replying to </span>
-              <ParentAuthorName pubkey={parentAuthorPubkey} />
-            </button>
+            <div className="text-text-dim text-[11px] mb-1.5 flex items-center gap-1">
+              <button
+                onClick={async (e) => {
+                  e.stopPropagation();
+                  const parent = await fetchNoteById(parentEventId);
+                  if (parent) openThread(parent, "feed");
+                }}
+                className="hover:text-accent transition-colors"
+              >
+                ↩ replying to
+              </button>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  openProfile(parentAuthorPubkey);
+                }}
+                className="hover:text-accent transition-colors"
+              >
+                <ParentAuthorName pubkey={parentAuthorPubkey} />
+              </button>
+            </div>
           )}
 
           <div
