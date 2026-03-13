@@ -32,13 +32,6 @@ function parseReceipt(receipt: NDKEvent): { amount: number | null; senderPubkey:
   return { amount, senderPubkey, comment, noteId };
 }
 
-function parseRequest(zapReq: NDKEvent): { amount: number | null; recipientPubkey: string | null; comment: string; noteId: string | null } {
-  const recipientPubkey = zapReq.tags.find((t) => t[0] === "p")?.[1] ?? null;
-  const noteId = zapReq.tags.find((t) => t[0] === "e")?.[1] ?? null;
-  const amountTag = zapReq.tags.find((t) => t[0] === "amount");
-  const amount = amountTag?.[1] ? Math.round(parseInt(amountTag[1]) / 1000) : null;
-  return { amount, recipientPubkey, comment: zapReq.content ?? "", noteId };
-}
 
 // ── Row component ────────────────────────────────────────────────────────────
 
@@ -154,7 +147,7 @@ export function ZapHistoryView() {
     return sum + (amount ?? 0);
   }, 0);
   const totalSent = sent.reduce((sum, e) => {
-    const { amount } = parseRequest(e);
+    const { amount } = parseReceipt(e);
     return sum + (amount ?? 0);
   }, 0);
 
@@ -221,7 +214,9 @@ export function ZapHistoryView() {
                 />
               );
             } else {
-              const { amount, recipientPubkey, comment } = parseRequest(event);
+              // Sent zaps are also kind 9735 receipts; the recipient is in the lowercase "p" tag
+              const recipientPubkey = event.tags.find((t) => t[0] === "p")?.[1] ?? null;
+              const { amount, comment } = parseReceipt(event);
               return (
                 <ZapRow
                   key={event.id}

@@ -435,7 +435,8 @@ export async function fetchZapsReceived(pubkey: string, limit = 50): Promise<NDK
 
 export async function fetchZapsSent(pubkey: string, limit = 50): Promise<NDKEvent[]> {
   const instance = getNDK();
-  const filter: NDKFilter = { kinds: [NDKKind.ZapRequest], authors: [pubkey], limit };
+  // Zap receipts (kind 9735) with uppercase P tag = the sender's pubkey
+  const filter: NDKFilter = { kinds: [NDKKind.Zap], "#P": [pubkey], limit };
   const events = await instance.fetchEvents(filter, {
     cacheUsage: NDKSubscriptionCacheUsage.ONLY_RELAY,
   });
