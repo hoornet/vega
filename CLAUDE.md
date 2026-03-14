@@ -54,6 +54,7 @@ CI triggers on the tag and builds all three platforms (Ubuntu, Windows, macOS AR
 - `src/components/thread/` — ThreadView
 - `src/components/search/` — SearchView (NIP-50, hashtag, people)
 - `src/components/article/` — ArticleEditor (NIP-23)
+- `src/components/bookmark/` — BookmarkView
 - `src/components/zap/` — ZapModal
 - `src/components/onboarding/` — OnboardingFlow (welcome, create key, backup, login)
 - `src/components/shared/` — RelaysView, SettingsView (relay mgmt + NWC + identity)
@@ -95,6 +96,16 @@ CI triggers on the tag and builds all three platforms (Ubuntu, Windows, macOS AR
 - Settings: relay add/remove (persisted to localStorage), NWC URI, npub copy
 - Relay connection status view
 
+- Image lightbox (click to expand, arrow key navigation)
+- Bookmark list (NIP-51 kind 10003) with sidebar nav
+- Follow suggestions / discovery (follows-of-follows algorithm)
+- Language/script feed filter (Unicode script detection + NIP-32 tags)
+- Skeleton loading states, view fade transitions
+- `src/components/shared/ImageLightbox.tsx` — full-screen image viewer
+- `src/stores/bookmark.ts` — bookmark store (mirrors mute store pattern)
+- `src/components/bookmark/BookmarkView.tsx` — saved notes view
+- `src/lib/language.ts` — Unicode script detection for feed filtering
+
 **Not yet implemented:**
 - OS keychain integration (Rust) — nsec lives in NDK memory only
 - SQLite local note cache
@@ -103,7 +114,3 @@ CI triggers on the tag and builds all three platforms (Ubuntu, Windows, macOS AR
 - Zap counts on notes
 - NIP-65 outbox model
 - NIP-17 DMs (gift wrap)
-- Image lightbox
-- Bookmark list (NIP-51 kind 10003)
-- Follow suggestions / discovery
-- Language/script feed filter

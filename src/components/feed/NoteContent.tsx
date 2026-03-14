@@ -4,6 +4,7 @@ import { useUIStore } from "../../stores/ui";
 import { fetchNoteById } from "../../lib/nostr";
 import { useProfile } from "../../hooks/useProfile";
 import { shortenPubkey } from "../../lib/utils";
+import { ImageLightbox } from "../shared/ImageLightbox";
 
 // Regex patterns
 const URL_REGEX = /https?:\/\/[^\s<>"')\]]+/g;
@@ -209,6 +210,7 @@ export function NoteContent({ content }: { content: string }) {
   const images: string[] = segments.filter((s) => s.type === "image").map((s) => s.value);
   const videos: string[] = segments.filter((s) => s.type === "video").map((s) => s.value);
   const quoteIds: string[] = segments.filter((s) => s.type === "quote").map((s) => s.value);
+  const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
 
   const inlineElements: ReactNode[] = [];
 
@@ -284,13 +286,23 @@ export function NoteContent({ content }: { content: string }) {
               src={src}
               alt=""
               loading="lazy"
-              className="max-w-full max-h-80 rounded-sm object-cover bg-bg-raised border border-border"
+              className="max-w-full max-h-80 rounded-sm object-cover bg-bg-raised border border-border cursor-zoom-in"
+              onClick={(e) => { e.stopPropagation(); setLightboxIndex(i); }}
               onError={(e) => {
                 (e.target as HTMLImageElement).style.display = "none";
               }}
             />
           ))}
         </div>
+      )}
+
+      {lightboxIndex !== null && (
+        <ImageLightbox
+          images={images}
+          index={lightboxIndex}
+          onClose={() => setLightboxIndex(null)}
+          onNavigate={setLightboxIndex}
+        />
       )}
 
       {/* Quoted notes */}

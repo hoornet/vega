@@ -2,7 +2,7 @@ import { create } from "zustand";
 
 import { NDKEvent } from "@nostr-dev-kit/ndk";
 
-type View = "feed" | "search" | "relays" | "settings" | "profile" | "thread" | "article-editor" | "article" | "about" | "zaps" | "dm" | "notifications";
+type View = "feed" | "search" | "relays" | "settings" | "profile" | "thread" | "article-editor" | "article" | "about" | "zaps" | "dm" | "notifications" | "bookmarks";
 type FeedTab = "global" | "following";
 
 interface UIState {
@@ -16,6 +16,7 @@ interface UIState {
   pendingDMPubkey: string | null;
   pendingArticleNaddr: string | null;
   showHelp: boolean;
+  feedLanguageFilter: string | null;
   setView: (view: View) => void;
   setFeedTab: (tab: FeedTab) => void;
   openProfile: (pubkey: string) => void;
@@ -24,6 +25,7 @@ interface UIState {
   openDM: (pubkey: string) => void;
   openArticle: (naddr: string) => void;
   goBack: () => void;
+  setFeedLanguageFilter: (filter: string | null) => void;
   toggleSidebar: () => void;
   toggleHelp: () => void;
 }
@@ -41,6 +43,7 @@ export const useUIStore = create<UIState>((set, _get) => ({
   pendingDMPubkey: null,
   pendingArticleNaddr: null,
   showHelp: false,
+  feedLanguageFilter: null,
   setView: (currentView) => set({ currentView }),
   setFeedTab: (feedTab) => set({ feedTab }),
   openProfile: (pubkey) => set((s) => ({ currentView: "profile", selectedPubkey: pubkey, previousView: s.currentView as View })),
@@ -53,6 +56,7 @@ export const useUIStore = create<UIState>((set, _get) => ({
     currentView: s.previousView !== s.currentView ? s.previousView : "feed",
     selectedNote: null,
   })),
+  setFeedLanguageFilter: (feedLanguageFilter) => set({ feedLanguageFilter }),
   toggleSidebar: () => set((s) => {
     const next = !s.sidebarCollapsed;
     localStorage.setItem(SIDEBAR_KEY, String(next));

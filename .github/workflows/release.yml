@@ -66,6 +66,13 @@ jobs:
 
             > **Windows note:** The installer is not yet code-signed. Windows SmartScreen will show an "Unknown publisher" warning — click "More info → Run anyway" to install.
 
+            ### New in v0.4.0 — Phase 3: Discovery & Polish
+            - **Image lightbox** — click any image to view full-screen; Escape to close, arrow keys to navigate multi-image posts
+            - **Bookmarks (NIP-51)** — save/unsave notes with one click; dedicated Bookmarks view in sidebar; synced to relays (kind 10003)
+            - **Discover people** — "follows of follows" suggestions on the Search page with mutual follow counts and one-click follow
+            - **Language/script feed filter** — dropdown in feed header filters by writing system (Latin, CJK, Cyrillic, Arabic, Korean, etc.); uses Unicode detection + NIP-32 language tags
+            - **UI polish** — skeleton loading placeholders, improved empty states with helpful prompts, subtle view fade transitions
+
             ### New in v0.3.1
             - **Feed tab persists across navigation** — back button now returns to the correct tab (Global/Following) instead of always resetting to Global
             - **Available on AUR** — Arch/Manjaro users can install with `yay -S wrystr-git`

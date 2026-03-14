@@ -445,6 +445,29 @@ export async function fetchZapsSent(pubkey: string, limit = 50): Promise<NDKEven
   return Array.from(events).sort((a, b) => (b.created_at ?? 0) - (a.created_at ?? 0));
 }
 
+// ── Bookmarks (NIP-51 kind 10003) ────────────────────────────────────────────
+
+export async function fetchBookmarkList(pubkey: string): Promise<string[]> {
+  const instance = getNDK();
+  const filter: NDKFilter = { kinds: [10003 as NDKKind], authors: [pubkey], limit: 1 };
+  const events = await instance.fetchEvents(filter, {
+    cacheUsage: NDKSubscriptionCacheUsage.ONLY_RELAY,
+  });
+  if (events.size === 0) return [];
+  const event = Array.from(events).sort((a, b) => (b.created_at ?? 0) - (a.created_at ?? 0))[0];
+  return event.tags.filter((t) => t[0] === "e" && t[1]).map((t) => t[1]);
+}
+
+export async function publishBookmarkList(eventIds: string[]): Promise<void> {
+  const instance = getNDK();
+  if (!instance.signer) return;
+  const event = new NDKEvent(instance);
+  event.kind = 10003 as NDKKind;
+  event.content = "";
+  event.tags = eventIds.map((id) => ["e", id]);
+  await event.publish();
+}
+
 export async function fetchMuteList(pubkey: string): Promise<string[]> {
   const instance = getNDK();
   const filter: NDKFilter = { kinds: [10000 as NDKKind], authors: [pubkey], limit: 1 };
@@ -519,6 +542,44 @@ export async function fetchUserNotesNIP65(pubkey: string, limit = 30): Promise<N
 }
 
 // ── Notifications (mentions) ──────────────────────────────────────────────────
+
+// ── Follow Suggestions (follows-of-follows) ─────────────────────────────────
+
+export async function fetchFollowSuggestions(myFollows: string[]): Promise<{ pubkey: string; mutualCount: number }[]> {
+  if (myFollows.length === 0) return [];
+  const instance = getNDK();
+  // Fetch contact lists (kind 3) from our follows
+  const batchSize = 20;
+  const allContactEvents: NDKEvent[] = [];
+  for (let i = 0; i < myFollows.length; i += batchSize) {
+    const batch = myFollows.slice(i, i + batchSize);
+    const filter: NDKFilter = { kinds: [3 as NDKKind], authors: batch, limit: batch.length };
+    const events = await instance.fetchEvents(filter, {
+      cacheUsage: NDKSubscriptionCacheUsage.ONLY_RELAY,
+    });
+    allContactEvents.push(...Array.from(events));
+  }
+
+  // Count how many of our follows follow each pubkey
+  const myFollowSet = new Set(myFollows);
+  const counts = new Map<string, number>();
+  for (const event of allContactEvents) {
+    const pubkeys = event.tags.filter((t) => t[0] === "p" && t[1]).map((t) => t[1]);
+    for (const pk of pubkeys) {
+      if (myFollowSet.has(pk)) continue; // already following
+      counts.set(pk, (counts.get(pk) ?? 0) + 1);
+    }
+  }
+
+  // Remove self
+  const myPubkey = (await instance.signer?.user())?.pubkey;
+  if (myPubkey) counts.delete(myPubkey);
+
+  return Array.from(counts.entries())
+    .map(([pubkey, mutualCount]) => ({ pubkey, mutualCount }))
+    .sort((a, b) => b.mutualCount - a.mutualCount)
+    .slice(0, 30);
+}
 
 export async function fetchMentions(pubkey: string, since: number, limit = 50): Promise<NDKEvent[]> {
   const instance = getNDK();

@@ -13,7 +13,7 @@ Grab the latest release from the [Releases page](https://github.com/hoornet/wrys
 | Ubuntu / Debian / Mint | `.deb` | `sudo dpkg -i wrystr_*.deb` |
 | Fedora | `.rpm` | `sudo rpm -i wrystr-*.rpm` |
 | openSUSE | `.rpm` | `sudo zypper install wrystr-*.rpm` |
-| Arch / Manjaro | build from source | see [`PKGBUILD`](./PKGBUILD) |
+| Arch / Manjaro | AUR | `yay -S wrystr-git` |
 | Windows | `.exe` installer | run the installer |
 | macOS (Apple Silicon) | `aarch64.dmg` | open and drag to Applications |
 
@@ -30,12 +30,15 @@ Grab the latest release from the [Releases page](https://github.com/hoornet/wrys
 
 **Feed & content**
 - Global and following feeds with live relay connection
+- **Language/script feed filter** — filter by writing system (Latin, CJK, Cyrillic, Arabic, Korean, etc.) via dropdown in feed header; uses Unicode detection + NIP-32 language tags
 - Compose notes, inline replies, full thread view
 - **Image paste in compose** — paste an image from clipboard → auto-uploads and inserts the URL
+- **Image lightbox** — click any image to view full-screen; Escape to close, arrow keys to navigate multi-image posts
 - **Feed reply context** — replies show "↩ replying to @name"; click to jump to the parent thread
 - Reactions (NIP-25) with live network counts
 - Follow / unfollow (NIP-02) with contact list publishing
 - **Quote & Repost** (NIP-18) — one-click repost or quote with compose modal
+- **Bookmarks** (NIP-51 kind 10003) — save/unsave notes with one click; dedicated Bookmarks view in sidebar; synced to relays
 - **Mute users** (NIP-51) — muted list synced to relays, filtered from feed
 - Long-form article editor + reader (NIP-23) — write with title, tags, cover image, auto-save; click any `nostr:naddr1…` link to open in the in-app reader
 - **Quoted note inline preview** — `nostr:note1…` / `nostr:nevent1…` renders as an inline card
@@ -55,13 +58,17 @@ Grab the latest release from the [Releases page](https://github.com/hoornet/wrys
 - **Zap history** — Received and Sent tabs with amounts, counterparts, comments
 - **Support / About page** — zap the developer, Lightning + Bitcoin QR codes, Ko-fi and GitHub links
 
+**Discovery**
+- **Discover people** — "follows of follows" suggestions on the Search page with mutual follow counts and one-click follow
+- Search: NIP-50 full-text, `#hashtag`, people search with inline follow
+
 **Performance & UX**
 - **Auto-updater** — "Update & restart" banner when a new version is available
 - **SQLite note cache** — feed loads instantly from local cache on startup; profiles cached for immediate avatar display
 - **System tray** — close button hides to tray; "Quit" in tray menu to fully exit
 - Collapsible sidebar (icon-only mode)
 - **Keyboard shortcuts** — `n` compose, `/` search, `j`/`k` navigate feed, `Esc` back, `?` help overlay
-- Search: NIP-50 full-text, `#hashtag`, people search with inline follow
+- Skeleton loading placeholders, view fade transitions
 
 ## Stack
 
@@ -89,12 +96,11 @@ npm run tauri build     # production binary
 
 See [ROADMAP.md](./ROADMAP.md) for the full prioritised next steps.
 
-Up next (Phase 3):
+Up next:
 - NIP-17 DMs (gift wrap) — proper sender/recipient privacy, replacing NIP-04
-- Image lightbox — click to expand images full-size
-- Bookmark list (NIP-51 kind 10003)
-- Follow suggestions / discovery
-- UI polish pass
+- Web of Trust scoring
+- Long-form content discovery (trending articles, reading history)
+- NIP-46 remote signer support
 
 ## Support
 

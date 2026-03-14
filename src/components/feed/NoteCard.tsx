@@ -5,6 +5,7 @@ import { useReactionCount } from "../../hooks/useReactionCount";
 import { useZapCount } from "../../hooks/useZapCount";
 import { useUserStore } from "../../stores/user";
 import { useMuteStore } from "../../stores/mute";
+import { useBookmarkStore } from "../../stores/bookmark";
 import { useUIStore } from "../../stores/ui";
 import { timeAgo, shortenPubkey } from "../../lib/utils";
 import { publishReaction, publishReply, publishRepost, getNDK, fetchNoteById } from "../../lib/nostr";
@@ -41,6 +42,8 @@ export function NoteCard({ event, focused }: NoteCardProps) {
   const { loggedIn, pubkey: ownPubkey } = useUserStore();
   const { mutedPubkeys, mute, unmute } = useMuteStore();
   const isMuted = mutedPubkeys.includes(event.pubkey);
+  const { bookmarkedIds, addBookmark, removeBookmark } = useBookmarkStore();
+  const isBookmarked = bookmarkedIds.includes(event.id!);
   const { openProfile, openThread, currentView } = useUIStore();
 
   const parentEventId = getParentEventId(event);
@@ -261,6 +264,14 @@ export function NoteCard({ event, focused }: NoteCardProps) {
                     : "⚡ zap"}
                 </button>
               )}
+              <button
+                onClick={() => isBookmarked ? removeBookmark(event.id!) : addBookmark(event.id!)}
+                className={`text-[11px] transition-colors ${
+                  isBookmarked ? "text-accent" : "text-text-dim hover:text-accent"
+                }`}
+              >
+                {isBookmarked ? "▪ saved" : "▫ save"}
+              </button>
             </div>
           )}
 

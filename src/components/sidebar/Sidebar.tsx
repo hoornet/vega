@@ -9,6 +9,7 @@ import pkg from "../../../package.json";
 const NAV_ITEMS = [
   { id: "feed" as const, label: "feed", icon: "◈" },
   { id: "search" as const, label: "search", icon: "⌕" },
+  { id: "bookmarks" as const, label: "bookmarks", icon: "▪" },
   { id: "dm" as const, label: "messages", icon: "✉" },
   { id: "notifications" as const, label: "notifications", icon: "🔔" },
   { id: "zaps" as const, label: "zaps", icon: "⚡" },

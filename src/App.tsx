@@ -13,6 +13,7 @@ import { AboutView } from "./components/shared/AboutView";
 import { ZapHistoryView } from "./components/zap/ZapHistoryView";
 import { DMView } from "./components/dm/DMView";
 import { NotificationsView } from "./components/notifications/NotificationsView";
+import { BookmarkView } from "./components/bookmark/BookmarkView";
 import { HelpModal } from "./components/shared/HelpModal";
 import { useUIStore } from "./stores/ui";
 import { useUpdater } from "./hooks/useUpdater";
@@ -73,6 +74,7 @@ function App() {
         {currentView === "zaps" && <ZapHistoryView />}
         {currentView === "dm" && <DMView />}
         {currentView === "notifications" && <NotificationsView />}
+        {currentView === "bookmarks" && <BookmarkView />}
       </main>
       </div>
       {showHelp && <HelpModal onClose={toggleHelp} />}

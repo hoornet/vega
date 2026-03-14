@@ -43,39 +43,21 @@ Bugs found during testing are fixed before Phase N+1 starts. A release is cut be
 
 ---
 
-## Phase 3 — Polish & completeness
-*Test Phase 2 thoroughly first. Fix all reported issues before starting Phase 3.*
+## Phase 3 — Polish & completeness ✓ MOSTLY COMPLETE
 
-### 9. NIP-17 DMs (gift wrap)
+*Shipped in v0.4.0. NIP-17 DMs deferred to Phase 4.*
+
+- ✓ **Image lightbox** — click any image to view full-screen; Escape to close, left/right arrows for multi-image navigation
+- ✓ **Bookmarks (NIP-51 kind 10003)** — save/unsave notes with one click; dedicated Bookmarks view in sidebar; synced to relays
+- ✓ **Follow suggestions / discovery** — "follows of follows" algorithm on Search page; shows mutual follow counts with one-click follow
+- ✓ **Language/script feed filter** — dropdown in feed header; Unicode script detection (Latin, CJK, Cyrillic, Arabic, Korean, Hebrew, etc.) + NIP-32 language tag support
+- ✓ **UI polish** — skeleton loading placeholders, improved empty states with helpful prompts, subtle view fade transitions
+
+### Remaining: NIP-17 DMs (gift wrap)
 - Current DMs use NIP-04 (kind 4) — works but deprecated and leaks metadata
 - NIP-17 wraps messages in gift wrap (kind 1059) for proper sender/recipient privacy
 - Needs inbox relay support (kind 10050) and ephemeral key signing
 - Not interoperable with NIP-04 — both should be supported during migration
-
-### 10. Image lightbox
-- Clicking an image in a note should open it full-size
-- Click outside or Escape to close
-
-### 11. Bookmark list (NIP-51, kind 10003)
-- Standard feature expected by users — save notes for later
-- Bookmark icon on NoteCard, synced to relays via NIP-51
-
-### 12. Follow suggestions / discovery
-- New users start with an empty Following feed and no guidance
-- Suggest popular accounts and curated starter packs
-- "People followed by people you follow" as a discovery surface
-
-### 14. Language / alphabet feed filter
-- Feature request from Windows playtest (2026-03-11): filter feed to specific languages or scripts
-- Could be client-side: detect script via Unicode block ranges, offer toggle in settings
-- Or server-side: NIP-50 `language` tag support if relays implement it
-- Low effort client-side version: filter by Unicode script (Latin, Cyrillic, CJK, Arabic, etc.)
-
-### 13. UI polish pass
-- Full design review: note cards, thread view, profile header, modals
-- Target bar: Telegram Desktop — fast, keyboard-navigable, feels native not webby
-- Typography, spacing, colour contrast audit
-- Needs a dedicated design session before implementation
 
 ---
 
@@ -104,6 +86,24 @@ Bugs found during testing are fixed before Phase N+1 starts. A release is cut be
 ---
 
 ## What's already shipped
+
+### v0.4.0 — Phase 3: Discovery & Polish
+- **Image lightbox** — click any image to view full-screen; Escape to close, arrow keys to navigate multi-image posts
+- **Bookmarks (NIP-51 kind 10003)** — save/unsave notes with one click; dedicated Bookmarks view in sidebar; synced to relays
+- **Discover people** — "follows of follows" suggestions on Search page with mutual follow counts and one-click follow
+- **Language/script feed filter** — dropdown in feed header filters by writing system (Latin, CJK, Cyrillic, Arabic, Korean, Hebrew, Greek, Thai, Devanagari); Unicode script detection + NIP-32 language tag support
+- **UI polish** — skeleton loading placeholders instead of "Loading..." text; improved empty states with helpful prompts; subtle view fade transitions on navigation
+
+### v0.3.1
+- **Feed tab persists across navigation** — back button now returns to the correct tab (Global/Following) instead of always resetting to Global
+- **Available on AUR** — Arch/Manjaro users can install with `yay -S wrystr-git`
+
+### v0.3.0
+- **Instant feedback** — posted notes appear in feed immediately; thread replies show up without waiting for relay
+- **Image paste fix** — uploads now use Tauri HTTP plugin, fixing "Failed to fetch" on Windows
+- **Sent zaps visible** — zap history now correctly shows sent zaps
+- **Reply-to @name clickable** — clicking the @name in "↩ replying to @name" now opens that person's profile
+- **Feed refresh on login** — switching or adding an account immediately loads the new account's feed
 
 ### v0.2.1 — Batch 3 playtest fixes
 - **Fix: repost + quote in thread view** — root note in thread view now shows repost and quote buttons (parity with feed cards)

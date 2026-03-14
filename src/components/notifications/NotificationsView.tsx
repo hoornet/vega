@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react";
 import { useUserStore } from "../../stores/user";
 import { useNotificationsStore } from "../../stores/notifications";
 import { NoteCard } from "../feed/NoteCard";
+import { SkeletonNoteList } from "../shared/Skeleton";
 
 export function NotificationsView() {
   const { pubkey, loggedIn } = useUserStore();
@@ -48,14 +49,13 @@ export function NotificationsView() {
 
       <div className="flex-1 overflow-y-auto">
         {loading && notifications.length === 0 && (
-          <div className="px-4 py-8 text-text-dim text-[12px] text-center">
-            Loading notifications…
-          </div>
+          <SkeletonNoteList count={4} />
         )}
 
         {!loading && notifications.length === 0 && (
-          <div className="px-4 py-8 text-text-dim text-[12px] text-center">
-            No mentions yet.
+          <div className="px-4 py-12 text-center space-y-2">
+            <p className="text-text-dim text-[13px]">No mentions yet.</p>
+            <p className="text-text-dim text-[11px] opacity-60">When someone mentions you, it will appear here.</p>
           </div>
         )}
 

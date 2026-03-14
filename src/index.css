@@ -84,6 +84,15 @@ body {
 .prose-article strong { color: var(--color-text); font-weight: 600; }
 .prose-article img { max-width: 100%; border-radius: 2px; margin: 1em 0; }
 
+/* View transition fade-in */
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.view-fade-in {
+  animation: fade-in 150ms ease-out;
+}
+
 /* Scrollbar — thin, minimal */
 ::-webkit-scrollbar {
   width: 6px;
