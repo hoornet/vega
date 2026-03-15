@@ -2,12 +2,14 @@ import { useState, useRef, useEffect } from "react";
 import { NDKEvent } from "@nostr-dev-kit/ndk";
 import { useProfile } from "../../hooks/useProfile";
 import { useReactionCount } from "../../hooks/useReactionCount";
+import { useReplyCount } from "../../hooks/useReplyCount";
 import { useZapCount } from "../../hooks/useZapCount";
 import { useUserStore } from "../../stores/user";
 import { useMuteStore } from "../../stores/mute";
 import { useBookmarkStore } from "../../stores/bookmark";
 import { useUIStore } from "../../stores/ui";
 import { timeAgo, shortenPubkey } from "../../lib/utils";
+import { nip19 } from "@nostr-dev-kit/ndk";
 import { publishReaction, publishReply, publishRepost, getNDK, fetchNoteById } from "../../lib/nostr";
 import { NoteContent } from "./NoteContent";
 import { ZapModal } from "../zap/ZapModal";
@@ -61,6 +63,8 @@ export function NoteCard({ event, focused }: NoteCardProps) {
   const [liked, setLiked] = useState(() => getLiked().has(event.id));
   const [liking, setLiking] = useState(false);
   const [reactionCount, adjustReactionCount] = useReactionCount(event.id);
+  const [replyCount, adjustReplyCount] = useReplyCount(event.id);
+  const [copied, setCopied] = useState(false);
   const zapData = useZapCount(event.id);
   const [showReply, setShowReply] = useState(false);
   const [replyText, setReplyText] = useState("");
@@ -102,6 +106,7 @@ export function NoteCard({ event, focused }: NoteCardProps) {
       await publishReply(replyText.trim(), { id: event.id, pubkey: event.pubkey });
       setReplyText("");
       setReplySent(true);
+      adjustReplyCount(1);
       setTimeout(() => { setShowReply(false); setReplySent(false); }, 1500);
     } catch (err) {
       setReplyError(`Failed: ${err}`);
@@ -113,6 +118,13 @@ export function NoteCard({ event, focused }: NoteCardProps) {
   const handleReplyKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) handleReplySubmit();
     if (e.key === "Escape") setShowReply(false);
+  };
+
+  const handleShare = async () => {
+    const nevent = nip19.neventEncode({ id: event.id!, author: event.pubkey });
+    await navigator.clipboard.writeText("nostr:" + nevent);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
   };
 
   const handleRepost = async () => {
@@ -235,7 +247,7 @@ export function NoteCard({ event, focused }: NoteCardProps) {
                   showReply ? "text-accent" : "text-text-dim hover:text-text"
                 }`}
               >
-                reply
+                reply{replyCount !== null && replyCount > 0 ? ` ${replyCount}` : ""}
               </button>
               <button
                 onClick={handleLike}
@@ -279,18 +291,37 @@ export function NoteCard({ event, focused }: NoteCardProps) {
               >
                 {isBookmarked ? "▪ saved" : "▫ save"}
               </button>
+              <button
+                onClick={handleShare}
+                className={`text-[11px] transition-colors ${
+                  copied ? "text-accent" : "text-text-dim hover:text-text"
+                }`}
+              >
+                {copied ? "copied ✓" : "share"}
+              </button>
             </div>
           )}
 
           {/* Stats visible when logged out */}
-          {!loggedIn && (reactionCount !== null && reactionCount > 0 || zapData !== null && zapData.totalSats > 0) && (
+          {!loggedIn && (
             <div className="flex items-center gap-3 mt-1.5">
+              {replyCount !== null && replyCount > 0 && (
+                <span className="text-text-dim text-[11px]">↩ {replyCount}</span>
+              )}
               {reactionCount !== null && reactionCount > 0 && (
                 <span className="text-text-dim text-[11px]">♥ {reactionCount}</span>
               )}
               {zapData !== null && zapData.totalSats > 0 && (
                 <span className="text-zap text-[11px]">⚡ {zapData.totalSats.toLocaleString()} sats</span>
               )}
+              <button
+                onClick={handleShare}
+                className={`text-[11px] transition-colors ${
+                  copied ? "text-accent" : "text-text-dim hover:text-text"
+                }`}
+              >
+                {copied ? "copied ✓" : "share"}
+              </button>
             </div>
           )}
 

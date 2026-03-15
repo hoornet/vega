@@ -313,6 +313,18 @@ export async function fetchZapCount(eventId: string): Promise<{ count: number; t
   return { count: events.size, totalSats };
 }
 
+export async function fetchReplyCount(eventId: string): Promise<number> {
+  const instance = getNDK();
+  const filter: NDKFilter = {
+    kinds: [NDKKind.Text],
+    "#e": [eventId],
+  };
+  const events = await instance.fetchEvents(filter, {
+    cacheUsage: NDKSubscriptionCacheUsage.ONLY_RELAY,
+  });
+  return events.size;
+}
+
 export async function fetchReactionCount(eventId: string): Promise<number> {
   const instance = getNDK();
   const filter: NDKFilter = {
