@@ -62,7 +62,9 @@ function App() {
       <div className="flex flex-1 min-h-0">
       <Sidebar />
       <main className="flex-1 min-w-0">
-        {currentView === "feed" && <Feed />}
+        <div className={currentView === "feed" ? "contents" : "hidden"}>
+          <Feed />
+        </div>
         {currentView === "search" && <SearchView />}
         {currentView === "relays" && <RelaysView />}
         {currentView === "settings" && <SettingsView />}

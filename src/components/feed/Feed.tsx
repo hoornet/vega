@@ -24,6 +24,7 @@ export function Feed() {
     connect().then(() => loadFeed());
   }, []);
 
+
   useEffect(() => {
     if (tab === "following" && loggedIn && follows.length > 0) {
       loadFollowFeed();
