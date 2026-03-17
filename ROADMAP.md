@@ -43,9 +43,9 @@ Bugs found during testing are fixed before Phase N+1 starts. A release is cut be
 
 ---
 
-## Phase 3 — Polish & completeness ✓ MOSTLY COMPLETE
+## Phase 3 — Polish & completeness ✓ COMPLETE
 
-*Shipped in v0.4.0. NIP-17 DMs deferred to Phase 4.*
+*Shipped in v0.4.0. NIP-17 DMs shipped in v0.5.0.*
 
 - ✓ **Image lightbox** — click any image to view full-screen; Escape to close, left/right arrows for multi-image navigation
 - ✓ **Bookmarks (NIP-51 kind 10003)** — save/unsave notes with one click; dedicated Bookmarks view in sidebar; synced to relays
@@ -53,11 +53,9 @@ Bugs found during testing are fixed before Phase N+1 starts. A release is cut be
 - ✓ **Language/script feed filter** — dropdown in feed header; Unicode script detection (Latin, CJK, Cyrillic, Arabic, Korean, Hebrew, etc.) + NIP-32 language tag support
 - ✓ **UI polish** — skeleton loading placeholders, improved empty states with helpful prompts, subtle view fade transitions
 
-### Remaining: NIP-17 DMs (gift wrap)
-- Current DMs use NIP-04 (kind 4) — works but deprecated and leaks metadata
-- NIP-17 wraps messages in gift wrap (kind 1059) for proper sender/recipient privacy
-- Needs inbox relay support (kind 10050) and ephemeral key signing
-- Not interoperable with NIP-04 — both should be supported during migration
+### NIP-17 DMs (gift wrap) ✓ SHIPPED
+- ✓ NIP-17 gift-wrapped DMs (kind 1059) with NIP-04 fallback
+- ✓ Both protocols supported — reads legacy NIP-04 + modern NIP-17
 
 ---
 
@@ -68,10 +66,13 @@ Bugs found during testing are fixed before Phase N+1 starts. A release is cut be
 - Could power: feed ranking, spam filtering, people search, follow suggestions
 - Needs dedicated design session
 
-### Long-form features (NIP-23 depth)
-- Discovery: browse articles from followed authors, trending articles
-- Reading history, estimated read time, table of contents
-- Editor improvements: image upload, word count, tag suggestions
+### Long-form features (NIP-23 depth) — partially shipped in v0.6.0
+- ✓ Discovery: dedicated article feed with Latest/Following tabs
+- ✓ Article search (NIP-50 + hashtag for kind 30023)
+- ✓ Profile Articles tab — browse any author's long-form posts
+- ✓ Reading time estimate, bookmark/like/zap on article reader
+- Remaining: reading history, table of contents, trending articles
+- Editor improvements: markdown toolbar, image upload, tag suggestions
 - Cross-posting to other platforms
 
 ### NIP-46 remote signer
@@ -86,6 +87,21 @@ Bugs found during testing are fixed before Phase N+1 starts. A release is cut be
 ---
 
 ## What's already shipped
+
+### v0.6.0 — Long-form article experience
+- **Article discovery feed** — dedicated "Articles" view in sidebar with Latest and Following tabs; browse kind 30023 articles from all relays or just followed authors
+- **Article cards** — title, summary snippet, author avatar+name, cover image thumbnail, reading time, tag chips
+- **Article search** — search notes, articles, and people in parallel; articles tab in search results; supports full-text (NIP-50) and hashtag search
+- **Profile Articles tab** — Notes/Articles tab toggle on every profile; lazy-loads author's long-form posts
+- **Article reader polish** — estimated reading time (words/230), bookmark (save/unsave), like (reaction), zap — all in header and footer
+- **74 tests passing**, TypeScript strict, no regressions
+
+### v0.5.0 — Sharing & Thread Indicators
+- **Note sharing** — share button copies `nostr:nevent1…` URI to clipboard; works logged out
+- **Reply count** — reply count next to reply button; optimistic update on send
+
+### v0.4.1 — Media Players
+- Video/audio inline players, YouTube/Vimeo/Spotify rich cards
 
 ### v0.4.0 — Phase 3: Discovery & Polish
 - **Image lightbox** — click any image to view full-screen; Escape to close, arrow keys to navigate multi-image posts

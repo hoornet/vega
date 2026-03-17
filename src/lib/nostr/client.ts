@@ -325,6 +325,61 @@ export async function fetchReplyCount(eventId: string): Promise<number> {
   return events.size;
 }
 
+export async function fetchBatchEngagement(eventIds: string[]): Promise<Map<string, { reactions: number; replies: number; zapSats: number }>> {
+  const instance = getNDK();
+  const result = new Map<string, { reactions: number; replies: number; zapSats: number }>();
+  for (const id of eventIds) {
+    result.set(id, { reactions: 0, replies: 0, zapSats: 0 });
+  }
+
+  // Batch in chunks to avoid oversized filters
+  const chunkSize = 50;
+  for (let i = 0; i < eventIds.length; i += chunkSize) {
+    const chunk = eventIds.slice(i, i + chunkSize);
+
+    const [reactions, replies, zaps] = await Promise.all([
+      instance.fetchEvents(
+        { kinds: [NDKKind.Reaction], "#e": chunk },
+        { cacheUsage: NDKSubscriptionCacheUsage.ONLY_RELAY }
+      ),
+      instance.fetchEvents(
+        { kinds: [NDKKind.Text], "#e": chunk },
+        { cacheUsage: NDKSubscriptionCacheUsage.ONLY_RELAY }
+      ),
+      instance.fetchEvents(
+        { kinds: [NDKKind.Zap], "#e": chunk },
+        { cacheUsage: NDKSubscriptionCacheUsage.ONLY_RELAY }
+      ),
+    ]);
+
+    for (const event of reactions) {
+      const eTag = event.tags.find((t) => t[0] === "e")?.[1];
+      if (eTag && result.has(eTag)) result.get(eTag)!.reactions++;
+    }
+
+    for (const event of replies) {
+      const eTag = event.tags.find((t) => t[0] === "e")?.[1];
+      if (eTag && result.has(eTag)) result.get(eTag)!.replies++;
+    }
+
+    for (const event of zaps) {
+      const eTag = event.tags.find((t) => t[0] === "e")?.[1];
+      if (eTag && result.has(eTag)) {
+        const desc = event.tags.find((t) => t[0] === "description")?.[1];
+        if (desc) {
+          try {
+            const zapReq = JSON.parse(desc) as { tags?: string[][] };
+            const amountTag = zapReq.tags?.find((t) => t[0] === "amount");
+            if (amountTag?.[1]) result.get(eTag)!.zapSats += Math.round(parseInt(amountTag[1]) / 1000);
+          } catch { /* malformed */ }
+        }
+      }
+    }
+  }
+
+  return result;
+}
+
 export async function fetchReactionCount(eventId: string): Promise<number> {
   const instance = getNDK();
   const filter: NDKFilter = {
@@ -491,6 +546,28 @@ export async function fetchArticle(naddr: string): Promise<NDKEvent | null> {
 export async function fetchAuthorArticles(pubkey: string, limit = 20): Promise<NDKEvent[]> {
   const instance = getNDK();
   const filter: NDKFilter = { kinds: [NDKKind.Article], authors: [pubkey], limit };
+  const events = await instance.fetchEvents(filter, {
+    cacheUsage: NDKSubscriptionCacheUsage.ONLY_RELAY,
+  });
+  return Array.from(events).sort((a, b) => (b.created_at ?? 0) - (a.created_at ?? 0));
+}
+
+export async function fetchArticleFeed(limit = 40, authors?: string[]): Promise<NDKEvent[]> {
+  const instance = getNDK();
+  const filter: NDKFilter = { kinds: [NDKKind.Article], limit };
+  if (authors && authors.length > 0) filter.authors = authors;
+  const events = await instance.fetchEvents(filter, {
+    cacheUsage: NDKSubscriptionCacheUsage.ONLY_RELAY,
+  });
+  return Array.from(events).sort((a, b) => (b.created_at ?? 0) - (a.created_at ?? 0));
+}
+
+export async function searchArticles(query: string, limit = 30): Promise<NDKEvent[]> {
+  const instance = getNDK();
+  const isHashtag = query.startsWith("#");
+  const filter: NDKFilter & { search?: string } = isHashtag
+    ? { kinds: [NDKKind.Article], "#t": [query.slice(1).toLowerCase()], limit }
+    : { kinds: [NDKKind.Article], search: query, limit };
   const events = await instance.fetchEvents(filter, {
     cacheUsage: NDKSubscriptionCacheUsage.ONLY_RELAY,
   });

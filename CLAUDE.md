@@ -52,8 +52,8 @@ CI triggers on the tag and builds all three platforms (Ubuntu, Windows, macOS AR
 - `src/components/feed/` — Feed, NoteCard, NoteContent, ComposeBox
 - `src/components/profile/` — ProfileView (own + others, edit form)
 - `src/components/thread/` — ThreadView
-- `src/components/search/` — SearchView (NIP-50, hashtag, people)
-- `src/components/article/` — ArticleEditor (NIP-23)
+- `src/components/search/` — SearchView (NIP-50, hashtag, people, articles)
+- `src/components/article/` — ArticleEditor, ArticleView, ArticleFeed, ArticleCard (NIP-23)
 - `src/components/bookmark/` — BookmarkView
 - `src/components/zap/` — ZapModal
 - `src/components/onboarding/` — OnboardingFlow (welcome, create key, backup, login)
@@ -64,14 +64,16 @@ CI triggers on the tag and builds all three platforms (Ubuntu, Windows, macOS AR
 
 - `src-tauri/src/lib.rs` — Tauri app init and command registration
 - Rust commands must return `Result<T, String>`
-- Future: OS keychain for key storage, SQLite, lightning node integration
+- OS keychain via `keyring` crate — `store_nsec`, `load_nsec`, `delete_nsec` commands
+- SQLite note/profile cache via `rusqlite`
+- Future: lightning node integration
 
 ## Key Conventions (from AGENTS.md)
 
 - Functional React components only — no class components
 - Never use `any` — define types in `src/types/`
 - Tailwind classes only — no inline styles, except unavoidable WebkitUserSelect
-- Private keys must never be exposed to JS; use OS keychain via Rust (not yet implemented — nsec currently lives in NDK signer memory only)
+- Private keys stored in OS keychain via Rust `keyring` crate; nsec persists across restarts
 - New Zustand stores per domain when adding features
 - NDK interactions only through `src/lib/nostr/` wrapper
 - Lightning/NWC only through `src/lib/lightning/` wrapper
@@ -89,28 +91,33 @@ CI triggers on the tag and builds all three platforms (Ubuntu, Windows, macOS AR
 - Global + following feed, compose, reply, thread view
 - Reactions (NIP-25) with live network counts
 - Follow/unfollow (NIP-02), contact list publishing
-- Profile view + edit (kind 0)
+- Profile view + edit (kind 0) with Notes/Articles tab toggle
 - Long-form article editor (NIP-23) with draft auto-save
+- **Article discovery feed** — dedicated "Articles" view in sidebar; Latest/Following tabs
+- **Article reader** — markdown rendering, reading time, bookmark, like, zap
+- **Article search** — NIP-50 + hashtag search for kind 30023 articles
+- **Article cards** — reusable component with title, summary, author, cover thumbnail, reading time, tags
 - Zaps: NWC wallet connect (NIP-47) + NIP-57 via NDKZapper
-- Search: NIP-50 full-text, hashtag (#t filter), people
+- Search: NIP-50 full-text, hashtag (#t filter), people, articles
 - Settings: relay add/remove (persisted to localStorage), NWC URI, npub copy
 - Relay connection status view
-
+- OS keychain integration — nsec persists across restarts via `keyring` crate
+- SQLite note + profile cache
+- Direct messages (NIP-04 + NIP-17 gift wrap)
+- NIP-65 outbox model
 - Image lightbox (click to expand, arrow key navigation)
 - Bookmark list (NIP-51 kind 10003) with sidebar nav
 - Follow suggestions / discovery (follows-of-follows algorithm)
 - Language/script feed filter (Unicode script detection + NIP-32 tags)
 - Skeleton loading states, view fade transitions
-- `src/components/shared/ImageLightbox.tsx` — full-screen image viewer
-- `src/stores/bookmark.ts` — bookmark store (mirrors mute store pattern)
-- `src/components/bookmark/BookmarkView.tsx` — saved notes view
-- `src/lib/language.ts` — Unicode script detection for feed filtering
+- Note sharing (nevent URI to clipboard)
+- Reply counts on notes
+- Media players (video/audio inline, YouTube/Vimeo/Spotify cards)
+- Multi-account switcher with keychain-backed session restore
+- System tray, keyboard shortcuts, auto-updater
 
 **Not yet implemented:**
-- OS keychain integration (Rust) — nsec lives in NDK memory only
-- SQLite local note cache
-- Direct messages (NIP-44/17)
-- Reading long-form articles (NIP-23 reader view)
-- Zap counts on notes
-- NIP-65 outbox model
-- NIP-17 DMs (gift wrap)
+- Web of Trust scoring
+- NIP-46 remote signer
+- NIP-96 file storage
+- Custom feeds / lists

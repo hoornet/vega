@@ -4,10 +4,11 @@ import { useUIStore } from "../../stores/ui";
 import { useUserStore } from "../../stores/user";
 import { useMuteStore } from "../../stores/mute";
 import { useProfile, invalidateProfileCache } from "../../hooks/useProfile";
-import { fetchUserNotesNIP65, publishProfile, getNDK } from "../../lib/nostr";
+import { fetchUserNotesNIP65, fetchAuthorArticles, publishProfile, getNDK } from "../../lib/nostr";
 import { shortenPubkey } from "../../lib/utils";
 import { uploadImage } from "../../lib/upload";
 import { NoteCard } from "../feed/NoteCard";
+import { ArticleCard } from "../article/ArticleCard";
 import { ZapModal } from "../zap/ZapModal";
 
 // ── Profile helper sub-components ────────────────────────────────────────────
@@ -223,10 +224,13 @@ export function ProfileView() {
   const fetchedProfile = useProfile(pubkey);
   const profile = isOwn ? ownProfile : fetchedProfile;
   const [notes, setNotes] = useState<NDKEvent[]>([]);
+  const [articles, setArticles] = useState<NDKEvent[]>([]);
   const [loading, setLoading] = useState(true);
+  const [articlesLoading, setArticlesLoading] = useState(false);
   const [editing, setEditing] = useState(false);
   const [followPending, setFollowPending] = useState(false);
   const [showZap, setShowZap] = useState(false);
+  const [profileTab, setProfileTab] = useState<"notes" | "articles">("notes");
 
   const isFollowing = follows.includes(pubkey);
   const { mutedPubkeys, mute, unmute } = useMuteStore();
@@ -254,11 +258,18 @@ export function ProfileView() {
 
   useEffect(() => {
     setLoading(true);
+    setProfileTab("notes");
     fetchUserNotesNIP65(pubkey).then((events) => {
       setNotes(events);
       setLoading(false);
     }).catch(() => setLoading(false));
   }, [pubkey]);
+
+  useEffect(() => {
+    if (profileTab !== "articles" || articles.length > 0) return;
+    setArticlesLoading(true);
+    fetchAuthorArticles(pubkey).then(setArticles).catch(() => setArticles([])).finally(() => setArticlesLoading(false));
+  }, [profileTab, pubkey]);
 
   return (
     <div className="h-full flex flex-col">
@@ -379,12 +390,42 @@ export function ProfileView() {
           />
         )}
 
-        {/* Notes */}
-        {loading && <div className="px-4 py-8 text-text-dim text-[12px] text-center">Loading notes…</div>}
-        {!loading && notes.length === 0 && <div className="px-4 py-8 text-text-dim text-[12px] text-center">No notes found.</div>}
-        {notes.map((event) => (
-          <NoteCard key={event.id} event={event} />
-        ))}
+        {/* Notes / Articles tabs */}
+        <div className="border-b border-border flex shrink-0">
+          {(["notes", "articles"] as const).map((t) => (
+            <button
+              key={t}
+              onClick={() => setProfileTab(t)}
+              className={`px-4 py-2 text-[11px] border-b-2 transition-colors ${
+                profileTab === t
+                  ? "border-accent text-accent"
+                  : "border-transparent text-text-dim hover:text-text"
+              }`}
+            >
+              {t}
+            </button>
+          ))}
+        </div>
+
+        {profileTab === "notes" && (
+          <>
+            {loading && <div className="px-4 py-8 text-text-dim text-[12px] text-center">Loading notes…</div>}
+            {!loading && notes.length === 0 && <div className="px-4 py-8 text-text-dim text-[12px] text-center">No notes found.</div>}
+            {notes.map((event) => (
+              <NoteCard key={event.id} event={event} />
+            ))}
+          </>
+        )}
+
+        {profileTab === "articles" && (
+          <>
+            {articlesLoading && <div className="px-4 py-8 text-text-dim text-[12px] text-center">Loading articles…</div>}
+            {!articlesLoading && articles.length === 0 && <div className="px-4 py-8 text-text-dim text-[12px] text-center">No articles found.</div>}
+            {articles.map((event) => (
+              <ArticleCard key={event.id} event={event} />
+            ))}
+          </>
+        )}
       </div>
     </div>
   );

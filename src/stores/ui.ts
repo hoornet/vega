@@ -2,8 +2,8 @@ import { create } from "zustand";
 
 import { NDKEvent } from "@nostr-dev-kit/ndk";
 
-type View = "feed" | "search" | "relays" | "settings" | "profile" | "thread" | "article-editor" | "article" | "about" | "zaps" | "dm" | "notifications" | "bookmarks";
-type FeedTab = "global" | "following";
+type View = "feed" | "search" | "relays" | "settings" | "profile" | "thread" | "article-editor" | "article" | "articles" | "about" | "zaps" | "dm" | "notifications" | "bookmarks";
+type FeedTab = "global" | "following" | "trending";
 
 interface UIState {
   currentView: View;
@@ -15,6 +15,7 @@ interface UIState {
   pendingSearch: string | null;
   pendingDMPubkey: string | null;
   pendingArticleNaddr: string | null;
+  pendingArticleEvent: NDKEvent | null;
   showHelp: boolean;
   feedLanguageFilter: string | null;
   setView: (view: View) => void;
@@ -23,7 +24,7 @@ interface UIState {
   openThread: (note: NDKEvent, from: View) => void;
   openSearch: (query: string) => void;
   openDM: (pubkey: string) => void;
-  openArticle: (naddr: string) => void;
+  openArticle: (naddr: string, event?: NDKEvent) => void;
   goBack: () => void;
   setFeedLanguageFilter: (filter: string | null) => void;
   toggleSidebar: () => void;
@@ -42,6 +43,7 @@ export const useUIStore = create<UIState>((set, _get) => ({
   pendingSearch: null,
   pendingDMPubkey: null,
   pendingArticleNaddr: null,
+  pendingArticleEvent: null,
   showHelp: false,
   feedLanguageFilter: null,
   setView: (currentView) => set({ currentView }),
@@ -50,7 +52,7 @@ export const useUIStore = create<UIState>((set, _get) => ({
   openThread: (note, from) => set({ currentView: "thread", selectedNote: note, previousView: from }),
   openSearch: (query) => set({ currentView: "search", pendingSearch: query }),
   openDM: (pubkey) => set({ currentView: "dm", pendingDMPubkey: pubkey }),
-  openArticle: (naddr) => set((s) => ({ currentView: "article", pendingArticleNaddr: naddr, previousView: s.currentView as View })),
+  openArticle: (naddr, event) => set((s) => ({ currentView: "article", pendingArticleNaddr: naddr, pendingArticleEvent: event ?? null, previousView: s.currentView as View })),
   goBack: () => set((s) => ({
     showHelp: false,
     currentView: s.previousView !== s.currentView ? s.previousView : "feed",

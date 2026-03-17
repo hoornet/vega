@@ -4,7 +4,8 @@ import { marked } from "marked";
 import DOMPurify from "dompurify";
 import { useUIStore } from "../../stores/ui";
 import { useUserStore } from "../../stores/user";
-import { fetchArticle } from "../../lib/nostr";
+import { useBookmarkStore } from "../../stores/bookmark";
+import { fetchArticle, publishReaction } from "../../lib/nostr";
 import { useProfile } from "../../hooks/useProfile";
 import { ZapModal } from "../zap/ZapModal";
 
@@ -25,7 +26,7 @@ function renderMarkdown(md: string): string {
 
 // ── Author row ────────────────────────────────────────────────────────────────
 
-function AuthorRow({ pubkey, publishedAt }: { pubkey: string; publishedAt: number | null }) {
+function AuthorRow({ pubkey, publishedAt, readingTime }: { pubkey: string; publishedAt: number | null; readingTime?: number }) {
   const { openProfile } = useUIStore();
   const profile = useProfile(pubkey);
   const name = profile?.displayName || profile?.name || pubkey.slice(0, 12) + "…";
@@ -53,6 +54,7 @@ function AuthorRow({ pubkey, publishedAt }: { pubkey: string; publishedAt: numbe
           {name}
         </button>
         {date && <span className="text-text-dim text-[11px]">{date}</span>}
+        {readingTime && <span className="text-text-dim text-[11px]"> · {readingTime} min read</span>}
       </div>
     </div>
   );
@@ -61,18 +63,27 @@ function AuthorRow({ pubkey, publishedAt }: { pubkey: string; publishedAt: numbe
 // ── Main view ─────────────────────────────────────────────────────────────────
 
 export function ArticleView() {
-  const { pendingArticleNaddr, goBack } = useUIStore();
+  const { pendingArticleNaddr, pendingArticleEvent, goBack } = useUIStore();
   const { loggedIn } = useUserStore();
 
   const [event, setEvent] = useState<NDKEvent | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showZap, setShowZap] = useState(false);
+  const [reacted, setReacted] = useState(false);
+  const { isBookmarked, addBookmark, removeBookmark } = useBookmarkStore();
 
   const naddr = pendingArticleNaddr ?? "";
 
   useEffect(() => {
     if (!naddr) { setLoading(false); return; }
+    // Use cached event if available (from ArticleCard click), skip relay fetch
+    if (pendingArticleEvent) {
+      setEvent(pendingArticleEvent);
+      setLoading(false);
+      setError(null);
+      return;
+    }
     setLoading(true);
     setError(null);
     setEvent(null);
@@ -95,6 +106,25 @@ export function ArticleView() {
   const authorName = authorProfile?.displayName || authorProfile?.name || authorPubkey.slice(0, 12) + "…";
 
   const bodyHtml = event?.content ? renderMarkdown(event.content) : "";
+  const wordCount = event?.content?.trim().split(/\s+/).length ?? 0;
+  const readingTime = Math.max(1, Math.ceil(wordCount / 230));
+  const bookmarked = event?.id ? isBookmarked(event.id) : false;
+
+  const handleReaction = async () => {
+    if (!event?.id || reacted) return;
+    setReacted(true);
+    try {
+      await publishReaction(event.id, event.pubkey);
+    } catch {
+      setReacted(false);
+    }
+  };
+
+  const handleBookmark = () => {
+    if (!event?.id) return;
+    if (bookmarked) removeBookmark(event.id);
+    else addBookmark(event.id);
+  };
 
   return (
     <div className="h-full flex flex-col">
@@ -104,6 +134,19 @@ export function ArticleView() {
           ← back
         </button>
         <div className="flex items-center gap-2">
+          {event && loggedIn && (
+            <button
+              onClick={handleBookmark}
+              className={`text-[11px] px-3 py-1 border transition-colors ${
+                bookmarked
+                  ? "border-accent/40 text-accent"
+                  : "border-border text-text-muted hover:text-accent hover:border-accent/40"
+              }`}
+              title={bookmarked ? "Remove bookmark" : "Bookmark article"}
+            >
+              {bookmarked ? "▪ saved" : "▫ save"}
+            </button>
+          )}
           {event && loggedIn && (
             <button
               onClick={() => setShowZap(true)}
@@ -170,8 +213,8 @@ export function ArticleView() {
               </p>
             )}
 
-            {/* Author + date */}
-            <AuthorRow pubkey={authorPubkey} publishedAt={publishedAt} />
+            {/* Author + date + reading time */}
+            <AuthorRow pubkey={authorPubkey} publishedAt={publishedAt} readingTime={readingTime} />
 
             {/* Tags */}
             {articleTags.length > 0 && (
@@ -195,14 +238,41 @@ export function ArticleView() {
               <button onClick={goBack} className="text-text-dim hover:text-text text-[11px] transition-colors">
                 ← back
               </button>
-              {loggedIn && (
-                <button
-                  onClick={() => setShowZap(true)}
-                  className="text-[11px] px-4 py-2 bg-zap hover:bg-zap/90 text-white transition-colors"
-                >
-                  ⚡ Zap {authorName}
-                </button>
-              )}
+              <div className="flex items-center gap-2">
+                {loggedIn && (
+                  <button
+                    onClick={handleReaction}
+                    disabled={reacted}
+                    className={`text-[11px] px-3 py-1.5 border transition-colors disabled:cursor-not-allowed ${
+                      reacted
+                        ? "border-accent/40 text-accent"
+                        : "border-border text-text-muted hover:text-accent hover:border-accent/40"
+                    }`}
+                  >
+                    {reacted ? "♥ liked" : "♡ like"}
+                  </button>
+                )}
+                {loggedIn && (
+                  <button
+                    onClick={handleBookmark}
+                    className={`text-[11px] px-3 py-1.5 border transition-colors ${
+                      bookmarked
+                        ? "border-accent/40 text-accent"
+                        : "border-border text-text-muted hover:text-accent hover:border-accent/40"
+                    }`}
+                  >
+                    {bookmarked ? "▪ saved" : "▫ save"}
+                  </button>
+                )}
+                {loggedIn && (
+                  <button
+                    onClick={() => setShowZap(true)}
+                    className="text-[11px] px-4 py-1.5 bg-zap hover:bg-zap/90 text-white transition-colors"
+                  >
+                    ⚡ Zap {authorName}
+                  </button>
+                )}
+              </div>
             </div>
           </article>
         )}

@@ -1,6 +1,6 @@
 # Maintainer: hoornet <hoornet@users.noreply.github.com>
 pkgname=wrystr
-pkgver=0.5.0
+pkgver=0.6.0
 pkgrel=1
 pkgdesc="Cross-platform Nostr desktop client with Lightning integration"
 arch=('x86_64')

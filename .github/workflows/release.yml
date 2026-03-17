@@ -66,7 +66,14 @@ jobs:
 
             > **Windows note:** The installer is not yet code-signed. Windows SmartScreen will show an "Unknown publisher" warning — click "More info → Run anyway" to install.
 
-            ### New in v0.5.0 — Sharing & Thread Indicators
+            ### New in v0.6.0 — Long-form Article Experience
+            - **Article discovery feed** — dedicated "Articles" view in sidebar with Latest and Following tabs; browse kind 30023 articles from all relays or just followed authors
+            - **Article cards** — title, summary snippet, author avatar+name, cover image thumbnail, reading time, tag chips
+            - **Article search** — search notes, articles, and people in parallel; articles tab in search results; supports full-text (NIP-50) and hashtag search for articles
+            - **Profile Articles tab** — Notes/Articles tab toggle on every profile; browse any author's long-form posts
+            - **Article reader polish** — estimated reading time, bookmark/save, like (reaction), zap — all in header and footer
+
+            ### Previous: v0.5.0 — Sharing & Thread Indicators
             - **Note sharing** — share button on every note copies a `nostr:nevent1…` URI to clipboard; works when logged out too
             - **Reply count** — notes now show reply count next to the reply button; updates optimistically when you reply
 

@@ -1,11 +1,12 @@
 import { useState, useRef, useEffect } from "react";
 import { NDKEvent } from "@nostr-dev-kit/ndk";
-import { searchNotes, searchUsers, getStoredRelayUrls, fetchFollowSuggestions, fetchProfile } from "../../lib/nostr";
+import { searchNotes, searchUsers, searchArticles, getStoredRelayUrls, fetchFollowSuggestions, fetchProfile } from "../../lib/nostr";
 import { getNip50Relays } from "../../lib/nostr/relayInfo";
 import { useUserStore } from "../../stores/user";
 import { useUIStore } from "../../stores/ui";
 import { shortenPubkey } from "../../lib/utils";
 import { NoteCard } from "../feed/NoteCard";
+import { ArticleCard } from "../article/ArticleCard";
 
 interface ParsedUser {
   pubkey: string;
@@ -124,9 +125,10 @@ export function SearchView() {
   const [query, setQuery] = useState(pendingSearch ?? "");
   const [noteResults, setNoteResults] = useState<NDKEvent[]>([]);
   const [userResults, setUserResults] = useState<ParsedUser[]>([]);
+  const [articleResults, setArticleResults] = useState<NDKEvent[]>([]);
   const [loading, setLoading] = useState(false);
   const [searched, setSearched] = useState(false);
-  const [activeTab, setActiveTab] = useState<"notes" | "people">("notes");
+  const [activeTab, setActiveTab] = useState<"notes" | "people" | "articles">("notes");
   const [nip50Relays, setNip50Relays] = useState<string[] | null>(null); // null = not checked yet
   const inputRef = useRef<HTMLInputElement>(null);
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
@@ -191,13 +193,15 @@ export function SearchView() {
     setSearched(false);
     try {
       const isTag = q.startsWith("#");
-      const [notes, userEvents] = await Promise.all([
+      const [notes, userEvents, articleEvents] = await Promise.all([
         searchNotes(q),
         isTag ? Promise.resolve([]) : searchUsers(q),
+        searchArticles(q),
       ]);
       setNoteResults(notes);
       setUserResults(userEvents.map(parseUserEvent));
-      setActiveTab(notes.length > 0 ? "notes" : "people");
+      setArticleResults(articleEvents);
+      setActiveTab(notes.length > 0 ? "notes" : articleEvents.length > 0 ? "articles" : "people");
     } finally {
       setLoading(false);
       setSearched(true);
@@ -216,7 +220,7 @@ export function SearchView() {
     handleSearch(hashQuery);
   };
 
-  const totalResults = noteResults.length + userResults.length;
+  const totalResults = noteResults.length + userResults.length + articleResults.length;
   const allRelays = getStoredRelayUrls();
   const nip50Count = nip50Relays?.length ?? null;
   const noNip50 = nip50Relays !== null && nip50Relays.length === 0;
@@ -249,8 +253,8 @@ export function SearchView() {
       {/* Tabs — shown once a search has been run (except for hashtag, which is notes-only) */}
       {searched && !isHashtag && (
         <div className="border-b border-border flex shrink-0">
-          {(["notes", "people"] as const).map((tab) => {
-            const count = tab === "notes" ? noteResults.length : userResults.length;
+          {(["notes", "articles", "people"] as const).map((tab) => {
+            const count = tab === "notes" ? noteResults.length : tab === "articles" ? articleResults.length : userResults.length;
             return (
               <button
                 key={tab}
@@ -384,6 +388,11 @@ export function SearchView() {
         {/* People results */}
         {activeTab === "people" && userResults.map((user) => (
           <UserRow key={user.pubkey} user={user} />
+        ))}
+
+        {/* Articles results */}
+        {activeTab === "articles" && articleResults.map((event) => (
+          <ArticleCard key={event.id} event={event} />
         ))}
 
         {/* Notes results */}

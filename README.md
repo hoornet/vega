@@ -52,7 +52,7 @@ sudo dnf install gstreamer1-plugins-base gstreamer1-plugins-good gstreamer1-liba
 - **Quote & Repost** (NIP-18) — one-click repost or quote with compose modal
 - **Bookmarks** (NIP-51 kind 10003) — save/unsave notes with one click; dedicated Bookmarks view in sidebar; synced to relays
 - **Mute users** (NIP-51) — muted list synced to relays, filtered from feed
-- Long-form article editor + reader (NIP-23) — write with title, tags, cover image, auto-save; click any `nostr:naddr1…` link to open in the in-app reader
+- **Long-form article experience** (NIP-23) — write articles with title, tags, cover image, auto-save; **dedicated article feed** with Latest/Following tabs; **article search** by keyword or hashtag; **article reader** with reading time, bookmark, like, and zap; **profile Articles tab** to browse any author's long-form posts
 - **Quoted note inline preview** — `nostr:note1…` / `nostr:nevent1…` renders as an inline card
 - Note rendering: images, video, mentions, hashtags, njump.me link interception
 - **Direct Messages** (NIP-04) — conversation list, thread view, per-message decryption; unread badge in sidebar
@@ -72,7 +72,7 @@ sudo dnf install gstreamer1-plugins-base gstreamer1-plugins-good gstreamer1-liba
 
 **Discovery**
 - **Discover people** — "follows of follows" suggestions on the Search page with mutual follow counts and one-click follow
-- Search: NIP-50 full-text, `#hashtag`, people search with inline follow
+- Search: NIP-50 full-text, `#hashtag`, people search with inline follow, **article search** (kind 30023)
 
 **Performance & UX**
 - **Auto-updater** — "Update & restart" banner when a new version is available
@@ -109,10 +109,10 @@ npm run tauri build     # production binary
 See [ROADMAP.md](./ROADMAP.md) for the full prioritised next steps.
 
 Up next:
-- NIP-17 DMs (gift wrap) — proper sender/recipient privacy, replacing NIP-04
 - Web of Trust scoring
-- Long-form content discovery (trending articles, reading history)
 - NIP-46 remote signer support
+- Reading history / reading list
+- Custom feeds / lists
 
 ## Support
 

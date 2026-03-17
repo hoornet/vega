@@ -8,6 +8,7 @@ import { ProfileView } from "./components/profile/ProfileView";
 import { ThreadView } from "./components/thread/ThreadView";
 import { ArticleEditor } from "./components/article/ArticleEditor";
 import { ArticleView } from "./components/article/ArticleView";
+import { ArticleFeed } from "./components/article/ArticleFeed";
 import { OnboardingFlow } from "./components/onboarding/OnboardingFlow";
 import { AboutView } from "./components/shared/AboutView";
 import { ZapHistoryView } from "./components/zap/ZapHistoryView";
@@ -70,6 +71,7 @@ function App() {
         {currentView === "settings" && <SettingsView />}
         {currentView === "profile" && <ProfileView />}
         {currentView === "thread" && <ThreadView />}
+        {currentView === "articles" && <ArticleFeed />}
         {currentView === "article-editor" && <ArticleEditor />}
         {currentView === "article" && <ArticleView />}
         {currentView === "about" && <AboutView />}
