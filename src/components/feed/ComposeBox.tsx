@@ -1,11 +1,11 @@
 import { useState, useRef, useEffect } from "react";
 import { publishNote } from "../../lib/nostr";
-import { uploadImage } from "../../lib/upload";
+import { uploadImage, uploadBytes } from "../../lib/upload";
 import { useUserStore } from "../../stores/user";
 import { useFeedStore } from "../../stores/feed";
 import { shortenPubkey } from "../../lib/utils";
 import { open } from "@tauri-apps/plugin-dialog";
-import { invoke } from "@tauri-apps/api/core";
+import { readFile } from "@tauri-apps/plugin-fs";
 
 const COMPOSE_DRAFT_KEY = "wrystr_compose_draft";
 
@@ -70,12 +70,21 @@ export function ComposeBox({ onPublished, onNoteInjected }: { onPublished?: () =
     }
   };
 
-  // Upload a file by path using the Rust backend (bypasses WebView FormData issues)
+  // Upload a file by path using TS upload with NIP-98 auth
   const handleNativeUpload = async (filePath: string) => {
     setUploading(true);
     setError(null);
     try {
-      const url = await invoke<string>("upload_file", { path: filePath });
+      const bytes = await readFile(filePath);
+      const fileName = filePath.split(/[\\/]/).pop() || "file";
+      const ext = fileName.split(".").pop()?.toLowerCase() || "";
+      const mimeMap: Record<string, string> = {
+        jpg: "image/jpeg", jpeg: "image/jpeg", png: "image/png", gif: "image/gif",
+        webp: "image/webp", svg: "image/svg+xml", mp4: "video/mp4", webm: "video/webm",
+        mov: "video/quicktime", ogg: "video/ogg", m4v: "video/mp4",
+      };
+      const mimeType = mimeMap[ext] || "application/octet-stream";
+      const url = await uploadBytes(new Uint8Array(bytes), fileName, mimeType);
       insertUrl(url);
     } catch (err) {
       setError(`Upload failed: ${err}`);
@@ -217,7 +226,12 @@ export function ComposeBox({ onPublished, onNoteInjected }: { onPublished?: () =
 
           <div className="flex items-center justify-between mt-1">
             <span className={`text-[10px] ${overLimit ? "text-danger" : "text-text-dim"}`}>
-              {uploading ? "uploading image…" : charCount > 0 ? `${charCount}/280` : ""}
+              {uploading ? (
+                <span className="inline-flex items-center gap-1">
+                  <span className="w-3 h-3 border border-accent border-t-transparent rounded-full animate-spin" />
+                  uploading…
+                </span>
+              ) : charCount > 0 ? `${charCount}/280` : ""}
               {!uploading && charCount > 0 && localStorage.getItem(COMPOSE_DRAFT_KEY) && (
                 <span className="ml-1 text-text-dim">(draft)</span>
               )}

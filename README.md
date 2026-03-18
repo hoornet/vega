@@ -44,15 +44,15 @@ sudo dnf install gstreamer1-plugins-base gstreamer1-plugins-good gstreamer1-liba
 - Global and following feeds with live relay connection
 - **Language/script feed filter** — filter by writing system (Latin, CJK, Cyrillic, Arabic, Korean, etc.) via dropdown in feed header; uses Unicode detection + NIP-32 language tags
 - Compose notes, inline replies, full thread view
-- **Image paste in compose** — paste an image from clipboard → auto-uploads and inserts the URL
+- **Image upload with NIP-98 auth** — paste from clipboard, drag-drop, or use the file picker; uploads authenticated via NIP-98 HTTP Auth with fallback services
 - **Image lightbox** — click any image to view full-screen; Escape to close, arrow keys to navigate multi-image posts
 - **Feed reply context** — replies show "↩ replying to @name"; click to jump to the parent thread
 - Reactions (NIP-25) with live network counts
 - Follow / unfollow (NIP-02) with contact list publishing
 - **Quote & Repost** (NIP-18) — one-click repost or quote with compose modal
-- **Bookmarks** (NIP-51 kind 10003) — save/unsave notes with one click; dedicated Bookmarks view in sidebar; synced to relays
+- **Bookmarks** (NIP-51 kind 10003) — save/unsave notes and articles; **Notes/Articles tabs** in bookmark view; article bookmarks use `a` tags for parameterized replaceable events; synced to relays
 - **Mute users** (NIP-51) — muted list synced to relays, filtered from feed
-- **Long-form article experience** (NIP-23) — write articles with title, tags, cover image, auto-save; **dedicated article feed** with Latest/Following tabs; **article search** by keyword or hashtag; **article reader** with reading time, bookmark, like, and zap; **profile Articles tab** to browse any author's long-form posts
+- **Long-form article experience** (NIP-23) — **markdown toolbar** (bold, italic, heading, link, image, quote, code, list) with keyboard shortcuts (Ctrl+B/I/K); **multi-draft management** with draft list, resume, delete; **cover image file picker**; dedicated article feed with Latest/Following tabs; article search by keyword or hashtag; article reader with reading time, bookmark, like, and zap; profile Articles tab
 - **Quoted note inline preview** — `nostr:note1…` / `nostr:nevent1…` renders as an inline card
 - Note rendering: images, video, mentions, hashtags, njump.me link interception
 - **Direct Messages** (NIP-04) — conversation list, thread view, per-message decryption; unread badge in sidebar
@@ -109,9 +109,9 @@ npm run tauri build     # production binary
 See [ROADMAP.md](./ROADMAP.md) for the full prioritised next steps.
 
 Up next:
+- Relay health checker
 - Web of Trust scoring
 - NIP-46 remote signer support
-- Reading history / reading list
 - Custom feeds / lists
 
 ## Support

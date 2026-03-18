@@ -1,6 +1,6 @@
 [package]
 name = "wrystr"
-version = "0.6.1"
+version = "0.7.0"
 description = "Cross-platform Nostr desktop client with Lightning integration"
 authors = ["hoornet"]
 edition = "2021"
@@ -29,6 +29,4 @@ rusqlite = { version = "0.32", features = ["bundled"] }
 tauri-plugin-http = "2.5.7"
 tauri-plugin-dialog = "2.6.0"
 tauri-plugin-fs = "2.4.5"
-reqwest = { version = "0.13.2", default-features = false, features = ["multipart", "rustls"] }
-mime_guess = "2.0.5"
 

@@ -2,6 +2,7 @@ import { useUIStore } from "../../stores/ui";
 import { useFeedStore } from "../../stores/feed";
 import { useUserStore } from "../../stores/user";
 import { useNotificationsStore } from "../../stores/notifications";
+import { useDraftStore } from "../../stores/drafts";
 import { getNDK } from "../../lib/nostr";
 import { AccountSwitcher } from "./AccountSwitcher";
 import pkg from "../../../package.json";
@@ -24,6 +25,7 @@ export function Sidebar() {
   const { connected } = useFeedStore();
   const { loggedIn } = useUserStore();
   const { unreadCount: notifUnread, dmUnreadCount } = useNotificationsStore();
+  const draftCount = useDraftStore((s) => s.drafts.length);
 
   const c = sidebarCollapsed;
 
@@ -75,8 +77,16 @@ export function Sidebar() {
                 : "text-text-muted hover:text-text hover:bg-bg-hover"
             }`}
           >
-            <span className="w-4 text-center text-[14px]">✦</span>
+            <span className="relative w-4 text-center text-[14px]">
+              ✦
+              {c && draftCount > 0 && (
+                <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full bg-accent" />
+              )}
+            </span>
             {!c && <span>write article</span>}
+            {!c && draftCount > 0 && (
+              <span className="ml-auto text-[10px] bg-accent/20 text-accent px-1 rounded-sm">{draftCount}</span>
+            )}
           </button>
         )}
 

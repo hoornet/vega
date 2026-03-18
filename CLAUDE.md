@@ -45,7 +45,7 @@ CI triggers on the tag and builds all three platforms (Ubuntu, Windows, macOS AR
 **Frontend** (`src/`): React 19 + TypeScript + Vite + Tailwind CSS 4
 
 - `src/App.tsx` — root component; shows `OnboardingFlow` for new users, then view routing via UI store
-- `src/stores/` — Zustand stores per domain: `feed.ts`, `user.ts`, `ui.ts`, `lightning.ts`
+- `src/stores/` — Zustand stores per domain: `feed.ts`, `user.ts`, `ui.ts`, `lightning.ts`, `drafts.ts`
 - `src/lib/nostr/` — NDK wrapper (`client.ts` + `index.ts`); all Nostr calls go through here
 - `src/lib/lightning/` — NWC client (`nwc.ts`); Lightning payment logic
 - `src/hooks/` — `useProfile.ts`, `useReactionCount.ts`
@@ -53,7 +53,7 @@ CI triggers on the tag and builds all three platforms (Ubuntu, Windows, macOS AR
 - `src/components/profile/` — ProfileView (own + others, edit form)
 - `src/components/thread/` — ThreadView
 - `src/components/search/` — SearchView (NIP-50, hashtag, people, articles)
-- `src/components/article/` — ArticleEditor, ArticleView, ArticleFeed, ArticleCard (NIP-23)
+- `src/components/article/` — ArticleEditor, ArticleView, ArticleFeed, ArticleCard, MarkdownToolbar (NIP-23)
 - `src/components/bookmark/` — BookmarkView
 - `src/components/zap/` — ZapModal
 - `src/components/onboarding/` — OnboardingFlow (welcome, create key, backup, login)
@@ -66,6 +66,7 @@ CI triggers on the tag and builds all three platforms (Ubuntu, Windows, macOS AR
 - Rust commands must return `Result<T, String>`
 - OS keychain via `keyring` crate — `store_nsec`, `load_nsec`, `delete_nsec` commands
 - SQLite note/profile cache via `rusqlite`
+- File uploads handled entirely in TypeScript with NIP-98 auth (Rust upload_file removed in v0.7.0)
 - Future: lightning node integration
 
 ## Key Conventions (from AGENTS.md)
@@ -82,7 +83,7 @@ CI triggers on the tag and builds all three platforms (Ubuntu, Windows, macOS AR
 
 - **P1 (core):** NIP-01, 02, 03, 10, 11, 19, 21, 25, 27, 50
 - **P2 (monetization):** NIP-47 (NWC/Lightning), NIP-57 (zaps), NIP-65 (relay lists)
-- **P3 (advanced):** NIP-04/44 (DMs), NIP-23 (articles), NIP-96 (file storage)
+- **P3 (advanced):** NIP-04/44 (DMs), NIP-23 (articles), NIP-96 (file storage), NIP-98 (HTTP Auth — implemented for uploads)
 
 ## Current State
 
@@ -92,11 +93,12 @@ CI triggers on the tag and builds all three platforms (Ubuntu, Windows, macOS AR
 - Reactions (NIP-25) with live network counts
 - Follow/unfollow (NIP-02), contact list publishing
 - Profile view + edit (kind 0) with Notes/Articles tab toggle
-- Long-form article editor (NIP-23) with draft auto-save
+- Long-form article editor (NIP-23) with **markdown toolbar** (bold, italic, heading, link, image, quote, code, list), **keyboard shortcuts** (Ctrl+B/I/K), **multi-draft management**, **cover image file picker**
 - **Article discovery feed** — dedicated "Articles" view in sidebar; Latest/Following tabs
 - **Article reader** — markdown rendering, reading time, bookmark, like, zap
 - **Article search** — NIP-50 + hashtag search for kind 30023 articles
 - **Article cards** — reusable component with title, summary, author, cover thumbnail, reading time, tags
+- **NIP-98 HTTP Auth** for image uploads with fallback services (nostr.build, void.cat, nostrimg.com)
 - Zaps: NWC wallet connect (NIP-47) + NIP-57 via NDKZapper
 - Search: NIP-50 full-text, hashtag (#t filter), people, articles
 - Settings: relay add/remove (persisted to localStorage), NWC URI, npub copy
@@ -106,7 +108,7 @@ CI triggers on the tag and builds all three platforms (Ubuntu, Windows, macOS AR
 - Direct messages (NIP-04 + NIP-17 gift wrap)
 - NIP-65 outbox model
 - Image lightbox (click to expand, arrow key navigation)
-- Bookmark list (NIP-51 kind 10003) with sidebar nav
+- Bookmark list (NIP-51 kind 10003) with sidebar nav, **Notes/Articles tabs**, article `a` tag support
 - Follow suggestions / discovery (follows-of-follows algorithm)
 - Language/script feed filter (Unicode script detection + NIP-32 tags)
 - Skeleton loading states, view fade transitions

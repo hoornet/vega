@@ -616,6 +616,52 @@ export async function publishBookmarkList(eventIds: string[]): Promise<void> {
   await event.publish();
 }
 
+export async function fetchBookmarkListFull(pubkey: string): Promise<{ eventIds: string[]; articleAddrs: string[] }> {
+  const instance = getNDK();
+  const filter: NDKFilter = { kinds: [10003 as NDKKind], authors: [pubkey], limit: 1 };
+  const events = await instance.fetchEvents(filter, {
+    cacheUsage: NDKSubscriptionCacheUsage.ONLY_RELAY,
+  });
+  if (events.size === 0) return { eventIds: [], articleAddrs: [] };
+  const event = Array.from(events).sort((a, b) => (b.created_at ?? 0) - (a.created_at ?? 0))[0];
+  const eventIds = event.tags.filter((t) => t[0] === "e" && t[1]).map((t) => t[1]);
+  const articleAddrs = event.tags.filter((t) => t[0] === "a" && t[1]).map((t) => t[1]);
+  return { eventIds, articleAddrs };
+}
+
+export async function publishBookmarkListFull(eventIds: string[], articleAddrs: string[]): Promise<void> {
+  const instance = getNDK();
+  if (!instance.signer) return;
+  const event = new NDKEvent(instance);
+  event.kind = 10003 as NDKKind;
+  event.content = "";
+  event.tags = [
+    ...eventIds.map((id) => ["e", id]),
+    ...articleAddrs.map((addr) => ["a", addr]),
+  ];
+  await event.publish();
+}
+
+export async function fetchByAddr(addr: string): Promise<NDKEvent | null> {
+  const instance = getNDK();
+  // addr format: "30023:<pubkey>:<d-tag>"
+  const parts = addr.split(":");
+  if (parts.length < 3) return null;
+  const kind = parseInt(parts[0]);
+  const pubkey = parts[1];
+  const dTag = parts.slice(2).join(":");
+  const filter: NDKFilter = {
+    kinds: [kind as NDKKind],
+    authors: [pubkey],
+    "#d": [dTag],
+    limit: 1,
+  };
+  const events = await instance.fetchEvents(filter, {
+    cacheUsage: NDKSubscriptionCacheUsage.ONLY_RELAY,
+  });
+  return Array.from(events)[0] ?? null;
+}
+
 export async function fetchMuteList(pubkey: string): Promise<string[]> {
   const instance = getNDK();
   const filter: NDKFilter = { kinds: [10000 as NDKKind], authors: [pubkey], limit: 1 };

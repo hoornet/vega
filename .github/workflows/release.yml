@@ -69,12 +69,18 @@ jobs:
 
             > **Windows note:** The installer is not yet code-signed. Windows SmartScreen will show an "Unknown publisher" warning — click "More info → Run anyway" to install.
 
-            ### New in v0.6.1 — Media Upload & Feed Polish
-            - **Native file picker** — "+" button in compose box opens OS file browser to attach images/videos; uploaded via Rust backend (bypasses WebView limitations)
-            - **File path paste** — pasting a local file path (e.g. `/home/user/photo.jpg`) auto-reads and uploads the file instead of inserting the path as text
-            - **Mention name resolution** — @mentions now show profile display names instead of raw bech32 strings
-            - **Connection stability** — relay status indicator uses a 15-second grace period before showing offline; auto-reconnects when all relays drop
-            - **Upload reliability** — image uploads use correct nostr.build v2 API field name; Rust-side multipart upload for native file picks
+            ### New in v0.7.0 — Writer Tools & Upload Fix
+            - **NIP-98 HTTP Auth uploads** — image uploads now authenticate via signed kind 27235 events; fallback to void.cat and nostrimg.com if nostr.build fails
+            - **Markdown toolbar** — bold, italic, heading, link, image, quote, code, list buttons above the article editor; keyboard shortcuts Ctrl+B/I/K
+            - **Multi-draft management** — create multiple article drafts; draft list with word count, timestamps, delete; auto-migrates old single-draft
+            - **Cover image file picker** — upload button next to URL input in article meta panel
+            - **Article bookmarks** — NIP-51 `a` tag support; Notes/Articles tab toggle in bookmark view
+            - **Upload moved to TypeScript** — removed Rust upload command; dropped `reqwest`/`mime_guess` deps; lighter binary
+            - **Upload spinner** — animated spinner during image uploads in compose and editor
+            - **Draft count badge** — sidebar shows how many drafts you have
+
+            ### Previous: v0.6.1 — Media Upload & Feed Polish
+            - Native file picker, file path paste upload, mention name resolution, connection stability
 
             ### Previous: v0.6.0 — Long-form Article Experience
             - **Article discovery feed** — dedicated "Articles" view in sidebar with Latest and Following tabs; browse kind 30023 articles from all relays or just followed authors

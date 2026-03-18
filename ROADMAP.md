@@ -66,13 +66,17 @@ Bugs found during testing are fixed before Phase N+1 starts. A release is cut be
 - Could power: feed ranking, spam filtering, people search, follow suggestions
 - Needs dedicated design session
 
-### Long-form features (NIP-23 depth) — partially shipped in v0.6.0
+### Long-form features (NIP-23 depth) — mostly shipped (v0.6.0 + v0.7.0)
 - ✓ Discovery: dedicated article feed with Latest/Following tabs
 - ✓ Article search (NIP-50 + hashtag for kind 30023)
 - ✓ Profile Articles tab — browse any author's long-form posts
 - ✓ Reading time estimate, bookmark/like/zap on article reader
-- Remaining: reading history, table of contents, trending articles
-- Editor improvements: markdown toolbar, image upload, tag suggestions
+- ✓ Markdown toolbar with keyboard shortcuts (Ctrl+B/I/K)
+- ✓ NIP-98 image upload with fallback services
+- ✓ Multi-draft management (create, resume, delete)
+- ✓ Cover image file picker upload
+- ✓ Article bookmarks (NIP-51 `a` tags) with Notes/Articles tabs
+- Remaining: reading history, table of contents, trending articles, tag suggestions
 - Cross-posting to other platforms
 
 ### NIP-46 remote signer
@@ -87,6 +91,18 @@ Bugs found during testing are fixed before Phase N+1 starts. A release is cut be
 ---
 
 ## What's already shipped
+
+### v0.7.0 — Writer Tools & Upload Fix
+- **NIP-98 HTTP Auth uploads** — image uploads now authenticate via signed kind 27235 events; fallback to void.cat and nostrimg.com if nostr.build fails
+- **Markdown toolbar** — bold, italic, heading, link, image, quote, code, list buttons above the article editor textarea
+- **Editor keyboard shortcuts** — Ctrl+B bold, Ctrl+I italic, Ctrl+K link
+- **Multi-draft management** — create multiple article drafts; draft list view with word count, timestamps, delete; auto-migrates old single-draft localStorage
+- **Cover image file picker** — upload button next to URL input in article meta panel
+- **Article bookmarks** — bookmarks now support NIP-51 `a` tags for parameterized replaceable events (kind 30023 articles); Notes/Articles tab toggle in BookmarkView
+- **Upload moved to TypeScript** — removed Rust `upload_file` command; all uploads go through TS with NIP-98 auth; dropped `reqwest` and `mime_guess` Rust dependencies
+- **Upload spinner** — animated spinner in compose box and article editor during image upload
+- **Draft count badge** — sidebar "write article" button shows draft count
+- **Empty states** — draft list, bookmark articles tab
 
 ### v0.6.0 — Long-form article experience
 - **Article discovery feed** — dedicated "Articles" view in sidebar with Latest and Following tabs; browse kind 30023 articles from all relays or just followed authors

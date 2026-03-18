@@ -37,51 +37,6 @@ fn delete_nsec(pubkey: String) -> Result<(), String> {
     }
 }
 
-// ── File upload ─────────────────────────────────────────────────────────────
-
-#[tauri::command]
-async fn upload_file(path: String) -> Result<String, String> {
-    let file_bytes = std::fs::read(&path).map_err(|e| format!("Failed to read file: {e}"))?;
-    let file_name = std::path::Path::new(&path)
-        .file_name()
-        .and_then(|n| n.to_str())
-        .unwrap_or("file")
-        .to_string();
-    let mime = mime_guess::from_path(&path)
-        .first_or_octet_stream()
-        .to_string();
-
-    let part = reqwest::multipart::Part::bytes(file_bytes)
-        .file_name(file_name)
-        .mime_str(&mime)
-        .map_err(|e| format!("MIME error: {e}"))?;
-    let form = reqwest::multipart::Form::new().part("file", part);
-
-    let client = reqwest::Client::new();
-    let resp = client
-        .post("https://nostr.build/api/v2/upload/files")
-        .multipart(form)
-        .send()
-        .await
-        .map_err(|e| format!("Upload request failed: {e}"))?;
-
-    if !resp.status().is_success() {
-        return Err(format!("Upload failed (HTTP {})", resp.status()));
-    }
-
-    let data: serde_json::Value = resp
-        .json()
-        .await
-        .map_err(|e| format!("Failed to parse response: {e}"))?;
-
-    if data["status"] == "success" {
-        if let Some(url) = data["data"][0]["url"].as_str() {
-            return Ok(url.to_string());
-        }
-    }
-    Err(data["message"].as_str().unwrap_or("Upload failed — no URL returned").to_string())
-}
-
 // ── SQLite note/profile cache ────────────────────────────────────────────────
 
 struct DbState(Mutex<Connection>);
@@ -250,7 +205,6 @@ pub fn run() {
             store_nsec,
             load_nsec,
             delete_nsec,
-            upload_file,
             db_save_notes,
             db_load_feed,
             db_save_profile,
