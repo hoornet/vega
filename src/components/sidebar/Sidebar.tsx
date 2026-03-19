@@ -3,6 +3,7 @@ import { useFeedStore } from "../../stores/feed";
 import { useUserStore } from "../../stores/user";
 import { useNotificationsStore } from "../../stores/notifications";
 import { useDraftStore } from "../../stores/drafts";
+import { useBookmarkStore } from "../../stores/bookmark";
 import { getNDK } from "../../lib/nostr";
 import { AccountSwitcher } from "./AccountSwitcher";
 import pkg from "../../../package.json";
@@ -26,6 +27,7 @@ export function Sidebar() {
   const { loggedIn } = useUserStore();
   const { unreadCount: notifUnread, dmUnreadCount } = useNotificationsStore();
   const draftCount = useDraftStore((s) => s.drafts.length);
+  const bookmarkUnread = useBookmarkStore((s) => s.unreadArticleCount());
 
   const c = sidebarCollapsed;
 
@@ -91,7 +93,7 @@ export function Sidebar() {
         )}
 
         {NAV_ITEMS.map((item) => {
-          const badge = item.id === "dm" ? dmUnreadCount : item.id === "notifications" ? notifUnread : 0;
+          const badge = item.id === "dm" ? dmUnreadCount : item.id === "notifications" ? notifUnread : item.id === "bookmarks" ? bookmarkUnread : 0;
           return (
             <button
               key={item.id}

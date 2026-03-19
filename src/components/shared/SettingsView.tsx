@@ -1,6 +1,9 @@
 import { useState } from "react";
+import { save } from "@tauri-apps/plugin-dialog";
+import { writeTextFile } from "@tauri-apps/plugin-fs";
 import { useUserStore } from "../../stores/user";
 import { useMuteStore } from "../../stores/mute";
+import { useBookmarkStore } from "../../stores/bookmark";
 import { getNDK, getStoredRelayUrls, addRelay, removeRelay, publishRelayList } from "../../lib/nostr";
 import { useProfile } from "../../hooks/useProfile";
 import { NWCWizard } from "./NWCWizard";
@@ -198,6 +201,68 @@ function WalletSection() {
   );
 }
 
+function ExportSection() {
+  const { follows } = useUserStore();
+  const { bookmarkedIds, bookmarkedArticleAddrs } = useBookmarkStore();
+  const [status, setStatus] = useState<"idle" | "saving" | "done" | "error">("idle");
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  const handleExport = async () => {
+    setStatus("saving");
+    setErrorMsg(null);
+    try {
+      const filePath = await save({
+        defaultPath: `wrystr-export-${new Date().toISOString().slice(0, 10)}.json`,
+        filters: [{ name: "JSON", extensions: ["json"] }],
+      });
+      if (!filePath) {
+        setStatus("idle");
+        return;
+      }
+
+      const exportData = {
+        version: 1,
+        exportedAt: new Date().toISOString(),
+        bookmarks: {
+          noteIds: bookmarkedIds,
+          articleAddrs: bookmarkedArticleAddrs,
+        },
+        follows,
+        relays: getStoredRelayUrls(),
+      };
+
+      await writeTextFile(filePath, JSON.stringify(exportData, null, 2));
+      setStatus("done");
+      setTimeout(() => setStatus("idle"), 3000);
+    } catch (err) {
+      setErrorMsg(String(err));
+      setStatus("error");
+    }
+  };
+
+  return (
+    <section>
+      <h2 className="text-text text-[11px] font-medium uppercase tracking-widest mb-2 text-text-dim">Export Data</h2>
+      <p className="text-text-dim text-[11px] mb-3">
+        Save your bookmarks, follows, and relay list to a JSON file. Your keys, your data.
+      </p>
+      <div className="flex items-center gap-3">
+        <button
+          onClick={handleExport}
+          disabled={status === "saving"}
+          className="px-3 py-1.5 text-[11px] border border-border text-text-muted hover:text-accent hover:border-accent/40 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+        >
+          {status === "saving" ? "exporting…" : status === "done" ? "exported ✓" : "export data"}
+        </button>
+        <span className="text-text-dim text-[10px]">
+          {bookmarkedIds.length} notes · {bookmarkedArticleAddrs.length} articles · {follows.length} follows · {getStoredRelayUrls().length} relays
+        </span>
+      </div>
+      {errorMsg && <p className="text-danger text-[10px] mt-1">{errorMsg}</p>}
+    </section>
+  );
+}
+
 export function SettingsView() {
   return (
     <div className="h-full flex flex-col">
@@ -208,6 +273,7 @@ export function SettingsView() {
       <div className="flex-1 overflow-y-auto p-4 space-y-8">
         <WalletSection />
         <RelaySection />
+        <ExportSection />
         <IdentitySection />
         <MuteSection />
       </div>

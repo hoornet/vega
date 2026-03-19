@@ -9,8 +9,32 @@ import { SkeletonNoteList } from "../shared/Skeleton";
 
 type BookmarkTab = "notes" | "articles";
 
+function ArticleCardWithReadStatus({ event }: { event: NDKEvent }) {
+  const { isArticleRead, markArticleRead, markArticleUnread } = useBookmarkStore();
+  const addr = event.tags.find((t) => t[0] === "d")?.[1];
+  const fullAddr = addr ? `30023:${event.pubkey}:${addr}` : null;
+  const isRead = fullAddr ? isArticleRead(fullAddr) : false;
+
+  return (
+    <div className="relative group">
+      {!isRead && fullAddr && (
+        <div className="absolute left-1 top-1/2 -translate-y-1/2 w-2 h-2 rounded-full bg-accent z-10" title="Unread" />
+      )}
+      <ArticleCard key={event.id} event={event} />
+      {fullAddr && (
+        <button
+          onClick={() => isRead ? markArticleUnread(fullAddr) : markArticleRead(fullAddr)}
+          className="absolute right-3 top-3 text-[10px] text-text-dim hover:text-accent opacity-0 group-hover:opacity-100 transition-opacity z-10"
+        >
+          {isRead ? "mark unread" : "mark read"}
+        </button>
+      )}
+    </div>
+  );
+}
+
 export function BookmarkView() {
-  const { bookmarkedIds, bookmarkedArticleAddrs, fetchBookmarks } = useBookmarkStore();
+  const { bookmarkedIds, bookmarkedArticleAddrs, fetchBookmarks, unreadArticleCount } = useBookmarkStore();
   const { pubkey } = useUserStore();
   const [tab, setTab] = useState<BookmarkTab>("notes");
   const [notes, setNotes] = useState<NDKEvent[]>([]);
@@ -89,9 +113,12 @@ export function BookmarkView() {
               </button>
               <button
                 onClick={() => setTab("articles")}
-                className={`px-3 py-0.5 transition-colors ${tab === "articles" ? "bg-accent/10 text-accent" : "text-text-muted hover:text-text"}`}
+                className={`px-3 py-0.5 transition-colors relative ${tab === "articles" ? "bg-accent/10 text-accent" : "text-text-muted hover:text-text"}`}
               >
                 Articles
+                {unreadArticleCount() > 0 && (
+                  <span className="ml-1 text-[9px] bg-accent/20 text-accent px-1 rounded-sm">{unreadArticleCount()}</span>
+                )}
               </button>
             </div>
           </div>
@@ -123,7 +150,7 @@ export function BookmarkView() {
         ))}
 
         {tab === "articles" && articles.map((event) => (
-          <ArticleCard key={event.id} event={event} />
+          <ArticleCardWithReadStatus key={event.id} event={event} />
         ))}
       </div>
     </div>

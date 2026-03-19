@@ -69,7 +69,14 @@ jobs:
 
             > **Windows note:** The installer is not yet code-signed. Windows SmartScreen will show an "Unknown publisher" warning — click "More info → Run anyway" to install.
 
-            ### New in v0.7.1 — Relay Health Checker & Advanced Search
+            ### New in v0.8.0 — Polish, Portability & Discovery
+            - **Profile banner polish** — hero-height banner, click to open in lightbox, avatar overlaps banner edge Telegram-style, loading shimmer
+            - **Export Data** — export your bookmarks, follows, and relay list as JSON via native save dialog; your keys, your data
+            - **Relay recommendations** — "Discover relays" analyzes your follows' NIP-65 relay lists and suggests popular relays you're missing, with one-click add
+            - **Reading list tracking** — bookmarked articles show read/unread status with dot indicators; auto-marks read when opened; unread count badge in sidebar; hover to toggle read/unread
+            - **Trending hashtags** — search idle screen shows popular hashtags from the last 24 hours as clickable pills; click to search
+
+            ### Previous: v0.7.1 — Relay Health Checker & Advanced Search
             - **Relay health checker** — NIP-11 info fetch + WebSocket latency probing; relays classified as online/slow/offline; expandable cards show software, description, supported NIPs; "Remove dead" strips offline relays; "Republish list" publishes cleaned NIP-65 relay list
             - **Advanced search** — ants-inspired query parser with modifiers: `by:author`, `mentions:npub`, `kind:N`, `is:article`, `has:image`, `since:2026-01-01`, `until:2026-12-31`, `#hashtag`, `"exact phrase"`, boolean `OR`; NIP-05 resolution for author lookups; search help panel
 

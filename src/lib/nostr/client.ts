@@ -799,6 +799,73 @@ export async function resolveNip05(identifier: string): Promise<string | null> {
   }
 }
 
+// ── Relay Recommendations ─────────────────────────────────────────────────────
+
+export async function fetchRelayRecommendations(
+  follows: string[],
+  ownRelays: string[],
+  sampleSize = 30
+): Promise<{ url: string; count: number }[]> {
+  if (follows.length === 0) return [];
+  // Sample random follows to avoid hammering relays
+  const shuffled = [...follows].sort(() => Math.random() - 0.5);
+  const sample = shuffled.slice(0, sampleSize);
+
+  const results = await Promise.allSettled(
+    sample.map((pk) => fetchUserRelayList(pk))
+  );
+
+  const ownSet = new Set(ownRelays.map((u) => u.replace(/\/$/, "")));
+  const tally = new Map<string, number>();
+
+  for (const result of results) {
+    if (result.status !== "fulfilled") continue;
+    const allUrls = Array.from(new Set([...result.value.read, ...result.value.write]));
+    for (const url of allUrls) {
+      const normalized = url.replace(/\/$/, "");
+      if (ownSet.has(normalized)) continue;
+      tally.set(normalized, (tally.get(normalized) ?? 0) + 1);
+    }
+  }
+
+  return Array.from(tally.entries())
+    .map(([url, count]) => ({ url, count }))
+    .filter((r) => r.count >= 2)
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 8);
+}
+
+// ── Trending Hashtags ─────────────────────────────────────────────────────────
+
+export async function fetchTrendingHashtags(limit = 15): Promise<{ tag: string; count: number }[]> {
+  const instance = getNDK();
+  const since = Math.floor(Date.now() / 1000) - 24 * 60 * 60;
+  const filter: NDKFilter = {
+    kinds: [NDKKind.Text],
+    since,
+    limit: 500,
+  };
+  const events = await instance.fetchEvents(filter, {
+    cacheUsage: NDKSubscriptionCacheUsage.ONLY_RELAY,
+  });
+
+  const counts = new Map<string, number>();
+  for (const event of events) {
+    for (const tag of event.tags) {
+      if (tag[0] !== "t" || !tag[1]) continue;
+      const normalized = tag[1].toLowerCase().trim();
+      if (normalized.length === 0) continue;
+      counts.set(normalized, (counts.get(normalized) ?? 0) + 1);
+    }
+  }
+
+  return Array.from(counts.entries())
+    .filter(([, count]) => count >= 2)
+    .map(([tag, count]) => ({ tag, count }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, limit);
+}
+
 // ── Advanced Search ───────────────────────────────────────────────────────────
 
 export interface AdvancedSearchResults {

@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { NDKEvent } from "@nostr-dev-kit/ndk";
-import { getStoredRelayUrls, fetchFollowSuggestions, fetchProfile, advancedSearch } from "../../lib/nostr";
+import { getStoredRelayUrls, fetchFollowSuggestions, fetchProfile, advancedSearch, fetchTrendingHashtags } from "../../lib/nostr";
 import { parseSearchQuery, describeSearch } from "../../lib/search";
 import { getNip50Relays } from "../../lib/nostr/relayInfo";
 import { useUserStore } from "../../stores/user";
@@ -137,12 +137,25 @@ export function SearchView() {
   const [suggestionsLoaded, setSuggestionsLoaded] = useState(false);
 
   const [searchHint, setSearchHint] = useState<string | null>(null);
+  const [trending, setTrending] = useState<{ tag: string; count: number }[]>([]);
+  const [trendingLoading, setTrendingLoading] = useState(false);
+  const [trendingLoaded, setTrendingLoaded] = useState(false);
   const isHashtag = query.trim().startsWith("#") && !query.includes(":");
 
   // Check relay NIP-50 support once on mount (background, non-blocking)
   useEffect(() => {
     const urls = getStoredRelayUrls();
     getNip50Relays(urls).then(setNip50Relays);
+  }, []);
+
+  // Load trending hashtags on mount
+  useEffect(() => {
+    if (trendingLoaded) return;
+    setTrendingLoading(true);
+    fetchTrendingHashtags().then((results) => {
+      setTrending(results);
+      setTrendingLoaded(true);
+    }).catch(() => {}).finally(() => setTrendingLoading(false));
   }, []);
 
   const { loggedIn, follows } = useUserStore();
@@ -332,6 +345,31 @@ export function SearchView() {
               <p className="text-text-dim text-[10px] mt-2 opacity-60">
                 Combine freely: <span className="font-mono text-text-muted">bitcoin by:dergigi has:image since:2026-01-01</span>
               </p>
+            </div>
+          </div>
+        )}
+
+        {/* Trending hashtags */}
+        {!searched && !loading && (trending.length > 0 || trendingLoading) && (
+          <div className="border-t border-border px-4 py-4">
+            <h3 className="text-text-dim text-[10px] uppercase tracking-widest mb-2">Trending now</h3>
+            {trendingLoading && (
+              <p className="text-text-dim text-[11px]">Loading trends…</p>
+            )}
+            <div className="flex flex-wrap gap-2">
+              {trending.map((t) => (
+                <button
+                  key={t.tag}
+                  onClick={() => {
+                    const hashQuery = `#${t.tag}`;
+                    setQuery(hashQuery);
+                    handleSearch(hashQuery);
+                  }}
+                  className="px-2.5 py-1 text-[11px] border border-border text-text-muted hover:text-accent hover:border-accent/40 transition-colors"
+                >
+                  #{t.tag} <span className="text-text-dim text-[10px]">({t.count})</span>
+                </button>
+              ))}
             </div>
           </div>
         )}

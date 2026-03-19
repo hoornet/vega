@@ -75,6 +75,8 @@ export function ArticleView() {
 
   const naddr = pendingArticleNaddr ?? "";
 
+  const { markArticleRead } = useBookmarkStore();
+
   useEffect(() => {
     if (!naddr) { setLoading(false); return; }
     // Use cached event if available (from ArticleCard click), skip relay fetch
@@ -95,6 +97,15 @@ export function ArticleView() {
       .catch((err) => setError(String(err)))
       .finally(() => setLoading(false));
   }, [naddr]);
+
+  // Auto-mark article as read when opened
+  useEffect(() => {
+    if (!event) return;
+    const dTag = event.tags.find((t) => t[0] === "d")?.[1];
+    if (dTag) {
+      markArticleRead(`30023:${event.pubkey}:${dTag}`);
+    }
+  }, [event]);
 
   const title = event ? getTag(event, "title") : "";
   const summary = event ? getTag(event, "summary") : "";

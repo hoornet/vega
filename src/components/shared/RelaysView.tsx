@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { getNDK, getStoredRelayUrls, removeRelay, publishRelayList } from "../../lib/nostr";
+import { getNDK, getStoredRelayUrls, addRelay, removeRelay, publishRelayList, fetchRelayRecommendations } from "../../lib/nostr";
 import { useRelayHealthStore } from "../../stores/relayHealth";
 import { useUserStore } from "../../stores/user";
 import type { RelayHealthResult } from "../../lib/nostr/relayHealth";
@@ -273,6 +273,76 @@ export function RelaysView() {
             Checking relay health…
           </div>
         )}
+
+        {/* Suggested Relays */}
+        {loggedIn && <SuggestedRelays />}
+      </div>
+    </div>
+  );
+}
+
+function SuggestedRelays() {
+  const { follows } = useUserStore();
+  const [suggestions, setSuggestions] = useState<{ url: string; count: number }[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [loaded, setLoaded] = useState(false);
+
+  const handleDiscover = async () => {
+    setLoading(true);
+    try {
+      const results = await fetchRelayRecommendations(follows, getStoredRelayUrls());
+      setSuggestions(results);
+      setLoaded(true);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleAdd = (url: string) => {
+    addRelay(url);
+    setSuggestions((prev) => prev.filter((s) => s.url !== url));
+  };
+
+  return (
+    <div className="mt-6 pt-4 border-t border-border">
+      <div className="flex items-center justify-between mb-3">
+        <div>
+          <h3 className="text-text text-[11px] font-medium uppercase tracking-widest text-text-dim">Suggested Relays</h3>
+          <p className="text-text-dim text-[10px] mt-0.5">Based on relays your follows use</p>
+        </div>
+        <button
+          onClick={handleDiscover}
+          disabled={loading || follows.length === 0}
+          className="px-3 py-1 text-[11px] border border-border text-text-muted hover:text-accent hover:border-accent/40 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+        >
+          {loading ? (
+            <span className="inline-flex items-center gap-1">
+              <span className="w-3 h-3 border border-accent border-t-transparent rounded-full animate-spin" />
+              discovering…
+            </span>
+          ) : "discover relays"}
+        </button>
+      </div>
+
+      {loaded && suggestions.length === 0 && (
+        <p className="text-text-dim text-[11px]">No new relay suggestions found.</p>
+      )}
+
+      <div className="space-y-1">
+        {suggestions.map((s) => (
+          <div key={s.url} className="flex items-center gap-3 px-3 py-2 border border-border text-[12px] group">
+            <span className="text-text truncate flex-1 font-mono">{s.url}</span>
+            <span className="text-text-dim text-[10px] shrink-0">
+              {s.count} follow{s.count !== 1 ? "s" : ""}
+            </span>
+            <button
+              onClick={() => handleAdd(s.url)}
+              className="text-accent hover:text-accent-hover text-[10px] opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
+            >
+              add
+            </button>
+          </div>
+        ))}
       </div>
     </div>
   );

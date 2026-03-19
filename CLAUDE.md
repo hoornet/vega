@@ -45,7 +45,7 @@ CI triggers on the tag and builds all three platforms (Ubuntu, Windows, macOS AR
 **Frontend** (`src/`): React 19 + TypeScript + Vite + Tailwind CSS 4
 
 - `src/App.tsx` — root component; shows `OnboardingFlow` for new users, then view routing via UI store
-- `src/stores/` — Zustand stores per domain: `feed.ts`, `user.ts`, `ui.ts`, `lightning.ts`, `drafts.ts`, `relayHealth.ts`
+- `src/stores/` — Zustand stores per domain: `feed.ts`, `user.ts`, `ui.ts`, `lightning.ts`, `drafts.ts`, `relayHealth.ts`, `bookmark.ts`
 - `src/lib/nostr/` — NDK wrapper (`client.ts` + `index.ts`); all Nostr calls go through here
 - `src/lib/lightning/` — NWC client (`nwc.ts`); Lightning payment logic
 - `src/hooks/` — `useProfile.ts`, `useReactionCount.ts`
@@ -59,7 +59,7 @@ CI triggers on the tag and builds all three platforms (Ubuntu, Windows, macOS AR
 - `src/components/bookmark/` — BookmarkView
 - `src/components/zap/` — ZapModal
 - `src/components/onboarding/` — OnboardingFlow (welcome, create key, backup, login)
-- `src/components/shared/` — RelaysView (relay health dashboard + management), SettingsView (NWC + identity)
+- `src/components/shared/` — RelaysView (relay health dashboard + recommendations), SettingsView (NWC + identity + data export)
 - `src/components/sidebar/` — Sidebar navigation
 
 **Backend** (`src-tauri/`): Rust + Tauri 2.0
@@ -106,12 +106,17 @@ CI triggers on the tag and builds all three platforms (Ubuntu, Windows, macOS AR
 - Search: NIP-50 full-text, hashtag (#t filter), people, articles
 - Settings: relay add/remove (persisted to localStorage), NWC URI, npub copy
 - **Relay health checker** — NIP-11 info fetch, WebSocket latency probing, online/slow/offline status; expandable cards with supported NIPs, software info; "Remove dead" + "Republish list" workflow
+- **Relay recommendations** — suggest relays based on follows' NIP-65 relay lists; "Discover relays" button with follow count, one-click "Add"
+- **Data export** — export bookmarks, follows, and relay list as JSON via native save dialog (Tauri plugin-dialog + plugin-fs)
+- **Profile banner polish** — hero-height banner (h-36), click-to-lightbox, avatar overlaps banner edge with ring, loading shimmer
+- **Reading list tracking** — read/unread state on bookmarked articles (localStorage-backed), unread dot indicators, sidebar badge, auto-mark-read on open
+- **Trending hashtags** — #t tag frequency analysis from recent events; clickable tag pills on search idle screen
 - OS keychain integration — nsec persists across restarts via `keyring` crate
 - SQLite note + profile cache
 - Direct messages (NIP-04 + NIP-17 gift wrap)
 - NIP-65 outbox model
 - Image lightbox (click to expand, arrow key navigation)
-- Bookmark list (NIP-51 kind 10003) with sidebar nav, **Notes/Articles tabs**, article `a` tag support
+- Bookmark list (NIP-51 kind 10003) with sidebar nav, **Notes/Articles tabs**, article `a` tag support, **read/unread tracking**
 - Follow suggestions / discovery (follows-of-follows algorithm)
 - Language/script feed filter (Unicode script detection + NIP-32 tags)
 - Skeleton loading states, view fade transitions

@@ -10,6 +10,7 @@ import { uploadImage } from "../../lib/upload";
 import { NoteCard } from "../feed/NoteCard";
 import { ArticleCard } from "../article/ArticleCard";
 import { ZapModal } from "../zap/ZapModal";
+import { ImageLightbox } from "../shared/ImageLightbox";
 
 // ── Profile helper sub-components ────────────────────────────────────────────
 
@@ -231,6 +232,8 @@ export function ProfileView() {
   const [followPending, setFollowPending] = useState(false);
   const [showZap, setShowZap] = useState(false);
   const [profileTab, setProfileTab] = useState<"notes" | "articles">("notes");
+  const [bannerLightbox, setBannerLightbox] = useState(false);
+  const [bannerLoaded, setBannerLoaded] = useState(false);
 
   const isFollowing = follows.includes(pubkey);
   const { mutedPubkeys, mute, unmute } = useMuteStore();
@@ -348,22 +351,42 @@ export function ProfileView() {
         {!editing && (
           <div className="border-b border-border">
             {/* Banner */}
-            {profile?.banner && (
-              <div className="h-24 bg-bg-raised overflow-hidden">
-                <img src={profile.banner} alt="" className="w-full h-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
+            {profile?.banner ? (
+              <div className="relative h-36 bg-bg-raised overflow-hidden">
+                {!bannerLoaded && (
+                  <div className="absolute inset-0 bg-bg-raised animate-pulse" />
+                )}
+                <img
+                  src={profile.banner}
+                  alt=""
+                  className="w-full h-full object-cover cursor-pointer hover:opacity-90 transition-opacity"
+                  onClick={() => setBannerLightbox(true)}
+                  onLoad={() => setBannerLoaded(true)}
+                  onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+                />
               </div>
-            )}
+            ) : null}
 
-            <div className="px-4 py-4 flex gap-4 items-start">
+            {/* Avatar + info — avatar overlaps banner when present */}
+            <div className={`px-4 flex gap-4 items-start ${profile?.banner ? "-mt-7 pb-4" : "py-4"}`}>
               {avatar ? (
-                <img src={avatar} alt="" className="w-14 h-14 rounded-sm object-cover bg-bg-raised shrink-0" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
+                <img
+                  src={avatar}
+                  alt=""
+                  className={`w-16 h-16 rounded-sm object-cover bg-bg-raised shrink-0 ${
+                    profile?.banner ? "ring-2 ring-bg shadow-md" : ""
+                  }`}
+                  onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+                />
               ) : (
-                <div className="w-14 h-14 rounded-sm bg-bg-raised border border-border flex items-center justify-center text-text-dim text-lg shrink-0">
+                <div className={`w-16 h-16 rounded-sm bg-bg-raised border border-border flex items-center justify-center text-text-dim text-lg shrink-0 ${
+                  profile?.banner ? "ring-2 ring-bg shadow-md" : ""
+                }`}>
                   {name.charAt(0).toUpperCase()}
                 </div>
               )}
 
-              <div className="min-w-0 flex-1">
+              <div className={`min-w-0 flex-1 ${profile?.banner ? "pt-8" : ""}`}>
                 <div className="text-text font-medium text-[15px]">{name}</div>
                 {nip05 && <div className="text-text-dim text-[11px] mt-0.5">{nip05}</div>}
                 {lud16 && <div className="text-zap text-[11px] mt-0.5">⚡ {lud16}</div>}
@@ -380,6 +403,15 @@ export function ProfileView() {
               </div>
             </div>
           </div>
+        )}
+
+        {bannerLightbox && profile?.banner && (
+          <ImageLightbox
+            images={[profile.banner]}
+            index={0}
+            onClose={() => setBannerLightbox(false)}
+            onNavigate={() => {}}
+          />
         )}
 
         {showZap && (

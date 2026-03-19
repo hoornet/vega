@@ -3,6 +3,7 @@ import { fetchBookmarkList, fetchBookmarkListFull, publishBookmarkListFull } fro
 
 const STORAGE_KEY = "wrystr_bookmarks";
 const ARTICLE_STORAGE_KEY = "wrystr_bookmarks_articles";
+const READ_STORAGE_KEY = "wrystr_articles_read";
 
 function loadLocal(): string[] {
   try {
@@ -28,9 +29,22 @@ function saveArticleAddrs(addrs: string[]) {
   localStorage.setItem(ARTICLE_STORAGE_KEY, JSON.stringify(addrs));
 }
 
+function loadReadAddrs(): string[] {
+  try {
+    return JSON.parse(localStorage.getItem(READ_STORAGE_KEY) ?? "[]");
+  } catch {
+    return [];
+  }
+}
+
+function saveReadAddrs(addrs: string[]) {
+  localStorage.setItem(READ_STORAGE_KEY, JSON.stringify(addrs));
+}
+
 interface BookmarkState {
   bookmarkedIds: string[];
   bookmarkedArticleAddrs: string[]; // "30023:<pubkey>:<d-tag>" format
+  readArticleAddrs: string[];
   fetchBookmarks: (pubkey: string) => Promise<void>;
   addBookmark: (eventId: string) => Promise<void>;
   removeBookmark: (eventId: string) => Promise<void>;
@@ -38,11 +52,16 @@ interface BookmarkState {
   addArticleBookmark: (addr: string) => Promise<void>;
   removeArticleBookmark: (addr: string) => Promise<void>;
   isArticleBookmarked: (addr: string) => boolean;
+  markArticleRead: (addr: string) => void;
+  markArticleUnread: (addr: string) => void;
+  isArticleRead: (addr: string) => boolean;
+  unreadArticleCount: () => number;
 }
 
 export const useBookmarkStore = create<BookmarkState>((set, get) => ({
   bookmarkedIds: loadLocal(),
   bookmarkedArticleAddrs: loadArticleAddrs(),
+  readArticleAddrs: loadReadAddrs(),
 
   fetchBookmarks: async (pubkey: string) => {
     try {
@@ -107,5 +126,28 @@ export const useBookmarkStore = create<BookmarkState>((set, get) => ({
 
   isArticleBookmarked: (addr: string) => {
     return get().bookmarkedArticleAddrs.includes(addr);
+  },
+
+  markArticleRead: (addr: string) => {
+    const { readArticleAddrs } = get();
+    if (readArticleAddrs.includes(addr)) return;
+    const updated = [...readArticleAddrs, addr];
+    set({ readArticleAddrs: updated });
+    saveReadAddrs(updated);
+  },
+
+  markArticleUnread: (addr: string) => {
+    const updated = get().readArticleAddrs.filter((a) => a !== addr);
+    set({ readArticleAddrs: updated });
+    saveReadAddrs(updated);
+  },
+
+  isArticleRead: (addr: string) => {
+    return get().readArticleAddrs.includes(addr);
+  },
+
+  unreadArticleCount: () => {
+    const { bookmarkedArticleAddrs, readArticleAddrs } = get();
+    return bookmarkedArticleAddrs.filter((a) => !readArticleAddrs.includes(a)).length;
   },
 }));
