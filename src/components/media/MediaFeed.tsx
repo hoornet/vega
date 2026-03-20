@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { NDKEvent } from "@nostr-dev-kit/ndk";
 import { fetchGlobalFeed } from "../../lib/nostr";
+import { useMuteStore } from "../../stores/mute";
 import { parseContent, ContentSegment } from "../../lib/parsing";
 import { NoteCard } from "../feed/NoteCard";
 import { SkeletonNoteList } from "../shared/Skeleton";
@@ -23,6 +24,7 @@ export function MediaFeed() {
   const [allNotes, setAllNotes] = useState<NDKEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<MediaTab>("all");
+  const { mutedPubkeys, contentMatchesMutedKeyword } = useMuteStore();
 
   useEffect(() => {
     setLoading(true);
@@ -35,9 +37,10 @@ export function MediaFeed() {
       .finally(() => setLoading(false));
   }, []);
 
-  const filtered = tab === "all"
+  const filtered = (tab === "all"
     ? allNotes
-    : allNotes.filter((n) => hasMediaType(n.content, MEDIA_TYPES[tab]));
+    : allNotes.filter((n) => hasMediaType(n.content, MEDIA_TYPES[tab]))
+  ).filter((n) => !mutedPubkeys.includes(n.pubkey) && !contentMatchesMutedKeyword(n.content));
 
   return (
     <div className="h-full flex flex-col">

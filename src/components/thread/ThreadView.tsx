@@ -8,6 +8,7 @@ import { useReactionCount } from "../../hooks/useReactionCount";
 import { useZapCount } from "../../hooks/useZapCount";
 import { fetchReplies, publishReaction, publishReply, publishRepost, getNDK } from "../../lib/nostr";
 import { QuoteModal } from "../feed/QuoteModal";
+import { EmojiPicker } from "../shared/EmojiPicker";
 import { shortenPubkey, timeAgo } from "../../lib/utils";
 import { NoteContent } from "../feed/NoteContent";
 import { NoteCard } from "../feed/NoteCard";
@@ -155,6 +156,7 @@ export function ThreadView() {
   const [replyText, setReplyText] = useState("");
   const [replying, setReplying] = useState(false);
   const [replySent, setReplySent] = useState(false);
+  const [showReplyEmoji, setShowReplyEmoji] = useState(false);
   const replyRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
@@ -216,6 +218,31 @@ export function ThreadView() {
               className="w-full bg-transparent text-text text-[13px] placeholder:text-text-dim resize-none focus:outline-none"
             />
             <div className="flex items-center justify-end gap-2 mt-1">
+              <div className="relative">
+                <button
+                  onClick={() => setShowReplyEmoji((v) => !v)}
+                  title="Insert emoji"
+                  className="text-text-dim hover:text-text text-[12px] transition-colors"
+                >
+                  ☺
+                </button>
+                {showReplyEmoji && (
+                  <EmojiPicker
+                    onSelect={(emoji) => {
+                      const ta = replyRef.current;
+                      if (ta) {
+                        const start = ta.selectionStart ?? replyText.length;
+                        const end = ta.selectionEnd ?? replyText.length;
+                        setReplyText(replyText.slice(0, start) + emoji + replyText.slice(end));
+                        setTimeout(() => { ta.selectionStart = ta.selectionEnd = start + emoji.length; ta.focus(); }, 0);
+                      } else {
+                        setReplyText((t) => t + emoji);
+                      }
+                    }}
+                    onClose={() => setShowReplyEmoji(false)}
+                  />
+                )}
+              </div>
               <span className="text-text-dim text-[10px]">Ctrl+Enter</span>
               <button
                 onClick={handleReply}

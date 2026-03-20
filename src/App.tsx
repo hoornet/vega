@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { openUrl } from "@tauri-apps/plugin-opener";
 import { Sidebar } from "./components/sidebar/Sidebar";
 import { Feed } from "./components/feed/Feed";
 import { SearchView } from "./components/search/SearchView";
@@ -54,6 +55,24 @@ function App() {
   );
 
   useKeyboardShortcuts();
+
+  // Intercept external link clicks and open in system browser via Tauri opener
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      const anchor = (e.target as HTMLElement).closest("a[href]") as HTMLAnchorElement | null;
+      if (!anchor) return;
+      const href = anchor.getAttribute("href");
+      if (!href) return;
+      // Only intercept external http(s) links
+      if (href.startsWith("http://") || href.startsWith("https://")) {
+        e.preventDefault();
+        e.stopPropagation();
+        openUrl(href).catch(() => {});
+      }
+    };
+    document.addEventListener("click", handler, true);
+    return () => document.removeEventListener("click", handler, true);
+  }, []);
 
   if (!onboardingDone) {
     return <OnboardingFlow onComplete={() => setOnboardingDone(true)} />;

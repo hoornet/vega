@@ -133,7 +133,7 @@ export const useFeedStore = create<FeedState>((set, get) => ({
       } catch { /* ignore cache errors */ }
     }
 
-    set({ trendingLoading: true });
+    set({ trendingLoading: true, ...(force ? { trendingNotes: [] } : {}) });
     try {
       const notes = await fetchTrendingCandidates(200, 24);
 

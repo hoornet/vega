@@ -6,6 +6,7 @@ import { useFeedStore } from "../../stores/feed";
 import { shortenPubkey } from "../../lib/utils";
 import { open } from "@tauri-apps/plugin-dialog";
 import { readFile } from "@tauri-apps/plugin-fs";
+import { EmojiPicker } from "../shared/EmojiPicker";
 
 const COMPOSE_DRAFT_KEY = "wrystr_compose_draft";
 
@@ -17,6 +18,7 @@ export function ComposeBox({ onPublished, onNoteInjected }: { onPublished?: () =
   const [publishing, setPublishing] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showEmoji, setShowEmoji] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const { profile, npub } = useUserStore();
@@ -40,20 +42,20 @@ export function ComposeBox({ onPublished, onNoteInjected }: { onPublished?: () =
   const overLimit = charCount > 4000;
   const canPost = text.trim().length > 0 && !publishing && !uploading;
 
-  // Insert a URL at the current cursor position in the textarea
-  const insertUrl = (url: string) => {
+  // Insert text at the current cursor position in the textarea
+  const insertAtCursor = (str: string) => {
     const ta = textareaRef.current;
     if (ta) {
       const start = ta.selectionStart ?? text.length;
       const end = ta.selectionEnd ?? text.length;
-      const next = text.slice(0, start) + url + text.slice(end);
+      const next = text.slice(0, start) + str + text.slice(end);
       setText(next);
       setTimeout(() => {
-        ta.selectionStart = ta.selectionEnd = start + url.length;
+        ta.selectionStart = ta.selectionEnd = start + str.length;
         ta.focus();
       }, 0);
     } else {
-      setText((t) => t + url);
+      setText((t) => t + str);
     }
   };
 
@@ -63,7 +65,7 @@ export function ComposeBox({ onPublished, onNoteInjected }: { onPublished?: () =
     setError(null);
     try {
       const url = await uploadImage(file);
-      insertUrl(url);
+      insertAtCursor(url);
     } catch (err) {
       setError(`Image upload failed: ${err}`);
     } finally {
@@ -86,7 +88,7 @@ export function ComposeBox({ onPublished, onNoteInjected }: { onPublished?: () =
       };
       const mimeType = mimeMap[ext] || "application/octet-stream";
       const url = await uploadBytes(new Uint8Array(bytes), fileName, mimeType);
-      insertUrl(url);
+      insertAtCursor(url);
     } catch (err) {
       setError(`Upload failed: ${err}`);
     } finally {
@@ -238,6 +240,21 @@ export function ComposeBox({ onPublished, onNoteInjected }: { onPublished?: () =
               )}
             </span>
             <div className="flex items-center gap-3">
+              <div className="relative">
+                <button
+                  onClick={() => setShowEmoji((v) => !v)}
+                  title="Insert emoji"
+                  className="text-text-dim hover:text-text text-[13px] transition-colors"
+                >
+                  ☺
+                </button>
+                {showEmoji && (
+                  <EmojiPicker
+                    onSelect={(emoji) => insertAtCursor(emoji)}
+                    onClose={() => setShowEmoji(false)}
+                  />
+                )}
+              </div>
               <button
                 onClick={handleFilePicker}
                 disabled={uploading}

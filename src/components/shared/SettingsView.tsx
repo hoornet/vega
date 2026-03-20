@@ -360,16 +360,16 @@ function NotificationSection() {
       </p>
       <div className="space-y-2">
         {items.map(({ key, label }) => (
-          <label key={key} className="flex items-center gap-2 cursor-pointer group">
+          <label key={key} className="flex items-center gap-3 cursor-pointer group">
             <button
               onClick={() => toggle(key)}
-              className={`w-8 h-4 rounded-full transition-colors relative ${
+              className={`w-9 h-5 rounded-full transition-colors relative shrink-0 ${
                 settings[key] ? "bg-accent" : "bg-border"
               }`}
             >
               <span
-                className={`absolute top-0.5 w-3 h-3 rounded-full bg-white transition-transform ${
-                  settings[key] ? "translate-x-4" : "translate-x-0.5"
+                className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform ${
+                  settings[key] ? "translate-x-4" : "translate-x-0"
                 }`}
               />
             </button>

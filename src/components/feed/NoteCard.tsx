@@ -15,6 +15,7 @@ import { publishReaction, publishReply, publishRepost, getNDK, fetchNoteById } f
 import { NoteContent } from "./NoteContent";
 import { ZapModal } from "../zap/ZapModal";
 import { QuoteModal } from "./QuoteModal";
+import { EmojiPicker } from "../shared/EmojiPicker";
 
 interface NoteCardProps {
   event: NDKEvent;
@@ -77,6 +78,7 @@ export function NoteCard({ event, focused }: NoteCardProps) {
   const replyRef = useRef<HTMLTextAreaElement>(null);
   const [showZap, setShowZap] = useState(false);
   const [showQuote, setShowQuote] = useState(false);
+  const [showReplyEmoji, setShowReplyEmoji] = useState(false);
   const [reposting, setReposting] = useState(false);
   const [reposted, setReposted] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -257,10 +259,9 @@ export function NoteCard({ event, focused }: NoteCardProps) {
               >
                 reply{replyCount !== null && replyCount > 0 ? ` ${replyCount}` : ""}
               </button>
-              <div className="relative">
+              <div className="relative flex items-center gap-1">
                 <button
                   onClick={() => handleReact("❤️")}
-                  onContextMenu={(e) => { e.preventDefault(); if (!liked && !liking) setShowEmojiPicker((v) => !v); }}
                   disabled={liked || liking}
                   className={`text-[11px] transition-colors ${
                     liked ? "text-accent" : "text-text-dim hover:text-accent"
@@ -268,6 +269,15 @@ export function NoteCard({ event, focused }: NoteCardProps) {
                 >
                   {liked ? "♥" : "♡"}{reactionCount !== null && reactionCount > 0 ? ` ${reactionCount}` : liked ? " liked" : " like"}
                 </button>
+                {!liked && !liking && (
+                  <button
+                    onClick={() => setShowEmojiPicker((v) => !v)}
+                    className="text-[10px] text-text-dim hover:text-accent transition-colors opacity-0 group-hover/card:opacity-100"
+                    title="React with emoji"
+                  >
+                    +
+                  </button>
+                )}
                 {showEmojiPicker && (
                   <>
                     <div className="fixed inset-0 z-[9]" onClick={() => setShowEmojiPicker(false)} />
@@ -383,6 +393,31 @@ export function NoteCard({ event, focused }: NoteCardProps) {
               />
               {replyError && <p className="text-danger text-[10px] mb-1">{replyError}</p>}
               <div className="flex items-center justify-end gap-2 mt-1">
+                <div className="relative">
+                  <button
+                    onClick={() => setShowReplyEmoji((v) => !v)}
+                    title="Insert emoji"
+                    className="text-text-dim hover:text-text text-[12px] transition-colors"
+                  >
+                    ☺
+                  </button>
+                  {showReplyEmoji && (
+                    <EmojiPicker
+                      onSelect={(emoji) => {
+                        const ta = replyRef.current;
+                        if (ta) {
+                          const start = ta.selectionStart ?? replyText.length;
+                          const end = ta.selectionEnd ?? replyText.length;
+                          setReplyText(replyText.slice(0, start) + emoji + replyText.slice(end));
+                          setTimeout(() => { ta.selectionStart = ta.selectionEnd = start + emoji.length; ta.focus(); }, 0);
+                        } else {
+                          setReplyText((t) => t + emoji);
+                        }
+                      }}
+                      onClose={() => setShowReplyEmoji(false)}
+                    />
+                  )}
+                </div>
                 <span className="text-text-dim text-[10px]">Ctrl+Enter</span>
                 <button
                   onClick={handleReplySubmit}
