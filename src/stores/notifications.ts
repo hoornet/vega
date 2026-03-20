@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { NDKEvent } from "@nostr-dev-kit/ndk";
 import { fetchMentions } from "../lib/nostr";
+import { notifyMention, notifyDM } from "../lib/notifications";
 
 const NOTIF_SEEN_KEY = "wrystr_notif_last_seen";
 const DM_SEEN_KEY = "wrystr_dm_last_seen";
@@ -52,7 +53,16 @@ export const useNotificationsStore = create<NotificationsState>((set, get) => ({
     try {
       const lastSeenAt = isNewAccount ? loadLastSeen() : get().lastSeenAt;
       const events = await fetchMentions(pubkey, lastSeenAt);
-      const unreadCount = events.filter((e) => (e.created_at ?? 0) > lastSeenAt).length;
+      const newEvents = events.filter((e) => (e.created_at ?? 0) > lastSeenAt);
+      const unreadCount = newEvents.length;
+      // Fire OS notification for new mentions (only truly new ones since last fetch)
+      const prevCount = get().unreadCount;
+      if (unreadCount > prevCount && newEvents.length > 0) {
+        const latest = newEvents[0];
+        const authorName = latest.pubkey.slice(0, 8) + "…";
+        const preview = latest.content?.slice(0, 120) || "mentioned you";
+        notifyMention(authorName, preview).catch(() => {});
+      }
       set({ notifications: events, unreadCount, lastSeenAt });
     } catch {
       // Non-critical
@@ -76,10 +86,17 @@ export const useNotificationsStore = create<NotificationsState>((set, get) => ({
   },
 
   computeDMUnread: (conversations: Array<{ partnerPubkey: string; lastAt: number }>) => {
-    const { dmLastSeen } = get();
-    const dmUnreadCount = conversations.filter(
+    const { dmLastSeen, dmUnreadCount: prevCount } = get();
+    const unreadConvos = conversations.filter(
       (c) => c.lastAt > (dmLastSeen[c.partnerPubkey] ?? 0)
-    ).length;
+    );
+    const dmUnreadCount = unreadConvos.length;
+    // Fire OS notification if new unread DMs appeared
+    if (dmUnreadCount > prevCount && unreadConvos.length > 0) {
+      const latest = unreadConvos[0];
+      const name = latest.partnerPubkey.slice(0, 8) + "…";
+      notifyDM(name, "New message").catch(() => {});
+    }
     set({ dmUnreadCount });
   },
 }));

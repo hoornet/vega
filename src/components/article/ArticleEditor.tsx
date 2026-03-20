@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { marked } from "marked";
+import { renderMarkdown } from "../../lib/markdown";
 import { publishArticle } from "../../lib/nostr";
 import { useUIStore } from "../../stores/ui";
 import { MarkdownToolbar, handleEditorKeyDown } from "./MarkdownToolbar";
@@ -100,7 +100,7 @@ export function ArticleEditor() {
     return () => clearInterval(iv);
   }, [lastSaved]);
 
-  const renderedHtml = marked(content || "*Nothing to preview yet.*") as string;
+  const renderedHtml = renderMarkdown(content || "*Nothing to preview yet.*");
   const wordCount = content.trim() ? content.trim().split(/\s+/).length : 0;
   const canPublish = title.trim().length > 0 && content.trim().length > 0;
 

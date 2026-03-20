@@ -1,7 +1,6 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import { NDKEvent } from "@nostr-dev-kit/ndk";
-import { marked } from "marked";
-import DOMPurify from "dompurify";
+import { renderMarkdown } from "../../lib/markdown";
 import { useUIStore } from "../../stores/ui";
 import { useUserStore } from "../../stores/user";
 import { useBookmarkStore } from "../../stores/bookmark";
@@ -25,11 +24,6 @@ function getTag(event: NDKEvent, name: string): string {
 
 function getTags(event: NDKEvent, name: string): string[] {
   return event.tags.filter((t) => t[0] === name).map((t) => t[1]).filter(Boolean);
-}
-
-function renderMarkdown(md: string): string {
-  const html = marked(md, { breaks: true }) as string;
-  return DOMPurify.sanitize(html, { ADD_ATTR: ["id"] });
 }
 
 // ── Author row ────────────────────────────────────────────────────────────────

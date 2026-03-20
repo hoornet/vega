@@ -7,6 +7,7 @@ import { useBookmarkStore } from "../../stores/bookmark";
 import { getNDK, getStoredRelayUrls, addRelay, removeRelay, publishRelayList } from "../../lib/nostr";
 import { useProfile } from "../../hooks/useProfile";
 import { NWCWizard } from "./NWCWizard";
+import { getNotificationSettings, saveNotificationSettings, ensurePermission } from "../../lib/notifications";
 
 function MutedRow({ pubkey, onUnmute }: { pubkey: string; onUnmute: () => void }) {
   const profile = useProfile(pubkey);
@@ -263,6 +264,54 @@ function ExportSection() {
   );
 }
 
+function NotificationSection() {
+  const [settings, setSettings] = useState(getNotificationSettings);
+
+  const toggle = (key: "mentions" | "dms" | "zaps") => {
+    const next = { ...settings, [key]: !settings[key] };
+    setSettings(next);
+    saveNotificationSettings(next);
+    // Request permission on first enable
+    if (next[key]) ensurePermission().catch(() => {});
+  };
+
+  const items: Array<{ key: "mentions" | "dms" | "zaps"; label: string }> = [
+    { key: "mentions", label: "Mentions" },
+    { key: "dms", label: "Direct messages" },
+    { key: "zaps", label: "Zaps received" },
+  ];
+
+  return (
+    <section>
+      <h2 className="text-text text-[11px] font-medium uppercase tracking-widest mb-2 text-text-dim">
+        Notifications
+      </h2>
+      <p className="text-text-dim text-[11px] mb-3">
+        OS-level push notifications. Requires system permission.
+      </p>
+      <div className="space-y-2">
+        {items.map(({ key, label }) => (
+          <label key={key} className="flex items-center gap-2 cursor-pointer group">
+            <button
+              onClick={() => toggle(key)}
+              className={`w-8 h-4 rounded-full transition-colors relative ${
+                settings[key] ? "bg-accent" : "bg-border"
+              }`}
+            >
+              <span
+                className={`absolute top-0.5 w-3 h-3 rounded-full bg-white transition-transform ${
+                  settings[key] ? "translate-x-4" : "translate-x-0.5"
+                }`}
+              />
+            </button>
+            <span className="text-text text-[12px]">{label}</span>
+          </label>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 export function SettingsView() {
   return (
     <div className="h-full flex flex-col">
@@ -272,6 +321,7 @@ export function SettingsView() {
 
       <div className="flex-1 overflow-y-auto p-4 space-y-8">
         <WalletSection />
+        <NotificationSection />
         <RelaySection />
         <ExportSection />
         <IdentitySection />
