@@ -1,11 +1,13 @@
-import { ReactNode, useEffect, useState } from "react";
-import { NDKEvent, nip19 } from "@nostr-dev-kit/ndk";
+import { useEffect, useState } from "react";
+import { NDKEvent } from "@nostr-dev-kit/ndk";
 import { useUIStore } from "../../stores/ui";
 import { fetchNoteById } from "../../lib/nostr";
 import { useProfile } from "../../hooks/useProfile";
 import { shortenPubkey } from "../../lib/utils";
 import { ImageLightbox } from "../shared/ImageLightbox";
 import { parseContent } from "../../lib/parsing";
+import { renderTextSegments } from "./TextSegments";
+import { VideoBlock, AudioBlock, YouTubeCard, VimeoCard, SpotifyCard, TidalCard } from "./MediaCards";
 
 function ImageGrid({ images, onImageClick }: { images: string[]; onImageClick: (index: number) => void }) {
   const count = images.length;
@@ -107,45 +109,6 @@ function ImageGrid({ images, onImageClick }: { images: string[]; onImageClick: (
   );
 }
 
-
-// Returns true if we handled the URL internally (njump.me interception).
-function tryHandleUrlInternally(url: string): boolean {
-  try {
-    const u = new URL(url);
-    if (u.hostname === "njump.me") {
-      const entity = u.pathname.replace(/^\//, "");
-      if (entity) return tryOpenNostrEntity(entity);
-    }
-  } catch { /* not a valid URL */ }
-  return false;
-}
-
-// Decodes a NIP-19 bech32 string and navigates internally where possible.
-// Returns true if handled, false if the caller should fall back to a browser open.
-function tryOpenNostrEntity(raw: string): boolean {
-  try {
-    const decoded = nip19.decode(raw);
-    const { openProfile, openArticle } = useUIStore.getState();
-    if (decoded.type === "npub") {
-      openProfile(decoded.data as string);
-      return true;
-    }
-    if (decoded.type === "nprofile") {
-      openProfile((decoded.data as { pubkey: string }).pubkey);
-      return true;
-    }
-    if (decoded.type === "naddr") {
-      const { kind } = decoded.data as { kind: number; pubkey: string; identifier: string };
-      if (kind === 30023) {
-        openArticle(raw);
-        return true;
-      }
-    }
-    // note / nevent / other naddr kinds — fall through to njump.me
-  } catch { /* invalid entity */ }
-  return false;
-}
-
 function QuotePreview({ eventId }: { eventId: string }) {
   const [event, setEvent] = useState<NDKEvent | null>(null);
   const { openThread, currentView } = useUIStore();
@@ -178,13 +141,6 @@ function QuotePreview({ eventId }: { eventId: string }) {
   );
 }
 
-function MentionName({ pubkey, fallback }: { pubkey?: string; fallback: string }) {
-  const profile = useProfile(pubkey ?? "");
-  if (!pubkey) return <>{fallback}</>;
-  const name = profile?.displayName || profile?.name;
-  return <>{name || fallback}</>;
-}
-
 interface NoteContentProps {
   content: string;
   /** Render only inline text (no media blocks). Used inside the clickable area. */
@@ -208,60 +164,11 @@ export function NoteContent({ content, inline, mediaOnly }: NoteContentProps) {
 
   // --- Inline text + images (safe inside clickable wrapper) ---
   if (inline) {
-    const inlineElements: ReactNode[] = [];
-    segments.forEach((seg, i) => {
-      switch (seg.type) {
-        case "text":
-          inlineElements.push(<span key={i}>{seg.value}</span>);
-          break;
-        case "link":
-          inlineElements.push(
-            <a
-              key={i}
-              href={seg.value}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-accent hover:text-accent-hover underline underline-offset-2 decoration-accent/40"
-              onClick={(e) => {
-                if (tryHandleUrlInternally(seg.value)) e.preventDefault();
-              }}
-            >
-              {seg.display}
-            </a>
-          );
-          break;
-        case "mention":
-          inlineElements.push(
-            <span
-              key={i}
-              className="text-accent cursor-pointer hover:text-accent-hover"
-              onClick={(e) => { e.stopPropagation(); tryOpenNostrEntity(seg.value); }}
-            >
-              @<MentionName pubkey={seg.mentionPubkey} fallback={seg.display ?? seg.value.slice(0, 12) + "…"} />
-            </span>
-          );
-          break;
-        case "hashtag":
-          inlineElements.push(
-            <span
-              key={i}
-              className="text-accent/80 cursor-pointer hover:text-accent"
-              onClick={(e) => { e.stopPropagation(); openHashtag(seg.value); }}
-            >
-              {seg.display}
-            </span>
-          );
-          break;
-        default:
-          break;
-      }
-    });
     return (
       <div>
         <div className="note-content text-text text-[13px] break-words whitespace-pre-wrap leading-relaxed">
-          {inlineElements}
+          {renderTextSegments(segments, openHashtag, { resolveMentions: true })}
         </div>
-        {/* Images stay inside the clickable area (they have their own stopPropagation) */}
         <ImageGrid images={images} onImageClick={setLightboxIndex} />
         {lightboxIndex !== null && (
           <ImageLightbox
@@ -283,179 +190,22 @@ export function NoteContent({ content, inline, mediaOnly }: NoteContentProps) {
 
     return (
       <div onClick={(e) => e.stopPropagation()}>
-        {/* Videos */}
-        {videos.length > 0 && (
-          <div className="mt-2 flex flex-col gap-2">
-            {videos.map((src, i) => (
-              <video
-                key={i}
-                src={src}
-                controls
-                playsInline
-                preload="metadata"
-                className="max-w-full max-h-80 rounded-sm bg-bg-raised border border-border"
-                onError={(e) => { (e.target as HTMLVideoElement).style.display = "none"; }}
-              />
-            ))}
-          </div>
-        )}
-
-        {/* Audio */}
-        {audios.length > 0 && (
-          <div className="mt-2 flex flex-col gap-2">
-            {audios.map((src, i) => {
-              const filename = src.split("/").pop()?.split("?")[0] ?? src;
-              return (
-                <div key={i} className="rounded-sm bg-bg-raised border border-border p-2">
-                  <div className="text-[11px] text-text-muted mb-1 truncate">{filename}</div>
-                  <audio controls preload="metadata" className="w-full h-8" src={src} />
-                </div>
-              );
-            })}
-          </div>
-        )}
-
-        {/* YouTube — open in browser (WebKitGTK can't play YouTube iframes) */}
-        {youtubes.map((seg, i) => (
-          <a
-            key={`yt-${i}`}
-            href={seg.value}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="mt-2 flex items-center gap-3 rounded-sm bg-bg-raised border border-border p-3 hover:bg-bg-hover transition-colors cursor-pointer"
-          >
-            <img
-              src={`https://img.youtube.com/vi/${seg.mediaId}/hqdefault.jpg`}
-              alt=""
-              className="w-28 h-16 rounded-sm object-cover shrink-0"
-              loading="lazy"
-            />
-            <div className="min-w-0">
-              <div className="text-[11px] text-text-muted">YouTube</div>
-              <div className="text-[12px] text-accent truncate">{seg.value}</div>
-            </div>
-          </a>
-        ))}
-
-        {/* Vimeo — open in browser */}
-        {vimeos.map((seg, i) => (
-          <a
-            key={`vim-${i}`}
-            href={seg.value}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="mt-2 flex items-center gap-3 rounded-sm bg-bg-raised border border-border p-3 hover:bg-bg-hover transition-colors cursor-pointer"
-          >
-            <div className="w-10 h-10 rounded-full bg-black/40 flex items-center justify-center shrink-0">
-              <svg width="14" height="14" viewBox="0 0 20 20" fill="white"><polygon points="6,3 17,10 6,17" /></svg>
-            </div>
-            <div className="min-w-0">
-              <div className="text-[11px] text-text-muted">Vimeo</div>
-              <div className="text-[12px] text-accent truncate">{seg.value}</div>
-            </div>
-          </a>
-        ))}
-
-        {/* Spotify — open in browser/app */}
-        {spotifys.map((seg, i) => (
-          <a
-            key={`sp-${i}`}
-            href={seg.value}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="mt-2 flex items-center gap-3 rounded-sm bg-bg-raised border border-border p-3 hover:bg-bg-hover transition-colors cursor-pointer"
-          >
-            <div className="w-10 h-10 rounded-full bg-[#1DB954]/20 flex items-center justify-center shrink-0">
-              <span className="text-[#1DB954] text-lg font-bold">S</span>
-            </div>
-            <div className="min-w-0">
-              <div className="text-[11px] text-text-muted">Spotify · {seg.mediaType}</div>
-              <div className="text-[12px] text-accent truncate">{seg.value}</div>
-            </div>
-          </a>
-        ))}
-
-        {/* Tidal — open in browser/app */}
-        {tidals.map((seg, i) => (
-          <a
-            key={`td-${i}`}
-            href={seg.value}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="mt-2 flex items-center gap-3 rounded-sm bg-bg-raised border border-border p-3 hover:bg-bg-hover transition-colors cursor-pointer"
-          >
-            <div className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center shrink-0">
-              <span className="text-white text-lg font-bold">T</span>
-            </div>
-            <div className="min-w-0">
-              <div className="text-[11px] text-text-muted">Tidal · {seg.mediaType}</div>
-              <div className="text-[12px] text-accent truncate">{seg.value}</div>
-            </div>
-          </a>
-        ))}
-
-        {/* Quoted notes */}
-        {quoteIds.map((id) => (
-          <QuotePreview key={id} eventId={id} />
-        ))}
+        <VideoBlock sources={videos} />
+        <AudioBlock sources={audios} />
+        {youtubes.map((seg, i) => <YouTubeCard key={`yt-${i}`} seg={seg} />)}
+        {vimeos.map((seg, i) => <VimeoCard key={`vim-${i}`} seg={seg} />)}
+        {spotifys.map((seg, i) => <SpotifyCard key={`sp-${i}`} seg={seg} />)}
+        {tidals.map((seg, i) => <TidalCard key={`td-${i}`} seg={seg} />)}
+        {quoteIds.map((id) => <QuotePreview key={id} eventId={id} />)}
       </div>
     );
   }
 
   // --- Default: full render (used in ThreadView, SearchView, etc.) ---
-  const inlineElements: ReactNode[] = [];
-  segments.forEach((seg, i) => {
-    switch (seg.type) {
-      case "text":
-        inlineElements.push(<span key={i}>{seg.value}</span>);
-        break;
-      case "link":
-        inlineElements.push(
-          <a
-            key={i}
-            href={seg.value}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-accent hover:text-accent-hover underline underline-offset-2 decoration-accent/40"
-            onClick={(e) => {
-              if (tryHandleUrlInternally(seg.value)) e.preventDefault();
-            }}
-          >
-            {seg.display}
-          </a>
-        );
-        break;
-      case "mention":
-        inlineElements.push(
-          <span
-            key={i}
-            className="text-accent cursor-pointer hover:text-accent-hover"
-            onClick={(e) => { e.stopPropagation(); tryOpenNostrEntity(seg.value); }}
-          >
-            @{seg.display}
-          </span>
-        );
-        break;
-      case "hashtag":
-        inlineElements.push(
-          <span
-            key={i}
-            className="text-accent/80 cursor-pointer hover:text-accent"
-            onClick={(e) => { e.stopPropagation(); openHashtag(seg.value); }}
-          >
-            {seg.display}
-          </span>
-        );
-        break;
-      default:
-        break;
-    }
-  });
-
   return (
     <div>
       <div className="note-content text-text text-[13px] break-words whitespace-pre-wrap leading-relaxed">
-        {inlineElements}
+        {renderTextSegments(segments, openHashtag)}
       </div>
 
       <ImageGrid images={images} onImageClick={setLightboxIndex} />
@@ -469,90 +219,13 @@ export function NoteContent({ content, inline, mediaOnly }: NoteContentProps) {
         />
       )}
 
-      {videos.length > 0 && (
-        <div className="mt-2 flex flex-col gap-2">
-          {videos.map((src, i) => (
-            <video
-              key={i}
-              src={src}
-              controls
-              playsInline
-              preload="metadata"
-              className="max-w-full max-h-80 rounded-sm bg-bg-raised border border-border"
-              onError={(e) => { (e.target as HTMLVideoElement).style.display = "none"; }}
-            />
-          ))}
-        </div>
-      )}
-
-      {audios.length > 0 && (
-        <div className="mt-2 flex flex-col gap-2">
-          {audios.map((src, i) => {
-            const filename = src.split("/").pop()?.split("?")[0] ?? src;
-            return (
-              <div key={i} className="rounded-sm bg-bg-raised border border-border p-2">
-                <div className="text-[11px] text-text-muted mb-1 truncate">{filename}</div>
-                <audio controls preload="metadata" className="w-full h-8" src={src} />
-              </div>
-            );
-          })}
-        </div>
-      )}
-
-      {youtubes.map((seg, i) => (
-        <a key={`yt-${i}`} href={seg.value} target="_blank" rel="noopener noreferrer"
-          className="mt-2 flex items-center gap-3 rounded-sm bg-bg-raised border border-border p-3 hover:bg-bg-hover transition-colors cursor-pointer">
-          <img src={`https://img.youtube.com/vi/${seg.mediaId}/hqdefault.jpg`} alt=""
-            className="w-28 h-16 rounded-sm object-cover shrink-0" loading="lazy" />
-          <div className="min-w-0">
-            <div className="text-[11px] text-text-muted">YouTube</div>
-            <div className="text-[12px] text-accent truncate">{seg.value}</div>
-          </div>
-        </a>
-      ))}
-
-      {vimeos.map((seg, i) => (
-        <a key={`vim-${i}`} href={seg.value} target="_blank" rel="noopener noreferrer"
-          className="mt-2 flex items-center gap-3 rounded-sm bg-bg-raised border border-border p-3 hover:bg-bg-hover transition-colors cursor-pointer">
-          <div className="w-10 h-10 rounded-full bg-black/40 flex items-center justify-center shrink-0">
-            <svg width="14" height="14" viewBox="0 0 20 20" fill="white"><polygon points="6,3 17,10 6,17" /></svg>
-          </div>
-          <div className="min-w-0">
-            <div className="text-[11px] text-text-muted">Vimeo</div>
-            <div className="text-[12px] text-accent truncate">{seg.value}</div>
-          </div>
-        </a>
-      ))}
-
-      {spotifys.map((seg, i) => (
-        <a key={`sp-${i}`} href={seg.value} target="_blank" rel="noopener noreferrer"
-          className="mt-2 flex items-center gap-3 rounded-sm bg-bg-raised border border-border p-3 hover:bg-bg-hover transition-colors cursor-pointer">
-          <div className="w-10 h-10 rounded-full bg-[#1DB954]/20 flex items-center justify-center shrink-0">
-            <span className="text-[#1DB954] text-lg font-bold">S</span>
-          </div>
-          <div className="min-w-0">
-            <div className="text-[11px] text-text-muted">Spotify · {seg.mediaType}</div>
-            <div className="text-[12px] text-accent truncate">{seg.value}</div>
-          </div>
-        </a>
-      ))}
-
-      {tidals.map((seg, i) => (
-        <a key={`td-${i}`} href={seg.value} target="_blank" rel="noopener noreferrer"
-          className="mt-2 flex items-center gap-3 rounded-sm bg-bg-raised border border-border p-3 hover:bg-bg-hover transition-colors cursor-pointer">
-          <div className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center shrink-0">
-            <span className="text-white text-lg font-bold">T</span>
-          </div>
-          <div className="min-w-0">
-            <div className="text-[11px] text-text-muted">Tidal · {seg.mediaType}</div>
-            <div className="text-[12px] text-accent truncate">{seg.value}</div>
-          </div>
-        </a>
-      ))}
-
-      {quoteIds.map((id) => (
-        <QuotePreview key={id} eventId={id} />
-      ))}
+      <VideoBlock sources={videos} />
+      <AudioBlock sources={audios} />
+      {youtubes.map((seg, i) => <YouTubeCard key={`yt-${i}`} seg={seg} />)}
+      {vimeos.map((seg, i) => <VimeoCard key={`vim-${i}`} seg={seg} />)}
+      {spotifys.map((seg, i) => <SpotifyCard key={`sp-${i}`} seg={seg} />)}
+      {tidals.map((seg, i) => <TidalCard key={`td-${i}`} seg={seg} />)}
+      {quoteIds.map((id) => <QuotePreview key={id} eventId={id} />)}
     </div>
   );
 }

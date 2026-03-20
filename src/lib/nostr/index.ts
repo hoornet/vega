@@ -1,2 +1,13 @@
-export { getNDK, connectToRelays, fetchGlobalFeed, fetchFollowFeed, fetchReplies, publishNote, publishArticle, publishProfile, publishReaction, publishRepost, publishQuote, publishReply, publishContactList, fetchBatchEngagement, fetchReactionCount, fetchReplyCount, fetchZapCount, fetchNoteById, fetchUserNotes, fetchProfile, fetchArticle, fetchAuthorArticles, fetchArticleFeed, searchArticles, fetchZapsReceived, fetchZapsSent, fetchDMConversations, fetchDMThread, sendDM, decryptDM, fetchBookmarkList, publishBookmarkList, fetchBookmarkListFull, publishBookmarkListFull, fetchByAddr, fetchMuteList, publishMuteList, getStoredRelayUrls, addRelay, removeRelay, searchNotes, searchUsers, fetchUserRelayList, publishRelayList, fetchUserNotesNIP65, fetchFollowSuggestions, fetchMentions, resolveNip05, advancedSearch, fetchRelayRecommendations, fetchTrendingHashtags, fetchTrendingCandidates, fetchHashtagFeed, fetchNewFollowers } from "./client";
-export type { UserRelayList, AdvancedSearchResults } from "./client";
+export { getNDK, connectToRelays, getStoredRelayUrls, addRelay, removeRelay } from "./core";
+export { fetchGlobalFeed, fetchFollowFeed, fetchUserNotes, fetchUserNotesNIP65, fetchNoteById, fetchReplies, publishNote, publishReply, publishRepost, publishQuote, fetchHashtagFeed } from "./notes";
+export { publishProfile, publishContactList, fetchProfile, fetchFollowSuggestions, fetchMentions, fetchNewFollowers } from "./social";
+export { publishArticle, fetchArticle, fetchAuthorArticles, fetchArticleFeed, searchArticles, fetchByAddr } from "./articles";
+export { publishReaction, fetchReactionCount, fetchReplyCount, fetchZapCount, fetchBatchEngagement, fetchZapsReceived, fetchZapsSent } from "./engagement";
+export { fetchDMConversations, fetchDMThread, sendDM, decryptDM } from "./dms";
+export { fetchBookmarkList, publishBookmarkList, fetchBookmarkListFull, publishBookmarkListFull } from "./bookmarks";
+export { fetchMuteList, publishMuteList } from "./muting";
+export { searchNotes, searchUsers, resolveNip05, advancedSearch } from "./search";
+export type { AdvancedSearchResults } from "./search";
+export { fetchUserRelayList, publishRelayList, fetchRelayRecommendations } from "./relays";
+export type { UserRelayList } from "./relays";
+export { fetchTrendingCandidates, fetchTrendingHashtags } from "./trending";

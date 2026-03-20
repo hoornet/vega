@@ -2,20 +2,14 @@ import { useState, useRef, useEffect } from "react";
 import { NDKEvent } from "@nostr-dev-kit/ndk";
 import { useProfile } from "../../hooks/useProfile";
 import { useNip05Verified } from "../../hooks/useNip05Verified";
-import { useReactionCount } from "../../hooks/useReactionCount";
-import { useReplyCount } from "../../hooks/useReplyCount";
-import { useZapCount } from "../../hooks/useZapCount";
 import { useUserStore } from "../../stores/user";
 import { useMuteStore } from "../../stores/mute";
-import { useBookmarkStore } from "../../stores/bookmark";
 import { useUIStore } from "../../stores/ui";
 import { timeAgo, shortenPubkey } from "../../lib/utils";
-import { nip19 } from "@nostr-dev-kit/ndk";
-import { publishReaction, publishReply, publishRepost, getNDK, fetchNoteById } from "../../lib/nostr";
+import { getNDK, fetchNoteById } from "../../lib/nostr";
 import { NoteContent } from "./NoteContent";
-import { ZapModal } from "../zap/ZapModal";
-import { QuoteModal } from "./QuoteModal";
-import { EmojiPicker } from "../shared/EmojiPicker";
+import { NoteActions, LoggedOutStats } from "./NoteActions";
+import { InlineReplyBox } from "./InlineReplyBox";
 
 interface NoteCardProps {
   event: NDKEvent;
@@ -47,8 +41,6 @@ export function NoteCard({ event, focused }: NoteCardProps) {
   const { loggedIn, pubkey: ownPubkey, follows, follow, unfollow } = useUserStore();
   const { mutedPubkeys, mute, unmute } = useMuteStore();
   const isMuted = mutedPubkeys.includes(event.pubkey);
-  const { bookmarkedIds, addBookmark, removeBookmark } = useBookmarkStore();
-  const isBookmarked = bookmarkedIds.includes(event.id!);
   const { openProfile, openThread, currentView } = useUIStore();
 
   const parentEventId = getParentEventId(event);
@@ -58,93 +50,9 @@ export function NoteCard({ event, focused }: NoteCardProps) {
   useEffect(() => {
     if (focused) cardRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
   }, [focused]);
-  const likedKey = "wrystr_liked";
-  const getLiked = () => {
-    try { return new Set<string>(JSON.parse(localStorage.getItem(likedKey) || "[]")); }
-    catch { return new Set<string>(); }
-  };
-  const [liked, setLiked] = useState(() => getLiked().has(event.id));
-  const [liking, setLiking] = useState(false);
-  const [reactionCount, adjustReactionCount] = useReactionCount(event.id);
-  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
-  const [replyCount, adjustReplyCount] = useReplyCount(event.id);
-  const [copied, setCopied] = useState(false);
-  const zapData = useZapCount(event.id);
-  const [showReply, setShowReply] = useState(false);
-  const [replyText, setReplyText] = useState("");
-  const [replying, setReplying] = useState(false);
-  const [replyError, setReplyError] = useState<string | null>(null);
-  const [replySent, setReplySent] = useState(false);
-  const replyRef = useRef<HTMLTextAreaElement>(null);
-  const [showZap, setShowZap] = useState(false);
-  const [showQuote, setShowQuote] = useState(false);
-  const [showReplyEmoji, setShowReplyEmoji] = useState(false);
-  const [reposting, setReposting] = useState(false);
-  const [reposted, setReposted] = useState(false);
+
   const [menuOpen, setMenuOpen] = useState(false);
-
-  const REACTION_EMOJIS = ["❤️", "🤙", "🔥", "😂", "🫡", "👀", "⚡"];
-
-  const handleReact = async (emoji?: string) => {
-    if (!loggedIn || liked || liking) return;
-    setLiking(true);
-    setShowEmojiPicker(false);
-    try {
-      await publishReaction(event.id, event.pubkey, emoji || "+");
-      const likedSet = getLiked();
-      likedSet.add(event.id);
-      localStorage.setItem(likedKey, JSON.stringify(Array.from(likedSet)));
-      setLiked(true);
-      adjustReactionCount(1);
-    } finally {
-      setLiking(false);
-    }
-  };
-
-  const handleReply = () => {
-    setShowReply((v) => !v);
-    if (!showReply) setTimeout(() => replyRef.current?.focus(), 50);
-  };
-
-  const handleReplySubmit = async () => {
-    if (!replyText.trim() || replying) return;
-    setReplying(true);
-    setReplyError(null);
-    try {
-      await publishReply(replyText.trim(), { id: event.id, pubkey: event.pubkey });
-      setReplyText("");
-      setReplySent(true);
-      adjustReplyCount(1);
-      setTimeout(() => { setShowReply(false); setReplySent(false); }, 1500);
-    } catch (err) {
-      setReplyError(`Failed: ${err}`);
-    } finally {
-      setReplying(false);
-    }
-  };
-
-  const handleReplyKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) handleReplySubmit();
-    if (e.key === "Escape") setShowReply(false);
-  };
-
-  const handleShare = async () => {
-    const nevent = nip19.neventEncode({ id: event.id!, author: event.pubkey });
-    await navigator.clipboard.writeText("nostr:" + nevent);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
-
-  const handleRepost = async () => {
-    if (reposting || reposted) return;
-    setReposting(true);
-    try {
-      await publishRepost(event);
-      setReposted(true);
-    } finally {
-      setReposting(false);
-    }
-  };
+  const [showReply, setShowReply] = useState(false);
 
   return (
     <article
@@ -250,185 +158,18 @@ export function NoteCard({ event, focused }: NoteCardProps) {
 
           {/* Actions */}
           {loggedIn && !!getNDK().signer && (
-            <div className="flex items-center gap-4 mt-2">
-              <button
-                onClick={handleReply}
-                className={`text-[11px] transition-colors ${
-                  showReply ? "text-accent" : "text-text-dim hover:text-text"
-                }`}
-              >
-                reply{replyCount !== null && replyCount > 0 ? ` ${replyCount}` : ""}
-              </button>
-              <div className="relative flex items-center gap-1">
-                <button
-                  onClick={() => handleReact("❤️")}
-                  disabled={liked || liking}
-                  className={`text-[11px] transition-colors ${
-                    liked ? "text-accent" : "text-text-dim hover:text-accent"
-                  } disabled:cursor-default`}
-                >
-                  {liked ? "♥" : "♡"}{reactionCount !== null && reactionCount > 0 ? ` ${reactionCount}` : liked ? " liked" : " like"}
-                </button>
-                {!liked && !liking && (
-                  <button
-                    onClick={() => setShowEmojiPicker((v) => !v)}
-                    className="text-[10px] text-text-dim hover:text-accent transition-colors opacity-0 group-hover/card:opacity-100"
-                    title="React with emoji"
-                  >
-                    +
-                  </button>
-                )}
-                {showEmojiPicker && (
-                  <>
-                    <div className="fixed inset-0 z-[9]" onClick={() => setShowEmojiPicker(false)} />
-                    <div className="absolute bottom-6 left-0 bg-bg-raised border border-border shadow-lg z-10 flex gap-0.5 px-1.5 py-1">
-                      {REACTION_EMOJIS.map((emoji) => (
-                        <button
-                          key={emoji}
-                          onClick={() => handleReact(emoji)}
-                          className="text-[16px] hover:scale-125 transition-transform px-0.5"
-                        >
-                          {emoji}
-                        </button>
-                      ))}
-                    </div>
-                  </>
-                )}
-              </div>
-              <button
-                onClick={handleRepost}
-                disabled={reposting || reposted}
-                className={`text-[11px] transition-colors disabled:cursor-default ${
-                  reposted ? "text-accent" : "text-text-dim hover:text-accent"
-                }`}
-              >
-                {reposted ? "reposted ✓" : reposting ? "…" : "repost"}
-              </button>
-              <button
-                onClick={() => setShowQuote(true)}
-                className="text-[11px] text-text-dim hover:text-text transition-colors"
-              >
-                quote
-              </button>
-              {(profile?.lud16 || profile?.lud06) && (
-                <button
-                  onClick={() => setShowZap(true)}
-                  className="text-[11px] text-text-dim hover:text-zap transition-colors"
-                >
-                  {zapData && zapData.totalSats > 0
-                    ? `⚡ ${zapData.totalSats.toLocaleString()} sats`
-                    : "⚡ zap"}
-                </button>
-              )}
-              <button
-                onClick={() => isBookmarked ? removeBookmark(event.id!) : addBookmark(event.id!)}
-                className={`text-[11px] transition-colors ${
-                  isBookmarked ? "text-accent" : "text-text-dim hover:text-accent"
-                }`}
-              >
-                {isBookmarked ? "▪ saved" : "▫ save"}
-              </button>
-              <button
-                onClick={handleShare}
-                className={`text-[11px] transition-colors ${
-                  copied ? "text-accent" : "text-text-dim hover:text-text"
-                }`}
-              >
-                {copied ? "copied ✓" : "share"}
-              </button>
-            </div>
+            <NoteActions
+              event={event}
+              onReplyToggle={() => setShowReply((v) => !v)}
+              showReply={showReply}
+            />
           )}
 
           {/* Stats visible when logged out */}
-          {!loggedIn && (
-            <div className="flex items-center gap-3 mt-1.5">
-              {replyCount !== null && replyCount > 0 && (
-                <span className="text-text-dim text-[11px]">↩ {replyCount}</span>
-              )}
-              {reactionCount !== null && reactionCount > 0 && (
-                <span className="text-text-dim text-[11px]">♥ {reactionCount}</span>
-              )}
-              {zapData !== null && zapData.totalSats > 0 && (
-                <span className="text-zap text-[11px]">⚡ {zapData.totalSats.toLocaleString()} sats</span>
-              )}
-              <button
-                onClick={handleShare}
-                className={`text-[11px] transition-colors ${
-                  copied ? "text-accent" : "text-text-dim hover:text-text"
-                }`}
-              >
-                {copied ? "copied ✓" : "share"}
-              </button>
-            </div>
-          )}
-
-          {showZap && (
-            <ZapModal
-              target={{ type: "note", event, recipientPubkey: event.pubkey }}
-              recipientName={name}
-              onClose={() => setShowZap(false)}
-            />
-          )}
-
-          {showQuote && (
-            <QuoteModal
-              event={event}
-              authorName={name}
-              authorAvatar={avatar}
-              onClose={() => setShowQuote(false)}
-            />
-          )}
+          {!loggedIn && <LoggedOutStats event={event} />}
 
           {/* Inline reply box */}
-          {showReply && (
-            <div className="mt-2 border-l-2 border-border pl-3">
-              <textarea
-                ref={replyRef}
-                value={replyText}
-                onChange={(e) => setReplyText(e.target.value)}
-                onKeyDown={handleReplyKeyDown}
-                placeholder={`Reply to ${name}…`}
-                rows={2}
-                className="w-full bg-transparent text-text text-[12px] placeholder:text-text-dim resize-none focus:outline-none"
-              />
-              {replyError && <p className="text-danger text-[10px] mb-1">{replyError}</p>}
-              <div className="flex items-center justify-end gap-2 mt-1">
-                <div className="relative">
-                  <button
-                    onClick={() => setShowReplyEmoji((v) => !v)}
-                    title="Insert emoji"
-                    className="text-text-dim hover:text-text text-[12px] transition-colors"
-                  >
-                    ☺
-                  </button>
-                  {showReplyEmoji && (
-                    <EmojiPicker
-                      onSelect={(emoji) => {
-                        const ta = replyRef.current;
-                        if (ta) {
-                          const start = ta.selectionStart ?? replyText.length;
-                          const end = ta.selectionEnd ?? replyText.length;
-                          setReplyText(replyText.slice(0, start) + emoji + replyText.slice(end));
-                          setTimeout(() => { ta.selectionStart = ta.selectionEnd = start + emoji.length; ta.focus(); }, 0);
-                        } else {
-                          setReplyText((t) => t + emoji);
-                        }
-                      }}
-                      onClose={() => setShowReplyEmoji(false)}
-                    />
-                  )}
-                </div>
-                <span className="text-text-dim text-[10px]">Ctrl+Enter</span>
-                <button
-                  onClick={handleReplySubmit}
-                  disabled={!replyText.trim() || replying}
-                  className="px-2 py-0.5 text-[10px] bg-accent hover:bg-accent-hover text-white transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-                >
-                  {replySent ? "replied ✓" : replying ? "posting…" : "reply"}
-                </button>
-              </div>
-            </div>
-          )}
+          {showReply && <InlineReplyBox event={event} name={name} />}
         </div>
       </div>
     </article>
