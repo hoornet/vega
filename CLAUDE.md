@@ -46,11 +46,11 @@ CI triggers on the tag and builds all three platforms (Ubuntu, Windows, macOS AR
 
 - `src/App.tsx` — root component; shows `OnboardingFlow` for new users, then view routing via UI store
 - `src/stores/` — Zustand stores per domain: `feed.ts`, `user.ts`, `ui.ts`, `lightning.ts`, `drafts.ts`, `relayHealth.ts`, `bookmark.ts`
-- `src/lib/nostr/` — NDK wrapper (`client.ts` + `index.ts`); all Nostr calls go through here
+- `src/lib/nostr/` — NDK wrapper split into domain modules (`core.ts`, `notes.ts`, `social.ts`, `articles.ts`, `engagement.ts`, `dms.ts`, `bookmarks.ts`, `muting.ts`, `search.ts`, `relays.ts`, `trending.ts`); barrel `index.ts` re-exports all; all Nostr calls go through here
 - `src/lib/lightning/` — NWC client (`nwc.ts`); Lightning payment logic
 - `src/hooks/` — `useProfile.ts`, `useReactionCount.ts`
-- `src/components/feed/` — Feed, NoteCard, NoteContent, ComposeBox
-- `src/components/profile/` — ProfileView (own + others, edit form)
+- `src/components/feed/` — Feed, NoteCard, NoteContent, NoteActions, InlineReplyBox, TextSegments, MediaCards, ComposeBox
+- `src/components/profile/` — ProfileView, EditProfileForm, ImageField, Nip05Field, ProfileMediaGallery
 - `src/components/thread/` — ThreadView
 - `src/components/search/` — SearchView (advanced search with modifiers, NIP-50, hashtag, people, articles)
 - `src/lib/search.ts` — Advanced search query parser (by:, has:, is:, kind:, since:, until:, OR)

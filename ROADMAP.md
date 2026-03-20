@@ -59,6 +59,15 @@ Bugs found during testing are fixed before Phase N+1 starts. A release is cut be
 
 ---
 
+## Up next — Podcast playback
+
+- Persistent `<PodcastPlayer />` with background audio
+- Fountain.fm integration for podcast discovery
+- V4V streaming sats via NWC (value-for-value)
+- Episode progress tracking
+
+---
+
 ## Brainstorm backlog (not yet scheduled)
 
 ### Relay health checker — ✓ SHIPPED (v0.7.1)
@@ -92,9 +101,11 @@ Bugs found during testing are fixed before Phase N+1 starts. A release is cut be
 - Remaining: reading history, table of contents, trending articles, tag suggestions
 - Cross-posting to other platforms
 
-### NIP-46 remote signer
-- Sign events via a remote signer (Nsecbunker, Amber, etc.)
-- Would complete the multi-account story for users who don't want nsec in keychain
+### NIP-46 remote signer — ✓ SHIPPED (v0.8.3)
+- ✓ Connect via bunker:// URI (nsecBunker, Amber, etc.)
+- ✓ Session persistence across restarts via toPayload/fromPayload
+- ✓ Third login tab in onboarding and add-account modal
+- ✓ Account switching between local nsec and remote signer accounts
 
 ### NIP-05 monetization (Phase 4 idea)
 - Offer a paid "Verified NIP-05 name" service (e.g. name@wrystr.app)
@@ -104,6 +115,32 @@ Bugs found during testing are fixed before Phase N+1 starts. A release is cut be
 ---
 
 ## What's already shipped
+
+### v0.8.4 — Codebase Refactor & Docs
+- **Codebase refactor** — split 5 overgrown files into focused modules: `client.ts` (1036 lines) into 11 domain files under `lib/nostr/`; `ProfileView`, `NoteContent`, and `NoteCard` split into sub-components. All component files now ≤270 lines, all lib files ≤300
+- **Documentation** — Supported NIPs table in README, updated features list, current roadmap
+- **Bug fixes** (from v0.8.3 testing) — mute filtering in media feed, notification toggle sizing, external links via Tauri opener, emoji picker in compose/reply/reactions, trending refresh visual feedback
+
+### v0.8.3 — Trending, Remote Signer, Media
+- **Trending feed** — 24h time window with engagement decay scoring; articles mixed with notes
+- **NIP-46 remote signer** — connect via bunker:// URI; session persistence; third login tab
+- **Media feed** — new "Media" view with All/Videos/Images/Audio tab filtering
+- **Profile media gallery** — "Media" tab on profiles with grid layout; images open lightbox
+- **Syntax highlighting** — code blocks render with syntax highlighting
+- **OS push notifications** — background poller (60s) for mentions, zaps, new followers; each type toggleable
+- **Zen writing mode** — distraction-free article editing with auto-save indicator
+- **NIP-05 verification badges** — cached verification with green checkmark on note cards
+- **Dedicated hashtag pages** — clicking #tag opens a live feed
+- **Keyword muting** — word/phrase mute list, client-side filtering across all views
+- **Follow suggestion dismissal** — persistent "don't suggest again" per person
+- **Emoji picker** — categorized emoji picker in compose, reply, and reactions
+
+### v0.8.0 — Polish, Portability & Discovery
+- **Profile banner polish** — hero-height banner, click-to-lightbox, avatar overlaps with ring
+- **Data export** — bookmarks, follows, relay list as JSON via native save dialog
+- **Relay recommendations** — suggest relays from follows' NIP-65 lists with follow count
+- **Reading list tracking** — read/unread state on bookmarked articles, unread dot indicators, sidebar badge
+- **Trending hashtags** — #t tag frequency analysis from recent events; clickable tag pills
 
 ### v0.7.1 — Relay Health Checker & Advanced Search
 - **Relay health checker** — NIP-11 info fetch + WebSocket latency probing; relays classified as online/slow/offline; expandable cards show software, description, supported NIPs (badges for 1, 4, 11, 17, 23, 25, 50, 57, 65, 96, 98); header summary counts; "Remove dead" strips offline relays; "Republish list" publishes cleaned NIP-65 relay list; auto-checks on mount

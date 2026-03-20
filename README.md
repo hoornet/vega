@@ -37,6 +37,7 @@ sudo dnf install gstreamer1-plugins-base gstreamer1-plugins-good gstreamer1-liba
 - In-app key generation with plain-language nsec backup — no browser extension required
 - **Create new account** from the account switcher — no need to restart or go through onboarding again
 - Login with nsec (full access) or npub (read-only)
+- **NIP-46 remote signer** — connect via `bunker://` URI (nsecBunker, Amber, etc.) with session persistence across restarts
 - **Multi-account switcher** — save multiple identities, switch instantly from the sidebar
 - **OS keychain integration** — nsec stored in macOS Keychain / Windows Credential Manager / Linux Secret Service; sessions survive restarts
 
@@ -54,12 +55,17 @@ sudo dnf install gstreamer1-plugins-base gstreamer1-plugins-good gstreamer1-liba
 - **Mute users** (NIP-51) — muted list synced to relays, filtered from feed
 - **Long-form article experience** (NIP-23) — **markdown toolbar** (bold, italic, heading, link, image, quote, code, list) with keyboard shortcuts (Ctrl+B/I/K); **multi-draft management** with draft list, resume, delete; **cover image file picker**; dedicated article feed with Latest/Following tabs; article search by keyword or hashtag; article reader with reading time, bookmark, like, and zap; profile Articles tab
 - **Quoted note inline preview** — `nostr:note1…` / `nostr:nevent1…` renders as an inline card
+- **Syntax highlighting** — code blocks in notes and articles render with syntax highlighting
 - Note rendering: images, video, mentions, hashtags, njump.me link interception
-- **Direct Messages** (NIP-04) — conversation list, thread view, per-message decryption; unread badge in sidebar
-- **Notifications** — mentions view (🔔 in sidebar) with unread badge; clears on open
+- **External links** — all http(s) links open in your system browser via Tauri opener
+- **Emoji reactions** — reaction picker with common emojis on note cards; emoji insertion in compose and reply boxes via categorized emoji picker
+- **Keyword muting** — word/phrase mute list with client-side filtering across all views
+- **Direct Messages** (NIP-04 + NIP-17 gift wrap) — conversation list, thread view, per-message decryption; unread badge in sidebar
+- **Notifications** — background poller (60s) for mentions, zaps, new followers; each type independently toggleable; OS push notifications; 🔔 in sidebar with unread badge
 
 **Relay & network**
 - **Relay health checker** — NIP-11 info fetch, WebSocket latency probing, online/slow/offline classification; expandable cards show supported NIPs, software, description; "Remove dead" strips offline relays, "Republish list" publishes cleaned NIP-65 relay list; auto-checks on mount
+- **Relay recommendations** — discover relays based on your follows' NIP-65 relay lists; shows follow count, one-click "Add"
 - Relay management: add/remove relays with live connection status
 - **NIP-65 outbox model** — reads user relay lists (kind 10002) so you see notes from people who publish to their own relays; publish your own relay list to Nostr from Settings
 
@@ -72,17 +78,51 @@ sudo dnf install gstreamer1-plugins-base gstreamer1-plugins-good gstreamer1-liba
 - **Support / About page** — zap the developer, Lightning + Bitcoin QR codes, Ko-fi and GitHub links
 
 **Discovery**
-- **Discover people** — "follows of follows" suggestions on the Search page with mutual follow counts and one-click follow
+- **Trending feed** — trending notes and articles from the last 24h, ranked by engagement with time decay scoring
+- **Media feed** — dedicated "Media" view in sidebar with All/Videos/Images/Audio tab filtering
+- **Dedicated hashtag pages** — clicking any #tag opens a live feed for that hashtag
+- **Trending hashtags** — popular hashtags shown as clickable pills on the search idle screen
+- **Discover people** — "follows of follows" suggestions on the Search page with mutual follow counts and one-click follow; persistent "don't suggest again" per person
 - **Advanced search** — `by:author`, `mentions:npub`, `kind:number`, `is:article`, `has:image`, `since:2026-01-01`, `until:2026-12-31`, `#hashtag`, `"exact phrase"`, boolean `OR`; NIP-05 resolution for author lookups; client-side content filters for media types; search help panel with modifier reference
 - Search: NIP-50 full-text, `#hashtag`, people search with inline follow, **article search** (kind 30023)
+- **NIP-05 verification badges** — cached verification with green checkmark on note cards
 
 **Performance & UX**
 - **Auto-updater** — "Update & restart" banner when a new version is available
 - **SQLite note cache** — feed loads instantly from local cache on startup; profiles cached for immediate avatar display
+- **Data export** — export bookmarks, follows, and relay list as JSON via native save dialog
+- **Profile media gallery** — "Media" tab on profiles shows a grid of the user's images, videos, and audio; images open in lightbox
+- **Reading list tracking** — read/unread state on bookmarked articles with unread dot indicators and sidebar badge
+- **Profile banner polish** — hero-height banner with click-to-lightbox, avatar overlaps banner edge with ring
 - **System tray** — close button hides to tray; "Quit" in tray menu to fully exit
 - Collapsible sidebar (icon-only mode)
 - **Keyboard shortcuts** — `n` compose, `/` search, `j`/`k` navigate feed, `Esc` back, `?` help overlay
 - Skeleton loading placeholders, view fade transitions
+
+## Supported NIPs
+
+| NIP | Description | Status |
+|-----|-------------|--------|
+| [NIP-01](https://github.com/nostr-protocol/nips/blob/master/01.md) | Basic protocol flow | Full |
+| [NIP-02](https://github.com/nostr-protocol/nips/blob/master/02.md) | Follow list | Full |
+| [NIP-04](https://github.com/nostr-protocol/nips/blob/master/04.md) | Encrypted direct messages (legacy) | Full |
+| [NIP-05](https://github.com/nostr-protocol/nips/blob/master/05.md) | DNS-based verification | Full (display + live verify in editor) |
+| [NIP-10](https://github.com/nostr-protocol/nips/blob/master/10.md) | Reply threading | Full |
+| [NIP-11](https://github.com/nostr-protocol/nips/blob/master/11.md) | Relay information | Full (health checker) |
+| [NIP-17](https://github.com/nostr-protocol/nips/blob/master/17.md) | Private direct messages (gift wrap) | Full |
+| [NIP-18](https://github.com/nostr-protocol/nips/blob/master/18.md) | Reposts | Full |
+| [NIP-19](https://github.com/nostr-protocol/nips/blob/master/19.md) | bech32-encoded entities | Full (npub, nsec, note, nevent, nprofile, naddr) |
+| [NIP-21](https://github.com/nostr-protocol/nips/blob/master/21.md) | `nostr:` URI scheme | Full |
+| [NIP-23](https://github.com/nostr-protocol/nips/blob/master/23.md) | Long-form content (articles) | Full (editor, reader, feed, search) |
+| [NIP-25](https://github.com/nostr-protocol/nips/blob/master/25.md) | Reactions | Full (emoji reactions) |
+| [NIP-27](https://github.com/nostr-protocol/nips/blob/master/27.md) | Text note references | Full |
+| [NIP-46](https://github.com/nostr-protocol/nips/blob/master/46.md) | Nostr Connect (remote signer) | Full (bunker:// login) |
+| [NIP-47](https://github.com/nostr-protocol/nips/blob/master/47.md) | Wallet Connect (NWC) | Full |
+| [NIP-50](https://github.com/nostr-protocol/nips/blob/master/50.md) | Search | Full (notes, articles, people) |
+| [NIP-51](https://github.com/nostr-protocol/nips/blob/master/51.md) | Lists | Partial (bookmarks, mute list) |
+| [NIP-57](https://github.com/nostr-protocol/nips/blob/master/57.md) | Zaps | Full |
+| [NIP-65](https://github.com/nostr-protocol/nips/blob/master/65.md) | Relay list metadata | Full (outbox model) |
+| [NIP-98](https://github.com/nostr-protocol/nips/blob/master/98.md) | HTTP Auth | Full (image uploads) |
 
 ## Stack
 
@@ -111,8 +151,8 @@ npm run tauri build     # production binary
 See [ROADMAP.md](./ROADMAP.md) for the full prioritised next steps.
 
 Up next:
+- Podcast playback with background audio and V4V streaming sats
 - Web of Trust scoring
-- NIP-46 remote signer support
 - Custom feeds / lists
 
 ## Support

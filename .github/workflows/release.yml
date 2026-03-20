@@ -69,21 +69,19 @@ jobs:
 
             > **Windows note:** The installer is not yet code-signed. Windows SmartScreen will show an "Unknown publisher" warning — click "More info → Run anyway" to install.
 
-            ### New in v0.8.3 — Trending, Remote Signer, Media
-            - **Trending feed polish** — 24h time window with engagement decay scoring; articles (kind 30023) appear alongside notes in trending; better empty state
-            - **NIP-46 remote signer** — connect via bunker:// URI (nsecBunker, Amber, etc.); session persistence across restarts; third login tab in onboarding and add-account modal
-            - **Media feed** — new "Media" view in sidebar; All/Videos/Images/Audio tabs filter notes by embedded media type
-            - **Profile media gallery** — new "Media" tab on profiles shows a grid of the user's images, videos, and audio; images open in lightbox, videos/audio navigate to thread
-            - **Syntax highlighting** — code blocks in notes and articles render with syntax highlighting
-            - **OS push notifications** — background poller (60s) for mentions, zaps, new followers; each type independently toggleable
-            - **Zen writing mode** — distraction-free article editing with auto-save indicator
-            - **NIP-05 verification badges** — cached verification with green checkmark on note cards
-            - **Dedicated hashtag pages** — clicking #tag opens a live feed, not generic search
-            - **Keyword muting** — word/phrase mute list, client-side filtering across all views
-            - **Follow suggestion dismissal** — persistent "don't suggest again" per person
+            ### New in v0.8.4 — Codebase Refactor & Bug Fixes
+            This is the stabilization release before the upcoming podcast playback feature.
+            - **Codebase refactor** — split 5 overgrown files into focused modules for easier navigation and extension: `client.ts` (1036 lines) into 11 domain files; `ProfileView`, `NoteContent`, `NoteCard` into sub-components
+            - **Documentation** — added Supported NIPs table to README; updated all feature lists, roadmap, and architecture docs
+            - **Bug fixes from v0.8.3 testing:**
+              - Mute filtering now works in Media Feed
+              - Notification toggle labels no longer overlap on narrow windows
+              - External links open in system browser via Tauri opener plugin
+              - Emoji picker works correctly in compose box, inline reply, and reaction picker
+              - Trending feed shows visual feedback on force refresh
 
-            ### Previous: v0.8.2 — Writing & Reading Polish
-            - No more 280-char limit, serif reading font, reading progress bar, article TOC, connection indicator fix
+            ### Previous: v0.8.3 — Trending, Remote Signer, Media
+            - Trending feed (24h engagement decay), NIP-46 remote signer (bunker://), media feed (All/Videos/Images/Audio tabs), profile media gallery, syntax highlighting, OS push notifications, zen writing mode, NIP-05 badges, hashtag pages, keyword muting, emoji picker
 
             ### Previous: v0.8.0 — Polish, Portability & Discovery
             - Profile banner polish, data export, relay recommendations, reading list tracking, trending hashtags
