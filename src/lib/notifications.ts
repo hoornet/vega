@@ -10,9 +10,10 @@ interface NotificationSettings {
   mentions: boolean;
   dms: boolean;
   zaps: boolean;
+  followers: boolean;
 }
 
-const defaults: NotificationSettings = { mentions: true, dms: true, zaps: true };
+const defaults: NotificationSettings = { mentions: true, dms: true, zaps: true, followers: true };
 
 export function getNotificationSettings(): NotificationSettings {
   try {
@@ -63,5 +64,15 @@ export async function notifyZap(senderName: string, amount: number): Promise<voi
   sendNotification({
     title: `${senderName} zapped you`,
     body: `${amount.toLocaleString()} sats`,
+  });
+}
+
+export async function notifyFollower(followerName: string): Promise<void> {
+  const settings = getNotificationSettings();
+  if (!settings.followers) return;
+  if (!(await ensurePermission())) return;
+  sendNotification({
+    title: `${followerName} followed you`,
+    body: "You have a new follower",
   });
 }

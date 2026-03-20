@@ -45,6 +45,74 @@ function MuteSection() {
   );
 }
 
+function MutedKeywordsSection() {
+  const { mutedKeywords, addKeyword, removeKeyword } = useMuteStore();
+  const [input, setInput] = useState("");
+  const [error, setError] = useState<string | null>(null);
+
+  const handleAdd = () => {
+    const trimmed = input.trim().toLowerCase();
+    if (trimmed.length < 2) {
+      setError("Minimum 2 characters");
+      return;
+    }
+    if (mutedKeywords.includes(trimmed)) {
+      setError("Already muted");
+      return;
+    }
+    addKeyword(trimmed);
+    setInput("");
+    setError(null);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter") handleAdd();
+    if (e.key === "Escape") setInput("");
+  };
+
+  return (
+    <section>
+      <h2 className="text-text text-[11px] font-medium uppercase tracking-widest mb-2 text-text-dim">
+        Muted keywords {mutedKeywords.length > 0 && `(${mutedKeywords.length})`}
+      </h2>
+      <p className="text-text-dim text-[11px] mb-3">
+        Notes containing these words or phrases will be hidden from your feeds.
+      </p>
+      {mutedKeywords.length > 0 && (
+        <div className="space-y-1 mb-3">
+          {mutedKeywords.map((kw) => (
+            <div key={kw} className="flex items-center gap-3 px-3 py-2 border border-border text-[12px] group">
+              <span className="text-text truncate flex-1">{kw}</span>
+              <button
+                onClick={() => removeKeyword(kw)}
+                className="text-text-dim hover:text-danger text-[10px] opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
+              >
+                remove
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+      <div className="flex gap-2">
+        <input
+          value={input}
+          onChange={(e) => { setInput(e.target.value); setError(null); }}
+          onKeyDown={handleKeyDown}
+          placeholder="word or phrase to mute"
+          className="flex-1 bg-bg border border-border px-3 py-1.5 text-text text-[12px] focus:outline-none focus:border-accent/50 placeholder:text-text-dim"
+        />
+        <button
+          onClick={handleAdd}
+          className="px-3 py-1.5 text-[11px] border border-border text-text-muted hover:text-accent hover:border-accent/40 transition-colors shrink-0"
+        >
+          add
+        </button>
+      </div>
+      {error && <p className="text-danger text-[11px] mt-1">{error}</p>}
+    </section>
+  );
+}
+
 function RelayRow({ url, onRemove }: { url: string; onRemove: () => void }) {
   const ndk = getNDK();
   const relay = ndk.pool?.relays.get(url);
@@ -267,7 +335,7 @@ function ExportSection() {
 function NotificationSection() {
   const [settings, setSettings] = useState(getNotificationSettings);
 
-  const toggle = (key: "mentions" | "dms" | "zaps") => {
+  const toggle = (key: "mentions" | "dms" | "zaps" | "followers") => {
     const next = { ...settings, [key]: !settings[key] };
     setSettings(next);
     saveNotificationSettings(next);
@@ -275,10 +343,11 @@ function NotificationSection() {
     if (next[key]) ensurePermission().catch(() => {});
   };
 
-  const items: Array<{ key: "mentions" | "dms" | "zaps"; label: string }> = [
+  const items: Array<{ key: "mentions" | "dms" | "zaps" | "followers"; label: string }> = [
     { key: "mentions", label: "Mentions" },
     { key: "dms", label: "Direct messages" },
     { key: "zaps", label: "Zaps received" },
+    { key: "followers", label: "New followers" },
   ];
 
   return (
@@ -326,6 +395,7 @@ export function SettingsView() {
         <ExportSection />
         <IdentitySection />
         <MuteSection />
+        <MutedKeywordsSection />
       </div>
     </div>
   );

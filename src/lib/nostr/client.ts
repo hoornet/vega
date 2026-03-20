@@ -867,6 +867,37 @@ export async function fetchTrendingHashtags(limit = 15): Promise<{ tag: string; 
     .slice(0, limit);
 }
 
+// ── New Followers ─────────────────────────────────────────────────────────────
+
+export async function fetchNewFollowers(pubkey: string, since: number, limit = 20): Promise<NDKEvent[]> {
+  const instance = getNDK();
+  const filter: NDKFilter = {
+    kinds: [3 as NDKKind],
+    "#p": [pubkey],
+    since,
+    limit,
+  };
+  const events = await instance.fetchEvents(filter, {
+    cacheUsage: NDKSubscriptionCacheUsage.ONLY_RELAY,
+  });
+  return Array.from(events).sort((a, b) => (b.created_at ?? 0) - (a.created_at ?? 0));
+}
+
+// ── Hashtag Feed ──────────────────────────────────────────────────────────────
+
+export async function fetchHashtagFeed(tag: string, limit = 100): Promise<NDKEvent[]> {
+  const instance = getNDK();
+  const filter: NDKFilter = {
+    kinds: [NDKKind.Text],
+    "#t": [tag.toLowerCase()],
+    limit,
+  };
+  const events = await instance.fetchEvents(filter, {
+    cacheUsage: NDKSubscriptionCacheUsage.ONLY_RELAY,
+  });
+  return Array.from(events).sort((a, b) => (b.created_at ?? 0) - (a.created_at ?? 0));
+}
+
 // ── Advanced Search ───────────────────────────────────────────────────────────
 
 export interface AdvancedSearchResults {

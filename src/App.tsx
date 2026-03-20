@@ -15,6 +15,7 @@ import { ZapHistoryView } from "./components/zap/ZapHistoryView";
 import { DMView } from "./components/dm/DMView";
 import { NotificationsView } from "./components/notifications/NotificationsView";
 import { BookmarkView } from "./components/bookmark/BookmarkView";
+import { HashtagFeed } from "./components/feed/HashtagFeed";
 import { HelpModal } from "./components/shared/HelpModal";
 import { useUIStore } from "./stores/ui";
 import { useUpdater } from "./hooks/useUpdater";
@@ -79,6 +80,7 @@ function App() {
         {currentView === "dm" && <DMView />}
         {currentView === "notifications" && <NotificationsView />}
         {currentView === "bookmarks" && <BookmarkView />}
+        {currentView === "hashtag" && <HashtagFeed />}
       </main>
       </div>
       {showHelp && <HelpModal onClose={toggleHelp} />}

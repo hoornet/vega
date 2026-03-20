@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 import { useUserStore } from "../../stores/user";
+import { useMuteStore } from "../../stores/mute";
 import { useNotificationsStore } from "../../stores/notifications";
 import { NoteCard } from "../feed/NoteCard";
 import { SkeletonNoteList } from "../shared/Skeleton";
@@ -14,6 +15,10 @@ export function NotificationsView() {
     fetchNotifications,
     markAllRead,
   } = useNotificationsStore();
+  const { mutedPubkeys, contentMatchesMutedKeyword } = useMuteStore();
+  const filteredNotifications = notifications.filter(
+    (e) => !mutedPubkeys.includes(e.pubkey) && !contentMatchesMutedKeyword(e.content)
+  );
 
   // Capture lastSeenAt at mount time so unread highlights persist during this view session
   const prevLastSeenAtRef = useRef(lastSeenAt);
@@ -52,14 +57,14 @@ export function NotificationsView() {
           <SkeletonNoteList count={4} />
         )}
 
-        {!loading && notifications.length === 0 && (
+        {!loading && filteredNotifications.length === 0 && (
           <div className="px-4 py-12 text-center space-y-2">
             <p className="text-text-dim text-[13px]">No mentions yet.</p>
             <p className="text-text-dim text-[11px] opacity-60">When someone mentions you, it will appear here.</p>
           </div>
         )}
 
-        {notifications.map((event) => {
+        {filteredNotifications.map((event) => {
           const isUnread = (event.created_at ?? 0) > prevLastSeenAtRef.current;
           return (
             <div

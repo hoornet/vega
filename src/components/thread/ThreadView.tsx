@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { NDKEvent } from "@nostr-dev-kit/ndk";
 import { useUIStore } from "../../stores/ui";
 import { useUserStore } from "../../stores/user";
+import { useMuteStore } from "../../stores/mute";
 import { useProfile } from "../../hooks/useProfile";
 import { useReactionCount } from "../../hooks/useReactionCount";
 import { useZapCount } from "../../hooks/useZapCount";
@@ -145,6 +146,7 @@ function RootNote({ event }: { event: NDKEvent }) {
 export function ThreadView() {
   const { selectedNote, goBack } = useUIStore();
   const { loggedIn } = useUserStore();
+  const { mutedPubkeys, contentMatchesMutedKeyword } = useMuteStore();
   if (!selectedNote) { goBack(); return null; }
   const event = selectedNote;
 
@@ -239,7 +241,9 @@ export function ThreadView() {
           </div>
         )}
 
-        {replies.map((reply) => (
+        {replies
+          .filter((r) => !mutedPubkeys.includes(r.pubkey) && !contentMatchesMutedKeyword(r.content))
+          .map((reply) => (
           <NoteCard key={reply.id} event={reply} />
         ))}
       </div>

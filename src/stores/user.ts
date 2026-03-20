@@ -8,6 +8,7 @@ import { useLightningStore } from "./lightning";
 import { useUIStore } from "./ui";
 import { useNotificationsStore } from "./notifications";
 import { useFeedStore } from "./feed";
+import { startNotificationPoller, stopNotificationPoller } from "../lib/notificationPoller";
 
 export interface SavedAccount {
   pubkey: string;
@@ -122,6 +123,7 @@ export const useUserStore = create<UserState>((set, get) => ({
       get().fetchFollows();
       useMuteStore.getState().fetchMuteList(pubkey);
       useNotificationsStore.getState().fetchNotifications(pubkey);
+      startNotificationPoller(pubkey);
 
       // Navigate to feed and refresh so the new account's content loads
       useUIStore.getState().setView("feed");
@@ -165,6 +167,7 @@ export const useUserStore = create<UserState>((set, get) => ({
       get().fetchFollows();
       useMuteStore.getState().fetchMuteList(pubkey);
       useNotificationsStore.getState().fetchNotifications(pubkey);
+      startNotificationPoller(pubkey);
 
       useUIStore.getState().setView("feed");
       useFeedStore.getState().loadFeed();
@@ -174,6 +177,7 @@ export const useUserStore = create<UserState>((set, get) => ({
   },
 
   logout: () => {
+    stopNotificationPoller();
     const ndk = getNDK();
     ndk.signer = undefined;
     // Don't delete the keychain entry — keep the account available for instant switch-back.
@@ -228,6 +232,7 @@ export const useUserStore = create<UserState>((set, get) => ({
         get().fetchFollows();
         useMuteStore.getState().fetchMuteList(savedPubkey);
         useNotificationsStore.getState().fetchNotifications(savedPubkey);
+        startNotificationPoller(savedPubkey);
       }
       // No keychain entry → stay logged out, user re-enters nsec once.
     }
@@ -252,6 +257,7 @@ export const useUserStore = create<UserState>((set, get) => ({
       get().fetchOwnProfile();
       get().fetchFollows();
       useMuteStore.getState().fetchMuteList(pubkey);
+      startNotificationPoller(pubkey);
       useUIStore.getState().setView("feed");
       return;
     }

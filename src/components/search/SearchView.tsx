@@ -4,6 +4,8 @@ import { getStoredRelayUrls, fetchFollowSuggestions, fetchProfile, advancedSearc
 import { parseSearchQuery, describeSearch } from "../../lib/search";
 import { getNip50Relays } from "../../lib/nostr/relayInfo";
 import { useUserStore } from "../../stores/user";
+import { useMuteStore } from "../../stores/mute";
+import { useDismissedSuggestionsStore } from "../../stores/dismissedSuggestions";
 import { useUIStore } from "../../stores/ui";
 import { shortenPubkey } from "../../lib/utils";
 import { NoteCard } from "../feed/NoteCard";
@@ -159,6 +161,12 @@ export function SearchView() {
   }, []);
 
   const { loggedIn, follows } = useUserStore();
+  const { mutedPubkeys } = useMuteStore();
+  const { dismissedPubkeys, dismiss } = useDismissedSuggestionsStore();
+
+  const visibleSuggestions = suggestions.filter(
+    (s) => !dismissedPubkeys.includes(s.pubkey) && !mutedPubkeys.includes(s.pubkey) && !follows.includes(s.pubkey)
+  );
 
   // Load follow suggestions on mount (only for logged-in users with follows)
   useEffect(() => {
@@ -384,8 +392,8 @@ export function SearchView() {
             {suggestionsLoading && (
               <div className="px-4 py-6 text-text-dim text-[11px] text-center">Finding suggestions...</div>
             )}
-            {suggestions.map((s) => s.profile && (
-              <div key={s.pubkey} className="flex items-center gap-3 px-4 py-2.5 border-b border-border hover:bg-bg-hover transition-colors">
+            {visibleSuggestions.map((s) => s.profile && (
+              <div key={s.pubkey} className="flex items-center gap-3 px-4 py-2.5 border-b border-border hover:bg-bg-hover transition-colors group/suggestion">
                 <div className="shrink-0 cursor-pointer" onClick={() => useUIStore.getState().openProfile(s.pubkey)}>
                   {s.profile.picture ? (
                     <img src={s.profile.picture} alt="" className="w-9 h-9 rounded-sm object-cover bg-bg-raised"
@@ -409,9 +417,16 @@ export function SearchView() {
                   )}
                 </div>
                 <SuggestionFollowButton pubkey={s.pubkey} />
+                <button
+                  onClick={() => dismiss(s.pubkey)}
+                  className="text-text-dim hover:text-danger text-[14px] opacity-0 group-hover/suggestion:opacity-100 transition-opacity shrink-0 px-1"
+                  title="Don't suggest again"
+                >
+                  ×
+                </button>
               </div>
             ))}
-            {suggestionsLoaded && suggestions.length === 0 && (
+            {suggestionsLoaded && visibleSuggestions.length === 0 && (
               <div className="px-4 py-6 text-text-dim text-[11px] text-center">
                 Follow more people to see suggestions here.
               </div>

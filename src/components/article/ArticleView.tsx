@@ -276,7 +276,7 @@ export function ArticleView() {
                   <img
                     src={image}
                     alt=""
-                    className="w-full max-h-72 object-cover rounded-sm"
+                    className="w-full aspect-video object-cover rounded-sm"
                     onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
                   />
                 </div>

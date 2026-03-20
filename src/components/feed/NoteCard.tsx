@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { NDKEvent } from "@nostr-dev-kit/ndk";
 import { useProfile } from "../../hooks/useProfile";
+import { useNip05Verified } from "../../hooks/useNip05Verified";
 import { useReactionCount } from "../../hooks/useReactionCount";
 import { useReplyCount } from "../../hooks/useReplyCount";
 import { useZapCount } from "../../hooks/useZapCount";
@@ -39,6 +40,7 @@ export function NoteCard({ event, focused }: NoteCardProps) {
   const name = profile?.displayName || profile?.name || shortenPubkey(event.pubkey);
   const avatar = profile?.picture;
   const nip05 = profile?.nip05;
+  const verified = useNip05Verified(event.pubkey, nip05);
   const time = event.created_at ? timeAgo(event.created_at) : "";
 
   const { loggedIn, pubkey: ownPubkey, follows, follow, unfollow } = useUserStore();
@@ -175,7 +177,9 @@ export function NoteCard({ event, focused }: NoteCardProps) {
               onClick={() => openProfile(event.pubkey)}
             >{name}</span>
             {nip05 && (
-              <span className="text-text-dim text-[10px] truncate max-w-40">{nip05}</span>
+              <span className={`text-[10px] truncate max-w-40 ${verified === "valid" ? "text-success" : "text-text-dim"}`}>
+                {verified === "valid" ? "✓ " : ""}{nip05}
+              </span>
             )}
             <span className="text-text-dim text-[11px] shrink-0">{time}</span>
             {/* Context menu — hidden until card hover, not shown for own notes */}

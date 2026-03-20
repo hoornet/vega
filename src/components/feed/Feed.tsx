@@ -13,7 +13,7 @@ import { NDKEvent } from "@nostr-dev-kit/ndk";
 export function Feed() {
   const { notes, loading, connected, error, connect, loadCachedFeed, loadFeed, trendingNotes, trendingLoading, loadTrendingFeed, focusedNoteIndex } = useFeedStore();
   const { loggedIn, follows } = useUserStore();
-  const { mutedPubkeys } = useMuteStore();
+  const { mutedPubkeys, contentMatchesMutedKeyword } = useMuteStore();
   const { feedTab: tab, setFeedTab: setTab, feedLanguageFilter, setFeedLanguageFilter } = useUIStore();
   const [followNotes, setFollowNotes] = useState<NDKEvent[]>([]);
   const [followLoading, setFollowLoading] = useState(false);
@@ -51,6 +51,7 @@ export function Feed() {
 
   const filteredNotes = activeNotes.filter((event) => {
     if (mutedPubkeys.includes(event.pubkey)) return false;
+    if (contentMatchesMutedKeyword(event.content)) return false;
     const c = event.content.trim();
     if (!c || c.startsWith("{") || c.startsWith("[")) return false;
     // Filter out notes that look like base64 blobs or relay protocol messages

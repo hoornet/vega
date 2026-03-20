@@ -194,7 +194,7 @@ interface NoteContentProps {
 }
 
 export function NoteContent({ content, inline, mediaOnly }: NoteContentProps) {
-  const { openSearch } = useUIStore();
+  const { openHashtag } = useUIStore();
   const segments = parseContent(content);
   const images: string[] = segments.filter((s) => s.type === "image").map((s) => s.value);
   const videos: string[] = segments.filter((s) => s.type === "video").map((s) => s.value);
@@ -246,7 +246,7 @@ export function NoteContent({ content, inline, mediaOnly }: NoteContentProps) {
             <span
               key={i}
               className="text-accent/80 cursor-pointer hover:text-accent"
-              onClick={(e) => { e.stopPropagation(); openSearch(`#${seg.value}`); }}
+              onClick={(e) => { e.stopPropagation(); openHashtag(seg.value); }}
             >
               {seg.display}
             </span>
@@ -441,7 +441,7 @@ export function NoteContent({ content, inline, mediaOnly }: NoteContentProps) {
           <span
             key={i}
             className="text-accent/80 cursor-pointer hover:text-accent"
-            onClick={(e) => { e.stopPropagation(); openSearch(`#${seg.value}`); }}
+            onClick={(e) => { e.stopPropagation(); openHashtag(seg.value); }}
           >
             {seg.display}
           </span>
