@@ -6,6 +6,7 @@ import { useUIStore } from "../../stores/ui";
 import { fetchFollowFeed, getNDK } from "../../lib/nostr";
 import { detectScript, getEventLanguageTag, FILTER_SCRIPTS } from "../../lib/language";
 import { NoteCard } from "./NoteCard";
+import { ArticleCard } from "../article/ArticleCard";
 import { ComposeBox } from "./ComposeBox";
 import { SkeletonNoteList } from "../shared/Skeleton";
 import { NDKEvent } from "@nostr-dev-kit/ndk";
@@ -168,25 +169,33 @@ export function Feed() {
         {!isLoading && filteredNotes.length === 0 && (
           <div className="px-4 py-12 text-center space-y-2">
             <p className="text-text-dim text-[13px]">
-              {isFollowing && follows.length === 0
-                ? "You're not following anyone yet."
-                : feedLanguageFilter
-                  ? `No ${feedLanguageFilter} notes found.`
-                  : "No notes to show."}
+              {isTrending
+                ? "No trending notes right now."
+                : isFollowing && follows.length === 0
+                  ? "You're not following anyone yet."
+                  : feedLanguageFilter
+                    ? `No ${feedLanguageFilter} notes found.`
+                    : "No notes to show."}
             </p>
             <p className="text-text-dim text-[11px] opacity-60">
-              {isFollowing && follows.length === 0
-                ? "Use search to find people to follow."
-                : feedLanguageFilter
-                  ? "Try clearing the script filter or refreshing."
-                  : "Try refreshing or switching tabs."}
+              {isTrending
+                ? "Check back in a bit."
+                : isFollowing && follows.length === 0
+                  ? "Use search to find people to follow."
+                  : feedLanguageFilter
+                    ? "Try clearing the script filter or refreshing."
+                    : "Try refreshing or switching tabs."}
             </p>
           </div>
         )}
 
-        {filteredNotes.map((event, index) => (
-          <NoteCard key={event.id} event={event} focused={focusedNoteIndex === index} />
-        ))}
+        {filteredNotes.map((event, index) =>
+          event.kind === 30023 ? (
+            <ArticleCard key={event.id} event={event} />
+          ) : (
+            <NoteCard key={event.id} event={event} focused={focusedNoteIndex === index} />
+          )
+        )}
       </div>
     </div>
   );

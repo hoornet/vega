@@ -2,7 +2,7 @@ import { create } from "zustand";
 
 import { NDKEvent } from "@nostr-dev-kit/ndk";
 
-type View = "feed" | "search" | "relays" | "settings" | "profile" | "thread" | "article-editor" | "article" | "articles" | "about" | "zaps" | "dm" | "notifications" | "bookmarks" | "hashtag";
+type View = "feed" | "search" | "relays" | "settings" | "profile" | "thread" | "article-editor" | "article" | "articles" | "media" | "about" | "zaps" | "dm" | "notifications" | "bookmarks" | "hashtag";
 type FeedTab = "global" | "following" | "trending";
 
 interface UIState {

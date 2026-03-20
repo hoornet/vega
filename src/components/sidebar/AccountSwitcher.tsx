@@ -98,6 +98,9 @@ export function AccountSwitcher() {
               >
                 <Avatar account={a} />
                 <span className="text-text-muted text-[11px] truncate flex-1">{displayName(a)}</span>
+                {a.loginType === "remote-signer" && (
+                  <span className="text-[10px] text-text-dim" title="Remote signer (NIP-46)">NIP-46</span>
+                )}
                 <button
                   onClick={(e) => handleRemove(e, a.pubkey)}
                   className="text-text-dim hover:text-danger text-[11px] opacity-0 group-hover:opacity-100 transition-opacity"

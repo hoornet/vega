@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { NDKPrivateKeySigner } from "@nostr-dev-kit/ndk";
+import { NDKPrivateKeySigner, NDKNip46Signer } from "@nostr-dev-kit/ndk";
 import { getNDK, publishContactList } from "../lib/nostr";
 import { nip19 } from "@nostr-dev-kit/ndk";
 import { invoke } from "@tauri-apps/api/core";
@@ -15,7 +15,8 @@ export interface SavedAccount {
   npub: string;
   name?: string;
   picture?: string;
-  loginType?: "nsec" | "pubkey";
+  loginType?: "nsec" | "pubkey" | "remote-signer";
+  signerPayload?: string;
 }
 
 // In-memory signer cache — survives account switches within a session.
@@ -23,6 +24,7 @@ export interface SavedAccount {
 // This means the keychain is only ever consulted at startup (restoreSession),
 // not on every switch, eliminating the "read-only after switch" class of bugs.
 const _signerCache = new Map<string, NDKPrivateKeySigner>();
+const _nip46SignerCache = new Map<string, NDKNip46Signer>();
 
 function loadSavedAccounts(): SavedAccount[] {
   try {
@@ -53,6 +55,7 @@ interface UserState {
 
   loginWithNsec: (nsec: string) => Promise<void>;
   loginWithPubkey: (pubkey: string) => Promise<void>;
+  loginWithRemoteSigner: (bunkerUri: string) => Promise<void>;
   logout: () => void;
   restoreSession: () => Promise<void>;
   switchAccount: (pubkey: string) => Promise<void>;
@@ -176,6 +179,50 @@ export const useUserStore = create<UserState>((set, get) => ({
     }
   },
 
+  loginWithRemoteSigner: async (bunkerUri: string) => {
+    try {
+      set({ loginError: null });
+
+      const ndk = getNDK();
+      const signer = NDKNip46Signer.bunker(ndk, bunkerUri);
+
+      // Wait for signer with 15s timeout
+      const user = await Promise.race([
+        signer.blockUntilReady(),
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error("Remote signer didn't respond within 15 seconds. Check your connection.")), 15000)
+        ),
+      ]);
+
+      ndk.signer = signer;
+      const pubkey = user.pubkey;
+      const npub = nip19.npubEncode(pubkey);
+
+      _nip46SignerCache.set(pubkey, signer);
+
+      const signerPayload = signer.toPayload();
+      const accounts = upsertAccount(get().accounts, { pubkey, npub, loginType: "remote-signer", signerPayload });
+      persistAccounts(accounts);
+
+      set({ pubkey, npub, loggedIn: true, loginError: null, accounts });
+
+      localStorage.setItem("wrystr_pubkey", pubkey);
+      localStorage.setItem("wrystr_login_type", "remote-signer");
+
+      useLightningStore.getState().loadNwcForAccount(pubkey);
+      get().fetchOwnProfile();
+      get().fetchFollows();
+      useMuteStore.getState().fetchMuteList(pubkey);
+      useNotificationsStore.getState().fetchNotifications(pubkey);
+      startNotificationPoller(pubkey);
+
+      useUIStore.getState().setView("feed");
+      useFeedStore.getState().loadFeed();
+    } catch (err) {
+      set({ loginError: `Remote signer login failed: ${err}` });
+    }
+  },
+
   logout: () => {
     stopNotificationPoller();
     const ndk = getNDK();
@@ -209,6 +256,17 @@ export const useUserStore = create<UserState>((set, get) => ({
       }
     }
 
+    // Restore NIP-46 signers from saved payloads
+    for (const acct of accounts) {
+      if (acct.loginType !== "remote-signer" || !acct.signerPayload || _nip46SignerCache.has(acct.pubkey)) continue;
+      try {
+        const signer = await NDKNip46Signer.fromPayload(acct.signerPayload, getNDK());
+        _nip46SignerCache.set(acct.pubkey, signer);
+      } catch (err) {
+        console.warn(`Failed to restore NIP-46 session for ${acct.npub}:`, err);
+      }
+    }
+
     // Now restore the active account
     const savedPubkey = localStorage.getItem("wrystr_pubkey");
     const savedLoginType = localStorage.getItem("wrystr_login_type");
@@ -216,6 +274,29 @@ export const useUserStore = create<UserState>((set, get) => ({
 
     if (savedLoginType === "pubkey") {
       await get().loginWithPubkey(savedPubkey);
+      return;
+    }
+
+    if (savedLoginType === "remote-signer") {
+      const cachedSigner = _nip46SignerCache.get(savedPubkey);
+      if (cachedSigner) {
+        try {
+          await cachedSigner.blockUntilReady();
+          getNDK().signer = cachedSigner;
+          const npub = nip19.npubEncode(savedPubkey);
+          set({ pubkey: savedPubkey, npub, loggedIn: true, loginError: null });
+          localStorage.setItem("wrystr_pubkey", savedPubkey);
+          localStorage.setItem("wrystr_login_type", "remote-signer");
+          useLightningStore.getState().loadNwcForAccount(savedPubkey);
+          get().fetchOwnProfile();
+          get().fetchFollows();
+          useMuteStore.getState().fetchMuteList(savedPubkey);
+          useNotificationsStore.getState().fetchNotifications(savedPubkey);
+          startNotificationPoller(savedPubkey);
+        } catch (err) {
+          console.warn("Failed to restore NIP-46 session:", err);
+        }
+      }
       return;
     }
 
@@ -241,6 +322,29 @@ export const useUserStore = create<UserState>((set, get) => ({
   switchAccount: async (pubkey: string) => {
     // Clear signer immediately — no window where old account could sign
     getNDK().signer = undefined;
+
+    // Fast path: NIP-46 cached signer
+    const cachedNip46 = _nip46SignerCache.get(pubkey);
+    if (cachedNip46) {
+      try {
+        await cachedNip46.blockUntilReady();
+        getNDK().signer = cachedNip46;
+        const account = get().accounts.find((a) => a.pubkey === pubkey);
+        const npub = account?.npub ?? nip19.npubEncode(pubkey);
+        set({ pubkey, npub, loggedIn: true, loginError: null });
+        localStorage.setItem("wrystr_pubkey", pubkey);
+        localStorage.setItem("wrystr_login_type", "remote-signer");
+        useLightningStore.getState().loadNwcForAccount(pubkey);
+        get().fetchOwnProfile();
+        get().fetchFollows();
+        useMuteStore.getState().fetchMuteList(pubkey);
+        startNotificationPoller(pubkey);
+        useUIStore.getState().setView("feed");
+        return;
+      } catch (err) {
+        console.warn("NIP-46 signer reconnect failed during switch:", err);
+      }
+    }
 
     // Fast path: reuse in-memory signer cached from the login that added this
     // account earlier in this session. Avoids a round-trip to the OS keychain

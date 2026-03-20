@@ -836,6 +836,22 @@ export async function fetchRelayRecommendations(
     .slice(0, 8);
 }
 
+// ── Trending Candidates ───────────────────────────────────────────────────────
+
+export async function fetchTrendingCandidates(limit = 200, sinceHours = 24): Promise<NDKEvent[]> {
+  const instance = getNDK();
+  const since = Math.floor(Date.now() / 1000) - sinceHours * 3600;
+  const filter: NDKFilter = {
+    kinds: [NDKKind.Text, 30023 as NDKKind],
+    since,
+    limit,
+  };
+  const events = await instance.fetchEvents(filter, {
+    cacheUsage: NDKSubscriptionCacheUsage.ONLY_RELAY,
+  });
+  return Array.from(events).sort((a, b) => (b.created_at ?? 0) - (a.created_at ?? 0));
+}
+
 // ── Trending Hashtags ─────────────────────────────────────────────────────────
 
 export async function fetchTrendingHashtags(limit = 15): Promise<{ tag: string; count: number }[]> {

@@ -5,6 +5,7 @@ import { NDKEvent } from "@nostr-dev-kit/ndk";
 vi.mock("../lib/nostr", () => ({
   connectToRelays: vi.fn(),
   fetchGlobalFeed: vi.fn(),
+  fetchTrendingCandidates: vi.fn(),
   fetchBatchEngagement: vi.fn(),
   getNDK: vi.fn(() => ({ pool: { relays: new Map() } })),
 }));
@@ -16,7 +17,7 @@ vi.mock("../lib/db", () => ({
 }));
 
 import { useFeedStore } from "./feed";
-import { fetchGlobalFeed, fetchBatchEngagement } from "../lib/nostr";
+import { fetchTrendingCandidates, fetchBatchEngagement } from "../lib/nostr";
 
 function makeMockNote(id: string, created_at: number): NDKEvent {
   const event = { id, created_at, content: "test", kind: 1, pubkey: "pk", tags: [], sig: "", rawEvent: () => ({ id, created_at, content: "test", kind: 1, pubkey: "pk", tags: [], sig: "" }) } as unknown as NDKEvent;
@@ -39,10 +40,11 @@ describe("useFeedStore - loadTrendingFeed", () => {
   });
 
   it("scores and sorts notes by engagement", async () => {
+    const now = Math.floor(Date.now() / 1000);
     const notes = [
-      makeMockNote("a", 1000),
-      makeMockNote("b", 1001),
-      makeMockNote("c", 1002),
+      makeMockNote("a", now - 100),
+      makeMockNote("b", now - 100),
+      makeMockNote("c", now - 100),
     ];
 
     const engagement = new Map([
@@ -51,7 +53,7 @@ describe("useFeedStore - loadTrendingFeed", () => {
       ["c", { reactions: 1, replies: 1, zapSats: 100 }],  // score: 5
     ]);
 
-    vi.mocked(fetchGlobalFeed).mockResolvedValue(notes);
+    vi.mocked(fetchTrendingCandidates).mockResolvedValue(notes);
     vi.mocked(fetchBatchEngagement).mockResolvedValue(engagement);
 
     await useFeedStore.getState().loadTrendingFeed(true);
@@ -64,9 +66,10 @@ describe("useFeedStore - loadTrendingFeed", () => {
   });
 
   it("filters out notes with zero engagement", async () => {
+    const now = Math.floor(Date.now() / 1000);
     const notes = [
-      makeMockNote("a", 1000),
-      makeMockNote("b", 1001),
+      makeMockNote("a", now - 100),
+      makeMockNote("b", now - 100),
     ];
 
     const engagement = new Map([
@@ -74,7 +77,7 @@ describe("useFeedStore - loadTrendingFeed", () => {
       ["b", { reactions: 0, replies: 0, zapSats: 0 }],
     ]);
 
-    vi.mocked(fetchGlobalFeed).mockResolvedValue(notes);
+    vi.mocked(fetchTrendingCandidates).mockResolvedValue(notes);
     vi.mocked(fetchBatchEngagement).mockResolvedValue(engagement);
 
     await useFeedStore.getState().loadTrendingFeed(true);
@@ -85,12 +88,13 @@ describe("useFeedStore - loadTrendingFeed", () => {
   });
 
   it("limits results to 50", async () => {
-    const notes = Array.from({ length: 60 }, (_, i) => makeMockNote(`n${i}`, i));
+    const now = Math.floor(Date.now() / 1000);
+    const notes = Array.from({ length: 60 }, (_, i) => makeMockNote(`n${i}`, now - i));
     const engagement = new Map(
       notes.map((n) => [n.id, { reactions: 10, replies: 1, zapSats: 0 }])
     );
 
-    vi.mocked(fetchGlobalFeed).mockResolvedValue(notes);
+    vi.mocked(fetchTrendingCandidates).mockResolvedValue(notes);
     vi.mocked(fetchBatchEngagement).mockResolvedValue(engagement);
 
     await useFeedStore.getState().loadTrendingFeed(true);
@@ -99,7 +103,7 @@ describe("useFeedStore - loadTrendingFeed", () => {
   });
 
   it("handles empty feed gracefully", async () => {
-    vi.mocked(fetchGlobalFeed).mockResolvedValue([]);
+    vi.mocked(fetchTrendingCandidates).mockResolvedValue([]);
 
     await useFeedStore.getState().loadTrendingFeed(true);
 

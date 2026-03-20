@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { NDKEvent } from "@nostr-dev-kit/ndk";
-import { connectToRelays, fetchGlobalFeed, fetchBatchEngagement, getNDK } from "../lib/nostr";
+import { connectToRelays, fetchGlobalFeed, fetchBatchEngagement, fetchTrendingCandidates, getNDK } from "../lib/nostr";
 import { dbLoadFeed, dbSaveNotes } from "../lib/db";
 
 const TRENDING_CACHE_KEY = "wrystr_trending_cache";
@@ -135,7 +135,7 @@ export const useFeedStore = create<FeedState>((set, get) => ({
 
     set({ trendingLoading: true });
     try {
-      const notes = await fetchGlobalFeed(200);
+      const notes = await fetchTrendingCandidates(200, 24);
 
       if (notes.length === 0) {
         set({ trendingNotes: [], trendingLoading: false });
@@ -145,10 +145,13 @@ export const useFeedStore = create<FeedState>((set, get) => ({
       const eventIds = notes.map((n) => n.id).filter(Boolean) as string[];
       const engagement = await fetchBatchEngagement(eventIds);
 
+      const now = Math.floor(Date.now() / 1000);
       const scored = notes
         .map((note) => {
           const eng = engagement.get(note.id) ?? { reactions: 0, replies: 0, zapSats: 0 };
-          const score = eng.reactions * 1 + eng.replies * 3 + eng.zapSats * 0.01;
+          const ageHours = (now - (note.created_at ?? now)) / 3600;
+          const decay = 1 / (1 + ageHours * 0.15);
+          const score = (eng.reactions * 1 + eng.replies * 3 + eng.zapSats * 0.01) * decay;
           return { note, score };
         })
         .filter((s) => s.score > 0)

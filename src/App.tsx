@@ -9,6 +9,7 @@ import { ThreadView } from "./components/thread/ThreadView";
 import { ArticleEditor } from "./components/article/ArticleEditor";
 import { ArticleView } from "./components/article/ArticleView";
 import { ArticleFeed } from "./components/article/ArticleFeed";
+import { MediaFeed } from "./components/media/MediaFeed";
 import { OnboardingFlow } from "./components/onboarding/OnboardingFlow";
 import { AboutView } from "./components/shared/AboutView";
 import { ZapHistoryView } from "./components/zap/ZapHistoryView";
@@ -73,6 +74,7 @@ function App() {
         {currentView === "profile" && <ProfileView />}
         {currentView === "thread" && <ThreadView />}
         {currentView === "articles" && <ArticleFeed />}
+        {currentView === "media" && <MediaFeed />}
         {currentView === "article-editor" && <ArticleEditor />}
         {currentView === "article" && <ArticleView />}
         {currentView === "about" && <AboutView />}

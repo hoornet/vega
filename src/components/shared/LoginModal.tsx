@@ -78,19 +78,24 @@ function NewAccountTab({ onClose }: { onClose: () => void }) {
 }
 
 export function LoginModal({ onClose }: LoginModalProps) {
-  const [tab, setTab] = useState<"nsec" | "pubkey" | "new">("nsec");
+  const [tab, setTab] = useState<"nsec" | "pubkey" | "bunker" | "new">("nsec");
   const [input, setInput] = useState("");
-  const { loginWithNsec, loginWithPubkey, loginError } = useUserStore();
+  const [loading, setLoading] = useState(false);
+  const { loginWithNsec, loginWithPubkey, loginWithRemoteSigner, loginError } = useUserStore();
 
   const handleLogin = async () => {
-    if (!input.trim()) return;
+    if (!input.trim() || loading) return;
+    setLoading(true);
 
     if (tab === "nsec") {
       await loginWithNsec(input.trim());
     } else if (tab === "pubkey") {
       await loginWithPubkey(input.trim());
+    } else if (tab === "bunker") {
+      await loginWithRemoteSigner(input.trim());
     }
 
+    setLoading(false);
     // Close if no error
     if (!useUserStore.getState().loginError) {
       onClose();
@@ -124,36 +129,19 @@ export function LoginModal({ onClose }: LoginModalProps) {
 
         {/* Tabs */}
         <div className="flex border-b border-border">
-          <button
-            onClick={() => setTab("nsec")}
-            className={`flex-1 px-4 py-2 text-[12px] transition-colors ${
-              tab === "nsec"
-                ? "text-accent border-b-2 border-accent"
-                : "text-text-muted hover:text-text"
-            }`}
-          >
-            Private key
-          </button>
-          <button
-            onClick={() => setTab("pubkey")}
-            className={`flex-1 px-4 py-2 text-[12px] transition-colors ${
-              tab === "pubkey"
-                ? "text-accent border-b-2 border-accent"
-                : "text-text-muted hover:text-text"
-            }`}
-          >
-            Read-only
-          </button>
-          <button
-            onClick={() => setTab("new")}
-            className={`flex-1 px-4 py-2 text-[12px] transition-colors ${
-              tab === "new"
-                ? "text-accent border-b-2 border-accent"
-                : "text-text-muted hover:text-text"
-            }`}
-          >
-            New account
-          </button>
+          {(["nsec", "pubkey", "bunker", "new"] as const).map((t) => (
+            <button
+              key={t}
+              onClick={() => { setTab(t); setInput(""); }}
+              className={`flex-1 px-3 py-2 text-[11px] transition-colors ${
+                tab === t
+                  ? "text-accent border-b-2 border-accent"
+                  : "text-text-muted hover:text-text"
+              }`}
+            >
+              {t === "nsec" ? "Private key" : t === "pubkey" ? "Read-only" : t === "bunker" ? "Remote signer" : "New account"}
+            </button>
+          ))}
         </div>
 
         {/* Content */}
@@ -165,14 +153,16 @@ export function LoginModal({ onClose }: LoginModalProps) {
               <label className="block text-text-muted text-[11px] mb-1.5">
                 {tab === "nsec"
                   ? "Paste your nsec or hex private key"
-                  : "Paste your npub or hex public key"}
+                  : tab === "pubkey"
+                    ? "Paste your npub or hex public key"
+                    : "Paste your bunker:// URI"}
               </label>
               <input
                 type={tab === "nsec" ? "password" : "text"}
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={handleKeyDown}
-                placeholder={tab === "nsec" ? "nsec1…" : "npub1…"}
+                placeholder={tab === "nsec" ? "nsec1…" : tab === "pubkey" ? "npub1…" : "bunker://…"}
                 autoFocus
                 className="w-full bg-bg border border-border px-3 py-2 text-text text-[13px] font-mono placeholder:text-text-dim focus:outline-none focus:border-accent/50"
               />
@@ -189,16 +179,24 @@ export function LoginModal({ onClose }: LoginModalProps) {
                 </p>
               )}
 
+              {tab === "bunker" && (
+                <p className="text-text-dim text-[10px] mt-1.5">
+                  Connect to nsecBunker, Amber, or similar. Your keys never leave the signer.
+                </p>
+              )}
+
               {loginError && (
                 <p className="text-danger text-[11px] mt-2">{loginError}</p>
               )}
 
               <button
                 onClick={handleLogin}
-                disabled={!input.trim()}
+                disabled={!input.trim() || loading}
                 className="w-full mt-3 px-4 py-2 text-[12px] bg-accent hover:bg-accent-hover text-white transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
               >
-                {tab === "nsec" ? "Login" : "View as read-only"}
+                {loading
+                  ? (tab === "bunker" ? "Connecting…" : "Logging in…")
+                  : tab === "nsec" ? "Login" : tab === "pubkey" ? "View as read-only" : "Connect"}
               </button>
             </>
           )}

@@ -57,6 +57,7 @@ CI triggers on the tag and builds all three platforms (Ubuntu, Windows, macOS AR
 - `src/lib/nostr/relayHealth.ts` — Relay health checker (NIP-11, latency probing, status classification)
 - `src/components/article/` — ArticleEditor, ArticleView, ArticleFeed, ArticleCard, MarkdownToolbar (NIP-23)
 - `src/components/bookmark/` — BookmarkView
+- `src/components/media/` — MediaFeed (media discovery with tab filtering)
 - `src/components/zap/` — ZapModal
 - `src/components/onboarding/` — OnboardingFlow (welcome, create key, backup, login)
 - `src/components/shared/` — RelaysView (relay health dashboard + recommendations), SettingsView (NWC + identity + data export)
@@ -125,9 +126,17 @@ CI triggers on the tag and builds all three platforms (Ubuntu, Windows, macOS AR
 - Media players (video/audio inline, YouTube/Vimeo/Spotify cards)
 - Multi-account switcher with keychain-backed session restore
 - System tray, keyboard shortcuts, auto-updater
+- **NIP-05 verification badges** — cached verification with green checkmark on note cards
+- **Dedicated hashtag pages** — clicking #tag opens a live feed, not generic search
+- **Keyword muting** — word/phrase mute list, client-side filtering across all views
+- **Follow suggestion dismissal** — persistent "don't suggest again" per person
+- **Background notification poller** — 60s polling for mentions, zaps, new followers; each type independently toggleable
+- **Trending feed polish** — 24h time window, time decay scoring, articles mixed with notes
+- **NIP-46 remote signer** — bunker:// URI login, session persistence via toPayload/fromPayload, account switching
+- **Media feed** — dedicated "Media" view with All/Videos/Images/Audio tabs; filters notes by embedded media type
+- **Profile media gallery** — "Media" tab on profiles with grid layout; images open lightbox, videos/audio navigate to thread
 
 **Not yet implemented:**
 - Web of Trust scoring
-- NIP-46 remote signer
 - NIP-96 file storage
 - Custom feeds / lists

@@ -187,8 +187,8 @@ function BackupStep({ signer, onComplete }: { signer: NDKPrivateKeySigner; onCom
 // ─── Step: Login with existing key ───────────────────────────────────────────
 
 function LoginStep({ onBack, onComplete }: { onBack: () => void; onComplete: () => void }) {
-  const { loginWithNsec, loginWithPubkey, loginError, loggedIn } = useUserStore();
-  const [mode, setMode] = useState<"nsec" | "npub">("nsec");
+  const { loginWithNsec, loginWithPubkey, loginWithRemoteSigner, loginError, loggedIn } = useUserStore();
+  const [mode, setMode] = useState<"nsec" | "npub" | "bunker">("nsec");
   const [value, setValue] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -201,6 +201,8 @@ function LoginStep({ onBack, onComplete }: { onBack: () => void; onComplete: () 
     setLoading(true);
     if (mode === "nsec") {
       await loginWithNsec(value.trim());
+    } else if (mode === "bunker") {
+      await loginWithRemoteSigner(value.trim());
     } else {
       await loginWithPubkey(value.trim());
     }
@@ -211,12 +213,15 @@ function LoginStep({ onBack, onComplete }: { onBack: () => void; onComplete: () 
     if (e.key === "Enter") handleLogin();
   };
 
+  const tabLabel = (m: "nsec" | "npub" | "bunker") =>
+    m === "nsec" ? "Secret key" : m === "npub" ? "Public key" : "Remote signer";
+
   return (
     <Shell>
       <Heading>Log in with your key.</Heading>
 
       <div className="flex border border-border mb-4">
-        {(["nsec", "npub"] as const).map((m) => (
+        {(["nsec", "npub", "bunker"] as const).map((m) => (
           <button
             key={m}
             onClick={() => { setMode(m); setValue(""); }}
@@ -224,7 +229,7 @@ function LoginStep({ onBack, onComplete }: { onBack: () => void; onComplete: () 
               mode === m ? "bg-accent/10 text-accent" : "text-text-dim hover:text-text"
             }`}
           >
-            {m === "nsec" ? "Secret key (nsec)" : "Public key only (read-only)"}
+            {tabLabel(m)}
           </button>
         ))}
       </div>
@@ -233,7 +238,7 @@ function LoginStep({ onBack, onComplete }: { onBack: () => void; onComplete: () 
         value={value}
         onChange={(e) => setValue(e.target.value)}
         onKeyDown={handleKeyDown}
-        placeholder={mode === "nsec" ? "nsec1…" : "npub1…"}
+        placeholder={mode === "nsec" ? "nsec1…" : mode === "npub" ? "npub1…" : "bunker://…"}
         autoFocus
         className="w-full bg-bg border border-border px-3 py-2 text-text text-[12px] font-mono focus:outline-none focus:border-accent/50 placeholder:text-text-dim mb-2"
         style={{ WebkitUserSelect: "text", userSelect: "text" } as React.CSSProperties}
@@ -241,6 +246,9 @@ function LoginStep({ onBack, onComplete }: { onBack: () => void; onComplete: () 
 
       {mode === "npub" && (
         <p className="text-text-dim text-[11px] mb-4">Read-only mode — you can browse but not post, react, or zap.</p>
+      )}
+      {mode === "bunker" && (
+        <p className="text-text-dim text-[11px] mb-4">Connect to nsecBunker, Amber, or similar. Paste your bunker:// URI.</p>
       )}
 
       {loginError && <p className="text-danger text-[11px] mb-3">{loginError}</p>}
@@ -251,7 +259,7 @@ function LoginStep({ onBack, onComplete }: { onBack: () => void; onComplete: () 
           disabled={!value.trim() || loading}
           className="w-full py-2.5 text-[13px] font-medium bg-accent hover:bg-accent-hover text-white transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
         >
-          {loading ? "Logging in…" : "Log in"}
+          {loading ? (mode === "bunker" ? "Connecting…" : "Logging in…") : "Log in"}
         </button>
         <button
           onClick={onBack}

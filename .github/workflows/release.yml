@@ -69,12 +69,21 @@ jobs:
 
             > **Windows note:** The installer is not yet code-signed. Windows SmartScreen will show an "Unknown publisher" warning — click "More info → Run anyway" to install.
 
-            ### New in v0.8.2 — Writing & Reading Polish
-            - **No more 280-char limit** — Nostr has no protocol limit; compose freely up to 4000 chars with soft warnings, never blocked
-            - **Serif reading font** — article reader uses Georgia/serif at 17px for comfortable long-form reading; code blocks stay monospace
-            - **Reading progress bar** — thin accent-colored bar at the top of articles tracks your scroll position
-            - **Article table of contents** — floating TOC in the right margin on wide screens; parses h2/h3 headings, highlights active section, click to scroll; hidden on narrow screens
-            - **Connection indicator fix** — data-aware connectivity checking with 25s grace period; no more false "offline" on startup
+            ### New in v0.8.3 — Trending, Remote Signer, Media
+            - **Trending feed polish** — 24h time window with engagement decay scoring; articles (kind 30023) appear alongside notes in trending; better empty state
+            - **NIP-46 remote signer** — connect via bunker:// URI (nsecBunker, Amber, etc.); session persistence across restarts; third login tab in onboarding and add-account modal
+            - **Media feed** — new "Media" view in sidebar; All/Videos/Images/Audio tabs filter notes by embedded media type
+            - **Profile media gallery** — new "Media" tab on profiles shows a grid of the user's images, videos, and audio; images open in lightbox, videos/audio navigate to thread
+            - **Syntax highlighting** — code blocks in notes and articles render with syntax highlighting
+            - **OS push notifications** — background poller (60s) for mentions, zaps, new followers; each type independently toggleable
+            - **Zen writing mode** — distraction-free article editing with auto-save indicator
+            - **NIP-05 verification badges** — cached verification with green checkmark on note cards
+            - **Dedicated hashtag pages** — clicking #tag opens a live feed, not generic search
+            - **Keyword muting** — word/phrase mute list, client-side filtering across all views
+            - **Follow suggestion dismissal** — persistent "don't suggest again" per person
+
+            ### Previous: v0.8.2 — Writing & Reading Polish
+            - No more 280-char limit, serif reading font, reading progress bar, article TOC, connection indicator fix
 
             ### Previous: v0.8.0 — Polish, Portability & Discovery
             - Profile banner polish, data export, relay recommendations, reading list tracking, trending hashtags
