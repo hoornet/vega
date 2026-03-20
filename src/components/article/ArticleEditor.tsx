@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { marked } from "marked";
 import { publishArticle } from "../../lib/nostr";
 import { useUIStore } from "../../stores/ui";
@@ -7,6 +7,7 @@ import { useDraftStore, type ArticleDraft } from "../../stores/drafts";
 import { open } from "@tauri-apps/plugin-dialog";
 import { readFile } from "@tauri-apps/plugin-fs";
 import { uploadBytes } from "../../lib/upload";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 
 export function ArticleEditor() {
   const { goBack } = useUIStore();
@@ -27,6 +28,46 @@ export function ArticleEditor() {
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [published, setPublished] = useState(false);
+  const [publishedRelays, setPublishedRelays] = useState(0);
+  const [lastSaved, setLastSaved] = useState<number | null>(null);
+  const [zenMode, setZenMode] = useState(false);
+  const [zenHint, setZenHint] = useState(false);
+  const zenTextareaRef = useRef<HTMLTextAreaElement>(null);
+
+  const toggleZen = useCallback(async () => {
+    const win = getCurrentWindow();
+    if (zenMode) {
+      await win.setFullscreen(false);
+      setZenMode(false);
+    } else {
+      await win.setFullscreen(true);
+      setZenMode(true);
+      setZenHint(true);
+      setTimeout(() => setZenHint(false), 2500);
+    }
+  }, [zenMode]);
+
+  // F11 to toggle zen mode, Esc to exit
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "F11") {
+        e.preventDefault();
+        toggleZen();
+      }
+      if (e.key === "Escape" && zenMode) {
+        toggleZen();
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [toggleZen, zenMode]);
+
+  // Exit fullscreen on unmount
+  useEffect(() => {
+    return () => {
+      getCurrentWindow().setFullscreen(false).catch(() => {});
+    };
+  }, []);
 
   // Sync state when active draft changes
   useEffect(() => {
@@ -46,9 +87,18 @@ export function ArticleEditor() {
     if (!activeDraftId) return;
     const t = setTimeout(() => {
       updateDraft(activeDraftId, { title, content, summary, image, tags });
+      setLastSaved(Date.now());
     }, 1000);
     return () => clearTimeout(t);
   }, [title, content, summary, image, tags, activeDraftId]);
+
+  // Update "saved Xs ago" display every 10s
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    if (!lastSaved) return;
+    const iv = setInterval(() => setTick((t) => t + 1), 10000);
+    return () => clearInterval(iv);
+  }, [lastSaved]);
 
   const renderedHtml = marked(content || "*Nothing to preview yet.*") as string;
   const wordCount = content.trim() ? content.trim().split(/\s+/).length : 0;
@@ -59,7 +109,7 @@ export function ArticleEditor() {
     setPublishing(true);
     setError(null);
     try {
-      await publishArticle({
+      const result = await publishArticle({
         title: title.trim(),
         content: content.trim(),
         summary: summary.trim() || undefined,
@@ -68,7 +118,11 @@ export function ArticleEditor() {
       });
       if (activeDraftId) deleteDraft(activeDraftId);
       setPublished(true);
-      setTimeout(goBack, 1500);
+      setPublishedRelays(result.relayCount);
+      if (result.relayCount === 0) {
+        setError("Warning: no relays confirmed — your article may not have been published.");
+      }
+      setTimeout(goBack, 2000);
     } catch (err) {
       setError(`Failed to publish: ${err}`);
     } finally {
@@ -113,6 +167,45 @@ export function ArticleEditor() {
     return <DraftListView onNewDraft={handleNewDraft} />;
   }
 
+  // Zen mode — fullscreen distraction-free writing
+  if (zenMode) {
+    return (
+      <div className="fixed inset-0 z-50 bg-bg flex flex-col items-center">
+        {/* Exit hint — fades after 2.5s */}
+        <div
+          className={`absolute top-3 left-1/2 -translate-x-1/2 text-text-dim text-[10px] transition-opacity duration-700 ${
+            zenHint ? "opacity-100" : "opacity-0"
+          }`}
+        >
+          Esc or F11 to exit
+        </div>
+
+        <div className="w-full max-w-2xl flex-1 flex flex-col px-6 py-12">
+          <input
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            placeholder="Title"
+            className="w-full bg-transparent text-text text-3xl font-bold placeholder:text-text-dim focus:outline-none mb-6"
+            style={{ fontFamily: "var(--font-reading)" }}
+          />
+          <textarea
+            ref={zenTextareaRef}
+            value={content}
+            onChange={(e) => setContent(e.target.value)}
+            onKeyDown={(e) => handleEditorKeyDown(e, zenTextareaRef, content, setContent)}
+            placeholder="Write…"
+            className="w-full flex-1 bg-transparent text-text text-[17px] leading-relaxed placeholder:text-text-dim resize-none focus:outline-none"
+            style={{ fontFamily: "var(--font-reading)" }}
+            autoFocus
+          />
+          <div className="text-text-dim text-[10px] pt-3 text-center">
+            {wordCount > 0 ? `${wordCount} words` : ""}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="h-full flex flex-col">
       {/* Header */}
@@ -122,8 +215,13 @@ export function ArticleEditor() {
             ← drafts
           </button>
           <span className="text-text-dim text-[10px]">{wordCount > 0 ? `${wordCount} words` : "New article"}</span>
-          {activeDraft && !published && (
-            <span className="text-text-dim text-[10px]">· draft saved</span>
+          {activeDraft && !published && lastSaved && (
+            <span className="text-text-dim text-[10px]">
+              · saved {Math.floor((Date.now() - lastSaved) / 1000) < 5 ? "just now" : `${Math.floor((Date.now() - lastSaved) / 1000)}s ago`}
+            </span>
+          )}
+          {published && publishedRelays > 0 && (
+            <span className="text-success text-[10px]">· published to {publishedRelays} {publishedRelays === 1 ? "relay" : "relays"}</span>
           )}
           {uploading && (
             <span className="inline-flex items-center gap-1 text-text-dim text-[10px]">
@@ -149,6 +247,14 @@ export function ArticleEditor() {
               preview
             </button>
           </div>
+
+          <button
+            onClick={toggleZen}
+            className="px-3 py-1 text-[11px] border border-border text-text-muted hover:text-text transition-colors"
+            title="Focus mode (F11)"
+          >
+            zen
+          </button>
 
           <button
             onClick={() => setShowMeta((v) => !v)}

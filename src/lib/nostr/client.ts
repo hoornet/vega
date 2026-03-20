@@ -122,7 +122,7 @@ export async function publishArticle(opts: {
   summary?: string;
   image?: string;
   tags?: string[];
-}): Promise<void> {
+}): Promise<{ relayCount: number }> {
   const instance = getNDK();
   if (!instance.signer) throw new Error("Not logged in");
 
@@ -144,7 +144,8 @@ export async function publishArticle(opts: {
   if (opts.image) event.tags.push(["image", opts.image]);
   if (opts.tags) opts.tags.forEach((t) => event.tags.push(["t", t]));
 
-  await event.publish();
+  const relays = await event.publish();
+  return { relayCount: relays.size };
 }
 
 export async function publishRepost(event: NDKEvent): Promise<void> {
