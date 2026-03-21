@@ -3,6 +3,23 @@ import type { PodcastShow, PodcastEpisode } from "../../types/podcast";
 import { getEpisodes } from "../../lib/podcast";
 import { usePodcastStore } from "../../stores/podcast";
 
+function SubscribeButton({ show }: { show: PodcastShow }) {
+  const subscribed = usePodcastStore((s) => s.isSubscribed(show.feedUrl));
+  const { subscribe, unsubscribe } = usePodcastStore.getState();
+  return (
+    <button
+      onClick={() => subscribed ? unsubscribe(show.feedUrl) : subscribe(show)}
+      className={`shrink-0 text-[11px] px-3 py-1 rounded-sm border transition-colors ${
+        subscribed
+          ? "border-accent/40 text-accent"
+          : "border-border text-text-muted hover:text-accent hover:border-accent/40"
+      }`}
+    >
+      {subscribed ? "subscribed" : "+ subscribe"}
+    </button>
+  );
+}
+
 function formatDuration(seconds: number): string {
   if (!seconds) return "";
   const h = Math.floor(seconds / 3600);
@@ -60,9 +77,14 @@ export function EpisodeList({ show, onBack }: EpisodeListProps) {
             onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
           />
         )}
-        <div className="min-w-0">
-          <h2 className="text-[15px] text-text font-semibold">{show.title}</h2>
-          <div className="text-[12px] text-text-muted">{show.author}</div>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-start justify-between gap-2">
+            <div>
+              <h2 className="text-[15px] text-text font-semibold">{show.title}</h2>
+              <div className="text-[12px] text-text-muted">{show.author}</div>
+            </div>
+            <SubscribeButton show={show} />
+          </div>
           {show.description && (
             <div className="text-[11px] text-text-dim mt-1 line-clamp-3">
               {show.description.replace(/<[^>]+>/g, "").slice(0, 200)}

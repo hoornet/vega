@@ -1,7 +1,8 @@
 import { create } from "zustand";
-import type { PodcastEpisode, PlaybackState } from "../types/podcast";
+import type { PodcastShow, PodcastEpisode, PlaybackState } from "../types/podcast";
 
 const STORAGE_KEY = "wrystr_podcast";
+const SUBS_KEY = "wrystr_podcast_subs";
 
 interface EpisodeProgress {
   position: number;
@@ -52,6 +53,7 @@ interface PodcastState {
   v4vIntervalId: number | null;
   progressMap: Record<string, EpisodeProgress>;
   playCounter: number;
+  subscriptions: PodcastShow[];
 
   play: (episode: PodcastEpisode) => void;
   pause: () => void;
@@ -69,6 +71,21 @@ interface PodcastState {
   setV4VSatsPerMinute: (sats: number) => void;
   setV4VStreaming: (streaming: boolean, intervalId?: number | null) => void;
   stop: () => void;
+  subscribe: (show: PodcastShow) => void;
+  unsubscribe: (feedUrl: string) => void;
+  isSubscribed: (feedUrl: string) => boolean;
+}
+
+function loadSubscriptions(): PodcastShow[] {
+  try {
+    return JSON.parse(localStorage.getItem(SUBS_KEY) ?? "[]");
+  } catch {
+    return [];
+  }
+}
+
+function saveSubscriptions(subs: PodcastShow[]) {
+  localStorage.setItem(SUBS_KEY, JSON.stringify(subs));
 }
 
 const persisted = loadPersistedState();
@@ -87,6 +104,7 @@ export const usePodcastStore = create<PodcastState>((set, get) => ({
   v4vIntervalId: null,
   progressMap: persisted.progressMap,
   playCounter: 0,
+  subscriptions: loadSubscriptions(),
 
   play: (episode) => {
     const position = get().loadProgress(episode.guid);
@@ -166,5 +184,23 @@ export const usePodcastStore = create<PodcastState>((set, get) => ({
       v4vStreaming: false,
       v4vIntervalId: null,
     });
+  },
+
+  subscribe: (show) => {
+    const { subscriptions } = get();
+    if (subscriptions.some((s) => s.feedUrl === show.feedUrl)) return;
+    const updated = [...subscriptions, show];
+    set({ subscriptions: updated });
+    saveSubscriptions(updated);
+  },
+
+  unsubscribe: (feedUrl) => {
+    const updated = get().subscriptions.filter((s) => s.feedUrl !== feedUrl);
+    set({ subscriptions: updated });
+    saveSubscriptions(updated);
+  },
+
+  isSubscribed: (feedUrl) => {
+    return get().subscriptions.some((s) => s.feedUrl === feedUrl);
   },
 }));

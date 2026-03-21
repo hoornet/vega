@@ -1,20 +1,24 @@
 import { useState, useEffect, useCallback } from "react";
 import type { PodcastShow } from "../../types/podcast";
 import { searchPodcasts, getTrending } from "../../lib/podcast";
+import { usePodcastStore } from "../../stores/podcast";
 import { PodcastCard } from "./PodcastCard";
 import { EpisodeList } from "./EpisodeList";
 
-type Tab = "trending" | "search";
+type Tab = "subscriptions" | "trending" | "search";
 
 export function PodcastsView() {
-  const [tab, setTab] = useState<Tab>("trending");
+  const subscriptions = usePodcastStore((s) => s.subscriptions);
+  const hasSubscriptions = subscriptions.length > 0;
+  const [tab, setTab] = useState<Tab>(hasSubscriptions ? "subscriptions" : "trending");
   const [query, setQuery] = useState("");
   const [shows, setShows] = useState<PodcastShow[]>([]);
   const [loading, setLoading] = useState(false);
   const [selectedShow, setSelectedShow] = useState<PodcastShow | null>(null);
 
-  // Load trending on mount
+  // Load trending on mount if no subscriptions
   useEffect(() => {
+    if (hasSubscriptions) return;
     setLoading(true);
     getTrending().then((results) => {
       setShows(results);
@@ -47,6 +51,8 @@ export function PodcastsView() {
     return <EpisodeList show={selectedShow} onBack={() => setSelectedShow(null)} />;
   }
 
+  const displayShows = tab === "subscriptions" ? subscriptions : shows;
+
   return (
     <div className="h-full flex flex-col">
       {/* Header */}
@@ -74,7 +80,7 @@ export function PodcastsView() {
 
         {/* Tabs */}
         <div className="flex gap-4">
-          {(["trending", "search"] as Tab[]).map((t) => (
+          {(["subscriptions", "trending", "search"] as Tab[]).map((t) => (
             <button
               key={t}
               onClick={() => handleTabChange(t)}
@@ -84,7 +90,7 @@ export function PodcastsView() {
                   : "text-text-muted border-transparent hover:text-text"
               }`}
             >
-              {t === "trending" ? "Trending" : "Search Results"}
+              {t === "subscriptions" ? `My Podcasts${subscriptions.length > 0 ? ` (${subscriptions.length})` : ""}` : t === "trending" ? "Trending" : "Search Results"}
             </button>
           ))}
         </div>
@@ -92,15 +98,32 @@ export function PodcastsView() {
 
       {/* Results */}
       <div className="flex-1 overflow-y-auto p-4">
-        {loading ? (
+        {tab === "subscriptions" ? (
+          subscriptions.length === 0 ? (
+            <div className="text-center py-12">
+              <p className="text-text-dim text-[13px] mb-2">No subscriptions yet.</p>
+              <p className="text-text-dim text-[11px] opacity-60">Search for a podcast or browse trending to subscribe.</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 gap-2">
+              {subscriptions.map((show, i) => (
+                <PodcastCard
+                  key={show.feedUrl ?? i}
+                  show={show}
+                  onClick={() => setSelectedShow(show)}
+                />
+              ))}
+            </div>
+          )
+        ) : loading ? (
           <div className="text-text-dim text-[12px]">Loading...</div>
-        ) : shows.length === 0 ? (
+        ) : displayShows.length === 0 ? (
           <div className="text-text-dim text-[12px]">
             {tab === "search" ? "No results. Try a different search." : "No trending podcasts found."}
           </div>
         ) : (
           <div className="grid grid-cols-1 gap-2">
-            {shows.map((show, i) => (
+            {displayShows.map((show, i) => (
               <PodcastCard
                 key={show.podcastIndexId ?? i}
                 show={show}
