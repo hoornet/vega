@@ -24,6 +24,7 @@ import { ToastContainer } from "./components/shared/ToastContainer";
 import { DebugPanel } from "./components/shared/DebugPanel";
 import { HelpModal } from "./components/shared/HelpModal";
 import { useUIStore } from "./stores/ui";
+import { getTheme, applyTheme } from "./lib/themes";
 import { useUpdater } from "./hooks/useUpdater";
 import { useKeyboardShortcuts } from "./hooks/useKeyboardShortcuts";
 
@@ -56,11 +57,24 @@ function App() {
   const toggleHelp = useUIStore((s) => s.toggleHelp);
   const showDebugPanel = useUIStore((s) => s.showDebugPanel);
   const toggleDebugPanel = useUIStore((s) => s.toggleDebugPanel);
+  const fontSize = useUIStore((s) => s.fontSize);
+  const themeId = useUIStore((s) => s.themeId);
   const [onboardingDone, setOnboardingDone] = useState(
     () => !!localStorage.getItem("wrystr_pubkey")
   );
 
   useKeyboardShortcuts();
+
+  // Apply zoom level based on font size setting
+  useEffect(() => {
+    document.documentElement.style.zoom = `${fontSize / 14}`;
+  }, [fontSize]);
+
+  // Apply color theme
+  useEffect(() => {
+    const theme = getTheme(themeId);
+    if (theme) applyTheme(theme);
+  }, [themeId]);
 
   // Intercept external link clicks and open in system browser via Tauri opener
   useEffect(() => {

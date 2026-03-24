@@ -2,6 +2,8 @@ import { useState } from "react";
 import { save } from "@tauri-apps/plugin-dialog";
 import { writeTextFile } from "@tauri-apps/plugin-fs";
 import { useUserStore } from "../../stores/user";
+import { useUIStore } from "../../stores/ui";
+import { themes } from "../../lib/themes";
 import { useMuteStore } from "../../stores/mute";
 import { useBookmarkStore } from "../../stores/bookmark";
 import { getStoredRelayUrls } from "../../lib/nostr";
@@ -30,17 +32,28 @@ function MutedRow({ pubkey, onUnmute }: { pubkey: string; onUnmute: () => void }
 
 function MuteSection() {
   const { mutedPubkeys, unmute } = useMuteStore();
+  const [expanded, setExpanded] = useState(false);
   if (mutedPubkeys.length === 0) return null;
   return (
     <section>
-      <h2 className="text-text text-[11px] font-medium uppercase tracking-widest mb-2 text-text-dim">
-        Muted accounts ({mutedPubkeys.length})
-      </h2>
-      <div className="space-y-1">
-        {mutedPubkeys.map((pk) => (
-          <MutedRow key={pk} pubkey={pk} onUnmute={() => unmute(pk)} />
-        ))}
-      </div>
+      <button
+        onClick={() => setExpanded(!expanded)}
+        className="flex items-center gap-2 w-full text-left group"
+      >
+        <span className="text-text-dim text-[10px] transition-transform" style={{ transform: expanded ? "rotate(90deg)" : "rotate(0deg)" }}>
+          ▶
+        </span>
+        <h2 className="text-text text-[11px] font-medium uppercase tracking-widest text-text-dim group-hover:text-text transition-colors">
+          Muted accounts ({mutedPubkeys.length})
+        </h2>
+      </button>
+      {expanded && (
+        <div className="space-y-1 mt-2">
+          {mutedPubkeys.map((pk) => (
+            <MutedRow key={pk} pubkey={pk} onUnmute={() => unmute(pk)} />
+          ))}
+        </div>
+      )}
     </section>
   );
 }
@@ -270,6 +283,78 @@ function NotificationSection() {
   );
 }
 
+function ThemeSection() {
+  const { themeId, setTheme } = useUIStore();
+
+  return (
+    <section>
+      <h2 className="text-text text-[11px] font-medium uppercase tracking-widest mb-3 text-text-dim">
+        Theme
+      </h2>
+      <div className="grid grid-cols-4 gap-2">
+        {themes.map((theme) => (
+          <button
+            key={theme.id}
+            onClick={() => setTheme(theme.id)}
+            className={`flex flex-col items-center gap-1.5 p-2 border transition-colors rounded-sm ${
+              themeId === theme.id
+                ? "border-accent bg-bg-hover"
+                : "border-border hover:border-accent/40"
+            }`}
+          >
+            <div className="flex gap-0.5 w-full h-5 rounded-sm overflow-hidden">
+              <div className="flex-1" style={{ background: theme.colors.bg }} />
+              <div className="flex-1" style={{ background: theme.colors["bg-raised"] }} />
+              <div className="flex-1" style={{ background: theme.colors.accent }} />
+              <div className="flex-1" style={{ background: theme.colors.text }} />
+            </div>
+            <span className="text-[10px] text-text-muted truncate w-full text-center">
+              {theme.name}
+            </span>
+          </button>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+const FONT_PRESETS = [
+  { label: "Small", size: 12 },
+  { label: "Normal", size: 14 },
+  { label: "Large", size: 16 },
+  { label: "Extra Large", size: 18 },
+];
+
+function FontSizeSection() {
+  const { fontSize, setFontSize } = useUIStore();
+
+  return (
+    <section>
+      <h2 className="text-text text-[11px] font-medium uppercase tracking-widest mb-2 text-text-dim">
+        Font Size
+      </h2>
+      <div className="flex items-center gap-2">
+        {FONT_PRESETS.map(({ label, size }) => (
+          <button
+            key={size}
+            onClick={() => setFontSize(size)}
+            className={`px-3 py-1.5 text-[11px] border transition-colors ${
+              fontSize === size
+                ? "border-accent text-accent"
+                : "border-border text-text-muted hover:text-text hover:border-accent/40"
+            }`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+      <p className="text-text-dim text-[10px] mt-2 px-1">
+        Adjusts the base text size across the app. Articles use their own reading font.
+      </p>
+    </section>
+  );
+}
+
 export function SettingsView() {
   return (
     <div className="h-full flex flex-col">
@@ -278,6 +363,8 @@ export function SettingsView() {
       </header>
 
       <div className="flex-1 overflow-y-auto p-4 space-y-8">
+        <ThemeSection />
+        <FontSizeSection />
         <WalletSection />
         <NotificationSection />
         <ExportSection />

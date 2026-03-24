@@ -90,6 +90,10 @@ sudo dnf install gstreamer1-plugins-base gstreamer1-plugins-good gstreamer1-liba
 - Search: NIP-50 full-text, `#hashtag`, people search with inline follow, **article search** (kind 30023)
 - **NIP-05 verification badges** — cached verification with green checkmark on note cards
 
+**Personalization**
+- **Color themes** — 7 built-in themes: Midnight (default dark), Light, Catppuccin Mocha, Tokyo Night, Gruvbox, Ethereal, Hackerman; instant switching from Settings
+- **Font size** — Small / Normal / Large / Extra Large presets; scales the entire UI uniformly
+
 **Performance & UX**
 - **Resilient relay connectivity** — all relay queries have timeouts (no more infinite loading); automatic reconnection with NDK instance reset as last resort; toast notifications for connection events; feed diagnostics for debugging
 - **Per-tab "last updated" timestamp** — relative time indicator in feed header shows how fresh each tab's data is
@@ -157,7 +161,6 @@ npm run tauri build     # production binary
 See [ROADMAP.md](./ROADMAP.md) for the full prioritised next steps.
 
 Up next:
-- Color themes / light mode
 - UI polish and visual makeover
 - Nostr NIP research sprint — expanding protocol support
 - Web of Trust scoring

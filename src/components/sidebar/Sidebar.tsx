@@ -1,5 +1,4 @@
 import { useUIStore } from "../../stores/ui";
-import { useFeedStore } from "../../stores/feed";
 import { useUserStore } from "../../stores/user";
 import { useNotificationsStore } from "../../stores/notifications";
 import { useDraftStore } from "../../stores/drafts";
@@ -25,7 +24,6 @@ const NAV_ITEMS = [
 
 export function Sidebar() {
   const { currentView, setView, sidebarCollapsed, toggleSidebar } = useUIStore();
-  const { connected } = useFeedStore();
   const { loggedIn } = useUserStore();
   const { unreadCount: notifUnread, dmUnreadCount } = useNotificationsStore();
   const draftCount = useDraftStore((s) => s.drafts.length);
@@ -125,22 +123,6 @@ export function Sidebar() {
       {/* Account switcher (full) — expanded only */}
       {!c && <AccountSwitcher />}
 
-      {/* Footer — connection status */}
-      <div className={`border-t border-border shrink-0 ${c ? "py-2 flex justify-center" : "px-3 py-2"}`}>
-        {c ? (
-          /* Collapsed: single dot */
-          <span
-            title={connected ? "Online" : "Offline"}
-            className={`w-2 h-2 rounded-full inline-block ${connected ? "bg-success" : "bg-danger"}`}
-          />
-        ) : (
-          /* Expanded: dot + label */
-          <div className="flex items-center gap-1.5 text-[10px] text-text-dim">
-            <span className={`w-1.5 h-1.5 rounded-full ${connected ? "bg-success" : "bg-danger"}`} />
-            <span>{connected ? "online" : "offline"}</span>
-          </div>
-        )}
-      </div>
     </aside>
   );
 }

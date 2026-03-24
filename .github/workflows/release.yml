@@ -69,18 +69,15 @@ jobs:
 
             > **Windows note:** The installer is not yet code-signed. Windows SmartScreen will show an "Unknown publisher" warning — click "More info → Run anyway" to install.
 
-            ### New in v0.9.2 — Relay Status, Toasts & Debug Tools
-            Better visibility into what's happening under the hood.
-            - **Relay status badge** — compact "8/12 relays" indicator in feed header with color coding (green/yellow/red); hover for per-relay connection details
-            - **Toast notifications** — transient messages for connection events: "Connection lost", "Back online", "Resetting relay connections", "Relays reconnected"
-            - **Per-tab "last updated" timestamp** — shows how fresh each feed tab is; Global/Following/Trending tracked independently
-            - **Subscription debug panel** — Ctrl+Shift+D toggles a hidden panel showing NDK uptime, live subscription status, per-relay state, feed timestamps, and recent diagnostics log
-            - **Consolidated relay management** — all relay controls (add, remove, health check, publish list, recommendations) now in one Relays view; removed duplicate relay section from Settings
-            - **Per-relay remove button** — hover any relay card to remove it individually
-            - **Full NIP badge display** — relay cards now show all supported NIPs, not just a filtered subset
-            - **Status dot tooltips** — hover relay status dots for explanations (Online, Slow, Offline, Awaiting check)
-            - **Wider scrollbar** — 12px for easier mouse dragging on long threads
-            - **Acknowledgements section** — added to README
+            ### New in v0.9.3 — Themes, Font Size & Settings Polish
+            Make Wrystr yours.
+            - **7 color themes** — Midnight (default), Light, Catppuccin Mocha, Tokyo Night, Gruvbox, Ethereal, Hackerman; instant switching from Settings
+            - **Font size presets** — Small / Normal / Large / Extra Large; scales the entire UI uniformly
+            - **Collapsible muted accounts** — muted user list collapsed by default in Settings; click to expand
+            - **Removed old connection indicator** — sidebar offline/online dot removed in favor of the relay status badge in feed header
+
+            ### Previous: v0.9.2 — Relay Status, Toasts & Debug Tools
+            - Relay status badge, toast notifications, per-tab timestamps, debug panel (Ctrl+Shift+D), consolidated relay management, wider scrollbar
 
             ### Previous: v0.9.1 — Live Feed & Relay Reliability
             - Live streaming feed, timeouts on all relay fetches, fixed relay death spiral, NDK subscription hygiene, feed diagnostics, background relay recovery

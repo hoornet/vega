@@ -47,6 +47,7 @@ CI triggers on the tag and builds all three platforms (Ubuntu, Windows, macOS AR
 - `src/App.tsx` — root component; shows `OnboardingFlow` for new users, then view routing via UI store
 - `src/stores/` — Zustand stores per domain: `feed.ts`, `user.ts`, `ui.ts`, `lightning.ts`, `drafts.ts`, `relayHealth.ts`, `bookmark.ts`, `toast.ts`
 - `src/lib/nostr/` — NDK wrapper split into domain modules (`core.ts`, `notes.ts`, `social.ts`, `articles.ts`, `engagement.ts`, `dms.ts`, `bookmarks.ts`, `muting.ts`, `search.ts`, `relays.ts`, `trending.ts`); barrel `index.ts` re-exports all; all Nostr calls go through here
+- `src/lib/themes.ts` — Color theme definitions (7 themes) and `applyTheme()` utility
 - `src/lib/lightning/` — NWC client (`nwc.ts`); Lightning payment logic
 - `src/hooks/` — `useProfile.ts`, `useReactionCount.ts`
 - `src/components/feed/` — Feed, NoteCard, NoteContent, NoteActions, InlineReplyBox, TextSegments, MediaCards, ComposeBox
@@ -60,7 +61,7 @@ CI triggers on the tag and builds all three platforms (Ubuntu, Windows, macOS AR
 - `src/components/media/` — MediaFeed (media discovery with tab filtering)
 - `src/components/zap/` — ZapModal
 - `src/components/onboarding/` — OnboardingFlow (welcome, create key, backup, login)
-- `src/components/shared/` — RelaysView (relay health dashboard + recommendations), SettingsView (NWC + identity + data export), EmojiPicker (categorized emoji insertion)
+- `src/components/shared/` — RelaysView (relay health dashboard + recommendations), SettingsView (themes + font size + NWC + identity + data export), EmojiPicker (categorized emoji insertion)
 - `src/components/sidebar/` — Sidebar navigation
 
 **Backend** (`src-tauri/`): Rust + Tauri 2.0
@@ -105,7 +106,7 @@ CI triggers on the tag and builds all three platforms (Ubuntu, Windows, macOS AR
 - Zaps: NWC wallet connect (NIP-47) + NIP-57 via NDKZapper
 - **Advanced search** — query parser with modifiers: `by:author`, `mentions:npub`, `kind:N`, `is:article`, `has:image`, `since:date`, `until:date`, `#hashtag`, `"phrase"`, boolean `OR`; NIP-05 resolution; client-side content filters; search help panel
 - Search: NIP-50 full-text, hashtag (#t filter), people, articles
-- Settings: NWC wallet, notifications, data export, identity, mute lists
+- Settings: color themes (7 presets), font size presets, NWC wallet, notifications, data export, identity, mute lists
 - **Relay management** — consolidated Relays view with add/remove individual relays, health checker (NIP-11 info, WebSocket latency, online/slow/offline status), expandable cards with all supported NIPs, per-relay remove button, "Remove dead" workflow, publish relay list (NIP-65)
 - **Relay recommendations** — suggest relays based on follows' NIP-65 relay lists; "Discover relays" button with follow count, one-click "Add"
 - **Relay status badge** — compact "N/M relays" indicator in feed header with color coding; hover tooltip shows per-relay connection state
@@ -141,6 +142,8 @@ CI triggers on the tag and builds all three platforms (Ubuntu, Windows, macOS AR
 - **Profile media gallery** — "Media" tab on profiles with grid layout; images open lightbox, videos/audio navigate to thread
 - **Emoji picker** — shared categorized emoji picker (Frequent/Faces/Gestures/Objects/Symbols) in compose box, inline reply, thread reply; emoji reaction picker on note cards via visible + button
 - **External link opener** — global click handler intercepts http(s) links and opens in system browser via `@tauri-apps/plugin-opener`
+- **Color themes** — 7 built-in themes (Midnight, Light, Catppuccin Mocha, Tokyo Night, Gruvbox, Ethereal, Hackerman); CSS custom properties swapped at runtime; persisted to localStorage
+- **Font size presets** — Small/Normal/Large/Extra Large; CSS zoom scaling on document root; persisted to localStorage
 
 **Not yet implemented:**
 - Web of Trust scoring
