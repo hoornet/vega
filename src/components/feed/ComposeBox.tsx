@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { publishNote } from "../../lib/nostr";
 import { uploadImage, uploadBytes } from "../../lib/upload";
+import { useAutoResize } from "../../hooks/useAutoResize";
 import { useUserStore } from "../../stores/user";
 import { useFeedStore } from "../../stores/feed";
 import { shortenPubkey } from "../../lib/utils";
@@ -19,6 +20,7 @@ export function ComposeBox({ onPublished, onNoteInjected }: { onPublished?: () =
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showEmoji, setShowEmoji] = useState(false);
+  const autoResize = useAutoResize(3, 12);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const { profile, npub } = useUserStore();
@@ -213,14 +215,14 @@ export function ComposeBox({ onPublished, onNoteInjected }: { onPublished?: () =
             ref={textareaRef}
             data-compose
             value={text}
-            onChange={(e) => setText(e.target.value)}
+            onChange={(e) => { setText(e.target.value); autoResize(e); }}
             onKeyDown={handleKeyDown}
             onPaste={handlePaste}
             onDrop={handleDrop}
             onDragOver={handleDragOver}
             placeholder="What's on your mind?"
             rows={3}
-            className="w-full bg-transparent text-text text-[13px] placeholder:text-text-dim resize-none focus:outline-none"
+            className="w-full bg-transparent text-text text-[13px] placeholder:text-text-dim resize-none focus:outline-none leading-relaxed"
           />
 
           {error && (

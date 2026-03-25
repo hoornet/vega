@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import { NDKEvent } from "@nostr-dev-kit/ndk";
 import { renderMarkdown } from "../../lib/markdown";
+import { useAutoResize } from "../../hooks/useAutoResize";
 import { useUIStore } from "../../stores/ui";
 import { useUserStore } from "../../stores/user";
 import { useBookmarkStore } from "../../stores/bookmark";
@@ -77,6 +78,7 @@ export function ArticleView() {
   const [reposted, setReposted] = useState(false);
   const [showComment, setShowComment] = useState(false);
   const [commentText, setCommentText] = useState("");
+  const autoResize = useAutoResize(3, 10);
   const { isBookmarked, addBookmark, removeBookmark } = useBookmarkStore();
 
   const naddr = pendingArticleNaddr ?? "";
@@ -291,23 +293,26 @@ export function ArticleView() {
 
       {/* Comment box */}
       {showComment && event && (
-        <div className="border-b border-border px-4 py-3 flex gap-2 shrink-0">
-          <input
-            type="text"
+        <div className="border-b border-border px-4 py-3 shrink-0">
+          <textarea
             value={commentText}
-            onChange={(e) => setCommentText(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && handleComment()}
+            onChange={(e) => { setCommentText(e.target.value); autoResize(e); }}
+            onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleComment(); } }}
             placeholder="Write a comment about this article..."
-            className="flex-1 bg-bg-raised border border-border rounded-sm px-3 py-1.5 text-[12px] text-text placeholder:text-text-dim focus:outline-none focus:border-accent"
+            rows={3}
+            className="w-full bg-bg-raised border border-border rounded-sm px-3 py-2 text-[12px] text-text placeholder:text-text-dim resize-none focus:outline-none focus:border-accent leading-relaxed"
             autoFocus
           />
-          <button
-            onClick={handleComment}
-            disabled={!commentText.trim()}
-            className="px-3 py-1.5 bg-accent/10 text-accent text-[12px] rounded-sm hover:bg-accent/20 transition-colors disabled:opacity-40"
-          >
-            post
-          </button>
+          <div className="flex justify-between items-center mt-2">
+            <span className="text-text-dim text-[10px]">Shift+Enter for new line</span>
+            <button
+              onClick={handleComment}
+              disabled={!commentText.trim()}
+              className="px-3 py-1.5 bg-accent/10 text-accent text-[12px] rounded-sm hover:bg-accent/20 transition-colors disabled:opacity-40"
+            >
+              post
+            </button>
+          </div>
         </div>
       )}
 

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { NDKEvent } from "@nostr-dev-kit/ndk";
+import { useAutoResize } from "../../hooks/useAutoResize";
 import { useUIStore } from "../../stores/ui";
 import { useUserStore } from "../../stores/user";
 import { useMuteStore } from "../../stores/mute";
@@ -28,6 +29,7 @@ export function ThreadView() {
   const [replying, setReplying] = useState(false);
   const [replySent, setReplySent] = useState(false);
   const [showReplyEmoji, setShowReplyEmoji] = useState(false);
+  const autoResize = useAutoResize(2, 8);
   const replyRef = useRef<HTMLTextAreaElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -195,11 +197,11 @@ export function ThreadView() {
                 <textarea
                   ref={replyRef}
                   value={replyText}
-                  onChange={(e) => setReplyText(e.target.value)}
+                  onChange={(e) => { setReplyText(e.target.value); autoResize(e); }}
                   onKeyDown={handleKeyDown}
                   placeholder="Write a reply..."
                   rows={2}
-                  className="w-full bg-transparent text-text text-[12px] placeholder:text-text-dim resize-none focus:outline-none"
+                  className="w-full bg-transparent text-text text-[12px] placeholder:text-text-dim resize-none focus:outline-none leading-relaxed"
                   autoFocus
                 />
                 <div className="flex items-center justify-end gap-2 mt-1">

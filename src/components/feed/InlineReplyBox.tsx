@@ -2,6 +2,7 @@ import { useState, useRef } from "react";
 import { NDKEvent } from "@nostr-dev-kit/ndk";
 import { publishReply } from "../../lib/nostr";
 import { uploadImage, uploadBytes } from "../../lib/upload";
+import { useAutoResize } from "../../hooks/useAutoResize";
 import { useReplyCount } from "../../hooks/useReplyCount";
 import { EmojiPicker } from "../shared/EmojiPicker";
 import { open } from "@tauri-apps/plugin-dialog";
@@ -21,6 +22,7 @@ export function InlineReplyBox({ event, name, rootEvent }: InlineReplyBoxProps) 
   const [showReplyEmoji, setShowReplyEmoji] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const autoResize = useAutoResize(2, 8);
   const replyRef = useRef<HTMLTextAreaElement>(null);
   const [, adjustReplyCount] = useReplyCount(event.id);
 
@@ -138,12 +140,12 @@ export function InlineReplyBox({ event, name, rootEvent }: InlineReplyBoxProps) 
       <textarea
         ref={replyRef}
         value={replyText}
-        onChange={(e) => setReplyText(e.target.value)}
+        onChange={(e) => { setReplyText(e.target.value); autoResize(e); }}
         onKeyDown={handleReplyKeyDown}
         onPaste={handlePaste}
         placeholder={`Reply to ${name}…`}
         rows={2}
-        className="w-full bg-transparent text-text text-[12px] placeholder:text-text-dim resize-none focus:outline-none"
+        className="w-full bg-transparent text-text text-[12px] placeholder:text-text-dim resize-none focus:outline-none leading-relaxed"
         autoFocus
       />
       {replyError && <p className="text-danger text-[10px] mb-1">{replyError}</p>}
