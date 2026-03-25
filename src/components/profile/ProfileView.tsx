@@ -34,6 +34,7 @@ export function ProfileView() {
   const [profileTab, setProfileTab] = useState<"notes" | "articles" | "media">("notes");
   const [bannerLightbox, setBannerLightbox] = useState(false);
   const [bannerLoaded, setBannerLoaded] = useState(false);
+  const [bannerError, setBannerError] = useState(false);
 
   const isFollowing = follows.includes(pubkey);
   const { mutedPubkeys, mute, unmute } = useMuteStore();
@@ -62,6 +63,8 @@ export function ProfileView() {
   useEffect(() => {
     setLoading(true);
     setProfileTab("notes");
+    setBannerLoaded(false);
+    setBannerError(false);
     fetchUserNotesNIP65(pubkey).then((events) => {
       setNotes(events);
       setLoading(false);
@@ -151,7 +154,7 @@ export function ProfileView() {
         {!editing && (
           <div className="border-b border-border">
             {/* Banner */}
-            {profile?.banner ? (
+            {profile?.banner && !bannerError ? (
               <div className="relative h-44 bg-bg-raised overflow-hidden">
                 {!bannerLoaded && (
                   <div className="absolute inset-0 bg-bg-raised animate-pulse" />
@@ -162,31 +165,33 @@ export function ProfileView() {
                   className="w-full h-full object-cover object-[center_30%] cursor-pointer hover:opacity-90 transition-opacity"
                   onClick={() => setBannerLightbox(true)}
                   onLoad={() => setBannerLoaded(true)}
-                  onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+                  onError={() => setBannerError(true)}
                 />
               </div>
             ) : null}
 
-            {/* Avatar + info — avatar overlaps banner when present */}
-            <div className={`px-4 flex gap-4 items-start ${profile?.banner ? "-mt-7 pb-4" : "py-4"}`}>
-              {avatar ? (
-                <img
-                  src={avatar}
-                  alt=""
-                  className={`w-16 h-16 rounded-sm object-cover bg-bg-raised shrink-0 ${
-                    profile?.banner ? "ring-2 ring-bg shadow-md" : ""
-                  }`}
-                  onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
-                />
-              ) : (
-                <div className={`w-16 h-16 rounded-sm bg-bg-raised border border-border flex items-center justify-center text-text-dim text-lg shrink-0 ${
-                  profile?.banner ? "ring-2 ring-bg shadow-md" : ""
-                }`}>
-                  {name.charAt(0).toUpperCase()}
-                </div>
-              )}
+            {/* Avatar + info */}
+            <div className="px-4 py-4 flex gap-4 items-start">
+              <div className="shrink-0" style={{ width: 64, height: 64 }}>
+                {avatar ? (
+                  <img
+                    src={avatar}
+                    alt=""
+                    style={{ width: 64, height: 64 }}
+                    className="rounded-sm object-cover bg-bg-raised"
+                    onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+                  />
+                ) : (
+                  <div
+                    style={{ width: 64, height: 64 }}
+                    className="rounded-sm bg-bg-raised border border-border flex items-center justify-center text-text-dim text-lg"
+                  >
+                    {name.charAt(0).toUpperCase()}
+                  </div>
+                )}
+              </div>
 
-              <div className={`min-w-0 flex-1 ${profile?.banner ? "pt-8" : ""}`}>
+              <div className="min-w-0 flex-1">
                 <div className="text-text font-medium text-[15px]">{name}</div>
                 {nip05 && <div className="text-text-dim text-[11px] mt-0.5">{nip05}</div>}
                 {lud16 && <div className="text-zap text-[11px] mt-0.5">⚡ {lud16}</div>}
