@@ -6,6 +6,7 @@ import { publishReply } from "../../lib/nostr";
 import { useProfile } from "../../hooks/useProfile";
 import { shortenPubkey } from "../../lib/utils";
 import { EmojiPicker } from "../shared/EmojiPicker";
+import { useAutoResize } from "../../hooks/useAutoResize";
 
 interface ThreadNodeProps {
   node: ThreadNodeType;
@@ -31,6 +32,7 @@ function InlineThreadReply({ replyTo, rootEvent, onPublished }: {
   const [sent, setSent] = useState(false);
   const [showEmoji, setShowEmoji] = useState(false);
   const ref = useRef<HTMLTextAreaElement>(null);
+  const autoResize = useAutoResize(2, 8);
 
   const handleSubmit = async () => {
     if (!text.trim() || replying) return;
@@ -60,7 +62,7 @@ function InlineThreadReply({ replyTo, rootEvent, onPublished }: {
       <textarea
         ref={ref}
         value={text}
-        onChange={(e) => setText(e.target.value)}
+        onChange={(e) => { setText(e.target.value); autoResize(e); }}
         onKeyDown={handleKeyDown}
         placeholder="Write a reply..."
         rows={2}

@@ -16,8 +16,6 @@ export function ThreadView() {
   const { selectedNote, goBack } = useUIStore();
   const { loggedIn } = useUserStore();
   const { mutedPubkeys, contentMatchesMutedKeyword } = useMuteStore();
-  if (!selectedNote) { goBack(); return null; }
-  const focusedEvent = selectedNote;
 
   const [rootEvent, setRootEvent] = useState<NDKEvent | null>(null);
   const [ancestors, setAncestors] = useState<NDKEvent[]>([]);
@@ -32,8 +30,11 @@ export function ThreadView() {
   const autoResize = useAutoResize(2, 8);
   const replyRef = useRef<HTMLTextAreaElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
-
   const [retryCount, setRetryCount] = useState(0);
+
+  // Guard AFTER all hooks to satisfy React rules of hooks
+  if (!selectedNote) { goBack(); return null; }
+  const focusedEvent = selectedNote;
 
   useEffect(() => {
     let cancelled = false;

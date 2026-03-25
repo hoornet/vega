@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { renderMarkdown } from "../../lib/markdown";
 import { publishArticle } from "../../lib/nostr";
 import { useUIStore } from "../../stores/ui";
@@ -8,6 +8,17 @@ import { open } from "@tauri-apps/plugin-dialog";
 import { readFile } from "@tauri-apps/plugin-fs";
 import { uploadBytes, uploadImage } from "../../lib/upload";
 import { getCurrentWindow } from "@tauri-apps/api/window";
+
+/** Extract image URLs from markdown ![alt](url) patterns */
+function extractImages(md: string): { alt: string; url: string }[] {
+  const re = /!\[([^\]]*)\]\(([^)]+)\)/g;
+  const images: { alt: string; url: string }[] = [];
+  let m;
+  while ((m = re.exec(md))) {
+    images.push({ alt: m[1], url: m[2] });
+  }
+  return images;
+}
 
 export function ArticleEditor() {
   const { goBack } = useUIStore();
@@ -103,6 +114,7 @@ export function ArticleEditor() {
   const renderedHtml = renderMarkdown(content || "*Nothing to preview yet.*");
   const wordCount = content.trim() ? content.trim().split(/\s+/).length : 0;
   const canPublish = title.trim().length > 0 && content.trim().length > 0;
+  const inlineImages = useMemo(() => extractImages(content), [content]);
 
   const handlePublish = async () => {
     if (!canPublish || publishing) return;
@@ -398,6 +410,23 @@ export function ArticleEditor() {
           />
         )}
 
+        {/* Inline image previews (write mode only) */}
+        {mode === "write" && inlineImages.length > 0 && (
+          <div className="flex items-center gap-2 px-6 py-2 border-b border-border bg-bg-raised/50 overflow-x-auto shrink-0">
+            <span className="text-text-dim text-[10px] shrink-0">{inlineImages.length} {inlineImages.length === 1 ? "image" : "images"}</span>
+            {inlineImages.map((img, i) => (
+              <div key={i} className="relative shrink-0 group">
+                <img
+                  src={img.url}
+                  alt={img.alt}
+                  className="h-12 w-auto rounded-sm border border-border object-cover"
+                  onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+                />
+              </div>
+            ))}
+          </div>
+        )}
+
         {/* Content area */}
         <div className="flex-1 overflow-y-auto px-6 pb-6">
           {mode === "write" ? (
@@ -407,7 +436,32 @@ export function ArticleEditor() {
               onChange={(e) => setContent(e.target.value)}
               onKeyDown={(e) => handleEditorKeyDown(e, textareaRef, content, setContent)}
               onPaste={handleArticlePaste}
-              placeholder="Write your article in Markdown…"
+              onDrop={async (e) => {
+                const file = Array.from(e.dataTransfer.files).find((f) => f.type.startsWith("image/"));
+                if (!file) return;
+                e.preventDefault();
+                e.stopPropagation();
+                setUploading(true);
+                setError(null);
+                try {
+                  const url = await uploadImage(file);
+                  const ta = textareaRef.current;
+                  if (ta) {
+                    const start = ta.selectionStart ?? content.length;
+                    const end = ta.selectionEnd ?? content.length;
+                    const md = `![image](${url})`;
+                    setContent(content.slice(0, start) + md + content.slice(end));
+                  }
+                } catch (err) {
+                  setError(`Image upload failed: ${err}`);
+                } finally {
+                  setUploading(false);
+                }
+              }}
+              onDragOver={(e) => {
+                if (Array.from(e.dataTransfer.types).includes("Files")) e.preventDefault();
+              }}
+              placeholder="Write your article in Markdown… (paste or drop images)"
               className="w-full h-full min-h-[400px] bg-transparent text-text text-[14px] leading-relaxed placeholder:text-text-dim resize-none focus:outline-none font-mono"
             />
           ) : (

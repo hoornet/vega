@@ -116,15 +116,15 @@ function applyMarkdown(
   });
 }
 
-const TOOLS: { action: MarkdownAction; label: string; title: string }[] = [
-  { action: "bold", label: "B", title: "Bold (Ctrl+B)" },
-  { action: "italic", label: "I", title: "Italic (Ctrl+I)" },
+const TOOLS: { action: MarkdownAction; label: string; title: string; bold?: boolean; italic?: boolean }[] = [
+  { action: "bold", label: "B", title: "Bold (Ctrl+B)", bold: true },
+  { action: "italic", label: "I", title: "Italic (Ctrl+I)", italic: true },
   { action: "heading", label: "H", title: "Heading" },
-  { action: "link", label: "🔗", title: "Link (Ctrl+K)" },
-  { action: "image", label: "🖼", title: "Image" },
-  { action: "quote", label: "❝", title: "Quote" },
-  { action: "code", label: "</>", title: "Code" },
-  { action: "list", label: "☰", title: "List" },
+  { action: "link", label: "Link", title: "Insert link (Ctrl+K)" },
+  { action: "image", label: "Image", title: "Upload image" },
+  { action: "quote", label: "Quote", title: "Block quote" },
+  { action: "code", label: "Code", title: "Code block" },
+  { action: "list", label: "List", title: "Bullet list" },
 ];
 
 export function MarkdownToolbar({ textareaRef, content, setContent, setUploading, setError }: ToolbarProps) {
@@ -175,13 +175,13 @@ export function MarkdownToolbar({ textareaRef, content, setContent, setUploading
 
   return (
     <div className="flex items-center gap-0.5 border-b border-border px-2 py-1 bg-bg-raised shrink-0">
-      {TOOLS.map(({ action, label, title }) => (
+      {TOOLS.map(({ action, label, title, bold, italic }) => (
         <button
           key={action}
           onClick={() => handleClick(action)}
           title={title}
-          className="px-2 py-0.5 text-[12px] text-text-muted hover:text-text hover:bg-bg-hover transition-colors rounded-sm"
-          style={action === "bold" ? { fontWeight: "bold" } : action === "italic" ? { fontStyle: "italic" } : undefined}
+          className="px-2 py-0.5 text-[11px] text-text-muted hover:text-text hover:bg-bg-hover transition-colors rounded-sm"
+          style={{ fontWeight: bold ? "bold" : undefined, fontStyle: italic ? "italic" : undefined }}
         >
           {label}
         </button>
