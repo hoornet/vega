@@ -82,6 +82,20 @@ export async function fetchMentions(pubkey: string, since: number, limit = 50): 
   return Array.from(events).sort((a, b) => (b.created_at ?? 0) - (a.created_at ?? 0));
 }
 
+export async function fetchFollowers(pubkey: string, limit = 200): Promise<string[]> {
+  const instance = getNDK();
+  const events = await fetchWithTimeout(
+    instance,
+    { kinds: [3 as NDKKind], "#p": [pubkey], limit },
+    FEED_TIMEOUT,
+  );
+  const followerPubkeys = new Set<string>();
+  for (const e of events) {
+    if (e.pubkey !== pubkey) followerPubkeys.add(e.pubkey);
+  }
+  return Array.from(followerPubkeys);
+}
+
 export async function fetchNewFollowers(pubkey: string, since: number, limit = 20): Promise<NDKEvent[]> {
   const instance = getNDK();
   const filter: NDKFilter = {

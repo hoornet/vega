@@ -19,6 +19,7 @@ import { NotificationsView } from "./components/notifications/NotificationsView"
 import { BookmarkView } from "./components/bookmark/BookmarkView";
 import { HashtagFeed } from "./components/feed/HashtagFeed";
 import { PodcastsView } from "./components/podcast/PodcastsView";
+import { FollowsView } from "./components/follows/FollowsView";
 import { PodcastPlayerBar } from "./components/podcast/PodcastPlayerBar";
 import { ToastContainer } from "./components/shared/ToastContainer";
 import { DebugPanel } from "./components/shared/DebugPanel";
@@ -123,6 +124,7 @@ function App() {
         {currentView === "bookmarks" && <BookmarkView />}
         {currentView === "hashtag" && <HashtagFeed />}
         {currentView === "podcasts" && <PodcastsView />}
+        {currentView === "follows" && <FollowsView />}
       </main>
       </div>
       <PodcastPlayerBar />

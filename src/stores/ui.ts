@@ -2,7 +2,7 @@ import { create } from "zustand";
 
 import { NDKEvent } from "@nostr-dev-kit/ndk";
 
-type View = "feed" | "search" | "relays" | "settings" | "profile" | "thread" | "article-editor" | "article" | "articles" | "media" | "podcasts" | "about" | "zaps" | "dm" | "notifications" | "bookmarks" | "hashtag";
+type View = "feed" | "search" | "relays" | "settings" | "profile" | "thread" | "article-editor" | "article" | "articles" | "media" | "podcasts" | "about" | "zaps" | "dm" | "notifications" | "bookmarks" | "hashtag" | "follows";
 type FeedTab = "global" | "following" | "trending";
 
 interface ViewStackEntry {
@@ -29,9 +29,11 @@ interface UIState {
   showHelp: boolean;
   showDebugPanel: boolean;
   feedLanguageFilter: string | null;
+  followsTab: "followers" | "following";
   fontSize: number;
   themeId: string;
   setView: (view: View) => void;
+  setFollowsTab: (tab: "followers" | "following") => void;
   setFeedTab: (tab: FeedTab) => void;
   openProfile: (pubkey: string) => void;
   openThread: (note: NDKEvent, from?: View) => void;
@@ -68,10 +70,12 @@ export const useUIStore = create<UIState>((set, _get) => ({
   showHelp: false,
   showDebugPanel: false,
   feedLanguageFilter: null,
+  followsTab: "followers",
   fontSize: parseInt(localStorage.getItem(FONT_SIZE_KEY) || "14", 10),
   themeId: localStorage.getItem(THEME_KEY) || "midnight",
   setView: (currentView) => set({ currentView }),
   setFeedTab: (feedTab) => set({ feedTab }),
+  setFollowsTab: (followsTab) => set({ followsTab }),
   openProfile: (pubkey) => set((s) => {
     const stack = [...s.viewStack, { view: s.currentView, selectedNote: s.selectedNote, selectedPubkey: s.selectedPubkey }].slice(-MAX_STACK);
     return { currentView: "profile", selectedPubkey: pubkey, previousView: s.currentView as View, viewStack: stack };

@@ -16,6 +16,7 @@ const NAV_ITEMS = [
   { id: "bookmarks" as const, label: "bookmarks", icon: "▪" },
   { id: "dm" as const, label: "messages", icon: "✉" },
   { id: "notifications" as const, label: "notifications", icon: "🔔" },
+  { id: "follows" as const, label: "follows", icon: "♺" },
   { id: "zaps" as const, label: "zaps", icon: "⚡" },
   { id: "relays" as const, label: "relays", icon: "⟐" },
   { id: "settings" as const, label: "settings", icon: "⚙" },
@@ -25,7 +26,7 @@ const NAV_ITEMS = [
 export function Sidebar() {
   const { currentView, setView, sidebarCollapsed, toggleSidebar } = useUIStore();
   const { loggedIn } = useUserStore();
-  const { unreadCount: notifUnread, dmUnreadCount } = useNotificationsStore();
+  const { unreadCount: notifUnread, dmUnreadCount, newFollowersCount } = useNotificationsStore();
   const draftCount = useDraftStore((s) => s.drafts.length);
   const bookmarkUnread = useBookmarkStore((s) => s.unreadArticleCount());
 
@@ -93,7 +94,7 @@ export function Sidebar() {
         )}
 
         {NAV_ITEMS.map((item) => {
-          const badge = item.id === "dm" ? dmUnreadCount : item.id === "notifications" ? notifUnread : item.id === "bookmarks" ? bookmarkUnread : 0;
+          const badge = item.id === "dm" ? dmUnreadCount : item.id === "notifications" ? notifUnread : item.id === "bookmarks" ? bookmarkUnread : item.id === "follows" ? newFollowersCount : 0;
           return (
             <button
               key={item.id}

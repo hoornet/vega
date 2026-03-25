@@ -14,6 +14,7 @@ interface NotificationsState {
   currentPubkey: string | null;
   dmLastSeen: Record<string, number>;
   dmUnreadCount: number;
+  newFollowersCount: number;
 
   fetchNotifications: (pubkey: string) => Promise<void>;
   markRead: (eventId: string) => void;
@@ -21,6 +22,8 @@ interface NotificationsState {
   isRead: (eventId: string) => boolean;
   markDMRead: (partnerPubkey: string) => void;
   computeDMUnread: (conversations: Array<{ partnerPubkey: string; lastAt: number }>) => void;
+  incrementNewFollowers: () => void;
+  clearNewFollowers: () => void;
 }
 
 function loadReadIds(): Set<string> {
@@ -54,6 +57,7 @@ export const useNotificationsStore = create<NotificationsState>((set, get) => ({
   currentPubkey: null,
   dmLastSeen: loadDMLastSeen(),
   dmUnreadCount: 0,
+  newFollowersCount: 0,
 
   fetchNotifications: async (pubkey: string) => {
     const state = get();
@@ -120,4 +124,7 @@ export const useNotificationsStore = create<NotificationsState>((set, get) => ({
     const dmUnreadCount = unreadConvos.length;
     set({ dmUnreadCount });
   },
+
+  incrementNewFollowers: () => set((s) => ({ newFollowersCount: s.newFollowersCount + 1 })),
+  clearNewFollowers: () => set({ newFollowersCount: 0 }),
 }));
