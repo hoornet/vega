@@ -66,9 +66,12 @@ function App() {
 
   useKeyboardShortcuts();
 
-  // Apply zoom level based on font size setting
+  // Apply zoom to main content area only (sidebar stays fixed size)
   useEffect(() => {
-    document.documentElement.style.zoom = `${fontSize / 14}`;
+    // Clear any old root zoom
+    document.documentElement.style.zoom = "";
+    // Set CSS custom property for components that need to know the scale
+    document.documentElement.style.setProperty("--ui-zoom", `${fontSize / 14}`);
   }, [fontSize]);
 
   // Apply color theme
@@ -104,7 +107,7 @@ function App() {
       <UpdateBanner />
       <div className="flex flex-1 min-h-0">
       <Sidebar />
-      <main className="flex-1 min-w-0">
+      <main className="flex-1 min-w-0 h-full overflow-hidden" style={{ zoom: `${fontSize / 14}` }}>
         <div className={currentView === "feed" ? "contents" : "hidden"}>
           <Feed />
         </div>
