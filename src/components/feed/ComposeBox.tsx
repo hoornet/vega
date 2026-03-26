@@ -16,6 +16,7 @@ export function ComposeBox({ onPublished, onNoteInjected }: { onPublished?: () =
     try { return localStorage.getItem(COMPOSE_DRAFT_KEY) || ""; }
     catch { return ""; }
   });
+  const [attachments, setAttachments] = useState<string[]>([]);
   const [publishing, setPublishing] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -42,7 +43,7 @@ export function ComposeBox({ onPublished, onNoteInjected }: { onPublished?: () =
   const charCount = text.length;
   const warnLimit = charCount > 3500;
   const overLimit = charCount > 4000;
-  const canPost = text.trim().length > 0 && !publishing && !uploading;
+  const canPost = (text.trim().length > 0 || attachments.length > 0) && !publishing && !uploading;
 
   // Insert text at the current cursor position in the textarea
   const insertAtCursor = (str: string) => {
@@ -61,13 +62,22 @@ export function ComposeBox({ onPublished, onNoteInjected }: { onPublished?: () =
     }
   };
 
+  // Add uploaded URL to attachments instead of inserting into text
+  const addAttachment = (url: string) => {
+    setAttachments((prev) => [...prev, url]);
+  };
+
+  const removeAttachment = (index: number) => {
+    setAttachments((prev) => prev.filter((_, i) => i !== index));
+  };
+
   // Upload a web File object (from clipboard/drag-drop)
   const handleImageUpload = async (file: File) => {
     setUploading(true);
     setError(null);
     try {
       const url = await uploadImage(file);
-      insertAtCursor(url);
+      addAttachment(url);
     } catch (err) {
       setError(`Image upload failed: ${err}`);
     } finally {
@@ -90,7 +100,7 @@ export function ComposeBox({ onPublished, onNoteInjected }: { onPublished?: () =
       };
       const mimeType = mimeMap[ext] || "application/octet-stream";
       const url = await uploadBytes(new Uint8Array(bytes), fileName, mimeType);
-      insertAtCursor(url);
+      addAttachment(url);
     } catch (err) {
       setError(`Upload failed: ${err}`);
     } finally {
@@ -169,7 +179,11 @@ export function ComposeBox({ onPublished, onNoteInjected }: { onPublished?: () =
     setPublishing(true);
     setError(null);
     try {
-      const event = await publishNote(text.trim());
+      // Build final content: text + attachment URLs on separate lines
+      const parts = [text.trim(), ...attachments].filter(Boolean);
+      const content = parts.join("\n");
+
+      const event = await publishNote(content);
       // Inject into feed immediately so the user sees their post
       if (onNoteInjected) {
         onNoteInjected(event);
@@ -180,6 +194,7 @@ export function ComposeBox({ onPublished, onNoteInjected }: { onPublished?: () =
         });
       }
       setText("");
+      setAttachments([]);
       localStorage.removeItem(COMPOSE_DRAFT_KEY);
       textareaRef.current?.focus();
       onPublished?.();
@@ -224,6 +239,35 @@ export function ComposeBox({ onPublished, onNoteInjected }: { onPublished?: () =
             rows={3}
             className="w-full bg-transparent text-text text-[13px] placeholder:text-text-dim resize-none focus:outline-none leading-relaxed"
           />
+
+          {/* Attachment thumbnails */}
+          {attachments.length > 0 && (
+            <div className="flex flex-wrap gap-2 mb-2">
+              {attachments.map((url, i) => (
+                <div key={i} className="relative group">
+                  {/\.(mp4|webm|mov|ogg|m4v)(\?|$)/i.test(url) ? (
+                    <div className="h-16 w-20 rounded-sm border border-border bg-bg-raised flex items-center justify-center text-text-dim text-[10px]">
+                      video
+                    </div>
+                  ) : (
+                    <img
+                      src={url}
+                      alt=""
+                      className="h-16 w-auto rounded-sm border border-border object-cover"
+                      onError={(e) => { (e.target as HTMLImageElement).className = "h-16 w-20 rounded-sm border border-border bg-bg-raised"; }}
+                    />
+                  )}
+                  <button
+                    onClick={() => removeAttachment(i)}
+                    className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-danger text-white text-[10px] rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                    title="Remove"
+                  >
+                    x
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
 
           {error && (
             <p className="text-danger text-[11px] mb-2">{error}</p>

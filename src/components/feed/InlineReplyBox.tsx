@@ -16,6 +16,7 @@ interface InlineReplyBoxProps {
 
 export function InlineReplyBox({ event, name, rootEvent }: InlineReplyBoxProps) {
   const [replyText, setReplyText] = useState("");
+  const [attachments, setAttachments] = useState<string[]>([]);
   const [replying, setReplying] = useState(false);
   const [replyError, setReplyError] = useState<string | null>(null);
   const [replySent, setReplySent] = useState(false);
@@ -38,12 +39,20 @@ export function InlineReplyBox({ event, name, rootEvent }: InlineReplyBoxProps) 
     }
   };
 
+  const addAttachment = (url: string) => {
+    setAttachments((prev) => [...prev, url]);
+  };
+
+  const removeAttachment = (index: number) => {
+    setAttachments((prev) => prev.filter((_, i) => i !== index));
+  };
+
   const handleImageUpload = async (file: File) => {
     setUploading(true);
     setUploadError(null);
     try {
       const url = await uploadImage(file);
-      insertAtCursor(url);
+      addAttachment(url);
     } catch (err) {
       setUploadError(`Upload failed: ${err}`);
     } finally {
@@ -79,7 +88,7 @@ export function InlineReplyBox({ event, name, rootEvent }: InlineReplyBoxProps) 
         const ext = fileName.split(".").pop()?.toLowerCase() || "";
         const mimeMap: Record<string, string> = { jpg: "image/jpeg", jpeg: "image/jpeg", png: "image/png", gif: "image/gif", webp: "image/webp" };
         const url = await uploadBytes(new Uint8Array(bytes), fileName, mimeMap[ext] || "application/octet-stream");
-        insertAtCursor(url);
+        addAttachment(url);
       } catch (err) {
         setUploadError(`Upload failed: ${err}`);
       } finally {
@@ -102,7 +111,7 @@ export function InlineReplyBox({ event, name, rootEvent }: InlineReplyBoxProps) 
       const ext = fileName.split(".").pop()?.toLowerCase() || "";
       const mimeMap: Record<string, string> = { jpg: "image/jpeg", jpeg: "image/jpeg", png: "image/png", gif: "image/gif", webp: "image/webp", mp4: "video/mp4", webm: "video/webm", mov: "video/quicktime" };
       const url = await uploadBytes(new Uint8Array(bytes), fileName, mimeMap[ext] || "application/octet-stream");
-      insertAtCursor(url);
+      addAttachment(url);
     } catch (err) {
       setUploadError(`Upload failed: ${err}`);
     } finally {
@@ -111,12 +120,17 @@ export function InlineReplyBox({ event, name, rootEvent }: InlineReplyBoxProps) 
   };
 
   const handleReplySubmit = async () => {
-    if (!replyText.trim() || replying) return;
+    if ((!replyText.trim() && attachments.length === 0) || replying) return;
     setReplying(true);
     setReplyError(null);
     try {
-      await publishReply(replyText.trim(), { id: event.id, pubkey: event.pubkey }, rootEvent);
+      // Build final content: text + attachment URLs on separate lines
+      const parts = [replyText.trim(), ...attachments].filter(Boolean);
+      const content = parts.join("\n");
+
+      await publishReply(content, { id: event.id, pubkey: event.pubkey }, rootEvent);
       setReplyText("");
+      setAttachments([]);
       setReplySent(true);
       adjustReplyCount(1);
       setTimeout(() => { setReplySent(false); }, 1500);
@@ -148,6 +162,36 @@ export function InlineReplyBox({ event, name, rootEvent }: InlineReplyBoxProps) 
         className="w-full bg-transparent text-text text-[12px] placeholder:text-text-dim resize-none focus:outline-none leading-relaxed"
         autoFocus
       />
+
+      {/* Attachment thumbnails */}
+      {attachments.length > 0 && (
+        <div className="flex flex-wrap gap-2 mb-1">
+          {attachments.map((url, i) => (
+            <div key={i} className="relative group">
+              {/\.(mp4|webm|mov|ogg|m4v)(\?|$)/i.test(url) ? (
+                <div className="h-12 w-16 rounded-sm border border-border bg-bg-raised flex items-center justify-center text-text-dim text-[9px]">
+                  video
+                </div>
+              ) : (
+                <img
+                  src={url}
+                  alt=""
+                  className="h-12 w-auto rounded-sm border border-border object-cover"
+                  onError={(e) => { (e.target as HTMLImageElement).className = "h-12 w-16 rounded-sm border border-border bg-bg-raised"; }}
+                />
+              )}
+              <button
+                onClick={() => removeAttachment(i)}
+                className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-danger text-white text-[10px] rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                title="Remove"
+              >
+                x
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
       {replyError && <p className="text-danger text-[10px] mb-1">{replyError}</p>}
       {uploadError && <p className="text-danger text-[10px] mb-1">{uploadError}</p>}
       <div className="flex items-center justify-end gap-2 mt-1">
@@ -175,17 +219,7 @@ export function InlineReplyBox({ event, name, rootEvent }: InlineReplyBoxProps) 
           </button>
           {showReplyEmoji && (
             <EmojiPicker
-              onSelect={(emoji) => {
-                const ta = replyRef.current;
-                if (ta) {
-                  const start = ta.selectionStart ?? replyText.length;
-                  const end = ta.selectionEnd ?? replyText.length;
-                  setReplyText(replyText.slice(0, start) + emoji + replyText.slice(end));
-                  setTimeout(() => { ta.selectionStart = ta.selectionEnd = start + emoji.length; ta.focus(); }, 0);
-                } else {
-                  setReplyText((t) => t + emoji);
-                }
-              }}
+              onSelect={(emoji) => insertAtCursor(emoji)}
               onClose={() => setShowReplyEmoji(false)}
             />
           )}
@@ -193,7 +227,7 @@ export function InlineReplyBox({ event, name, rootEvent }: InlineReplyBoxProps) 
         <span className="text-text-dim text-[10px]">Ctrl+Enter</span>
         <button
           onClick={handleReplySubmit}
-          disabled={!replyText.trim() || replying || uploading}
+          disabled={(!replyText.trim() && attachments.length === 0) || replying || uploading}
           className="px-2 py-0.5 text-[10px] bg-accent hover:bg-accent-hover text-white transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
         >
           {replySent ? "replied ✓" : replying ? "posting…" : "reply"}
