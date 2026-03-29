@@ -116,8 +116,21 @@ export function ProfileView() {
 
   useEffect(() => {
     if (profileTab !== "articles" || articles.length > 0) return;
+    let cancelled = false;
     setArticlesLoading(true);
-    fetchAuthorArticles(pubkey).then(setArticles).catch(() => setArticles([])).finally(() => setArticlesLoading(false));
+    (async () => {
+      let result = await fetchAuthorArticles(pubkey).catch(() => [] as typeof articles);
+      if (result.length === 0 && !cancelled) {
+        await new Promise((r) => setTimeout(r, 3000));
+        if (cancelled) return;
+        result = await fetchAuthorArticles(pubkey).catch(() => [] as typeof articles);
+      }
+      if (!cancelled) {
+        setArticles(result);
+        setArticlesLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
   }, [profileTab, pubkey]);
 
   return (

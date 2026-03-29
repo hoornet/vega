@@ -13,11 +13,22 @@ export function HashtagFeed() {
 
   useEffect(() => {
     if (!tag) return;
+    let cancelled = false;
     setLoading(true);
     setNotes([]);
-    fetchHashtagFeed(tag)
-      .then(setNotes)
-      .finally(() => setLoading(false));
+    (async () => {
+      let result = await fetchHashtagFeed(tag).catch(() => [] as NDKEvent[]);
+      if (result.length === 0 && !cancelled) {
+        await new Promise((r) => setTimeout(r, 3000));
+        if (cancelled) return;
+        result = await fetchHashtagFeed(tag).catch(() => [] as NDKEvent[]);
+      }
+      if (!cancelled) {
+        setNotes(result);
+        setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
   }, [tag]);
 
   return (

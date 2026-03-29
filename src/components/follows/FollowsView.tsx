@@ -103,7 +103,13 @@ export function FollowsView() {
     (async () => {
       try {
         await ensureConnected();
-        const result = await fetchFollowers(pubkey);
+        let result = await fetchFollowers(pubkey);
+        // Retry once if empty — relays may not be ready yet
+        if (result.length === 0) {
+          await new Promise((r) => setTimeout(r, 3000));
+          if (cancelled) return;
+          result = await fetchFollowers(pubkey);
+        }
         if (!cancelled) {
           setFollowers(result);
           setFollowersFetched(true);
