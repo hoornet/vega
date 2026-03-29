@@ -43,18 +43,39 @@ export async function uploadImage(file: File): Promise<string> {
 }
 
 /**
+ * Build multipart/form-data body manually as Uint8Array.
+ * WebKitGTK on Linux/Wayland can't serialize FormData with Blob objects
+ * through Tauri's HTTP plugin, so we construct the raw bytes ourselves.
+ */
+function buildMultipart(fieldName: string, data: Uint8Array, fileName: string, mimeType: string): { body: Uint8Array; contentType: string } {
+  const boundary = "----WrystrUpload" + Math.random().toString(36).slice(2);
+  const encoder = new TextEncoder();
+
+  const header = encoder.encode(
+    `--${boundary}\r\n` +
+    `Content-Disposition: form-data; name="${fieldName}"; filename="${fileName}"\r\n` +
+    `Content-Type: ${mimeType}\r\n\r\n`
+  );
+  const footer = encoder.encode(`\r\n--${boundary}--\r\n`);
+
+  const body = new Uint8Array(header.length + data.length + footer.length);
+  body.set(header, 0);
+  body.set(data, header.length);
+  body.set(footer, header.length + data.length);
+
+  return { body, contentType: `multipart/form-data; boundary=${boundary}` };
+}
+
+/**
  * Upload raw bytes with NIP-98 auth. Tries nostr.build first, then fallbacks.
  */
 export async function uploadBytes(bytes: Uint8Array, fileName: string, mimeType: string): Promise<string> {
-  const blob = new Blob([bytes], { type: mimeType });
+  const { body, contentType } = buildMultipart("file", bytes, fileName, mimeType);
   const errors: string[] = [];
 
   for (const serviceUrl of UPLOAD_SERVICES) {
     try {
-      const form = new FormData();
-      form.append("file", blob, fileName);
-
-      const headers: Record<string, string> = {};
+      const headers: Record<string, string> = { "Content-Type": contentType };
       try {
         headers["Authorization"] = await createNip98AuthHeader(serviceUrl, "POST");
       } catch {
@@ -63,7 +84,7 @@ export async function uploadBytes(bytes: Uint8Array, fileName: string, mimeType:
 
       const resp = await fetch(serviceUrl, {
         method: "POST",
-        body: form,
+        body,
         headers,
       });
 
