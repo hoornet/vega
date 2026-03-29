@@ -64,6 +64,7 @@ export function ProfileView() {
   const [bannerLightbox, setBannerLightbox] = useState(false);
   const [bannerLoaded, setBannerLoaded] = useState(false);
   const [bannerError, setBannerError] = useState(false);
+  const [wotExpanded, setWotExpanded] = useState(false);
 
   const isFollowing = follows.includes(pubkey);
   const { mutedPubkeys, mute, unmute } = useMuteStore();
@@ -95,6 +96,7 @@ export function ProfileView() {
     setProfileTab("notes");
     setBannerLoaded(false);
     setBannerError(false);
+    setWotExpanded(false);
     fetchUserNotesNIP65(pubkey).then((events) => {
       setNotes(events);
       setLoading(false);
@@ -239,21 +241,28 @@ export function ProfileView() {
             </div>
 
             {/* Web of Trust — powered by Vertex */}
-            {reputation.data && reputation.data.topFollowers.length > 0 && (
-              <div className="px-4 pb-3">
-                <div className="text-[10px] text-text-dim mb-1.5">Followed by people you trust</div>
-                <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
-                  {reputation.data.topFollowers.slice(0, 5).map((f) => (
-                    <TopFollowerAvatar key={f.pubkey} pubkey={f.pubkey} />
-                  ))}
-                  {reputation.data.topFollowers.length > 5 && (
-                    <span className="text-[10px] text-text-dim">
-                      +{reputation.data.topFollowers.length - 5} more
-                    </span>
-                  )}
+            {(() => {
+              const wotFollowers = reputation.data?.topFollowers.filter((f) => f.pubkey !== pubkey) ?? [];
+              if (wotFollowers.length === 0) return null;
+              return (
+                <div className="px-4 pb-3">
+                  <div className="text-[10px] text-text-dim mb-1.5">Followed by people you trust</div>
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+                    {(wotExpanded ? wotFollowers : wotFollowers.slice(0, 5)).map((f) => (
+                      <TopFollowerAvatar key={f.pubkey} pubkey={f.pubkey} />
+                    ))}
+                    {wotFollowers.length > 5 && !wotExpanded && (
+                      <button
+                        onClick={() => setWotExpanded(true)}
+                        className="text-[10px] text-accent hover:text-accent-hover transition-colors"
+                      >
+                        +{wotFollowers.length - 5} more
+                      </button>
+                    )}
+                  </div>
                 </div>
-              </div>
-            )}
+              );
+            })()}
             {reputation.loading && (
               <div className="px-4 pb-3">
                 <div className="h-3 w-32 bg-bg-raised animate-pulse rounded-sm" />

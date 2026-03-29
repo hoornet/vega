@@ -1,35 +1,12 @@
 import { fetchMentions, fetchZapsReceived, fetchNewFollowers, fetchProfile, ensureConnected } from "./nostr";
 import { notifyMention, notifyZap, notifyFollower } from "./notifications";
 import { useNotificationsStore } from "../stores/notifications";
+import { dbSaveNotifications, dbNewestNotificationTs } from "./db";
 import { debug } from "./debug";
 
 const POLL_INTERVAL = 60_000; // 60 seconds
-const POLL_TS_KEY = "wrystr_notif_poll_ts";
-const MAX_SEEN = 200;
 
 let intervalId: ReturnType<typeof setInterval> | null = null;
-const recentlySeen = new Set<string>();
-
-function loadPollTimestamps(): Record<string, number> {
-  try {
-    return JSON.parse(localStorage.getItem(POLL_TS_KEY) ?? "{}");
-  } catch {
-    return {};
-  }
-}
-
-function savePollTimestamps(ts: Record<string, number>) {
-  localStorage.setItem(POLL_TS_KEY, JSON.stringify(ts));
-}
-
-function trimSeenSet() {
-  if (recentlySeen.size > MAX_SEEN) {
-    const arr = Array.from(recentlySeen);
-    arr.splice(0, arr.length - MAX_SEEN);
-    recentlySeen.clear();
-    arr.forEach((id) => recentlySeen.add(id));
-  }
-}
 
 async function getProfileName(pubkey: string): Promise<string> {
   try {
@@ -52,74 +29,76 @@ async function pollOnce(pubkey: string) {
     }
   } catch { return; }
 
-  const ts = loadPollTimestamps();
   const now = Math.floor(Date.now() / 1000);
+  const existingIds = new Set(
+    useNotificationsStore.getState().notifications.map((e) => e.id!)
+  );
 
   // Mentions
   try {
-    const mentionsSince = ts.mentions || (now - 300);
+    const mentionsSince = (await dbNewestNotificationTs(pubkey, "mention")) ?? (now - 300);
     const mentions = await fetchMentions(pubkey, mentionsSince, 10);
-    for (const e of mentions) {
-      if (recentlySeen.has(e.id!)) continue;
-      if (e.pubkey === pubkey) continue; // don't notify self-mentions
-      recentlySeen.add(e.id!);
-      const name = await getProfileName(e.pubkey);
-      notifyMention(name, e.content?.slice(0, 120) || "mentioned you").catch(() => {});
+    const newMentions = mentions.filter((e) => e.pubkey !== pubkey && !existingIds.has(e.id!));
+    if (newMentions.length > 0) {
+      dbSaveNotifications(newMentions.map((e) => JSON.stringify(e.rawEvent())), pubkey, "mention");
+      for (const e of newMentions) {
+        const name = await getProfileName(e.pubkey);
+        notifyMention(name, e.content?.slice(0, 120) || "mentioned you").catch(() => {});
+      }
     }
-    if (mentions.length > 0) ts.mentions = now;
-    // Also update the notifications store unread count
+    // Also update the notifications store
     useNotificationsStore.getState().fetchNotifications(pubkey).catch(() => {});
   } catch { /* non-critical */ }
 
   // Zaps
   try {
-    const zapsSince = ts.zaps || (now - 300);
+    const zapsSince = (await dbNewestNotificationTs(pubkey, "zap")) ?? (now - 300);
     const zaps = await fetchZapsReceived(pubkey, 10);
-    for (const e of zaps) {
-      if (recentlySeen.has(e.id!)) continue;
-      if ((e.created_at ?? 0) <= zapsSince) continue;
-      recentlySeen.add(e.id!);
-      // Extract sender and amount from zap receipt
-      const desc = e.tags.find((t) => t[0] === "description")?.[1];
-      let senderName = "Someone";
-      let amount = 0;
-      if (desc) {
-        try {
-          const zapReq = JSON.parse(desc) as { pubkey?: string; tags?: string[][] };
-          if (zapReq.pubkey) senderName = await getProfileName(zapReq.pubkey);
-          const amountTag = zapReq.tags?.find((t) => t[0] === "amount");
-          if (amountTag?.[1]) amount = Math.round(parseInt(amountTag[1]) / 1000);
-        } catch { /* malformed */ }
-      }
-      if (amount > 0) {
-        notifyZap(senderName, amount).catch(() => {});
+    const newZaps = zaps.filter((e) => !existingIds.has(e.id!) && (e.created_at ?? 0) > zapsSince);
+    if (newZaps.length > 0) {
+      dbSaveNotifications(newZaps.map((e) => JSON.stringify(e.rawEvent())), pubkey, "zap");
+      for (const e of newZaps) {
+        const desc = e.tags.find((t) => t[0] === "description")?.[1];
+        let senderName = "Someone";
+        let amount = 0;
+        if (desc) {
+          try {
+            const zapReq = JSON.parse(desc) as { pubkey?: string; tags?: string[][] };
+            if (zapReq.pubkey) senderName = await getProfileName(zapReq.pubkey);
+            const amountTag = zapReq.tags?.find((t) => t[0] === "amount");
+            if (amountTag?.[1]) amount = Math.round(parseInt(amountTag[1]) / 1000);
+          } catch { /* malformed */ }
+        }
+        if (amount > 0) {
+          notifyZap(senderName, amount).catch(() => {});
+        }
       }
     }
-    ts.zaps = now;
   } catch { /* non-critical */ }
 
   // New followers
   try {
-    const followersSince = ts.followers || (now - 300);
+    const followersSince = (await dbNewestNotificationTs(pubkey, "follower")) ?? (now - 300);
     const followers = await fetchNewFollowers(pubkey, followersSince, 5);
-    for (const e of followers) {
-      if (recentlySeen.has(e.id!)) continue;
-      if (e.pubkey === pubkey) continue;
-      recentlySeen.add(e.id!);
-      const name = await getProfileName(e.pubkey);
-      notifyFollower(name).catch(() => {});
-      useNotificationsStore.getState().incrementNewFollowers();
+    const newFollowers = followers.filter((e) => e.pubkey !== pubkey && !existingIds.has(e.id!));
+    if (newFollowers.length > 0) {
+      dbSaveNotifications(newFollowers.map((e) => JSON.stringify(e.rawEvent())), pubkey, "follower");
+      for (const e of newFollowers) {
+        const name = await getProfileName(e.pubkey);
+        notifyFollower(name).catch(() => {});
+        useNotificationsStore.getState().incrementNewFollowers();
+      }
     }
-    if (followers.length > 0) ts.followers = now;
   } catch { /* non-critical */ }
-
-  trimSeenSet();
-  savePollTimestamps(ts);
 }
 
 export function startNotificationPoller(pubkey: string) {
   stopNotificationPoller();
-  // Wait for relay connection before first fetch — avoids empty results on startup
+
+  // Instant: load cached notifications from DB (no flicker)
+  useNotificationsStore.getState().loadFromDb(pubkey);
+
+  // Then connect to relays and fetch new data in background
   (async () => {
     try {
       const connected = await ensureConnected();
@@ -128,6 +107,7 @@ export function startNotificationPoller(pubkey: string) {
     debug.log("notif:poller initial fetch for", pubkey.slice(0, 8));
     useNotificationsStore.getState().fetchNotifications(pubkey).catch(() => {});
   })();
+
   // Run first full poll after a longer delay (give relays more time)
   setTimeout(() => pollOnce(pubkey).catch(() => {}), 8000);
   intervalId = setInterval(() => pollOnce(pubkey).catch(() => {}), POLL_INTERVAL);

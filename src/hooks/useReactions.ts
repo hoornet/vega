@@ -24,12 +24,18 @@ function throttledFetch(eventId: string, pubkey?: string): Promise<GroupedReacti
   const promise = new Promise<GroupedReactions>((resolve) => {
     const doFetch = () => {
       activeCount++;
-      fetchReactions(eventId, pubkey).then((result) => {
-        activeCount--;
-        pending.delete(eventId);
-        resolve(result);
-        runNext();
-      });
+      fetchReactions(eventId, pubkey)
+        .then((result) => {
+          resolve(result);
+        })
+        .catch(() => {
+          resolve({ groups: new Map(), myReactions: new Set(), total: 0 });
+        })
+        .finally(() => {
+          activeCount--;
+          pending.delete(eventId);
+          runNext();
+        });
     };
 
     if (activeCount < MAX_CONCURRENT) {

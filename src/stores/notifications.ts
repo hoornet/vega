@@ -1,11 +1,12 @@
 import { create } from "zustand";
 import { NDKEvent } from "@nostr-dev-kit/ndk";
 import { fetchMentions } from "../lib/nostr";
+import { dbSaveNotifications, dbLoadNotifications, dbMarkNotificationRead } from "../lib/db";
 import { debug } from "../lib/debug";
 
-const NOTIF_READ_KEY = "wrystr_notif_read_ids";
 const DM_SEEN_KEY = "wrystr_dm_last_seen";
-const MAX_NOTIFICATIONS = 15;
+const LEGACY_READ_KEY = "wrystr_notif_read_ids";
+const MAX_NOTIFICATIONS = 200;
 
 interface NotificationsState {
   notifications: NDKEvent[];
@@ -17,6 +18,7 @@ interface NotificationsState {
   dmUnreadCount: number;
   newFollowersCount: number;
 
+  loadFromDb: (pubkey: string) => Promise<void>;
   fetchNotifications: (pubkey: string) => Promise<void>;
   markRead: (eventId: string) => void;
   markAllRead: () => void;
@@ -27,21 +29,6 @@ interface NotificationsState {
   clearNewFollowers: () => void;
 }
 
-function loadReadIds(): Set<string> {
-  try {
-    const arr = JSON.parse(localStorage.getItem(NOTIF_READ_KEY) ?? "[]");
-    return new Set(arr);
-  } catch {
-    return new Set();
-  }
-}
-
-function saveReadIds(ids: Set<string>) {
-  // Only keep the most recent entries to avoid unbounded growth
-  const arr = Array.from(ids).slice(-200);
-  localStorage.setItem(NOTIF_READ_KEY, JSON.stringify(arr));
-}
-
 function loadDMLastSeen(): Record<string, number> {
   try {
     return JSON.parse(localStorage.getItem(DM_SEEN_KEY) ?? "{}");
@@ -50,15 +37,59 @@ function loadDMLastSeen(): Record<string, number> {
   }
 }
 
+/** Migrate read IDs from localStorage (one-time, first run after upgrade). */
+function migrateLegacyReadIds(): Set<string> {
+  try {
+    const raw = localStorage.getItem(LEGACY_READ_KEY);
+    if (raw) {
+      const arr = JSON.parse(raw);
+      return new Set(arr);
+    }
+  } catch { /* ignore */ }
+  return new Set();
+}
+
 export const useNotificationsStore = create<NotificationsState>((set, get) => ({
   notifications: [],
   unreadCount: 0,
-  readIds: loadReadIds(),
+  readIds: migrateLegacyReadIds(),
   loading: false,
   currentPubkey: null,
   dmLastSeen: loadDMLastSeen(),
   dmUnreadCount: 0,
   newFollowersCount: 0,
+
+  loadFromDb: async (pubkey: string) => {
+    const isNewAccount = pubkey !== get().currentPubkey;
+    if (isNewAccount) {
+      set({ notifications: [], currentPubkey: pubkey });
+    }
+
+    const rows = await dbLoadNotifications(pubkey, MAX_NOTIFICATIONS);
+    if (rows.length === 0) {
+      debug.log("notif:db empty for", pubkey.slice(0, 8));
+      return;
+    }
+
+    const readIds = new Set(get().readIds);
+    const events: NDKEvent[] = [];
+
+    for (const row of rows) {
+      try {
+        const parsed = JSON.parse(row.raw);
+        const event = new NDKEvent(undefined, parsed);
+        events.push(event);
+        if (row.read) readIds.add(event.id!);
+      } catch { /* skip malformed */ }
+    }
+
+    const unreadCount = events.filter((e) => !readIds.has(e.id!)).length;
+    debug.log("notif:db loaded", events.length, "notifications,", unreadCount, "unread");
+    set({ notifications: events, readIds, unreadCount, loading: false });
+
+    // Clear legacy localStorage read IDs now that DB is the source of truth
+    localStorage.removeItem(LEGACY_READ_KEY);
+  },
 
   fetchNotifications: async (pubkey: string) => {
     const state = get();
@@ -68,24 +99,37 @@ export const useNotificationsStore = create<NotificationsState>((set, get) => ({
     }
     set({ loading: true });
     try {
-      // Always fetch recent notifications (last 7 days), keep up to MAX_NOTIFICATIONS
       const since = Math.floor(Date.now() / 1000) - 7 * 86400;
-      // Fetch more than we need since we filter out own events
-      const events = await fetchMentions(pubkey, since, MAX_NOTIFICATIONS * 3);
+      const events = await fetchMentions(pubkey, since, MAX_NOTIFICATIONS);
       const others = events.filter((e) => e.pubkey !== pubkey);
-      const sorted = others.sort((a, b) => (b.created_at ?? 0) - (a.created_at ?? 0)).slice(0, MAX_NOTIFICATIONS);
-      debug.log("notif:fetch", events.length, "raw →", others.length, "others →", sorted.length, "kept");
+      debug.log("notif:fetch", events.length, "raw →", others.length, "others");
 
       // Don't overwrite existing notifications with empty results (relay timeout/disconnect)
       const { readIds, notifications: existing } = get();
-      if (sorted.length === 0 && existing.length > 0) {
+      if (others.length === 0 && existing.length > 0) {
         debug.warn("notif:fetch empty result, keeping", existing.length, "existing");
         return;
       }
 
-      const unreadCount = sorted.filter((e) => !readIds.has(e.id!)).length;
-      debug.log("notif:set", sorted.length, "notifications,", unreadCount, "unread");
-      set({ notifications: sorted, unreadCount });
+      // Merge with existing (dedup by id)
+      const existingIds = new Set(existing.map((e) => e.id!));
+      const newEvents = others.filter((e) => !existingIds.has(e.id!));
+
+      // Save new events to DB
+      if (newEvents.length > 0) {
+        const raws = newEvents.map((e) => JSON.stringify(e.rawEvent()));
+        dbSaveNotifications(raws, pubkey, "mention");
+        debug.log("notif:db saved", newEvents.length, "new mentions");
+      }
+
+      // Combine, sort, cap
+      const merged = [...existing, ...newEvents]
+        .sort((a, b) => (b.created_at ?? 0) - (a.created_at ?? 0))
+        .slice(0, MAX_NOTIFICATIONS);
+
+      const unreadCount = merged.filter((e) => !readIds.has(e.id!)).length;
+      debug.log("notif:set", merged.length, "notifications,", unreadCount, "unread");
+      set({ notifications: merged, unreadCount });
     } catch {
       // Non-critical — keep existing notifications on error
     } finally {
@@ -98,7 +142,7 @@ export const useNotificationsStore = create<NotificationsState>((set, get) => ({
     if (readIds.has(eventId)) return;
     const updated = new Set(readIds);
     updated.add(eventId);
-    saveReadIds(updated);
+    dbMarkNotificationRead([eventId]);
     const unreadCount = notifications.filter((e) => !updated.has(e.id!)).length;
     set({ readIds: updated, unreadCount });
   },
@@ -106,10 +150,14 @@ export const useNotificationsStore = create<NotificationsState>((set, get) => ({
   markAllRead: () => {
     const { notifications, readIds } = get();
     const updated = new Set(readIds);
+    const newIds: string[] = [];
     for (const e of notifications) {
-      if (e.id) updated.add(e.id);
+      if (e.id && !readIds.has(e.id)) {
+        updated.add(e.id);
+        newIds.push(e.id);
+      }
     }
-    saveReadIds(updated);
+    dbMarkNotificationRead(newIds);
     set({ readIds: updated, unreadCount: 0 });
   },
 
@@ -122,7 +170,6 @@ export const useNotificationsStore = create<NotificationsState>((set, get) => ({
     const dmLastSeen = { ...get().dmLastSeen, [partnerPubkey]: now };
     localStorage.setItem(DM_SEEN_KEY, JSON.stringify(dmLastSeen));
     set({ dmLastSeen });
-    // dmUnreadCount will be recomputed by computeDMUnread on next DM view render
   },
 
   computeDMUnread: (conversations: Array<{ partnerPubkey: string; lastAt: number }>) => {

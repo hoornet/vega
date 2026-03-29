@@ -59,7 +59,18 @@ fn open_db(data_dir: std::path::PathBuf) -> rusqlite::Result<Connection> {
              pubkey    TEXT PRIMARY KEY,
              content   TEXT NOT NULL,
              cached_at INTEGER NOT NULL
-         );",
+         );
+         CREATE TABLE IF NOT EXISTS notifications (
+             id          TEXT PRIMARY KEY,
+             owner_pubkey TEXT NOT NULL,
+             pubkey      TEXT NOT NULL,
+             created_at  INTEGER NOT NULL,
+             kind        INTEGER NOT NULL,
+             notif_type  TEXT NOT NULL,
+             read        INTEGER NOT NULL DEFAULT 0,
+             raw         TEXT NOT NULL
+         );
+         CREATE INDEX IF NOT EXISTS idx_notif_owner ON notifications(owner_pubkey, created_at DESC);",
     )?;
     Ok(conn)
 }
@@ -128,6 +139,102 @@ fn db_load_profile(state: tauri::State<DbState>, pubkey: String) -> Result<Optio
         |row| row.get::<_, String>(0),
     ) {
         Ok(content) => Ok(Some(content)),
+        Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
+        Err(e) => Err(e.to_string()),
+    }
+}
+
+// ── Notification cache ───────────────────────────────────────────────────────
+
+#[tauri::command]
+fn db_save_notifications(
+    state: tauri::State<DbState>,
+    notifications: Vec<String>,
+    owner_pubkey: String,
+    notif_type: String,
+) -> Result<(), String> {
+    let conn = state.0.lock().map_err(|e| e.to_string())?;
+    for raw in &notifications {
+        let v: serde_json::Value = serde_json::from_str(raw).map_err(|e| e.to_string())?;
+        let id = v["id"].as_str().unwrap_or_default();
+        let pubkey = v["pubkey"].as_str().unwrap_or_default();
+        let created_at = v["created_at"].as_i64().unwrap_or(0);
+        let kind = v["kind"].as_i64().unwrap_or(0);
+        conn.execute(
+            "INSERT OR IGNORE INTO notifications (id, owner_pubkey, pubkey, created_at, kind, notif_type, raw) \
+             VALUES (?1,?2,?3,?4,?5,?6,?7)",
+            params![id, owner_pubkey, pubkey, created_at, kind, notif_type, raw],
+        )
+        .map_err(|e| e.to_string())?;
+    }
+    // Prune to newest 500 per owner
+    conn.execute(
+        "DELETE FROM notifications WHERE owner_pubkey=?1 AND id NOT IN \
+         (SELECT id FROM notifications WHERE owner_pubkey=?1 ORDER BY created_at DESC LIMIT 500)",
+        params![owner_pubkey],
+    )
+    .map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+#[tauri::command]
+fn db_load_notifications(
+    state: tauri::State<DbState>,
+    owner_pubkey: String,
+    limit: u32,
+) -> Result<Vec<String>, String> {
+    let conn = state.0.lock().map_err(|e| e.to_string())?;
+    let mut stmt = conn
+        .prepare(
+            "SELECT raw, read FROM notifications WHERE owner_pubkey=?1 ORDER BY created_at DESC LIMIT ?2",
+        )
+        .map_err(|e| e.to_string())?;
+    let rows = stmt
+        .query_map(params![owner_pubkey, limit], |row| {
+            let raw: String = row.get(0)?;
+            let read: i32 = row.get(1)?;
+            Ok(format!("{{\"raw\":{},\"read\":{}}}", raw, read))
+        })
+        .map_err(|e| e.to_string())?;
+    let mut result = Vec::new();
+    for row in rows {
+        result.push(row.map_err(|e| e.to_string())?);
+    }
+    Ok(result)
+}
+
+#[tauri::command]
+fn db_mark_notification_read(
+    state: tauri::State<DbState>,
+    ids: Vec<String>,
+) -> Result<(), String> {
+    if ids.is_empty() {
+        return Ok(());
+    }
+    let conn = state.0.lock().map_err(|e| e.to_string())?;
+    let placeholders: Vec<String> = ids.iter().enumerate().map(|(i, _)| format!("?{}", i + 1)).collect();
+    let sql = format!(
+        "UPDATE notifications SET read=1 WHERE id IN ({})",
+        placeholders.join(",")
+    );
+    let params: Vec<&dyn rusqlite::types::ToSql> = ids.iter().map(|s| s as &dyn rusqlite::types::ToSql).collect();
+    conn.execute(&sql, params.as_slice()).map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+#[tauri::command]
+fn db_newest_notification_ts(
+    state: tauri::State<DbState>,
+    owner_pubkey: String,
+    notif_type: String,
+) -> Result<Option<i64>, String> {
+    let conn = state.0.lock().map_err(|e| e.to_string())?;
+    match conn.query_row(
+        "SELECT MAX(created_at) FROM notifications WHERE owner_pubkey=?1 AND notif_type=?2",
+        params![owner_pubkey, notif_type],
+        |row| row.get::<_, Option<i64>>(0),
+    ) {
+        Ok(ts) => Ok(ts),
         Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
         Err(e) => Err(e.to_string()),
     }
@@ -210,6 +317,10 @@ pub fn run() {
             db_load_feed,
             db_save_profile,
             db_load_profile,
+            db_save_notifications,
+            db_load_notifications,
+            db_mark_notification_read,
+            db_newest_notification_ts,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
