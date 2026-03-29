@@ -54,10 +54,10 @@ CI triggers on the tag and builds all three platforms (Ubuntu, Windows, macOS AR
 
 - `src/App.tsx` — root component; shows `OnboardingFlow` for new users, then view routing via UI store
 - `src/stores/` — Zustand stores per domain: `feed.ts`, `user.ts`, `ui.ts`, `lightning.ts`, `drafts.ts`, `relayHealth.ts`, `bookmark.ts`, `toast.ts`
-- `src/lib/nostr/` — NDK wrapper split into domain modules (`core.ts`, `notes.ts`, `social.ts`, `articles.ts`, `engagement.ts`, `dms.ts`, `bookmarks.ts`, `muting.ts`, `search.ts`, `relays.ts`, `trending.ts`); barrel `index.ts` re-exports all; all Nostr calls go through here
+- `src/lib/nostr/` — NDK wrapper split into domain modules (`core.ts`, `notes.ts`, `social.ts`, `articles.ts`, `engagement.ts`, `dms.ts`, `bookmarks.ts`, `muting.ts`, `search.ts`, `relays.ts`, `trending.ts`, `vertex.ts`); barrel `index.ts` re-exports all; all Nostr calls go through here
 - `src/lib/themes.ts` — Color theme definitions (7 themes) and `applyTheme()` utility
 - `src/lib/lightning/` — NWC client (`nwc.ts`); Lightning payment logic
-- `src/hooks/` — `useProfile.ts`, `useReactions.ts` (grouped emoji reactions with throttled fetch queue)
+- `src/hooks/` — `useProfile.ts`, `useReactions.ts` (grouped emoji reactions with throttled fetch queue), `useReputation.ts` (Vertex WoT with cache)
 - `src/lib/debug.ts` — Dev-only logger (silent in production builds)
 - `src/components/feed/` — Feed, NoteCard, NoteContent, NoteActions, InlineReplyBox, TextSegments, MediaCards, ComposeBox
 - `src/components/profile/` — ProfileView, EditProfileForm, ImageField, Nip05Field, ProfileMediaGallery
@@ -154,8 +154,9 @@ CI triggers on the tag and builds all three platforms (Ubuntu, Windows, macOS AR
 - **External link opener** — global click handler intercepts http(s) links and opens in system browser via `@tauri-apps/plugin-opener`
 - **Color themes** — 7 built-in themes (Midnight, Light, Catppuccin Mocha, Tokyo Night, Gruvbox, Ethereal, Hackerman); CSS custom properties swapped at runtime; persisted to localStorage
 - **Font size presets** — Small/Normal/Large/Extra Large; CSS zoom scaling on document root; persisted to localStorage
+- **Web of Trust** — Vertex DVM integration (kind 5312→6312); personalized "Followed by people you trust" on profiles with clickable follower avatars
+- **SQLite-backed notifications** — instant load on startup from local cache; relay diff merged in background; read state persists in DB across restarts
 
 **Not yet implemented:**
-- Web of Trust scoring
 - NIP-96 file storage
 - Custom feeds / lists

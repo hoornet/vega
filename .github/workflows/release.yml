@@ -69,11 +69,14 @@ jobs:
 
             > **Windows note:** The installer is not yet code-signed. Windows SmartScreen will show an "Unknown publisher" warning — click "More info → Run anyway" to install.
 
-            ### New in v0.9.7 — Emoji Reactions & Search
-            - **Grouped emoji reactions** — reactions display as pills (❤️5 🤙3 🔥2) instead of a single count; multi-reaction per note; throttled fetch queue for reliability
-            - **npub search** — pasting a bare npub or nprofile in search navigates directly to that profile
-            - **Notification reliability** — poller waits for relay connection before first fetch; prevents empty badges on startup
-            - **Dev-only debug logger** — `debug.log/warn/error` silent in production builds
+            ### New in v0.9.8 — Web of Trust & Instant Notifications
+            - **Web of Trust on profiles** — personalized "Followed by people you trust" section powered by Vertex DVM; clickable follower avatars with expand/collapse
+            - **Instant notifications** — SQLite-backed notification cache; notifications load instantly on startup instead of waiting for relays; read state persists across restarts
+            - **Profile notes retry** — automatically retries on empty result instead of permanently showing "No notes found"
+            - **Reaction queue fix** — throttle queue no longer jams when relay queries fail
+
+            ### Previous: v0.9.7 — Emoji Reactions & Search
+            - Grouped emoji reactions (❤️5 🤙3 🔥2), multi-reaction per note, npub search, notification reliability, dev-only debug logger
 
             ### Previous: v0.9.6 — Font Size Fix
             - Content-only zoom, flex-wrap everywhere, themes grid fix
