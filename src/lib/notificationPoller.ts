@@ -76,11 +76,17 @@ async function pollOnce(pubkey: string) {
     }
   } catch { /* non-critical */ }
 
-  // New followers
+  // New followers — dedup by pubkey, not event ID (kind 3 is replaceable, same
+  // person produces a new event ID every time they update their contact list)
   try {
     const followersSince = (await dbNewestNotificationTs(pubkey, "follower")) ?? (now - 300);
     const followers = await fetchNewFollowers(pubkey, followersSince, 5);
-    const newFollowers = followers.filter((e) => e.pubkey !== pubkey && !existingIds.has(e.id!));
+    const existingFollowerPubkeys = new Set(
+      useNotificationsStore.getState().notifications
+        .filter((e) => e.kind === 3)
+        .map((e) => e.pubkey)
+    );
+    const newFollowers = followers.filter((e) => e.pubkey !== pubkey && !existingFollowerPubkeys.has(e.pubkey));
     if (newFollowers.length > 0) {
       dbSaveNotifications(newFollowers.map((e) => JSON.stringify(e.rawEvent())), pubkey, "follower");
       for (const e of newFollowers) {
