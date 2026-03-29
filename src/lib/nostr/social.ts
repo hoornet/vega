@@ -85,10 +85,11 @@ export async function fetchMentions(pubkey: string, since: number, limit = 50): 
 
 export async function fetchFollowers(pubkey: string, limit = 200): Promise<string[]> {
   const instance = getNDK();
+  // #p queries on kind 3 are slow on most relays — give them extra time
   const events = await fetchWithTimeout(
     instance,
     { kinds: [3 as NDKKind], "#p": [pubkey], limit },
-    FEED_TIMEOUT,
+    15000,
   );
   const followerPubkeys = new Set<string>();
   for (const e of events) {

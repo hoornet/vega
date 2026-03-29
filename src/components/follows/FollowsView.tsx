@@ -5,6 +5,7 @@ import { useNotificationsStore } from "../../stores/notifications";
 import { useProfile } from "../../hooks/useProfile";
 import { useNip05Verified } from "../../hooks/useNip05Verified";
 import { fetchFollowers, ensureConnected } from "../../lib/nostr";
+import { dbLoadFollowers, dbSaveFollowers } from "../../lib/db";
 import { shortenPubkey } from "../../lib/utils";
 
 function FollowRow({
@@ -93,7 +94,7 @@ export function FollowsView() {
     clearNewFollowers();
   }, []);
 
-  // Fetch followers when tab is selected
+  // Load followers: DB cache first (instant), then relay fetch to merge new ones
   useEffect(() => {
     if (followsTab !== "followers" || !pubkey || followersFetched) return;
     let cancelled = false;
@@ -102,20 +103,35 @@ export function FollowsView() {
 
     (async () => {
       try {
+        // 1) Instant: load from SQLite cache
+        const cached = await dbLoadFollowers(pubkey);
+        if (!cancelled && cached.length > 0) {
+          setFollowers(cached);
+          setFollowersLoading(false); // show cached immediately
+        }
+
+        // 2) Background: fetch from relays and merge
         await ensureConnected();
         let result = await fetchFollowers(pubkey);
-        // Retry once if empty — relays may not be ready yet
-        if (result.length === 0) {
+        if (result.length === 0 && !cancelled) {
           await new Promise((r) => setTimeout(r, 3000));
           if (cancelled) return;
           result = await fetchFollowers(pubkey);
         }
         if (!cancelled) {
-          setFollowers(result);
+          // Merge: union of cached + relay results (relay may return partial set)
+          const merged = Array.from(new Set([...result, ...cached]));
+          setFollowers(merged);
           setFollowersFetched(true);
+          // Persist merged set to DB
+          if (result.length > 0) {
+            dbSaveFollowers(merged, pubkey);
+          }
         }
       } catch (err) {
-        if (!cancelled) setFollowersError(`Failed to load followers: ${err}`);
+        if (!cancelled && followers.length === 0) {
+          setFollowersError(`Failed to load followers: ${err}`);
+        }
       } finally {
         if (!cancelled) setFollowersLoading(false);
       }

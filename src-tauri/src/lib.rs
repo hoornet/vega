@@ -70,7 +70,14 @@ fn open_db(data_dir: std::path::PathBuf) -> rusqlite::Result<Connection> {
              read        INTEGER NOT NULL DEFAULT 0,
              raw         TEXT NOT NULL
          );
-         CREATE INDEX IF NOT EXISTS idx_notif_owner ON notifications(owner_pubkey, created_at DESC);",
+         CREATE INDEX IF NOT EXISTS idx_notif_owner ON notifications(owner_pubkey, created_at DESC);
+         CREATE TABLE IF NOT EXISTS followers (
+             pubkey       TEXT NOT NULL,
+             owner_pubkey TEXT NOT NULL,
+             cached_at    INTEGER NOT NULL,
+             PRIMARY KEY (pubkey, owner_pubkey)
+         );
+         CREATE INDEX IF NOT EXISTS idx_followers_owner ON followers(owner_pubkey);",
     )?;
     Ok(conn)
 }
@@ -240,6 +247,48 @@ fn db_newest_notification_ts(
     }
 }
 
+// ── Followers cache ─────────────────────────────────────────────────────────
+
+#[tauri::command]
+fn db_save_followers(
+    state: tauri::State<DbState>,
+    followers: Vec<String>,
+    owner_pubkey: String,
+) -> Result<(), String> {
+    let conn = state.0.lock().map_err(|e| e.to_string())?;
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs() as i64;
+    for pk in &followers {
+        conn.execute(
+            "INSERT OR REPLACE INTO followers (pubkey, owner_pubkey, cached_at) VALUES (?1,?2,?3)",
+            params![pk, owner_pubkey, now],
+        )
+        .map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
+#[tauri::command]
+fn db_load_followers(
+    state: tauri::State<DbState>,
+    owner_pubkey: String,
+) -> Result<Vec<String>, String> {
+    let conn = state.0.lock().map_err(|e| e.to_string())?;
+    let mut stmt = conn
+        .prepare("SELECT pubkey FROM followers WHERE owner_pubkey=?1 ORDER BY cached_at DESC")
+        .map_err(|e| e.to_string())?;
+    let rows = stmt
+        .query_map([&owner_pubkey], |row| row.get::<_, String>(0))
+        .map_err(|e| e.to_string())?;
+    let mut result = Vec::new();
+    for row in rows {
+        result.push(row.map_err(|e| e.to_string())?);
+    }
+    Ok(result)
+}
+
 // ── App entry ────────────────────────────────────────────────────────────────
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -321,6 +370,8 @@ pub fn run() {
             db_load_notifications,
             db_mark_notification_read,
             db_newest_notification_ts,
+            db_save_followers,
+            db_load_followers,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -9,6 +9,7 @@ import { useUIStore } from "./ui";
 import { useNotificationsStore } from "./notifications";
 import { useFeedStore } from "./feed";
 import { startNotificationPoller, stopNotificationPoller } from "../lib/notificationPoller";
+import { dbLoadProfile } from "../lib/db";
 
 export interface SavedAccount {
   pubkey: string;
@@ -417,6 +418,24 @@ export const useUserStore = create<UserState>((set, get) => ({
   fetchOwnProfile: async () => {
     const { pubkey } = get();
     if (!pubkey) return;
+
+    // Instant: load from SQLite cache so name/picture show immediately
+    if (!get().profile) {
+      try {
+        const cached = await dbLoadProfile(pubkey);
+        if (cached && !get().profile) {
+          const parsed = JSON.parse(cached);
+          set({ profile: parsed });
+          const name = parsed?.displayName || parsed?.name;
+          const picture = parsed?.picture;
+          if (name) {
+            const accounts = upsertAccount(get().accounts, { pubkey, npub: get().npub!, name, picture });
+            persistAccounts(accounts);
+            set({ accounts });
+          }
+        }
+      } catch { /* cache miss is fine */ }
+    }
 
     try {
       const ndk = getNDK();

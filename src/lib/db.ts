@@ -49,3 +49,16 @@ export function dbMarkNotificationRead(ids: string[]): void {
 export async function dbNewestNotificationTs(ownerPubkey: string, notifType: string): Promise<number | null> {
   return invoke<number | null>("db_newest_notification_ts", { ownerPubkey, notifType }).catch(() => null);
 }
+
+// ── Followers cache ────────────────────────────────────────────────────────
+
+/** Save follower pubkeys to SQLite. Fire-and-forget. */
+export function dbSaveFollowers(followers: string[], ownerPubkey: string): void {
+  if (followers.length === 0) return;
+  invoke("db_save_followers", { followers, ownerPubkey }).catch(() => {});
+}
+
+/** Load cached follower pubkeys for owner. */
+export async function dbLoadFollowers(ownerPubkey: string): Promise<string[]> {
+  return invoke<string[]>("db_load_followers", { ownerPubkey }).catch(() => []);
+}
