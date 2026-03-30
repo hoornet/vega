@@ -15,6 +15,13 @@ dist-ssr
 # Playwright output
 .playwright-mcp/
 
+# Build artifacts / test screenshots
+squashfs-root/
+phase-4-tests/
+phase-4.md
+*.png
+!src-tauri/icons/*.png
+
 # Private / not for public repo
 OPENSATS_APPLICATION.md
 TODO.md

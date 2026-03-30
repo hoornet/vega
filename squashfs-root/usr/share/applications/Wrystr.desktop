@@ -1,9 +1,0 @@
-[Desktop Entry]
-Categories=
-Comment=Cross-platform Nostr desktop client with Lightning integration
-Exec=wrystr
-StartupWMClass=wrystr
-Icon=wrystr
-Name=Wrystr
-Terminal=false
-Type=Application
