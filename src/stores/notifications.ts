@@ -104,7 +104,7 @@ export const useNotificationsStore = create<NotificationsState>((set, get) => ({
     // Dedup kind 3 (follower) events by pubkey — keep only newest per person
     const dedupedEvents = dedupFollowers(events);
 
-    const unreadCount = dedupedEvents.filter((e) => !readIds.has(e.id!)).length;
+    const unreadCount = dedupedEvents.filter((e) => e.kind !== 3 && !readIds.has(e.id!)).length;
     debug.log("notif:db loaded", dedupedEvents.length, "notifications,", unreadCount, "unread");
     set({ notifications: dedupedEvents, readIds, unreadCount, loading: false });
 
@@ -156,7 +156,7 @@ export const useNotificationsStore = create<NotificationsState>((set, get) => ({
         .sort((a, b) => (b.created_at ?? 0) - (a.created_at ?? 0))
         .slice(0, MAX_NOTIFICATIONS);
 
-      const unreadCount = merged.filter((e) => !readIds.has(e.id!)).length;
+      const unreadCount = merged.filter((e) => e.kind !== 3 && !readIds.has(e.id!)).length;
       debug.log("notif:set", merged.length, "notifications,", unreadCount, "unread");
       set({ notifications: merged, unreadCount });
     } catch {
@@ -172,7 +172,7 @@ export const useNotificationsStore = create<NotificationsState>((set, get) => ({
     const updated = new Set(readIds);
     updated.add(eventId);
     dbMarkNotificationRead([eventId]);
-    const unreadCount = notifications.filter((e) => !updated.has(e.id!)).length;
+    const unreadCount = notifications.filter((e) => e.kind !== 3 && !updated.has(e.id!)).length;
     set({ readIds: updated, unreadCount });
   },
 

@@ -65,11 +65,20 @@ export function BookmarkView() {
           const events = cached
             .map((raw) => { try { return new NDKEvent(ndk, JSON.parse(raw)); } catch { return null; } })
             .filter((e): e is NDKEvent => e !== null)
-            .filter((e) => bookmarkedIds.includes(e.id))
+            .filter((e) => bookmarkedIds.includes(e.id));
+          const cachedNotes = events.filter((e) => e.kind !== 30023)
             .sort((a, b) => (b.created_at ?? 0) - (a.created_at ?? 0));
-          if (events.length > 0) {
-            setNotes(events);
+          const cachedArticles = events.filter((e) => e.kind === 30023);
+          if (cachedNotes.length > 0) {
+            setNotes(cachedNotes);
             setLoadingNotes(false);
+          }
+          if (cachedArticles.length > 0) {
+            setArticles((prev) => {
+              const existingIds = new Set(prev.map((e) => e.id));
+              return [...prev, ...cachedArticles.filter((e) => !existingIds.has(e.id))]
+                .sort((a, b) => (b.created_at ?? 0) - (a.created_at ?? 0));
+            });
           }
         }
       }
@@ -80,10 +89,20 @@ export function BookmarkView() {
           bookmarkedIds.map((id) => fetchNoteById(id))
         );
         if (!cancelled) {
-          const fetched = results
-            .filter((e): e is NDKEvent => e !== null)
+          const fetched = results.filter((e): e is NDKEvent => e !== null);
+          // Separate articles (kind 30023) bookmarked via e-tag from notes
+          const notesOnly = fetched.filter((e) => e.kind !== 30023)
             .sort((a, b) => (b.created_at ?? 0) - (a.created_at ?? 0));
-          setNotes(fetched);
+          const articlesFromETag = fetched.filter((e) => e.kind === 30023);
+          setNotes(notesOnly);
+          // Merge any articles found via e-tag into the articles list
+          if (articlesFromETag.length > 0) {
+            setArticles((prev) => {
+              const existingIds = new Set(prev.map((e) => e.id));
+              const merged = [...prev, ...articlesFromETag.filter((e) => !existingIds.has(e.id))];
+              return merged.sort((a, b) => (b.created_at ?? 0) - (a.created_at ?? 0));
+            });
+          }
           // Save to DB for next time
           if (pubkey && fetched.length > 0) {
             dbSaveBookmarkedNotes(fetched.map((e) => JSON.stringify(e.rawEvent())), pubkey);

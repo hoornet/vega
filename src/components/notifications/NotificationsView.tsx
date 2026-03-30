@@ -18,7 +18,7 @@ export function NotificationsView() {
   } = useNotificationsStore();
   const { mutedPubkeys, contentMatchesMutedKeyword } = useMuteStore();
   const filteredNotifications = notifications.filter(
-    (e) => e.pubkey !== pubkey && !mutedPubkeys.includes(e.pubkey) && !contentMatchesMutedKeyword(e.content)
+    (e) => e.kind !== 3 && e.pubkey !== pubkey && !mutedPubkeys.includes(e.pubkey) && !contentMatchesMutedKeyword(e.content)
   );
 
   useEffect(() => {
