@@ -1,4 +1,4 @@
-export { getNDK, getNDKUptimeMs, connectToRelays, ensureConnected, resetNDK, getStoredRelayUrls, addRelay, removeRelay, fetchWithTimeout, withTimeout, FEED_TIMEOUT, THREAD_TIMEOUT, SINGLE_TIMEOUT } from "./core";
+export { getNDK, getNDKUptimeMs, connectToRelays, ensureConnected, resetNDK, getStoredRelayUrls, normalizeRelayUrl, addRelay, removeRelay, fetchWithTimeout, withTimeout, FEED_TIMEOUT, THREAD_TIMEOUT, SINGLE_TIMEOUT } from "./core";
 export { fetchGlobalFeed, fetchFollowFeed, fetchUserNotes, fetchUserNotesNIP65, fetchNoteById, fetchReplies, publishNote, publishReply, publishRepost, publishQuote, fetchHashtagFeed, fetchThreadEvents, fetchAncestors } from "./notes";
 export { publishProfile, publishContactList, fetchProfile, fetchFollowSuggestions, fetchMentions, fetchFollowers, fetchNewFollowers } from "./social";
 export { publishArticle, fetchArticle, fetchAuthorArticles, fetchArticleFeed, searchArticles, fetchByAddr } from "./articles";

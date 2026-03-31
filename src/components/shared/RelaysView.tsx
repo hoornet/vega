@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { getNDK, getStoredRelayUrls, addRelay, removeRelay, publishRelayList, fetchRelayRecommendations } from "../../lib/nostr";
+import { getNDK, getStoredRelayUrls, addRelay, removeRelay, publishRelayList, fetchRelayRecommendations, normalizeRelayUrl } from "../../lib/nostr";
 import { useRelayHealthStore } from "../../stores/relayHealth";
 import { useUserStore } from "../../stores/user";
 import type { RelayHealthResult } from "../../lib/nostr/relayHealth";
@@ -154,7 +154,7 @@ export function RelaysView() {
   const { loggedIn } = useUserStore();
   const ndk = getNDK();
   const poolRelays = Array.from(ndk.pool?.relays?.values() ?? []);
-  const poolConnectedUrls = new Set(poolRelays.filter((r) => r.connected).map((r) => r.url));
+  const poolConnectedUrls = new Set(poolRelays.filter((r) => r.connected).map((r) => normalizeRelayUrl(r.url)));
 
   const [input, setInput] = useState("");
   const [addError, setAddError] = useState<string | null>(null);
@@ -180,7 +180,7 @@ export function RelaysView() {
       setAddError("URL must start with ws:// or wss://");
       return;
     }
-    if (getStoredRelayUrls().includes(url)) {
+    if (getStoredRelayUrls().includes(normalizeRelayUrl(url))) {
       setAddError("Already in list");
       return;
     }
@@ -218,8 +218,8 @@ export function RelaysView() {
   };
 
   // Merge: show health results first, then any pool relays not yet checked
-  const checkedUrls = new Set(results.map((r) => r.url));
-  const uncheckedPoolRelays = poolRelays.filter((r) => !checkedUrls.has(r.url));
+  const checkedUrls = new Set(results.map((r) => normalizeRelayUrl(r.url)));
+  const uncheckedPoolRelays = poolRelays.filter((r) => !checkedUrls.has(normalizeRelayUrl(r.url)));
 
   // Sort: online first, then slow, then offline
   const sortedResults = [...results].sort((a, b) => {

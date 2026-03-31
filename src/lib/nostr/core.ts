@@ -51,16 +51,30 @@ export const OUTBOX_RELAYS = [
   "wss://relay.nostr.band/",
 ];
 
+/** Normalize relay URL: lowercase host, strip trailing slash, deduplicate. */
+export function normalizeRelayUrl(url: string): string {
+  return url.replace(/\/+$/, "");
+}
+
 export function getStoredRelayUrls(): string[] {
   try {
     const stored = localStorage.getItem(RELAY_STORAGE_KEY);
-    if (stored) return JSON.parse(stored);
+    if (stored) {
+      // Deduplicate on load (handles legacy duplicates from trailing-slash mismatch)
+      const urls: string[] = JSON.parse(stored);
+      const seen = new Set<string>();
+      return urls.map(normalizeRelayUrl).filter((u) => {
+        if (seen.has(u)) return false;
+        seen.add(u);
+        return true;
+      });
+    }
   } catch { /* ignore */ }
   return FALLBACK_RELAYS;
 }
 
 export function saveRelayUrls(urls: string[]) {
-  localStorage.setItem(RELAY_STORAGE_KEY, JSON.stringify(urls));
+  localStorage.setItem(RELAY_STORAGE_KEY, JSON.stringify(urls.map(normalizeRelayUrl)));
 }
 
 let ndk: NDK | null = null;
@@ -119,13 +133,15 @@ export async function resetNDK(): Promise<void> {
 }
 
 export function addRelay(url: string): void {
+  const normalized = normalizeRelayUrl(url);
   const instance = getNDK();
   const urls = getStoredRelayUrls();
-  if (!urls.includes(url)) {
-    saveRelayUrls([...urls, url]);
+  if (!urls.includes(normalized)) {
+    saveRelayUrls([...urls, normalized]);
   }
-  if (!instance.pool?.relays.has(url)) {
-    const relay = new NDKRelay(url, undefined, instance);
+  // Check both with and without trailing slash since NDK may use either
+  if (!instance.pool?.relays.has(normalized) && !instance.pool?.relays.has(normalized + "/")) {
+    const relay = new NDKRelay(normalized, undefined, instance);
     instance.pool?.addRelay(relay, true);
   }
 }
