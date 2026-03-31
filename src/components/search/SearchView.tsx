@@ -199,7 +199,8 @@ export function SearchView() {
   }, []);
 
   const handleSearch = async (overrideQuery?: string) => {
-    const q = (overrideQuery ?? query).trim();
+    // Strip nostr: URI prefix (NIP-21) so pasted share links work
+    const q = (overrideQuery ?? query).trim().replace(/^nostr:/i, "");
     if (!q) return;
     if (overrideQuery) setQuery(overrideQuery);
 

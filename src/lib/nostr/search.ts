@@ -6,33 +6,46 @@ import { getNDK, fetchWithTimeout, withTimeout, FEED_TIMEOUT } from "./core";
 const SEARCH_RELAYS = [
   "wss://relay.nostr.band",
   "wss://search.nos.today",
+  "wss://nostr.wine",
 ];
 
-// Persistent NDK instance dedicated to search relays — stays connected
-let searchNDK: NDK | null = null;
-let searchNDKConnecting: Promise<void> | null = null;
+// One persistent NDK per search relay — queried independently so a slow/dead
+// relay can't block results from the others.
+const searchNDKs: Map<string, NDK> = new Map();
 
-async function getSearchNDK(): Promise<NDK> {
-  if (searchNDK) return searchNDK;
-  searchNDK = new NDK({ explicitRelayUrls: SEARCH_RELAYS });
-  searchNDKConnecting = searchNDK.connect().then(() => {
-    console.log("[Vega] Search relays connected");
-    searchNDKConnecting = null;
-  });
-  await withTimeout(searchNDKConnecting, 5000, undefined);
-  return searchNDK;
+async function getSearchNDKFor(relay: string): Promise<NDK> {
+  let ndk = searchNDKs.get(relay);
+  if (ndk) return ndk;
+  ndk = new NDK({ explicitRelayUrls: [relay] });
+  searchNDKs.set(relay, ndk);
+  await withTimeout(ndk.connect(), 5000, undefined);
+  console.log(`[Vega] Search relay connected: ${relay}`);
+  return ndk;
 }
 
 const EMPTY_SET = new Set<NDKEvent>();
 
-/** Fetch events from the dedicated search relays with timeout. */
+/** Fetch events from all search relays independently, merge results. */
 async function searchFetch(filter: NDKFilter, timeoutMs = FEED_TIMEOUT): Promise<Set<NDKEvent>> {
-  const ndk = await getSearchNDK();
-  const promise = ndk.fetchEvents(filter, {
-    cacheUsage: NDKSubscriptionCacheUsage.ONLY_RELAY,
-    groupable: false,
+  const perRelay = SEARCH_RELAYS.map(async (relay) => {
+    try {
+      const ndk = await getSearchNDKFor(relay);
+      const events = await withTimeout(
+        ndk.fetchEvents(filter, { cacheUsage: NDKSubscriptionCacheUsage.ONLY_RELAY, groupable: false }),
+        timeoutMs,
+        EMPTY_SET,
+      );
+      return events;
+    } catch {
+      return EMPTY_SET;
+    }
   });
-  return withTimeout(promise, timeoutMs, EMPTY_SET);
+  const results = await Promise.all(perRelay);
+  const merged = new Set<NDKEvent>();
+  for (const set of results) {
+    for (const e of set) merged.add(e);
+  }
+  return merged;
 }
 
 export async function searchNotes(query: string, limit = 50): Promise<NDKEvent[]> {
