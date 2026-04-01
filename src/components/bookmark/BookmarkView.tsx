@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
-import { NDKEvent } from "@nostr-dev-kit/ndk";
+import { NDKEvent, NDKFilter } from "@nostr-dev-kit/ndk";
 import { useBookmarkStore } from "../../stores/bookmark";
 import { useUserStore } from "../../stores/user";
-import { fetchNoteById, fetchByAddr, getNDK } from "../../lib/nostr";
+import { fetchNoteById, fetchByAddr, getNDK, fetchWithTimeout } from "../../lib/nostr";
 import { dbLoadBookmarkedNotes, dbSaveBookmarkedNotes } from "../../lib/db";
 import { NoteCard } from "../feed/NoteCard";
 import { ArticleCard } from "../article/ArticleCard";
@@ -83,13 +83,25 @@ export function BookmarkView() {
         }
       }
 
-      // 2) Background: fetch from relays and merge
+      // 2) Background: batch fetch from relays (single filter is much faster than one-by-one)
       try {
-        const results = await Promise.all(
-          bookmarkedIds.map((id) => fetchNoteById(id))
-        );
+        const batchSize = 50;
+        const allFetched: NDKEvent[] = [];
+        for (let i = 0; i < bookmarkedIds.length; i += batchSize) {
+          const batch = bookmarkedIds.slice(i, i + batchSize);
+          const filter: NDKFilter = { ids: batch };
+          const events = await fetchWithTimeout(getNDK(), filter, 10000);
+          allFetched.push(...Array.from(events));
+        }
+        // Fallback: try individual fetch for any IDs not found in batch
+        const foundIds = new Set(allFetched.map((e) => e.id));
+        const missing = bookmarkedIds.filter((id) => !foundIds.has(id));
+        if (missing.length > 0 && missing.length <= 10) {
+          const fallback = await Promise.all(missing.map((id) => fetchNoteById(id)));
+          allFetched.push(...fallback.filter((e): e is NDKEvent => e !== null));
+        }
         if (!cancelled) {
-          const fetched = results.filter((e): e is NDKEvent => e !== null);
+          const fetched = allFetched;
           // Separate articles (kind 30023) bookmarked via e-tag from notes
           const fetchedNotes = fetched.filter((e) => e.kind !== 30023);
           const articlesFromETag = fetched.filter((e) => e.kind === 30023);

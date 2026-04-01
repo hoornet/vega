@@ -1,6 +1,16 @@
 import { create } from "zustand";
 import { fetchBookmarkList, fetchBookmarkListFull, publishBookmarkListFull } from "../lib/nostr";
 
+// Debounce bookmark publishing to avoid race conditions with replaceable events
+let publishTimer: ReturnType<typeof setTimeout> | null = null;
+function debouncedPublish(get: () => BookmarkState) {
+  if (publishTimer) clearTimeout(publishTimer);
+  publishTimer = setTimeout(() => {
+    const { bookmarkedIds, bookmarkedArticleAddrs } = get();
+    publishBookmarkListFull(bookmarkedIds, bookmarkedArticleAddrs).catch(() => {});
+  }, 1000);
+}
+
 const STORAGE_KEY = "wrystr_bookmarks";
 const ARTICLE_STORAGE_KEY = "wrystr_bookmarks_articles";
 const READ_STORAGE_KEY = "wrystr_articles_read";
@@ -87,20 +97,19 @@ export const useBookmarkStore = create<BookmarkState>((set, get) => ({
   },
 
   addBookmark: async (eventId: string) => {
-    const { bookmarkedIds, bookmarkedArticleAddrs } = get();
+    const { bookmarkedIds } = get();
     if (bookmarkedIds.includes(eventId)) return;
     const updated = [...bookmarkedIds, eventId];
     set({ bookmarkedIds: updated });
     saveLocal(updated);
-    publishBookmarkListFull(updated, bookmarkedArticleAddrs).catch(() => {});
+    debouncedPublish(get);
   },
 
   removeBookmark: async (eventId: string) => {
-    const { bookmarkedArticleAddrs } = get();
     const updated = get().bookmarkedIds.filter((id) => id !== eventId);
     set({ bookmarkedIds: updated });
     saveLocal(updated);
-    publishBookmarkListFull(updated, bookmarkedArticleAddrs).catch(() => {});
+    debouncedPublish(get);
   },
 
   isBookmarked: (eventId: string) => {
@@ -108,20 +117,19 @@ export const useBookmarkStore = create<BookmarkState>((set, get) => ({
   },
 
   addArticleBookmark: async (addr: string) => {
-    const { bookmarkedIds, bookmarkedArticleAddrs } = get();
+    const { bookmarkedArticleAddrs } = get();
     if (bookmarkedArticleAddrs.includes(addr)) return;
     const updated = [...bookmarkedArticleAddrs, addr];
     set({ bookmarkedArticleAddrs: updated });
     saveArticleAddrs(updated);
-    publishBookmarkListFull(bookmarkedIds, updated).catch(() => {});
+    debouncedPublish(get);
   },
 
   removeArticleBookmark: async (addr: string) => {
-    const { bookmarkedIds } = get();
     const updated = get().bookmarkedArticleAddrs.filter((a) => a !== addr);
     set({ bookmarkedArticleAddrs: updated });
     saveArticleAddrs(updated);
-    publishBookmarkListFull(bookmarkedIds, updated).catch(() => {});
+    debouncedPublish(get);
   },
 
   isArticleBookmarked: (addr: string) => {
