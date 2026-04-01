@@ -5,6 +5,8 @@ import { seedReactionsCache } from "../hooks/useReactions";
 import { useToastStore } from "./toast";
 import { dbLoadFeed, dbSaveNotes } from "../lib/db";
 import { diagWrapFetch, logDiag, startRelaySnapshots, getRelayStates } from "../lib/feedDiagnostics";
+// Local relay imports deferred to avoid circular dependency
+// import { isLocalRelayEnabled, connectLocalRelay } from "../lib/localRelay";
 
 const TRENDING_CACHE_KEY = "wrystr_trending_cache";
 const TRENDING_TTL = 10 * 60 * 1000; // 10 minutes
@@ -50,8 +52,30 @@ export const useFeedStore = create<FeedState>((set, get) => ({
     try {
       set({ error: null });
       const connectStart = performance.now();
-      await connectToRelays();
+      // connectToRelays() can hang if NDK's instance.connect() never resolves — safety timeout
+      await Promise.race([
+        connectToRelays(),
+        new Promise<void>((resolve) => setTimeout(resolve, 15000)),
+      ]);
       set({ connected: true });
+
+      // Connect local embedded relay if enabled, then sync recent events
+      try {
+        const { isLocalRelayEnabled, connectLocalRelay, syncToLocalRelay } = await import("../lib/localRelay");
+        if (isLocalRelayEnabled()) {
+          await connectLocalRelay();
+          const { useUserStore } = await import("./user");
+          const { pubkey, follows } = useUserStore.getState();
+          if (pubkey) {
+            syncToLocalRelay(pubkey, follows).catch((err) =>
+              console.warn("[Vega] Local relay sync failed:", err),
+            );
+          }
+        }
+      } catch (err) {
+        console.warn("[Vega] Local relay setup failed:", err);
+      }
+
       const connectMs = Math.round(performance.now() - connectStart);
       logDiag({
         ts: new Date().toISOString(),

@@ -127,6 +127,14 @@ export async function resetNDK(): Promise<void> {
   console.log("[Vega] NDK instance reset — connecting fresh relays");
   await ndk.connect();
   await waitForConnectedRelay(ndk, 5000);
+
+  // Re-add local relay if enabled (dynamic import to avoid circular dependency)
+  import("../localRelay").then(({ isLocalRelayEnabled, connectLocalRelay }) => {
+    if (isLocalRelayEnabled()) {
+      connectLocalRelay().catch(() => {});
+    }
+  }).catch(() => {});
+
   const relays = Array.from(ndk.pool?.relays?.values() ?? []);
   const connected = relays.filter((r) => r.connected).length;
   console.log(`[Vega] Fresh connection: ${connected}/${relays.length} relays connected`);

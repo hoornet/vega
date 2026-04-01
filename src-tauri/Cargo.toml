@@ -30,4 +30,13 @@ tauri-plugin-http = "2.5.7"
 tauri-plugin-dialog = "2.6.0"
 tauri-plugin-fs = "2.4.5"
 tauri-plugin-notification = "2.3.3"
+tokio = { version = "1", features = ["rt-multi-thread", "net", "sync", "macros", "time"] }
+tokio-tungstenite = "0.24"
+secp256k1 = { version = "0.30", features = ["global-context"] }
+sha2 = "0.10"
+hex = "0.4"
+futures-util = "0.3"
+
+[target.'cfg(target_os = "linux")'.dependencies]
+webkit2gtk = "2.0"
 

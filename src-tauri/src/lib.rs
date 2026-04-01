@@ -7,6 +7,8 @@ use tauri::{
     Manager, WindowEvent,
 };
 
+mod relay;
+
 // ── OS keychain ─────────────────────────────────────────────────────────────
 
 // Keep legacy keyring service name so existing users don't lose their keys
@@ -372,6 +374,39 @@ fn db_load_articles(state: tauri::State<DbState>, limit: u32) -> Result<Vec<Stri
     Ok(result)
 }
 
+// ── Embedded relay commands ─────────────────────────────────────────────────
+
+#[tauri::command]
+fn relay_get_port(state: tauri::State<relay::RelayHandle>) -> Option<u16> {
+    state.port()
+}
+
+#[tauri::command]
+fn relay_get_stats(state: tauri::State<relay::RelayHandle>) -> Result<serde_json::Value, String> {
+    let db_path = state.data_dir().join("relay.db");
+
+    // Get file size
+    let db_size_bytes = std::fs::metadata(&db_path)
+        .map(|m| m.len())
+        .unwrap_or(0);
+
+    // Open read-only connection for count query
+    let conn = rusqlite::Connection::open_with_flags(
+        &db_path,
+        rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY | rusqlite::OpenFlags::SQLITE_OPEN_NO_MUTEX,
+    )
+    .map_err(|e| e.to_string())?;
+
+    let event_count: i64 = conn
+        .query_row("SELECT COUNT(*) FROM events", [], |row| row.get(0))
+        .map_err(|e| e.to_string())?;
+
+    Ok(serde_json::json!({
+        "event_count": event_count,
+        "db_size_bytes": db_size_bytes
+    }))
+}
+
 // ── App entry ────────────────────────────────────────────────────────────────
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -387,9 +422,34 @@ pub fn run() {
         .setup(|app| {
             // ── SQLite ───────────────────────────────────────────────────────
             let data_dir = app.path().app_data_dir()?;
-            let conn = open_db(data_dir)
+            let conn = open_db(data_dir.clone())
                 .unwrap_or_else(|_| Connection::open_in_memory().expect("in-memory SQLite"));
             app.manage(DbState(Mutex::new(conn)));
+
+            // ── Embedded relay ──────────────────────────────────────────────
+            match relay::start_relay(data_dir, 4869) {
+                Ok(handle) => {
+                    app.manage(handle);
+                }
+                Err(e) => {
+                    eprintln!("[relay] Failed to start embedded relay: {}", e);
+                }
+            }
+
+            // ── WebKit GPU workaround for Linux (webkit2gtk 2.50+ black screen) ──
+            #[cfg(target_os = "linux")]
+            {
+                let main_window = app.get_webview_window("main").unwrap();
+                main_window.with_webview(|webview| {
+                    use webkit2gtk::{SettingsExt, WebViewExt};
+                    let wv = webview.inner();
+                    if let Some(settings) = wv.settings() {
+                        settings.set_hardware_acceleration_policy(
+                            webkit2gtk::HardwareAccelerationPolicy::Never,
+                        );
+                    }
+                }).ok();
+            }
 
             // ── System tray ──────────────────────────────────────────────────
             let show_item = MenuItem::with_id(app, "show", "Open Vega", true, None::<&str>)?;
@@ -458,6 +518,8 @@ pub fn run() {
             db_save_bookmarked_notes,
             db_load_bookmarked_notes,
             db_load_articles,
+            relay_get_port,
+            relay_get_stats,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

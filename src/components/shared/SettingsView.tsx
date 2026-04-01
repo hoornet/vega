@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { save } from "@tauri-apps/plugin-dialog";
 import { writeTextFile } from "@tauri-apps/plugin-fs";
 import { useUserStore } from "../../stores/user";
@@ -8,12 +8,22 @@ import { useMuteStore } from "../../stores/mute";
 import { useBookmarkStore } from "../../stores/bookmark";
 import { getStoredRelayUrls } from "../../lib/nostr";
 import { useProfile } from "../../hooks/useProfile";
+import { profileName } from "../../lib/utils";
 import { NWCWizard } from "./NWCWizard";
 import { getNotificationSettings, saveNotificationSettings, ensurePermission } from "../../lib/notifications";
+import {
+  isLocalRelayEnabled,
+  setLocalRelayEnabled,
+  connectLocalRelay,
+  disconnectLocalRelay,
+  getRelayPort,
+  getRelayStats,
+  type RelayStats,
+} from "../../lib/localRelay";
 
 function MutedRow({ pubkey, onUnmute }: { pubkey: string; onUnmute: () => void }) {
   const profile = useProfile(pubkey);
-  const name = profile?.displayName || profile?.name || pubkey.slice(0, 12) + "…";
+  const name = profileName(profile, pubkey.slice(0, 12) + "…");
   return (
     <div className="flex items-center gap-3 px-3 py-2 border border-border text-[12px] group">
       {profile?.picture && (
@@ -355,6 +365,77 @@ function FontSizeSection() {
   );
 }
 
+function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function ExperimentalSection() {
+  const [enabled, setEnabled] = useState(isLocalRelayEnabled);
+  const [port, setPort] = useState<number | null>(null);
+  const [stats, setStats] = useState<RelayStats | null>(null);
+
+  useEffect(() => {
+    if (enabled) {
+      getRelayPort().then(setPort);
+      getRelayStats().then(setStats);
+    }
+  }, [enabled]);
+
+  const toggle = () => {
+    const next = !enabled;
+    setEnabled(next);
+    setLocalRelayEnabled(next);
+    if (next) {
+      connectLocalRelay().catch(() => {});
+    } else {
+      disconnectLocalRelay();
+      setPort(null);
+      setStats(null);
+    }
+  };
+
+  return (
+    <section>
+      <h2 className="text-text text-[11px] font-medium uppercase tracking-widest mb-2 text-text-dim">
+        Experimental
+      </h2>
+      <p className="text-text-dim text-[11px] mb-3">
+        Features under development. May change or be removed.
+      </p>
+      <label className="flex items-center gap-3 cursor-pointer group">
+        <button
+          onClick={toggle}
+          className={`w-9 h-5 rounded-full transition-colors relative shrink-0 ${
+            enabled ? "bg-accent" : "bg-border"
+          }`}
+        >
+          <span
+            className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform ${
+              enabled ? "translate-x-4" : "translate-x-0"
+            }`}
+          />
+        </button>
+        <span className="text-text text-[12px]">Personal relay</span>
+      </label>
+      <p className="text-text-dim text-[10px] mt-1.5 ml-12">
+        Run a local Nostr relay for offline access and faster reads.
+      </p>
+      {enabled && (port || stats) && (
+        <div className="text-text-dim text-[10px] mt-2 ml-12 space-y-0.5">
+          {port && <p>Running on port {port}</p>}
+          {stats && (
+            <p>
+              {stats.event_count} events stored &middot; {formatBytes(stats.db_size_bytes)}
+            </p>
+          )}
+        </div>
+      )}
+    </section>
+  );
+}
+
 export function SettingsView() {
   return (
     <div className="h-full flex flex-col">
@@ -367,6 +448,7 @@ export function SettingsView() {
         <FontSizeSection />
         <WalletSection />
         <NotificationSection />
+        <ExperimentalSection />
         <ExportSection />
         <IdentitySection />
         <MuteSection />
