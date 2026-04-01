@@ -14,12 +14,15 @@ const NOSTR_MENTION_REGEX = /nostr:(npub1[a-z0-9]+|note1[a-z0-9]+|nevent1[a-z0-9
 const HASHTAG_REGEX = /(?<=\s|^)#(\w{2,})/g;
 
 export interface ContentSegment {
-  type: "text" | "link" | "image" | "video" | "audio" | "youtube" | "vimeo" | "spotify" | "tidal" | "fountain" | "mention" | "hashtag" | "quote";
-  value: string;  // for "quote": the hex event ID
+  type: "text" | "link" | "image" | "video" | "audio" | "youtube" | "vimeo" | "spotify" | "tidal" | "fountain" | "mention" | "hashtag" | "quote" | "naddr";
+  value: string;  // for "quote": the hex event ID; for "naddr": raw bech32
   display?: string;
   mediaId?: string;       // video/embed ID for youtube/vimeo
   mediaType?: string;     // e.g. "track", "album" for spotify/tidal
   mentionPubkey?: string; // hex pubkey for npub/nprofile mentions
+  naddrKind?: number;     // event kind for naddr references
+  naddrPubkey?: string;   // author pubkey for naddr references
+  naddrIdentifier?: string; // "d" tag for naddr references
 }
 
 export function parseContent(content: string): ContentSegment[] {
@@ -118,6 +121,8 @@ export function parseContent(content: string): ContentSegment[] {
     let mentionPubkey: string | undefined;
 
     let isQuote = false;
+    let isNaddr = false;
+    let naddrData: { kind: number; pubkey: string; identifier: string } | null = null;
     let eventId = "";
     try {
       const decoded = nip19.decode(raw);
@@ -138,6 +143,10 @@ export function parseContent(content: string): ContentSegment[] {
         } else {
           display = "event:" + raw.slice(7, 15) + "…";
         }
+      } else if (decoded.type === "naddr") {
+        const d = decoded.data as { kind: number; pubkey: string; identifier: string };
+        isNaddr = true;
+        naddrData = d;
       }
     } catch { /* keep default */ }
 
@@ -146,7 +155,9 @@ export function parseContent(content: string): ContentSegment[] {
       length: match[0].length,
       segment: isQuote
         ? { type: "quote", value: eventId }
-        : { type: "mention", value: raw, display, mentionPubkey },
+        : isNaddr && naddrData
+          ? { type: "naddr", value: raw, naddrKind: naddrData.kind, naddrPubkey: naddrData.pubkey, naddrIdentifier: naddrData.identifier }
+          : { type: "mention", value: raw, display, mentionPubkey },
     });
   }
 

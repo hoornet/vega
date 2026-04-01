@@ -1,8 +1,9 @@
-import { ReactNode } from "react";
-import { nip19 } from "@nostr-dev-kit/ndk";
+import { ReactNode, useState, useEffect } from "react";
+import { nip19, NDKFilter, NDKKind } from "@nostr-dev-kit/ndk";
 import { useUIStore } from "../../stores/ui";
 import { useProfile } from "../../hooks/useProfile";
 import { ContentSegment } from "../../lib/parsing";
+import { getNDK, fetchWithTimeout } from "../../lib/nostr";
 
 // Returns true if we handled the URL internally (njump.me interception).
 export function tryHandleUrlInternally(url: string): boolean {
@@ -31,15 +32,64 @@ export function tryOpenNostrEntity(raw: string): boolean {
       return true;
     }
     if (decoded.type === "naddr") {
-      const { kind } = decoded.data as { kind: number; pubkey: string; identifier: string };
+      const { kind, pubkey } = decoded.data as { kind: number; pubkey: string; identifier: string };
       if (kind === 30023) {
         openArticle(raw);
         return true;
       }
+      // For other addressable kinds (app listings, emoji sets, etc.)
+      // open the author's profile as the best available in-app destination
+      if (pubkey) {
+        openProfile(pubkey);
+        return true;
+      }
     }
-    // note / nevent / other naddr kinds — fall through to njump.me
+    // note / nevent — fall through to njump.me
   } catch { /* invalid entity */ }
   return false;
+}
+
+/** Resolves an naddr reference to a human-readable name by fetching the event. */
+function NaddrName({ kind, pubkey, identifier, fallback }: { kind: number; pubkey: string; identifier: string; fallback: string }) {
+  const [name, setName] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const filter: NDKFilter = { kinds: [kind as NDKKind], authors: [pubkey], "#d": [identifier], limit: 1 };
+        const events = await fetchWithTimeout(getNDK(), filter, 5000);
+        if (cancelled) return;
+        const event = Array.from(events)[0];
+        if (!event) return;
+
+        // Helper: return string if non-empty, else undefined
+        const tagVal = (key: string) => {
+          const v = event.tags.find((t) => t[0] === key)?.[1];
+          return typeof v === "string" && v.trim() ? v.trim() : undefined;
+        };
+
+        // Try tags first: title, name, d
+        let resolved = tagVal("title") || tagVal("name") || tagVal("d");
+
+        // If no tag found, try parsing content as JSON (some kinds store metadata in content)
+        if (!resolved && event.content) {
+          try {
+            const json = JSON.parse(event.content);
+            const candidate = json.display_name || json.name || json.title;
+            if (typeof candidate === "string" && candidate.trim()) {
+              resolved = candidate.trim();
+            }
+          } catch { /* not JSON, ignore */ }
+        }
+
+        if (resolved) setName(resolved);
+      } catch { /* keep fallback */ }
+    })();
+    return () => { cancelled = true; };
+  }, [kind, pubkey, identifier]);
+
+  return <>{name || fallback}</>;
 }
 
 export function MentionName({ pubkey, fallback }: { pubkey?: string; fallback: string }) {
@@ -94,6 +144,24 @@ export function renderTextSegments(
             @{resolveMentions
               ? <MentionName pubkey={seg.mentionPubkey} fallback={String(seg.display ?? seg.value).slice(0, 12) + "…"} />
               : String(seg.display ?? seg.value)}
+          </span>
+        );
+        break;
+      case "naddr":
+        elements.push(
+          <span
+            key={i}
+            className="text-accent cursor-pointer hover:text-accent-hover inline-flex items-center gap-0.5"
+            onClick={(e) => { e.stopPropagation(); tryOpenNostrEntity(seg.value); }}
+            title={`Kind ${seg.naddrKind} — click to open`}
+          >
+            <span className="opacity-60 text-xs">&#x1F517;</span>
+            <NaddrName
+              kind={seg.naddrKind!}
+              pubkey={seg.naddrPubkey!}
+              identifier={seg.naddrIdentifier!}
+              fallback={seg.value.slice(0, 16) + "…"}
+            />
           </span>
         );
         break;
