@@ -7,6 +7,7 @@ import { useZapCount } from "../../hooks/useZapCount";
 import { useUserStore } from "../../stores/user";
 import { useBookmarkStore } from "../../stores/bookmark";
 import { publishReaction, publishRepost } from "../../lib/nostr";
+import { profileName } from "../../lib/utils";
 import { ZapModal } from "../zap/ZapModal";
 import { QuoteModal } from "./QuoteModal";
 
@@ -20,8 +21,8 @@ interface NoteActionsProps {
 
 export function NoteActions({ event, onReplyToggle, showReply }: NoteActionsProps) {
   const profile = useProfile(event.pubkey);
-  const name = profile?.displayName || profile?.name || event.pubkey.slice(0, 8) + "…";
-  const avatar = profile?.picture;
+  const name = profileName(profile, event.pubkey.slice(0, 8) + "…");
+  const avatar = typeof profile?.picture === "string" ? profile.picture : undefined;
   const { loggedIn } = useUserStore();
   const { bookmarkedIds, addBookmark, removeBookmark } = useBookmarkStore();
   const isBookmarked = bookmarkedIds.includes(event.id!);

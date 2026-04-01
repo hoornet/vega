@@ -5,7 +5,7 @@ import { useUIStore } from "../../stores/ui";
 import { useNotificationsStore } from "../../stores/notifications";
 import { fetchDMConversations, fetchDMThread, sendDM, decryptDM, getNDK } from "../../lib/nostr";
 import { useProfile } from "../../hooks/useProfile";
-import { timeAgo, shortenPubkey } from "../../lib/utils";
+import { timeAgo, shortenPubkey, profileName } from "../../lib/utils";
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -45,7 +45,7 @@ function ConvRow({
   onSelect: () => void;
 }) {
   const profile = useProfile(partnerPubkey);
-  const name = profile?.displayName || profile?.name || shortenPubkey(partnerPubkey);
+  const name = profileName(profile, shortenPubkey(partnerPubkey));
   const time = lastEvent.created_at ? timeAgo(lastEvent.created_at) : "";
 
   return (
@@ -126,7 +126,7 @@ function ThreadPanel({
 }) {
   const { openProfile } = useUIStore();
   const profile = useProfile(partnerPubkey);
-  const name = profile?.displayName || profile?.name || shortenPubkey(partnerPubkey);
+  const name = profileName(profile, shortenPubkey(partnerPubkey));
 
   const [messages, setMessages] = useState<NDKEvent[]>([]);
   const [loading, setLoading] = useState(true);

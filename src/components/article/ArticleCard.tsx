@@ -1,7 +1,7 @@
 import { NDKEvent, nip19 } from "@nostr-dev-kit/ndk";
 import { useProfile } from "../../hooks/useProfile";
 import { useUIStore } from "../../stores/ui";
-import { shortenPubkey } from "../../lib/utils";
+import { shortenPubkey, profileName } from "../../lib/utils";
 
 function getTag(event: NDKEvent, name: string): string {
   return event.tags.find((t) => t[0] === name)?.[1] ?? "";
@@ -32,7 +32,7 @@ export function ArticleCard({ event }: { event: NDKEvent }) {
   const publishedAt = parseInt(getTag(event, "published_at")) || event.created_at || null;
   const naddr = buildNaddr(event);
 
-  const authorName = profile?.displayName || profile?.name || shortenPubkey(event.pubkey);
+  const authorName = profileName(profile, shortenPubkey(event.pubkey));
   const date = publishedAt
     ? new Date(publishedAt * 1000).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" })
     : null;

@@ -11,3 +11,9 @@ export function timeAgo(timestamp: number): string {
 export function shortenPubkey(pubkey: string): string {
   return pubkey.slice(0, 8) + "…" + pubkey.slice(-4);
 }
+
+/** Safely extract display name from a Nostr profile (handles non-string values from malformed profiles). */
+export function profileName(profile: any, fallback: string): string {
+  const raw = profile?.displayName || profile?.name;
+  return (typeof raw === "string" ? raw : null) || fallback;
+}

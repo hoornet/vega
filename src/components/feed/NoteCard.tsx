@@ -20,15 +20,17 @@ interface NoteCardProps {
 
 function ParentAuthorName({ pubkey }: { pubkey: string }) {
   const profile = useProfile(pubkey);
-  const name = profile?.displayName || profile?.name || pubkey.slice(0, 8) + "…";
+  const raw = profile?.displayName || profile?.name;
+  const name = (typeof raw === "string" ? raw : null) || pubkey.slice(0, 8) + "…";
   return <span className="text-accent">@{name}</span>;
 }
 
 export function NoteCard({ event, focused, onReplyInThread }: NoteCardProps) {
   const profile = useProfile(event.pubkey);
-  const name = profile?.displayName || profile?.name || shortenPubkey(event.pubkey);
+  const rawName = profile?.displayName || profile?.name;
+  const name = (typeof rawName === "string" ? rawName : null) || shortenPubkey(event.pubkey);
   const avatar = profile?.picture;
-  const nip05 = profile?.nip05;
+  const nip05 = typeof profile?.nip05 === "string" ? profile.nip05 : null;
   const verified = useNip05Verified(event.pubkey, nip05);
   const time = event.created_at ? timeAgo(event.created_at) : "";
 

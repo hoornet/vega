@@ -45,7 +45,8 @@ export function tryOpenNostrEntity(raw: string): boolean {
 export function MentionName({ pubkey, fallback }: { pubkey?: string; fallback: string }) {
   const profile = useProfile(pubkey ?? "");
   if (!pubkey) return <>{fallback}</>;
-  const name = profile?.displayName || profile?.name;
+  const raw = profile?.displayName || profile?.name;
+  const name = typeof raw === "string" ? raw : null;
   return <>{name || fallback}</>;
 }
 
@@ -65,7 +66,7 @@ export function renderTextSegments(
   segments.forEach((seg, i) => {
     switch (seg.type) {
       case "text":
-        elements.push(<span key={i}>{seg.value}</span>);
+        elements.push(<span key={i}>{typeof seg.value === "string" ? seg.value : String(seg.value)}</span>);
         break;
       case "link":
         elements.push(
@@ -79,7 +80,7 @@ export function renderTextSegments(
               if (tryHandleUrlInternally(seg.value)) e.preventDefault();
             }}
           >
-            {seg.display}
+            {typeof seg.display === "string" ? seg.display : String(seg.display)}
           </a>
         );
         break;
@@ -91,8 +92,8 @@ export function renderTextSegments(
             onClick={(e) => { e.stopPropagation(); tryOpenNostrEntity(seg.value); }}
           >
             @{resolveMentions
-              ? <MentionName pubkey={seg.mentionPubkey} fallback={seg.display ?? seg.value.slice(0, 12) + "…"} />
-              : seg.display}
+              ? <MentionName pubkey={seg.mentionPubkey} fallback={String(seg.display ?? seg.value).slice(0, 12) + "…"} />
+              : String(seg.display ?? seg.value)}
           </span>
         );
         break;
@@ -103,7 +104,7 @@ export function renderTextSegments(
             className="text-accent/80 cursor-pointer hover:text-accent"
             onClick={(e) => { e.stopPropagation(); openHashtag(seg.value); }}
           >
-            {seg.display}
+            {String(seg.display ?? seg.value)}
           </span>
         );
         break;

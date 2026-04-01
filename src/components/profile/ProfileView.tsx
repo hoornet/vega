@@ -6,7 +6,7 @@ import { useMuteStore } from "../../stores/mute";
 import { useProfile } from "../../hooks/useProfile";
 import { useReputation } from "../../hooks/useReputation";
 import { fetchUserNotesNIP65, fetchAuthorArticles, getNDK } from "../../lib/nostr";
-import { shortenPubkey } from "../../lib/utils";
+import { shortenPubkey, profileName } from "../../lib/utils";
 import { NoteCard } from "../feed/NoteCard";
 import { ArticleCard } from "../article/ArticleCard";
 import { ZapModal } from "../zap/ZapModal";
@@ -17,7 +17,7 @@ import { ProfileMediaGallery } from "./ProfileMediaGallery";
 function TopFollowerAvatar({ pubkey }: { pubkey: string }) {
   const profile = useProfile(pubkey);
   const { openProfile } = useUIStore();
-  const name = profile?.displayName || profile?.name || pubkey.slice(0, 8) + "…";
+  const name = profileName(profile, pubkey.slice(0, 8) + "…");
 
   return (
     <button
@@ -85,12 +85,12 @@ export function ProfileView() {
     }
   };
 
-  const name = profile?.displayName || profile?.name || shortenPubkey(pubkey);
-  const avatar = profile?.picture;
-  const about = profile?.about;
-  const nip05 = profile?.nip05;
-  const website = profile?.website;
-  const lud16 = profile?.lud16;
+  const name = profileName(profile, shortenPubkey(pubkey));
+  const avatar = typeof profile?.picture === "string" ? profile.picture : undefined;
+  const about = typeof profile?.about === "string" ? profile.about : undefined;
+  const nip05 = typeof profile?.nip05 === "string" ? profile.nip05 : undefined;
+  const website = typeof profile?.website === "string" ? profile.website : undefined;
+  const lud16 = typeof profile?.lud16 === "string" ? profile.lud16 : undefined;
 
   useEffect(() => {
     let cancelled = false;

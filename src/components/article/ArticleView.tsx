@@ -8,6 +8,7 @@ import { useBookmarkStore } from "../../stores/bookmark";
 import { fetchArticle, publishReaction, publishRepost, publishNote } from "../../lib/nostr";
 import { nip19 } from "@nostr-dev-kit/ndk";
 import { useProfile } from "../../hooks/useProfile";
+import { profileName } from "../../lib/utils";
 import { ZapModal } from "../zap/ZapModal";
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -33,7 +34,7 @@ function getTags(event: NDKEvent, name: string): string[] {
 function AuthorRow({ pubkey, publishedAt, readingTime }: { pubkey: string; publishedAt: number | null; readingTime?: number }) {
   const { openProfile } = useUIStore();
   const profile = useProfile(pubkey);
-  const name = profile?.displayName || profile?.name || pubkey.slice(0, 12) + "…";
+  const name = profileName(profile, pubkey.slice(0, 12) + "…");
   const date = publishedAt
     ? new Date(publishedAt * 1000).toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" })
     : null;
@@ -122,7 +123,7 @@ export function ArticleView() {
   const articleTags = event ? getTags(event, "t") : [];
   const authorPubkey = event?.pubkey ?? "";
   const authorProfile = useProfile(authorPubkey);
-  const authorName = authorProfile?.displayName || authorProfile?.name || authorPubkey.slice(0, 12) + "…";
+  const authorName = profileName(authorProfile, authorPubkey.slice(0, 12) + "…");
 
   const bodyHtml = event?.content ? renderMarkdown(event.content) : "";
   const wordCount = event?.content?.trim().split(/\s+/).length ?? 0;

@@ -6,7 +6,7 @@ import { useProfile } from "../../hooks/useProfile";
 import { useNip05Verified } from "../../hooks/useNip05Verified";
 import { fetchFollowers, ensureConnected } from "../../lib/nostr";
 import { dbLoadFollowers, dbSaveFollowers } from "../../lib/db";
-import { shortenPubkey } from "../../lib/utils";
+import { shortenPubkey, profileName } from "../../lib/utils";
 
 function FollowRow({
   pubkey,
@@ -16,9 +16,9 @@ function FollowRow({
   followsYou?: boolean;
 }) {
   const profile = useProfile(pubkey);
-  const name = profile?.displayName || profile?.name || shortenPubkey(pubkey);
-  const avatar = profile?.picture;
-  const nip05 = profile?.nip05;
+  const name = profileName(profile, shortenPubkey(pubkey));
+  const avatar = typeof profile?.picture === "string" ? profile.picture : undefined;
+  const nip05 = typeof profile?.nip05 === "string" ? profile.nip05 : undefined;
   const verified = useNip05Verified(pubkey, nip05);
 
   const { follows, follow, unfollow, pubkey: ownPubkey } = useUserStore();

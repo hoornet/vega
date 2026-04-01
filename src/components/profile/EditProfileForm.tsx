@@ -7,14 +7,15 @@ import { Nip05Field } from "./Nip05Field";
 
 export function EditProfileForm({ pubkey, onSaved }: { pubkey: string; onSaved: () => void }) {
   const { profile, fetchOwnProfile } = useUserStore();
-  const [name, setName] = useState(profile?.name || "");
-  const [displayName, setDisplayName] = useState(profile?.displayName || "");
-  const [about, setAbout] = useState(profile?.about || "");
-  const [picture, setPicture] = useState(profile?.picture || "");
-  const [banner, setBanner] = useState(profile?.banner || "");
-  const [website, setWebsite] = useState(profile?.website || "");
-  const [nip05, setNip05] = useState(profile?.nip05 || "");
-  const [lud16, setLud16] = useState(profile?.lud16 || "");
+  const safeStr = (v: unknown) => (typeof v === "string" ? v : "");
+  const [name, setName] = useState(safeStr(profile?.name));
+  const [displayName, setDisplayName] = useState(safeStr(profile?.displayName));
+  const [about, setAbout] = useState(safeStr(profile?.about));
+  const [picture, setPicture] = useState(safeStr(profile?.picture));
+  const [banner, setBanner] = useState(safeStr(profile?.banner));
+  const [website, setWebsite] = useState(safeStr(profile?.website));
+  const [nip05, setNip05] = useState(safeStr(profile?.nip05));
+  const [lud16, setLud16] = useState(safeStr(profile?.lud16));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);

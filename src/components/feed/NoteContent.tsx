@@ -122,7 +122,8 @@ function QuotePreview({ eventId }: { eventId: string }) {
 
   if (!event) return null;
 
-  const name = profile?.displayName || profile?.name || shortenPubkey(event.pubkey);
+  const rawName = profile?.displayName || profile?.name;
+  const name = (typeof rawName === "string" ? rawName : null) || shortenPubkey(event.pubkey);
   const preview = event.content.slice(0, 160) + (event.content.length > 160 ? "…" : "");
 
   return (

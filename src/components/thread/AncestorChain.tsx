@@ -1,12 +1,12 @@
 import { NDKEvent } from "@nostr-dev-kit/ndk";
 import { useProfile } from "../../hooks/useProfile";
 import { useUIStore } from "../../stores/ui";
-import { shortenPubkey, timeAgo } from "../../lib/utils";
+import { shortenPubkey, timeAgo, profileName } from "../../lib/utils";
 
 function AncestorCard({ event }: { event: NDKEvent }) {
   const profile = useProfile(event.pubkey);
-  const name = profile?.displayName || profile?.name || shortenPubkey(event.pubkey);
-  const avatar = profile?.picture;
+  const name = profileName(profile, shortenPubkey(event.pubkey));
+  const avatar = typeof profile?.picture === "string" ? profile.picture : undefined;
   const time = event.created_at ? timeAgo(event.created_at) : "";
   const { openThread } = useUIStore();
 

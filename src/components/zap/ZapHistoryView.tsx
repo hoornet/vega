@@ -4,7 +4,7 @@ import { useUserStore } from "../../stores/user";
 import { useUIStore } from "../../stores/ui";
 import { fetchZapsReceived, fetchZapsSent, fetchNoteById } from "../../lib/nostr";
 import { useProfile } from "../../hooks/useProfile";
-import { timeAgo, shortenPubkey } from "../../lib/utils";
+import { timeAgo, shortenPubkey, profileName } from "../../lib/utils";
 
 // ── Parsing helpers ──────────────────────────────────────────────────────────
 
@@ -53,9 +53,9 @@ function ZapRow({
   const { openProfile, openThread } = useUIStore();
   const profile = useProfile(pubkey ?? "");
   const name = pubkey
-    ? profile?.displayName || profile?.name || shortenPubkey(pubkey)
+    ? profileName(profile, shortenPubkey(pubkey))
     : "anonymous";
-  const avatar = profile?.picture;
+  const avatar = typeof profile?.picture === "string" ? profile.picture : undefined;
   const [notePreview, setNotePreview] = useState<string | null>(null);
   const [noteEvent, setNoteEvent] = useState<NDKEvent | null>(null);
   const [loadingNote, setLoadingNote] = useState(false);

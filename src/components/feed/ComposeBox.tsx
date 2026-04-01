@@ -4,7 +4,7 @@ import { uploadImage, uploadBytes } from "../../lib/upload";
 import { useAutoResize } from "../../hooks/useAutoResize";
 import { useUserStore } from "../../stores/user";
 import { useFeedStore } from "../../stores/feed";
-import { shortenPubkey } from "../../lib/utils";
+import { shortenPubkey, profileName } from "../../lib/utils";
 import { open } from "@tauri-apps/plugin-dialog";
 import { readFile } from "@tauri-apps/plugin-fs";
 import { EmojiPicker } from "../shared/EmojiPicker";
@@ -25,8 +25,8 @@ export function ComposeBox({ onPublished, onNoteInjected }: { onPublished?: () =
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const { profile, npub } = useUserStore();
-  const avatar = profile?.picture;
-  const name = profile?.displayName || profile?.name || (npub ? shortenPubkey(npub) : "");
+  const avatar = typeof profile?.picture === "string" ? profile.picture : undefined;
+  const name = profileName(profile, npub ? shortenPubkey(npub) : "");
 
   // Auto-save draft with debounce
   useEffect(() => {
