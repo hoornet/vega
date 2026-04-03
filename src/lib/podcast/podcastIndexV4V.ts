@@ -1,3 +1,4 @@
+import { fetch } from "@tauri-apps/plugin-http";
 import type { PodcastEpisode, V4VRecipient } from "../../types/podcast";
 
 const API_KEY = "VKWWTGY25NVCKYJWHSNY";
@@ -89,7 +90,14 @@ export async function enrichWithV4V(episode: PodcastEpisode): Promise<PodcastEpi
     const value = extractV4V(valueSource.value as Record<string, unknown> | undefined);
     if (value.length === 0) return episode;
 
-    return { ...episode, value };
+    // If Fountain's audio URL is on their broken CDN, use Podcast Index's real enclosure URL
+    let { enclosureUrl } = episode;
+    if (match && enclosureUrl.includes("feeds.fountain.fm")) {
+      const piUrl = match.enclosureUrl as string | undefined;
+      if (piUrl) enclosureUrl = piUrl;
+    }
+
+    return { ...episode, value, enclosureUrl };
   } catch {
     return episode;
   }

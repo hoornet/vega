@@ -178,7 +178,7 @@ Vega is free and open-source. If it's useful to you:
 | Method | Details |
 |---|---|
 | ⚡ Zap (in-app) | Open the **support** view in Vega's sidebar and zap directly |
-| ⚡ Lightning | `harpos@getalby.com` |
+| ⚡ Lightning | `jure@getalby.com` |
 | ₿ Bitcoin | `bc1qcgaupf80j28ca537xjlcs9dm9s03khezjs7crp` |
 | ☕ Ko-fi | [ko-fi.com/jure](https://ko-fi.com/jure) |
 | ♥ GitHub Sponsors | [github.com/sponsors/hoornet](https://github.com/sponsors/hoornet) |

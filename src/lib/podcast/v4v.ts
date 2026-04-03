@@ -1,3 +1,4 @@
+import { fetch } from "@tauri-apps/plugin-http";
 import type { PodcastEpisode, V4VRecipient } from "../../types/podcast";
 import { payInvoiceViaNWC } from "../lightning/nwc";
 

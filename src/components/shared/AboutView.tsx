@@ -5,7 +5,7 @@ import pkg from "../../../package.json";
 
 const DEV_NPUB   = "npub1ezt7xcq87ljj65jkjsuagwll4yp75tacgkuyjdhkw6mza8j3azfq2vrvl6";
 const DEV_PUBKEY = "c897e36007f7e52d52569439d43bffa903ea2fb845b84936f676b62e9e51e892";
-const LIGHTNING_ADDRESS = "harpos@getalby.com";
+const LIGHTNING_ADDRESS = "jure@getalby.com";
 const BITCOIN_ADDRESS = "bc1qcgaupf80j28ca537xjlcs9dm9s03khezjs7crp";
 const KOFI_URL = "https://ko-fi.com/jure";
 const GITHUB_URL = "https://github.com/hoornet/vega";

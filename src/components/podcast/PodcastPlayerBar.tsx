@@ -83,13 +83,18 @@ export function PodcastPlayerBar() {
     setAudioError(null);
     setPlaybackState("loading");
 
-    // Set source and let it load
+    // Reset and set source — explicit load() is needed to clear error state
+    // from a previous failed episode, otherwise WebView won't attempt the new URL
     audio.src = episode.enclosureUrl;
+    audio.load();
     audio.playbackRate = playbackRate;
     audio.volume = volume;
 
+    let loaded = false;
+
     // Wait for the audio to be ready, then seek + play
     const onCanPlay = () => {
+      loaded = true;
       audio.removeEventListener("canplaythrough", onCanPlay);
       const savedPosition = usePodcastStore.getState().loadProgress(episode.guid);
       if (savedPosition > 0) {
@@ -99,7 +104,19 @@ export function PodcastPlayerBar() {
     };
     audio.addEventListener("canplaythrough", onCanPlay);
 
-    return () => audio.removeEventListener("canplaythrough", onCanPlay);
+    // Timeout: if audio doesn't load within 15s, show helpful error
+    const timeout = setTimeout(() => {
+      if (!loaded) {
+        audio.removeEventListener("canplaythrough", onCanPlay);
+        setAudioError("Audio file not available — the podcast host may be down or the episode URL is broken.");
+        setPlaybackState("paused");
+      }
+    }, 15000);
+
+    return () => {
+      clearTimeout(timeout);
+      audio.removeEventListener("canplaythrough", onCanPlay);
+    };
   }, [episode, playCounter]);
 
   // Sync playback rate
@@ -214,6 +231,7 @@ export function PodcastPlayerBar() {
         onLoadedMetadata={handleLoadedMetadata}
         onEnded={handleEnded}
         onPlay={() => setPlaybackState("playing")}
+        onPlaying={() => setPlaybackState("playing")}
         onPause={() => {
           const s = usePodcastStore.getState().playbackState;
           // Only mark paused if we were actually playing — ignore pause events from src changes

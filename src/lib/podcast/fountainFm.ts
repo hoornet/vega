@@ -69,7 +69,12 @@ export async function resolveFountainEpisode(url: string): Promise<PodcastEpisod
     };
 
     // Try to enrich with V4V data from Podcast Index (non-blocking)
-    const enriched = await enrichWithV4V(episode);
+    let enriched = episode;
+    try {
+      enriched = await enrichWithV4V(episode);
+    } catch {
+      // V4V enrichment failed — use episode as-is
+    }
 
     cache[url] = enriched;
     saveCache(cache);
