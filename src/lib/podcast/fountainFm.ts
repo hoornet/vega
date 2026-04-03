@@ -1,5 +1,6 @@
 import { fetch } from "@tauri-apps/plugin-http";
 import type { PodcastEpisode } from "../../types/podcast";
+import { enrichWithV4V } from "./podcastIndexV4V";
 
 export const FOUNTAIN_REGEX = /fountain\.fm\/(episode|show)\/([a-zA-Z0-9-]+)/;
 
@@ -67,9 +68,12 @@ export async function resolveFountainEpisode(url: string): Promise<PodcastEpisod
       showArtworkUrl: artwork,
     };
 
-    cache[url] = episode;
+    // Try to enrich with V4V data from Podcast Index (non-blocking)
+    const enriched = await enrichWithV4V(episode);
+
+    cache[url] = enriched;
     saveCache(cache);
-    return episode;
+    return enriched;
   } catch {
     return null;
   }
