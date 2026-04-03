@@ -1,3 +1,4 @@
+import { fetch } from "@tauri-apps/plugin-http";
 import type { PodcastEpisode } from "../../types/podcast";
 
 export const FOUNTAIN_REGEX = /fountain\.fm\/(episode|show)\/([a-zA-Z0-9-]+)/;
@@ -39,22 +40,30 @@ export async function resolveFountainEpisode(url: string): Promise<PodcastEpisod
     const description = getMetaContent("og:description");
     const artwork = getMetaContent("og:image");
 
-    // Look for an audio URL in the page (meta or direct link)
-    const audioMatch = html.match(/<meta[^>]+content=["'](https?:\/\/[^"']+\.(mp3|m4a|ogg|opus)[^"']*?)["']/i)
+    // Prefer og:audio meta tag (Fountain.fm provides this), then fall back to any audio URL
+    const ogAudioMatch = html.match(/<meta[^>]+property=["']og:audio["'][^>]+content=["']([^"']+)["']/i)
+      || html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:audio["']/i);
+    const audioMatch = ogAudioMatch
+      || html.match(/<meta[^>]+content=["'](https?:\/\/[^"']+\.(mp3|m4a|ogg|opus)[^"']*?)["']/i)
       || html.match(/["'](https?:\/\/[^"'\s]+\.(mp3|m4a|ogg|opus)[^"'\s]*?)["']/i);
     const enclosureUrl = audioMatch?.[1] ?? "";
 
     if (!title) return null;
 
+    // OG title format: "Show • Episode • Listen on Fountain" — extract parts
+    const titleParts = title.split(" • ").filter((p) => p !== "Listen on Fountain");
+    const showTitle = titleParts.length > 1 ? titleParts[0] : "";
+    const episodeTitle = titleParts.length > 1 ? titleParts.slice(1).join(" • ") : title;
+
     const episode: PodcastEpisode = {
       guid: `fountain:${url}`,
-      title,
+      title: episodeTitle,
       enclosureUrl,
       pubDate: 0,
       duration: 0,
       description,
       artworkUrl: artwork || undefined,
-      showTitle: "",
+      showTitle,
       showArtworkUrl: artwork,
     };
 

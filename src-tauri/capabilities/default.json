@@ -14,7 +14,8 @@
         { "url": "https://nostr.build/**" },
         { "url": "https://void.cat/**" },
         { "url": "https://nostrimg.com/**" },
-        { "url": "https://relay.vertexlab.io/**" }
+        { "url": "https://relay.vertexlab.io/**" },
+        { "url": "https://fountain.fm/**" }
       ]
     },
     "dialog:default",
