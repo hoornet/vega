@@ -69,16 +69,20 @@ jobs:
 
             > **Windows note:** The installer is not yet code-signed. Windows SmartScreen will show an "Unknown publisher" warning — click "More info → Run anyway" to install.
 
-            ### New in v0.11.0 — Embedded Relay & Polish
-            - **Embedded Nostr relay** — built-in strfry relay with catch-up sync on startup; your notes are always available locally even when remote relays are slow or offline
-            - **naddr clickable links** — `nostr:naddr1…` references resolve to clickable named links (article titles, etc.)
-            - **New follower badges** — recently gained followers marked with "new" badge, sorted to top of follows list
-            - **New themes** — Sepia and Nord Frost replace Tokyo Night and Ethereal
-            - **Bookmark reliability** — batch fetch with deduplication, debounced publishing prevents race conditions
-            - **Relay pool resilience** — resetNDK preserves outbox-discovered relay URLs (fixes relay pool dropping to 3)
-            - **Larger font sizes** — Large (17px) and Extra Large (20px) presets increased
-            - **Account switcher** — larger avatar, name, and arrow for easier switching
-            - **Crash fix** — malformed Nostr profiles no longer cause React error #31
+            ### New in v0.12.0 — Podcasts & Value 4 Value
+            - **Built-in podcast player** — search and play podcasts via Fountain.fm with Podcast Index enrichment
+            - **V4V streaming** — stream sats per minute to podcast creators via Lightning (keysend + LNURL-pay)
+            - **Auto-streaming** — enable once, V4V starts automatically on every supported episode at your chosen rate
+            - **Per-episode caps & weekly budgets** — set spending limits; streaming stops automatically when caps are reached
+            - **V4V sidebar section** — dedicated dashboard with live status, budget bars, stats, settings, and full streaming history
+            - **Recipient breakdown** — see exactly who gets paid and their split percentages
+            - **Accessibility** — WCAG AA contrast compliance, ARIA labels, reduced motion support
+            - **Media pause on navigation** — video/audio automatically pauses when navigating between views
+            - **Performance** — React.memo, granular Zustand selectors, code splitting for faster renders
+            - **Podcast player stability** — 15s loading timeout, auto-stop V4V on audio failure
+
+            ### v0.11.0 — Embedded Relay & Polish
+            - Embedded Nostr relay, naddr links, new themes, follower badges, bookmark + relay pool fixes
 
             ### v0.10.1 — Search Reliability
             - Search resilience, nostr: URI prefix support in search

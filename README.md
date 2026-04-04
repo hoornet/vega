@@ -77,6 +77,16 @@ sudo dnf install gstreamer1-plugins-base gstreamer1-plugins-good gstreamer1-liba
 - Relay management: add/remove relays, all in one consolidated Relays view
 - **NIP-65 outbox model** — reads user relay lists (kind 10002) so you see notes from people who publish to their own relays; publish your own relay list to Nostr
 
+**Podcasts & Value 4 Value**
+- **Built-in podcast player** — search and play podcasts via Fountain.fm integration with Podcast Index enrichment
+- **V4V streaming** — stream sats per minute to podcast creators while listening via Lightning (keysend + LNURL-pay)
+- **Auto-streaming** — enable once, and V4V starts automatically on every supported episode at your chosen rate
+- **Per-episode caps & weekly budgets** — set spending limits; streaming stops automatically when caps are reached
+- **V4V sidebar section** — dedicated dashboard with live streaming status, budget bars, stats, settings, and full history
+- **Recipient breakdown** — see exactly who gets paid and their split percentages
+- **V4V nudge** — brief non-intrusive tooltip when a V4V-enabled episode starts playing (once per episode per session)
+- **V4V badges on episodes** — ⚡ V4V pill on episode cards so you know which shows support it
+
 **Lightning & zaps**
 - **Per-account NWC wallet** — each account remembers its own Lightning wallet; switching accounts loads the correct one automatically
 - **NWC guided wizard** — wallet picker (Alby Hub, Alby Extension, Mutiny, Phoenix) with per-wallet setup steps and inline URI validation
@@ -113,6 +123,9 @@ sudo dnf install gstreamer1-plugins-base gstreamer1-plugins-good gstreamer1-liba
 - Collapsible sidebar (icon-only mode)
 - **Keyboard shortcuts** — `n` compose, `/` search, `j`/`k` navigate feed, `Esc` back, `?` help overlay
 - Skeleton loading placeholders, view fade transitions
+- **Media pause on navigation** — video and audio in feed automatically pause when you navigate to another view
+- **Accessibility** — WCAG AA contrast compliance, ARIA labels, reduced motion support
+- **Podcast player stability** — 15s loading timeout with user-friendly error messages; automatic V4V stop on audio failure
 
 ## Supported NIPs
 
@@ -166,7 +179,7 @@ npm run tauri build     # production binary
 See [ROADMAP.md](./ROADMAP.md) for the full prioritised next steps.
 
 Up next:
-- UI polish and visual makeover
+- Public relay (`wss://relay.veganostr.com`) for data resilience
 - Custom feeds / lists
 - NIP research sprint — expanding protocol support
 - NIP-58 badges, NIP-72 communities
