@@ -89,6 +89,7 @@ minisign -Vm vega_0.12.1_amd64.AppImage.tar.gz -p vega.pub
 - **Relay health checker** — NIP-11 info fetch, WebSocket latency probing, online/slow/offline classification; expandable cards show all supported NIPs, software, description; per-relay remove button; "Remove dead" strips offline relays; "Publish list" publishes NIP-65 relay list; auto-checks on mount
 - **Relay recommendations** — discover relays based on your follows' NIP-65 relay lists; shows follow count, one-click "Add"
 - **Embedded Nostr relay** — built-in strfry relay with catch-up sync on startup; your notes are always available locally even when remote relays are slow or offline
+- **Vega public relay** — `wss://relay.veganostr.com` included by default; aggregation relay ensuring data availability when other relays are flaky or down
 - Relay management: add/remove relays, all in one consolidated Relays view
 - **NIP-65 outbox model** — reads user relay lists (kind 10002) so you see notes from people who publish to their own relays; publish your own relay list to Nostr
 

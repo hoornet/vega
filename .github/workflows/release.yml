@@ -69,6 +69,10 @@ jobs:
 
             > **Windows note:** The installer is not yet code-signed. Windows SmartScreen will show an "Unknown publisher" warning — click "More info → Run anyway" to install.
 
+            ### v0.12.2 — Vega Public Relay
+            - **`wss://relay.veganostr.com`** — Vega's own public relay, included by default for all users
+            - Existing users get the relay auto-added on upgrade (one-time migration)
+
             ### v0.12.1 — Fixes
             - **Fix empty Media feed** — widened time window from 2h to 24h so media notes actually appear
             - **Fix empty Trending feed** — retry once after 3s when relays return nothing on startup
