@@ -82,7 +82,15 @@ export async function searchUsers(query: string, limit = 20): Promise<NDKEvent[]
     limit,
   };
   const events = await searchFetch(filter);
-  return Array.from(events);
+  // Deduplicate by pubkey (kind 0 is replaceable — keep newest per author)
+  const byPubkey = new Map<string, NDKEvent>();
+  for (const e of events) {
+    const existing = byPubkey.get(e.pubkey);
+    if (!existing || (e.created_at ?? 0) > (existing.created_at ?? 0)) {
+      byPubkey.set(e.pubkey, e);
+    }
+  }
+  return Array.from(byPubkey.values());
 }
 
 export async function resolveNip05(identifier: string): Promise<string | null> {
@@ -227,7 +235,17 @@ export async function advancedSearch(parsed: ParsedSearch, limit = 50): Promise<
 
   let notes = dedup(noteEvents, hybridNoteEvents);
   let articles = dedup(articleEvents, hybridArticleEvents);
-  const users = Array.from(userEvents);
+  // Deduplicate users by pubkey (kind 0 is replaceable — keep newest per author)
+  const users = (() => {
+    const byPubkey = new Map<string, NDKEvent>();
+    for (const e of userEvents) {
+      const existing = byPubkey.get(e.pubkey);
+      if (!existing || (e.created_at ?? 0) > (existing.created_at ?? 0)) {
+        byPubkey.set(e.pubkey, e);
+      }
+    }
+    return Array.from(byPubkey.values());
+  })();
 
   // Client-side author filter — search relays may not intersect authors with search properly
   if (resolvedAuthors.length > 0) {
