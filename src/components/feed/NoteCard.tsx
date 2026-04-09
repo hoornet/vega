@@ -81,7 +81,7 @@ export const NoteCard = memo(function NoteCard({ event, focused, onReplyInThread
             <img
               src={avatar}
               alt={`${name}'s avatar`}
-              className="w-9 h-9 rounded-sm object-cover bg-bg-raised hover:opacity-80 transition-opacity"
+              className="w-9 h-9 rounded-sm object-cover bg-bg-raised ring-1 ring-transparent hover:ring-accent/40 transition-all"
               loading="lazy"
               onError={(e) => {
                 (e.target as HTMLImageElement).style.display = "none";

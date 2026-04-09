@@ -219,7 +219,7 @@ export function V4VIndicator() {
                   disabled={boosting}
                   className="text-[10px] text-accent hover:text-accent-hover px-2 py-0.5 bg-accent/10 rounded-sm disabled:opacity-40"
                 >
-                  {boosting ? "..." : "boost"}
+                  {boosting ? "…" : "boost"}
                 </button>
               </div>
 

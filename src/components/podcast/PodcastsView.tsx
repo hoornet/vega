@@ -66,7 +66,7 @@ export function PodcastsView() {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && handleSearch()}
-            placeholder="Search podcasts..."
+            placeholder="Search podcasts…"
             className="flex-1 bg-bg-raised border border-border rounded-sm px-3 py-1.5 text-[12px] text-text placeholder:text-text-dim focus:outline-none focus:border-accent"
           />
           <button

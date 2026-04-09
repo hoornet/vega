@@ -64,7 +64,7 @@ function InlineThreadReply({ replyTo, rootEvent, onPublished }: {
         value={text}
         onChange={(e) => { setText(e.target.value); autoResize(e); }}
         onKeyDown={handleKeyDown}
-        placeholder="Write a reply..."
+        placeholder="Write a reply…"
         rows={2}
         className="w-full bg-transparent text-text text-[12px] placeholder:text-text-dim resize-none focus:outline-none"
         autoFocus

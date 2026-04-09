@@ -106,7 +106,7 @@ export const PollWidget = memo(function PollWidget({ event }: { event: NDKEvent 
         {pollData ? (
           <span>{total} {total === 1 ? "vote" : "votes"}</span>
         ) : (
-          <span className="animate-pulse">loading votes...</span>
+          <span className="animate-pulse">loading votes…</span>
         )}
         {isExpired && <span>&#183; Poll ended</span>}
         {closedAt && !isExpired && (

@@ -41,7 +41,7 @@ function HistoryRow({ entry }: { entry: V4VHistoryEntry }) {
               <div className="text-[9px] text-text-dim mb-1">Recipients:</div>
               {entry.recipients.map((r, i) => (
                 <div key={i} className="flex items-center justify-between text-[10px]">
-                  <span className="text-text-muted truncate">{r.name || r.address.slice(0, 16) + "..."}</span>
+                  <span className="text-text-muted truncate">{r.name || r.address.slice(0, 16) + "…"}</span>
                   <span className="text-text-dim shrink-0 ml-2">{r.sats} sats</span>
                 </div>
               ))}

@@ -11,7 +11,7 @@ function AncestorCard({ event }: { event: NDKEvent }) {
   const { openThread } = useUIStore();
 
   const truncated = event.content.length > 120
-    ? event.content.slice(0, 120) + "..."
+    ? event.content.slice(0, 120) + "…"
     : event.content;
 
   return (

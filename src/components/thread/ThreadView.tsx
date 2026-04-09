@@ -213,7 +213,7 @@ export function ThreadView() {
                   value={replyText}
                   onChange={(e) => { setReplyText(e.target.value); autoResize(e); }}
                   onKeyDown={handleKeyDown}
-                  placeholder="Write a reply..."
+                  placeholder="Write a reply…"
                   rows={2}
                   className="w-full bg-transparent text-text text-[12px] placeholder:text-text-dim resize-none focus:outline-none leading-relaxed"
                   autoFocus
@@ -248,9 +248,9 @@ export function ThreadView() {
                   <button
                     onClick={handleRootReply}
                     disabled={!replyText.trim() || replying}
-                    className="px-2 py-0.5 text-[10px] bg-accent hover:bg-accent-hover text-accent-text transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                    className="px-3 py-1 text-[11px] bg-accent hover:bg-accent-hover text-accent-text rounded-sm transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
                   >
-                    {replySent ? "replied ✓" : replying ? "posting..." : "reply"}
+                    {replySent ? "replied ✓" : replying ? "posting…" : "reply"}
                   </button>
                 </div>
               </div>

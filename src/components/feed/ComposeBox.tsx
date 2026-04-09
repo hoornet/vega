@@ -306,6 +306,7 @@ export function ComposeBox({ onPublished, onNoteInjected }: { onPublished?: () =
                 <button
                   onClick={() => setShowEmoji((v) => !v)}
                   title="Insert emoji"
+                  aria-label="Insert emoji"
                   className="text-text-dim hover:text-text text-[16px] transition-colors"
                 >
                   ☺
@@ -321,6 +322,7 @@ export function ComposeBox({ onPublished, onNoteInjected }: { onPublished?: () =
                 onClick={handleFilePicker}
                 disabled={uploading || isPoll}
                 title="Attach image or video"
+                aria-label="Attach image or video"
                 className="text-text-dim hover:text-text text-[16px] transition-colors disabled:opacity-30"
               >
                 +
@@ -328,6 +330,7 @@ export function ComposeBox({ onPublished, onNoteInjected }: { onPublished?: () =
               <button
                 onClick={() => setIsPoll((v) => !v)}
                 title={isPoll ? "Cancel poll" : "Create poll"}
+                aria-label={isPoll ? "Cancel poll" : "Create poll"}
                 className={`text-[16px] transition-colors ${isPoll ? "text-accent" : "text-text-dim hover:text-text"}`}
               >
                 &#9634;&#9634;
