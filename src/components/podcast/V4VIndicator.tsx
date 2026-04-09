@@ -137,9 +137,8 @@ export function V4VIndicator() {
       {/* Brief nudge when V4V episode starts — once per episode per session */}
       {showNudge && (
         <div
-          className="absolute bottom-full right-0 mb-2 px-3 py-2 bg-amber-500/15 border border-amber-500/30 rounded-sm text-[10px] text-amber-300 whitespace-nowrap z-50 animate-fade-in"
+          className="absolute bottom-full right-0 mb-2 px-3 py-2 bg-warning/15 border border-warning/30 rounded-sm text-[10px] text-warning whitespace-nowrap z-50 animate-fade-in cursor-pointer"
           onClick={() => { setShowNudge(false); setOpen(true); }}
-          style={{ cursor: "pointer" }}
         >
           ⚡ This episode supports V4V — stream sats to the creators
         </div>
@@ -181,7 +180,7 @@ export function V4VIndicator() {
                   }`}
                 >
                   <span
-                    className={`absolute top-0.5 w-3 h-3 rounded-full bg-white transition-transform ${
+                    className={`absolute top-0.5 w-3 h-3 rounded-full bg-bg transition-transform ${
                       v4vStreaming ? "left-4" : "left-0.5"
                     }`}
                   />

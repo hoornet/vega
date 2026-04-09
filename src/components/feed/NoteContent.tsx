@@ -53,13 +53,12 @@ function ImageGrid({ images, onImageClick }: { images: string[]; onImageClick: (
 
   if (count === 3) {
     return (
-      <div className="mt-2 grid grid-cols-2 grid-rows-2 gap-1" style={{ gridTemplateRows: "1fr 1fr" }}>
+      <div className="mt-2 grid grid-cols-2 grid-rows-2 gap-1">
         <img
           src={visible[0]}
           alt="Posted image"
           loading="lazy"
-          className="w-full h-full rounded-sm object-cover bg-bg-raised border border-border cursor-zoom-in row-span-2"
-          style={{ aspectRatio: "3/4" }}
+          className="w-full h-full rounded-sm object-cover bg-bg-raised border border-border cursor-zoom-in row-span-2 aspect-[3/4]"
           onClick={(e) => { e.stopPropagation(); onImageClick(0); }}
           onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
         />

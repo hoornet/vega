@@ -180,8 +180,7 @@ export function MarkdownToolbar({ textareaRef, content, setContent, setUploading
           key={action}
           onClick={() => handleClick(action)}
           title={title}
-          className="px-2 py-0.5 text-[11px] text-text-muted hover:text-text hover:bg-bg-hover transition-colors rounded-sm"
-          style={{ fontWeight: bold ? "bold" : undefined, fontStyle: italic ? "italic" : undefined }}
+          className={`px-2 py-0.5 text-[11px] text-text-muted hover:text-text hover:bg-bg-hover transition-colors rounded-sm ${bold ? "font-bold" : ""} ${italic ? "italic" : ""}`}
         >
           {label}
         </button>
