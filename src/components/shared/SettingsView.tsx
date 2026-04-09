@@ -110,7 +110,7 @@ function MutedKeywordsSection() {
                 onClick={() => removeKeyword(kw)}
                 className="text-text-dim hover:text-danger text-[10px] opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
               >
-                remove
+                Remove
               </button>
             </div>
           ))}
@@ -121,7 +121,7 @@ function MutedKeywordsSection() {
           value={input}
           onChange={(e) => { setInput(e.target.value); setError(null); }}
           onKeyDown={handleKeyDown}
-          placeholder="word or phrase to mute"
+          placeholder="Word or phrase to mute"
           className="flex-1 bg-bg border border-border px-3 py-1.5 text-text text-[12px] focus:outline-none focus:border-accent/50 placeholder:text-text-dim"
         />
         <button

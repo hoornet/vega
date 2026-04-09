@@ -238,7 +238,7 @@ export function ArticleView() {
       {/* Header */}
       <header className="border-b border-border px-4 py-2.5 flex items-center justify-between shrink-0">
         <button onClick={goBack} className="text-text-dim hover:text-text text-[11px] transition-colors">
-          ← back
+          ← Back
         </button>
         <div className="flex items-center gap-2">
           {event && loggedIn && (
@@ -251,7 +251,7 @@ export function ArticleView() {
               }`}
               title={bookmarked ? "Remove bookmark" : "Bookmark article"}
             >
-              {bookmarked ? "▪ saved" : "▫ save"}
+              {bookmarked ? "▪ Saved" : "▫ Save"}
             </button>
           )}
           {event && loggedIn && (
@@ -272,7 +272,7 @@ export function ArticleView() {
                   : "border-border text-text-muted hover:text-accent hover:border-accent/40"
               }`}
             >
-              {reposted ? "reposted" : "repost"}
+              {reposted ? "Reposted" : "Repost"}
             </button>
           )}
           {event && loggedIn && (
@@ -284,7 +284,7 @@ export function ArticleView() {
                   : "border-border text-text-muted hover:text-accent hover:border-accent/40"
               }`}
             >
-              comment
+              Comment
             </button>
           )}
           {naddr && (
@@ -293,7 +293,7 @@ export function ArticleView() {
               className="text-[11px] px-3 py-1 border border-border text-text-muted hover:text-accent hover:border-accent/40 transition-colors"
               title="Copy nostr: link"
             >
-              copy link
+              Copy link
             </button>
           )}
         </div>
@@ -318,7 +318,7 @@ export function ArticleView() {
               disabled={!commentText.trim()}
               className="px-3 py-1.5 bg-accent/10 text-accent text-[12px] rounded-sm hover:bg-accent/20 transition-colors disabled:opacity-40"
             >
-              post
+              Post
             </button>
           </div>
         </div>
@@ -404,7 +404,7 @@ export function ArticleView() {
               {/* Footer */}
               <div className="mt-10 pt-6 border-t border-border flex items-center justify-between">
                 <button onClick={goBack} className="text-text-dim hover:text-text text-[11px] transition-colors">
-                  ← back
+                  ← Back
                 </button>
                 <div className="flex items-center gap-2">
                   {loggedIn && (
@@ -417,7 +417,7 @@ export function ArticleView() {
                           : "border-border text-text-muted hover:text-accent hover:border-accent/40"
                       }`}
                     >
-                      {reacted ? "♥ liked" : "♡ like"}
+                      {reacted ? "♥ Liked" : "♡ Like"}
                     </button>
                   )}
                   {loggedIn && (
@@ -429,7 +429,7 @@ export function ArticleView() {
                           : "border-border text-text-muted hover:text-accent hover:border-accent/40"
                       }`}
                     >
-                      {bookmarked ? "▪ saved" : "▫ save"}
+                      {bookmarked ? "▪ Saved" : "▫ Save"}
                     </button>
                   )}
                   {loggedIn && (
@@ -442,7 +442,7 @@ export function ArticleView() {
                           : "border-border text-text-muted hover:text-accent hover:border-accent/40"
                       }`}
                     >
-                      {reposted ? "reposted" : "repost"}
+                      {reposted ? "Reposted" : "Repost"}
                     </button>
                   )}
                   {loggedIn && (
@@ -450,7 +450,7 @@ export function ArticleView() {
                       onClick={() => { setShowComment(true); scrollRef.current?.scrollTo({ top: 0, behavior: "smooth" }); }}
                       className="text-[11px] px-3 py-1.5 border border-border text-text-muted hover:text-accent hover:border-accent/40 transition-colors"
                     >
-                      comment
+                      Comment
                     </button>
                   )}
                   {loggedIn && (

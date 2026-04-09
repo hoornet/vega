@@ -227,7 +227,7 @@ function ThreadPanel({
             disabled={!text.trim() || sending}
             className="px-3 self-end py-2 text-[11px] bg-accent hover:bg-accent-hover text-accent-text transition-colors disabled:opacity-30 disabled:cursor-not-allowed shrink-0 focus-visible:ring-1 focus-visible:ring-accent"
           >
-            {sending ? "…" : "send"}
+            {sending ? "…" : "Send"}
           </button>
         </div>
         <p className="text-text-dim text-[10px] mt-1">Ctrl+Enter to send · gift-wrapped (NIP-17)</p>
@@ -276,7 +276,7 @@ function NewConvInput({ onStart }: { onStart: (pubkey: string) => void }) {
           disabled={!input.trim()}
           className="px-2 py-1.5 text-[10px] border border-border text-text-dim hover:text-accent hover:border-accent/40 transition-colors disabled:opacity-30 shrink-0"
         >
-          start
+          Start
         </button>
       </div>
       {error && <p className="text-danger text-[10px] mt-1">{error}</p>}
