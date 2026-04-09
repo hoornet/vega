@@ -1,6 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { NDKEvent, NDKFilter, NDKKind, NDKRelay } from "@nostr-dev-kit/ndk";
 import { getNDK, fetchWithTimeout, FEED_TIMEOUT } from "./nostr";
+import { debug } from "./debug";
 
 const STORAGE_KEY = "vega_local_relay_enabled";
 const LAST_SYNC_KEY = "vega_local_relay_last_sync";
@@ -54,7 +55,7 @@ export async function connectLocalRelay(): Promise<void> {
 
   const relay = new NDKRelay(url, undefined, instance);
   instance.pool?.addRelay(relay, true);
-  console.log(`[Vega] Local relay connected: ${url}`);
+  debug.log(`[Vega] Local relay connected: ${url}`);
 }
 
 /**
@@ -69,7 +70,7 @@ export function disconnectLocalRelay(): void {
     if (url.startsWith(LOCAL_RELAY_PREFIX)) {
       relay.disconnect();
       instance.pool.relays.delete(url);
-      console.log(`[Vega] Local relay disconnected: ${url}`);
+      debug.log(`[Vega] Local relay disconnected: ${url}`);
     }
   }
 }
@@ -146,7 +147,7 @@ export async function syncToLocalRelay(
   userPubkey: string,
   followPubkeys: string[],
 ): Promise<void> {
-  console.log("[Vega] Starting local relay catch-up...");
+  debug.log("[Vega] Starting local relay catch-up...");
   const syncStart = performance.now();
   const instance = getNDK();
   const now = Math.floor(Date.now() / 1000);
@@ -217,5 +218,5 @@ export async function syncToLocalRelay(
   setLastSyncTimestamp(now);
 
   const elapsed = Math.round(performance.now() - syncStart);
-  console.log(`[Vega] Synced ${written}/${unique.length} events to local relay (${elapsed}ms)`);
+  debug.log(`[Vega] Synced ${written}/${unique.length} events to local relay (${elapsed}ms)`);
 }

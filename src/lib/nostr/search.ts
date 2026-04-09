@@ -1,6 +1,7 @@
 import NDK, { NDKEvent, NDKFilter, NDKKind, NDKSubscriptionCacheUsage, NDKUser } from "@nostr-dev-kit/ndk";
 import { type ParsedSearch, matchesHasFilter } from "../search";
 import { getNDK, fetchWithTimeout, withTimeout, FEED_TIMEOUT } from "./core";
+import { debug } from "../debug";
 
 // Dedicated NIP-50 search relays — queried for full-text search regardless of user's relay list
 const SEARCH_RELAYS = [
@@ -19,7 +20,7 @@ async function getSearchNDKFor(relay: string): Promise<NDK> {
   ndk = new NDK({ explicitRelayUrls: [relay] });
   searchNDKs.set(relay, ndk);
   await withTimeout(ndk.connect(), 5000, undefined);
-  console.log(`[Vega] Search relay connected: ${relay}`);
+  debug.log(`[Vega] Search relay connected: ${relay}`);
   return ndk;
 }
 
