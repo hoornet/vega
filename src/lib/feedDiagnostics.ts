@@ -7,6 +7,9 @@
  */
 
 import { getNDK } from "./nostr/core";
+import { debug } from "./debug";
+
+const isDev = import.meta.env.DEV;
 
 const DIAG_KEY = "wrystr_feed_diag";
 const MAX_ENTRIES = 200;
@@ -52,15 +55,17 @@ export function logDiag(entry: DiagEntry) {
       ? "color: #ffaa00; font-weight: bold"
       : "color: #44aa44";
 
-  console.log(
-    `%c[FeedDiag] ${entry.action}`,
-    style,
-    entry.durationMs != null ? `${entry.durationMs}ms` : "",
-    entry.eventsReturned != null ? `${entry.eventsReturned} events` : "",
-    entry.newestEventAge != null ? `newest: ${formatAge(entry.newestEventAge)}` : "",
-    entry.error || "",
-    entry.details || "",
-  );
+  if (isDev) {
+    console.log(
+      `%c[FeedDiag] ${entry.action}`,
+      style,
+      entry.durationMs != null ? `${entry.durationMs}ms` : "",
+      entry.eventsReturned != null ? `${entry.eventsReturned} events` : "",
+      entry.newestEventAge != null ? `newest: ${formatAge(entry.newestEventAge)}` : "",
+      entry.error || "",
+      entry.details || "",
+    );
+  }
 }
 
 function formatAge(seconds: number): string {
@@ -208,6 +213,6 @@ if (typeof window !== "undefined") {
 
   (window as unknown as Record<string, unknown>).__feedDiagClear = () => {
     localStorage.removeItem(DIAG_KEY);
-    console.log("Feed diagnostics cleared");
+    debug.log("Feed diagnostics cleared");
   };
 }

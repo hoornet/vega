@@ -1,5 +1,6 @@
 import "./lib/tauri-dev-mock"; // must be first — mocks Tauri invoke() in browser dev mode
 import { StrictMode, Component, type ReactNode } from "react";
+import { debug } from "./lib/debug";
 import { createRoot } from "react-dom/client";
 import App from "./App";
 import "./index.css";
@@ -10,7 +11,7 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | 
   state: { error: Error | null } = { error: null };
   static getDerivedStateFromError(error: Error) { return { error }; }
   componentDidCatch(error: Error, info: React.ErrorInfo) {
-    console.error("[Vega] React error boundary caught:", error, info.componentStack);
+    debug.error("[Vega] React error boundary caught:", error, info.componentStack);
   }
   render() {
     if (this.state.error) {
