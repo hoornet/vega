@@ -69,6 +69,14 @@ jobs:
 
             > **Windows note:** The installer is not yet code-signed. Windows SmartScreen will show an "Unknown publisher" warning — click "More info → Run anyway" to install.
 
+            ### v0.12.5 — UI Polish & Consistency
+
+            - **Comprehensive UI polish** — 14 rounds of systematic fixes across every view: sentence case on all button labels, Unicode ellipsis (…) and × throughout, consistent theme tokens replacing all hard-coded colors
+            - **Fix V4V auto-streaming** — disabling streaming mid-episode now stays off; previously any play/pause/seek event would re-engage auto-streaming
+            - **Production-silent logging** — all debug output now goes through `debug.ts` and is stripped in production builds; zero console leaks
+            - **Accessibility** — hover title tooltips on all truncated text, focus rings on interactive elements, aria-labels on all icon-only buttons
+            - **Theme consistency** — all amber/gray/white hard-coded colors replaced with theme tokens; correct across all 7 themes
+
             ### v0.12.4 — Polls, Custom Relay & UI Polish
             - **NIP-1068 Polls** — create polls from the compose box, vote on polls in the feed, animated result bars with vote counts and percentages, per-pubkey dedup, expiry support
             - **Custom Go relay** — switched default relay from strfry to Vega's own Go relay (`wss://relay2.veganostr.com`) with 19 NIPs including NIP-45 COUNT, NIP-50 Search, and NIP-77 Negentropy
