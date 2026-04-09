@@ -6,6 +6,7 @@ import { useNotificationsStore } from "../../stores/notifications";
 import { fetchDMConversations, fetchDMThread, sendDM, decryptDM, getNDK } from "../../lib/nostr";
 import { useProfile } from "../../hooks/useProfile";
 import { timeAgo, shortenPubkey, profileName } from "../../lib/utils";
+import { debug } from "../../lib/debug";
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -141,7 +142,7 @@ function ThreadPanel({
     setMessages([]);
     fetchDMThread(myPubkey, partnerPubkey)
       .then(setMessages)
-      .catch((err) => console.error("Failed to fetch DM thread:", err))
+      .catch((err) => debug.error("Failed to fetch DM thread:", err))
       .finally(() => setLoading(false));
   }, [partnerPubkey, myPubkey]);
 
@@ -155,17 +156,17 @@ function ThreadPanel({
     setSending(true);
     setSendError(null);
     try {
-      console.log("[DM-UI] sending to", partnerPubkey.slice(0, 8));
+      debug.log("[DM-UI] sending to", partnerPubkey.slice(0, 8));
       await sendDM(partnerPubkey, content);
-      console.log("[DM-UI] send completed, re-fetching thread...");
+      debug.log("[DM-UI] send completed, re-fetching thread");
       setText("");
       // Re-fetch thread to include the sent message
       const updated = await fetchDMThread(myPubkey, partnerPubkey);
-      console.log("[DM-UI] re-fetch got", updated.length, "messages");
+      debug.log("[DM-UI] re-fetch got", updated.length, "messages");
       setMessages(updated);
       textareaRef.current?.focus();
     } catch (err) {
-      console.error("[DM-UI] send failed:", err);
+      debug.error("[DM-UI] send failed:", err);
       setSendError(String(err));
     } finally {
       setSending(false);
@@ -321,7 +322,7 @@ export function DMView() {
         }));
         useNotificationsStore.getState().computeDMUnread(convList);
       })
-      .catch((err) => console.error("Failed to fetch DM conversations:", err))
+      .catch((err) => debug.error("Failed to fetch DM conversations:", err))
       .finally(() => setLoading(false));
   }, [pubkey, hasSigner]);
 

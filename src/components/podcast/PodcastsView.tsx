@@ -116,7 +116,7 @@ export function PodcastsView() {
             </div>
           )
         ) : loading ? (
-          <div className="text-text-dim text-[12px]">Loading...</div>
+          <div className="text-text-dim text-[12px]">Loading…</div>
         ) : displayShows.length === 0 ? (
           <div className="text-text-dim text-[12px]">
             {tab === "search" ? "No results. Try a different search." : "No trending podcasts found."}

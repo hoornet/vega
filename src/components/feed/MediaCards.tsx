@@ -103,8 +103,8 @@ export function VimeoCard({ seg }: { seg: ContentSegment }) {
       rel="noopener noreferrer"
       className="mt-2 flex items-center gap-3 rounded-sm bg-bg-raised border border-border p-3 hover:bg-bg-hover transition-colors cursor-pointer"
     >
-      <div className="w-10 h-10 rounded-full bg-black/40 flex items-center justify-center shrink-0">
-        <svg width="14" height="14" viewBox="0 0 20 20" fill="white"><polygon points="6,3 17,10 6,17" /></svg>
+      <div className="w-10 h-10 rounded-full bg-accent/15 text-accent flex items-center justify-center shrink-0">
+        <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor"><polygon points="6,3 17,10 6,17" /></svg>
       </div>
       <div className="min-w-0">
         <div className="text-[11px] text-text-muted">Vimeo</div>
@@ -141,8 +141,8 @@ export function TidalCard({ seg }: { seg: ContentSegment }) {
       rel="noopener noreferrer"
       className="mt-2 flex items-center gap-3 rounded-sm bg-bg-raised border border-border p-3 hover:bg-bg-hover transition-colors cursor-pointer"
     >
-      <div className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center shrink-0">
-        <span className="text-white text-lg font-bold">T</span>
+      <div className="w-10 h-10 rounded-full bg-accent/15 text-accent flex items-center justify-center shrink-0">
+        <span className="text-lg font-bold">T</span>
       </div>
       <div className="min-w-0">
         <div className="text-[11px] text-text-muted">Tidal · {seg.mediaType}</div>

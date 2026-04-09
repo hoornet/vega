@@ -50,7 +50,7 @@ function UpdateBanner() {
         >
           {installing ? "Installing…" : "Update & restart"}
         </button>
-        <button onClick={dismiss} className="text-text-dim hover:text-text transition-colors">×</button>
+        <button onClick={dismiss} aria-label="Dismiss update" className="text-text-dim hover:text-text transition-colors">×</button>
       </div>
     </div>
   );

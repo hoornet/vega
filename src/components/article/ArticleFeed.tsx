@@ -95,7 +95,7 @@ export function ArticleFeed() {
       {/* Articles list */}
       <div className="flex-1 overflow-y-auto">
         {loading && (
-          <div className="px-4 py-8 text-text-dim text-[12px] text-center">Loading articles...</div>
+          <div className="px-4 py-8 text-text-dim text-[12px] text-center">Loading articles…</div>
         )}
 
         {!loading && articles.length === 0 && (

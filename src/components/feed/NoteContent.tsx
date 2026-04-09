@@ -101,7 +101,7 @@ function ImageGrid({ images, onImageClick }: { images: string[]; onImageClick: (
               className="absolute inset-0 bg-black/50 flex items-center justify-center rounded-sm cursor-zoom-in"
               onClick={(e) => { e.stopPropagation(); onImageClick(idx); }}
             >
-              <span className="text-[#ffffff] text-lg font-semibold">+{extraCount}</span>
+              <span className="text-white text-lg font-semibold">+{extraCount}</span>
             </div>
           )}
         </div>
