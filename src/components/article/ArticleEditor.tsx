@@ -405,7 +405,7 @@ export function ArticleEditor() {
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             placeholder="Title"
-            className="w-full bg-transparent text-text text-2xl font-bold placeholder:text-text-dim focus:outline-none"
+            className="w-full bg-transparent text-text text-2xl font-bold placeholder:text-text-dim focus:outline-none focus:border-b focus:border-accent/40"
             style={{ fontFamily: "var(--font-reading)" }}
           />
         </div>
@@ -473,7 +473,7 @@ export function ArticleEditor() {
                 if (Array.from(e.dataTransfer.types).includes("Files")) e.preventDefault();
               }}
               placeholder="Write your article in Markdown… (paste or drop images)"
-              className="w-full h-full min-h-[400px] bg-transparent text-text text-[14px] leading-relaxed placeholder:text-text-dim resize-none focus:outline-none font-mono"
+              className="w-full h-full min-h-[400px] bg-transparent text-text text-[14px] leading-relaxed placeholder:text-text-dim resize-none focus:outline-none focus:border-b focus:border-accent/40 font-mono"
             />
           ) : (
             <div

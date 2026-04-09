@@ -56,7 +56,7 @@ function RelayHealthCard({ result, poolConnected, onRemove }: { result: RelayHea
         />
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
-            <span className="text-text truncate font-mono">{result.url}</span>
+            <span title={result.url} className="text-text truncate font-mono">{result.url}</span>
             {nip11?.name && (
               <span className="text-text-dim text-[10px] truncate">({nip11.name})</span>
             )}

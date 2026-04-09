@@ -66,7 +66,7 @@ function ConvRow({
       )}
       <div className="flex-1 min-w-0">
         <div className="flex items-baseline justify-between gap-1">
-          <span className="text-text text-[12px] font-medium truncate">{name}</span>
+          <span title={name} className="text-text text-[12px] font-medium truncate">{name}</span>
           <span className="text-text-dim text-[10px] shrink-0">{time}</span>
         </div>
         <div className="text-text-dim text-[11px] truncate">
@@ -225,7 +225,7 @@ function ThreadPanel({
           <button
             onClick={handleSend}
             disabled={!text.trim() || sending}
-            className="px-3 self-end py-2 text-[11px] bg-accent hover:bg-accent-hover text-accent-text transition-colors disabled:opacity-30 disabled:cursor-not-allowed shrink-0"
+            className="px-3 self-end py-2 text-[11px] bg-accent hover:bg-accent-hover text-accent-text transition-colors disabled:opacity-30 disabled:cursor-not-allowed shrink-0 focus-visible:ring-1 focus-visible:ring-accent"
           >
             {sending ? "…" : "send"}
           </button>

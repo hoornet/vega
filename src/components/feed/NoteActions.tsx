@@ -102,7 +102,7 @@ export function NoteActions({ event, onReplyToggle, showReply }: NoteActionsProp
                 myReactions.has(emoji)
                   ? "border-accent/40 bg-accent/10 text-accent"
                   : "border-border hover:border-accent/40 hover:bg-accent/5 text-text-dim"
-              } disabled:cursor-default`}
+              } disabled:cursor-default disabled:opacity-50`}
             >
               <span className="text-[13px] leading-none">{emoji}</span>
               <span>{count}</span>

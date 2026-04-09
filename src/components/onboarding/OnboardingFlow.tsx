@@ -88,7 +88,7 @@ function CreateStep({ onNext }: { onNext: (signer: NDKPrivateKeySigner) => void 
           <span className="text-text-dim text-[10px] uppercase tracking-widest">Your public key (npub)</span>
         </div>
         <div className="flex items-center gap-2 px-3 py-2">
-          <span className="text-text font-mono text-[11px] truncate flex-1 select-all">{signer.npub}</span>
+          <span title={signer.npub} className="text-text font-mono text-[11px] truncate flex-1 select-all">{signer.npub}</span>
           <button
             onClick={handleCopy}
             aria-label="Copy public key"
@@ -148,7 +148,7 @@ function BackupStep({ signer, onComplete }: { signer: NDKPrivateKeySigner; onCom
           <span className="text-danger text-[10px] uppercase tracking-widest">Secret key (nsec) — keep private</span>
         </div>
         <div className="flex items-center gap-2 px-3 py-2">
-          <span className={`font-mono text-[11px] truncate flex-1 ${revealed ? "text-text select-all" : "text-text-dim"}`}>
+          <span title={revealed ? signer.nsec : undefined} className={`font-mono text-[11px] truncate flex-1 ${revealed ? "text-text select-all" : "text-text-dim"}`}>
             {revealed ? signer.nsec : "••••••••••••••••••••••••••••••••••••••••••••••••"}
           </span>
           <button
