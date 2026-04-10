@@ -1,5 +1,18 @@
 # Changelog
 
+## v0.12.6 — Rich Text Everywhere (2026-04-10)
+
+### Added
+- Profile bios now render clickable links, `@mentions`, and `#hashtags` — profiles link to other profiles automatically
+- DM messages now render clickable URLs, inline images, nostr entity links, and hashtags
+- Article editor: selecting multiple images now inserts all of them correctly (previously only the last one was kept)
+- Article editor: image thumbnail strip is now clickable — opens a full-size lightbox
+
+### Fixed
+- Blossom / NIP-96 image URLs with non-standard extensions (`.jp`, no extension) now render as inline images
+- `nostr:` entity matching made case-insensitive for broader compatibility
+- Multi-image article upload now inserts images with proper spacing between them
+
 ## v0.12.5 — UI Polish & Consistency (2026-04-09)
 
 ### Fixed
