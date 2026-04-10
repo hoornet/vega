@@ -151,19 +151,24 @@ export function MarkdownToolbar({ textareaRef, content, setContent, setUploading
       setUploading?.(true);
       setError?.(null);
       try {
+        const mimeMap: Record<string, string> = {
+          jpg: "image/jpeg", jpeg: "image/jpeg", png: "image/png", gif: "image/gif",
+          webp: "image/webp", svg: "image/svg+xml",
+        };
+        const snippets: string[] = [];
         for (const filePath of paths) {
           const bytes = await readFile(filePath);
           const fileName = filePath.split(/[\\/]/).pop() || "image.png";
           const ext = fileName.split(".").pop()?.toLowerCase() || "png";
-          const mimeMap: Record<string, string> = {
-            jpg: "image/jpeg", jpeg: "image/jpeg", png: "image/png", gif: "image/gif",
-            webp: "image/webp", svg: "image/svg+xml",
-          };
           const url = await uploadBytes(new Uint8Array(bytes), fileName, mimeMap[ext] || "image/png");
-          const textarea = textareaRef.current;
-          if (textarea) {
-            applyMarkdown(textarea, "image", content, setContent, `![${fileName}](${url})`);
-          }
+          snippets.push(`![${fileName}](${url})`);
+        }
+        const textarea = textareaRef.current;
+        if (textarea && snippets.length > 0) {
+          const cursorPos = textarea.selectionStart ?? content.length;
+          const needsLeadingNewline = cursorPos > 0 && content[cursorPos - 1] !== "\n";
+          const block = (needsLeadingNewline ? "\n\n" : "") + snippets.join("\n\n") + "\n\n";
+          applyMarkdown(textarea, "image", content, setContent, block);
         }
       } finally {
         setUploading?.(false);

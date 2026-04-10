@@ -54,6 +54,7 @@ export function ArticleEditor() {
   const [zenMode, setZenMode] = useState(false);
   const [zenHint, setZenHint] = useState(false);
   const zenTextareaRef = useRef<HTMLTextAreaElement>(null);
+  const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
 
   const toggleZen = useCallback(async () => {
     const win = getCurrentWindow();
@@ -426,15 +427,29 @@ export function ArticleEditor() {
           <div className="flex items-center gap-2 px-6 py-2 border-b border-border bg-bg-raised/50 overflow-x-auto shrink-0">
             <span className="text-text-dim text-[10px] shrink-0">{inlineImages.length} {inlineImages.length === 1 ? "image" : "images"}</span>
             {inlineImages.map((img, i) => (
-              <div key={i} className="relative shrink-0 group">
+              <div key={i} className="relative shrink-0 group cursor-zoom-in" onClick={() => setLightboxUrl(img.url)}>
                 <img
                   src={img.url}
                   alt={img.alt}
-                  className="h-12 w-auto rounded-sm border border-border object-cover"
+                  className="h-12 w-auto rounded-sm border border-border object-cover group-hover:border-accent transition-colors"
                   onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
                 />
               </div>
             ))}
+          </div>
+        )}
+
+        {/* Lightbox */}
+        {lightboxUrl && (
+          <div
+            className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center cursor-zoom-out"
+            onClick={() => setLightboxUrl(null)}
+          >
+            <img
+              src={lightboxUrl}
+              className="max-w-[90vw] max-h-[90vh] rounded-md shadow-2xl object-contain"
+              onClick={(e) => e.stopPropagation()}
+            />
           </div>
         )}
 
