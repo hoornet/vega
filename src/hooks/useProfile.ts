@@ -2,8 +2,21 @@ import { useEffect, useState } from "react";
 import { fetchProfile } from "../lib/nostr";
 import { dbLoadProfile, dbSaveProfile } from "../lib/db";
 
+const PROFILE_CACHE_MAX = 500;
 const profileCache = new Map<string, any>();
 const pendingRequests = new Map<string, Promise<any>>();
+
+function pruneProfileCache() {
+  if (profileCache.size > PROFILE_CACHE_MAX) {
+    // Drop oldest entries (Map preserves insertion order)
+    const toDelete = profileCache.size - PROFILE_CACHE_MAX;
+    let i = 0;
+    for (const key of profileCache.keys()) {
+      if (i++ >= toDelete) break;
+      profileCache.delete(key);
+    }
+  }
+}
 
 export function invalidateProfileCache(pubkey: string) {
   profileCache.delete(pubkey);
@@ -25,6 +38,7 @@ export function useProfile(pubkey: string) {
         .then((p) => {
           const result = p ?? null;
           profileCache.set(pubkey, result);
+          pruneProfileCache();
           pendingRequests.delete(pubkey);
           if (result) dbSaveProfile(pubkey, JSON.stringify(result));
           return result;

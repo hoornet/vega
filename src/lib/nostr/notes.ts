@@ -136,22 +136,27 @@ export async function publishQuote(content: string, quotedEvent: NDKEvent): Prom
   await note.publish();
 }
 
+const THREAD_EVENT_LIMIT = 300; // hard cap to prevent OOM on viral threads
+
 export async function fetchThreadEvents(rootId: string): Promise<NDKEvent[]> {
   const instance = getNDK();
 
-  // Round-trip 1: all events tagging the root
-  const directFilter: NDKFilter = { kinds: [NDKKind.Text], "#e": [rootId] };
+  // Round-trip 1: all events tagging the root (capped)
+  const directFilter: NDKFilter = { kinds: [NDKKind.Text], "#e": [rootId], limit: THREAD_EVENT_LIMIT };
   const directEvents = await fetchWithTimeout(instance, directFilter, THREAD_TIMEOUT);
 
   const allEvents = new Map<string, NDKEvent>();
   for (const e of directEvents) allEvents.set(e.id, e);
 
-  // Round-trip 2: replies to any event in the thread
-  const knownIds = Array.from(allEvents.keys());
-  if (knownIds.length > 0) {
-    const deepFilter: NDKFilter = { kinds: [NDKKind.Text], "#e": knownIds };
-    const deepEvents = await fetchWithTimeout(instance, deepFilter, THREAD_TIMEOUT);
-    for (const e of deepEvents) allEvents.set(e.id, e);
+  // Round-trip 2: replies to events in the thread — only if round 1 returned < limit
+  // Skip deep fetch on large threads to avoid OOM
+  if (allEvents.size < THREAD_EVENT_LIMIT) {
+    const knownIds = Array.from(allEvents.keys()).slice(0, 50); // cap #e filter size
+    if (knownIds.length > 0) {
+      const deepFilter: NDKFilter = { kinds: [NDKKind.Text], "#e": knownIds, limit: THREAD_EVENT_LIMIT - allEvents.size };
+      const deepEvents = await fetchWithTimeout(instance, deepFilter, THREAD_TIMEOUT);
+      for (const e of deepEvents) allEvents.set(e.id, e);
+    }
   }
 
   return Array.from(allEvents.values());
