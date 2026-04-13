@@ -2,17 +2,22 @@ import { fetch } from "@tauri-apps/plugin-http";
 import { getNDK } from "./nostr";
 import { NDKEvent } from "@nostr-dev-kit/ndk";
 
-const UPLOAD_SERVICES = [
-  "https://nostr.build/api/v2/upload/files",
-  "https://void.cat/upload",
-  "https://nostrimg.com/api/upload",
+interface UploadService {
+  url: string;
+  field: string; // multipart field name expected by the service
+}
+
+const UPLOAD_SERVICES: UploadService[] = [
+  { url: "https://nostr.build/api/v2/nip96/upload", field: "file" },
+  { url: "https://files.sovbit.host/api/v2/media", field: "file" },
+  { url: "https://nostrimg.com/api/upload", field: "file" },
 ];
 
 /**
  * Create a NIP-98 HTTP Auth event (kind 27235) for a given URL and method.
  * Returns a base64-encoded signed event for the Authorization header.
  */
-async function createNip98AuthHeader(url: string, method: string): Promise<string> {
+async function createNip98AuthHeader(url: string, method: string, body?: Uint8Array): Promise<string> {
   const ndk = getNDK();
   if (!ndk.signer) throw new Error("Not logged in — cannot sign NIP-98 auth");
 
@@ -24,6 +29,15 @@ async function createNip98AuthHeader(url: string, method: string): Promise<strin
     ["u", url],
     ["method", method.toUpperCase()],
   ];
+
+  if (body) {
+    const hashBuffer = await crypto.subtle.digest("SHA-256", body);
+    const hashHex = Array.from(new Uint8Array(hashBuffer))
+      .map((b) => b.toString(16).padStart(2, "0"))
+      .join("");
+    event.tags.push(["payload", hashHex]);
+  }
+
   await event.sign();
   const encoded = btoa(JSON.stringify(event.rawEvent()));
   return `Nostr ${encoded}`;
@@ -70,47 +84,47 @@ function buildMultipart(fieldName: string, data: Uint8Array, fileName: string, m
  * Upload raw bytes with NIP-98 auth. Tries nostr.build first, then fallbacks.
  */
 export async function uploadBytes(bytes: Uint8Array, fileName: string, mimeType: string): Promise<string> {
-  const { body, contentType } = buildMultipart("file", bytes, fileName, mimeType);
   const errors: string[] = [];
 
-  for (const serviceUrl of UPLOAD_SERVICES) {
+  for (const service of UPLOAD_SERVICES) {
+    const { body, contentType } = buildMultipart(service.field, bytes, fileName, mimeType);
     try {
       const headers: Record<string, string> = { "Content-Type": contentType };
       try {
-        headers["Authorization"] = await createNip98AuthHeader(serviceUrl, "POST");
+        headers["Authorization"] = await createNip98AuthHeader(service.url, "POST", body);
       } catch {
         // If not logged in, try without auth (some services allow anonymous)
       }
 
-      const resp = await fetch(serviceUrl, {
+      const resp = await fetch(service.url, {
         method: "POST",
         body,
         headers,
       });
 
       if (!resp.ok) {
-        errors.push(`${serviceUrl}: HTTP ${resp.status}`);
+        errors.push(`${service.url}: HTTP ${resp.status}`);
         continue;
       }
 
       const data = await resp.json();
 
-      // nostr.build response format
+      // NIP-96 standard response format
+      if (data.nip94_event?.tags) {
+        const urlTag = data.nip94_event.tags.find((t: string[]) => t[0] === "url");
+        if (urlTag?.[1]) return urlTag[1] as string;
+      }
+      // nostr.build legacy / plain url field
       if (data.status === "success" && data.data?.[0]?.url) {
         return data.data[0].url as string;
       }
-      // void.cat response format
-      if (data.file?.url) {
-        return data.file.url as string;
-      }
-      // nostrimg.com response format
       if (data.url) {
         return data.url as string;
       }
 
-      errors.push(`${serviceUrl}: no URL in response`);
+      errors.push(`${service.url}: no URL in response`);
     } catch (err) {
-      errors.push(`${serviceUrl}: ${err}`);
+      errors.push(`${service.url}: ${err}`);
     }
   }
 

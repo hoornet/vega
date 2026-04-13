@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.12.7 — Upload Fixes (2026-04-13)
+
+### Fixed
+- Image uploads now work again — nostr.build and files.sovbit.host endpoints updated to their current NIP-96 URLs; removed void.cat (dead) and nostrcheck.me (returned broken URLs without file extensions)
+- NIP-98 HTTP Auth header now includes the required SHA-256 payload hash, fixing rejections from strict NIP-96 servers
+- SVG files are now rejected with a clear error message before upload in profile picture, banner, compose box, and inline reply — SVGs were silently uploading but rendering as broken images on all Nostr clients
+
 ## v0.12.6 — Rich Text Everywhere (2026-04-10)
 
 ### Added

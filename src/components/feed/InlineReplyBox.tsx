@@ -48,6 +48,10 @@ export function InlineReplyBox({ event, name, rootEvent }: InlineReplyBoxProps) 
   };
 
   const handleImageUpload = async (file: File) => {
+    if (file.type === "image/svg+xml") {
+      setUploadError("SVG files are not supported — please use PNG or JPG.");
+      return;
+    }
     setUploading(true);
     setUploadError(null);
     try {

@@ -9,6 +9,11 @@ export function ImageField({ label, value, onChange }: { label: string; value: s
   const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    if (file.type === "image/svg+xml") {
+      setUploadError("SVG files are not supported — please use PNG or JPG.");
+      if (fileRef.current) fileRef.current.value = "";
+      return;
+    }
     setUploading(true);
     setUploadError(null);
     try {

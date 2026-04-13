@@ -97,9 +97,14 @@ export function ComposeBox({ onPublished, onNoteInjected }: { onPublished?: () =
       const bytes = await readFile(filePath);
       const fileName = filePath.split(/[\\/]/).pop() || "file";
       const ext = fileName.split(".").pop()?.toLowerCase() || "";
+      if (ext === "svg") {
+        setError("SVG files are not supported — please use PNG or JPG.");
+        setUploading(false);
+        return;
+      }
       const mimeMap: Record<string, string> = {
         jpg: "image/jpeg", jpeg: "image/jpeg", png: "image/png", gif: "image/gif",
-        webp: "image/webp", svg: "image/svg+xml", mp4: "video/mp4", webm: "video/webm",
+        webp: "image/webp", mp4: "video/mp4", webm: "video/webm",
         mov: "video/quicktime", ogg: "video/ogg", m4v: "video/mp4",
       };
       const mimeType = mimeMap[ext] || "application/octet-stream";
@@ -160,7 +165,7 @@ export function ComposeBox({ onPublished, onNoteInjected }: { onPublished?: () =
       const selected = await open({
         multiple: false,
         filters: [
-          { name: "Media", extensions: ["jpg", "jpeg", "png", "gif", "webp", "svg", "mp4", "webm", "mov", "ogg", "m4v"] },
+          { name: "Media", extensions: ["jpg", "jpeg", "png", "gif", "webp", "mp4", "webm", "mov", "ogg", "m4v"] },
         ],
       });
       if (!selected) return;
