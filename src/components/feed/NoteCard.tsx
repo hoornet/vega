@@ -71,7 +71,7 @@ export const NoteCard = memo(function NoteCard({ event, focused, onReplyInThread
     <article
       ref={cardRef}
       data-note-id={event.id}
-      className={`border-b border-border px-4 py-3 hover:bg-bg-hover transition-colors cursor-pointer group/card [content-visibility:auto] [contain-intrinsic-size:auto_120px]${focused ? " bg-accent/10 border-l-2 border-l-accent" : ""}`}
+      className={`border-b border-border px-4 py-3 hover:bg-bg-hover transition-colors cursor-pointer group/card${focused ? " bg-accent/10 border-l-2 border-l-accent" : ""}`}
       onClick={(e) => {
         // Don't navigate if clicking on interactive elements
         const target = e.target as HTMLElement;

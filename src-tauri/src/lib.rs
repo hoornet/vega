@@ -436,7 +436,7 @@ pub fn run() {
                 }
             }
 
-            // ── WebKit GPU workaround for Linux (webkit2gtk 2.50+ black screen) ──
+            // ── WebKit memory tuning for Linux (webkit2gtk) ──────────────────
             #[cfg(target_os = "linux")]
             {
                 let main_window = app.get_webview_window("main").unwrap();
@@ -444,15 +444,20 @@ pub fn run() {
                     use webkit2gtk::{CacheModel, SettingsExt, WebContextExt, WebViewExt};
                     let wv = webview.inner();
                     if let Some(settings) = wv.settings() {
+                        // OnDemand: use GPU if available, CPU fallback otherwise.
+                        // HardwareAccelerationPolicy::Never + WEBKIT_DISABLE_COMPOSITING_MODE=1
+                        // both kill the Wayland compositor path → blank window on Hyprland.
+                        // WEBKIT_FORCE_SOFTWARE_RENDERING=1 (set in main.rs) forces CPU
+                        // rasterization without disrupting the Wayland surface.
                         settings.set_hardware_acceleration_policy(
-                            webkit2gtk::HardwareAccelerationPolicy::Never,
+                            webkit2gtk::HardwareAccelerationPolicy::OnDemand,
                         );
+                        // Vega is a SPA — no back/forward navigation, page cache is pure waste.
+                        settings.set_enable_page_cache(false);
                     }
-                    // Minimize WebKit's in-memory content cache (decoded images, scripts, etc.)
-                    // Default is WebBrowser which caches aggressively. DocumentViewer is the
-                    // minimum: no back/forward page cache, smallest memory footprint.
-                    // This is safe for Vega — it's a single-page app, never navigates between pages.
                     if let Some(ctx) = wv.context() {
+                        // DocumentViewer: smallest in-memory content cache footprint.
+                        // No back/forward page cache, only the active document cached.
                         ctx.set_cache_model(CacheModel::DocumentViewer);
                     }
                 }).ok();

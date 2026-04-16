@@ -44,9 +44,9 @@ async function pollOnce(pubkey: string) {
         const name = await getProfileName(e.pubkey);
         notifyMention(name, e.content?.slice(0, 120) || "mentioned you").catch(() => {});
       }
+      // Only refresh the full store when there's actually something new to show
+      useNotificationsStore.getState().fetchNotifications(pubkey).catch(() => {});
     }
-    // Also update the notifications store
-    useNotificationsStore.getState().fetchNotifications(pubkey).catch(() => {});
   } catch { /* non-critical */ }
 
   // Zaps
@@ -107,18 +107,15 @@ export function startNotificationPoller(pubkey: string) {
   // Instant: load cached notifications from DB (no flicker)
   useNotificationsStore.getState().loadFromDb(pubkey);
 
-  // Then connect to relays and fetch new data in background
-  (async () => {
-    try {
-      const connected = await ensureConnected();
-      debug.log("notif:poller ensureConnected →", connected);
-    } catch { /* continue anyway */ }
-    debug.log("notif:poller initial fetch for", pubkey.slice(0, 8));
-    useNotificationsStore.getState().fetchNotifications(pubkey).catch(() => {});
-  })();
+  // The full fetchNotifications() sweep is already called by the login flow
+  // (loginWithNsec / loginWithPubkey / restoreSession) before this function runs.
+  // Starting it again here would fire two concurrent 7-day sweeps on every login.
+  // We only need the incremental pollOnce() loop from here on.
 
-  // Run first full poll after a longer delay (give relays more time)
-  setTimeout(() => pollOnce(pubkey).catch(() => {}), 8000);
+  // Delay the first poll to give the app and relays time to fully initialize.
+  // 8s was too aggressive — it would fire a heavy fetchNotifications during the
+  // initial feed load, contributing to the login memory spike.
+  setTimeout(() => pollOnce(pubkey).catch(() => {}), 90_000);
   intervalId = setInterval(() => pollOnce(pubkey).catch(() => {}), POLL_INTERVAL);
 }
 

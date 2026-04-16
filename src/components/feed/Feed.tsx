@@ -89,7 +89,7 @@ export function Feed() {
     try {
       await ensureConnected();
       const events = await diagWrapFetch("follow_fetch", () => fetchFollowFeed(follows));
-      setFollowNotes(events);
+      setFollowNotes(events.slice(0, 30));
       const prev = useFeedStore.getState().lastUpdated;
       useFeedStore.setState({ lastUpdated: { ...prev, following: Date.now() } });
     } finally {

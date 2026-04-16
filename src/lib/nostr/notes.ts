@@ -20,7 +20,7 @@ export async function fetchMediaFeed(limit: number = 500): Promise<NDKEvent[]> {
   return Array.from(events).sort((a, b) => (b.created_at ?? 0) - (a.created_at ?? 0));
 }
 
-export async function fetchFollowFeed(pubkeys: string[], limit = 80): Promise<NDKEvent[]> {
+export async function fetchFollowFeed(pubkeys: string[], limit = 30): Promise<NDKEvent[]> {
   if (pubkeys.length === 0) return [];
   const instance = getNDK();
   const since = Math.floor(Date.now() / 1000) - 24 * 3600; // last 24h for follows
