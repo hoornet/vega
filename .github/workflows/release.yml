@@ -69,6 +69,13 @@ jobs:
 
             > **Windows note:** The installer is not yet code-signed. Windows SmartScreen will show an "Unknown publisher" warning — click "More info → Run anyway" to install.
 
+            ### v0.12.8 — Fix Linux OOM crash
+
+            - **Fix Linux memory crash** — Vega no longer crashes or freezes the OS on Linux; memory now plateaus at ~950MB during heavy use instead of spiking to 32GB+
+            - **Following feed capped** — following feed was rendering up to 80 notes (vs. 30 for global), causing 4GB+ spikes on media-heavy accounts; now capped at 30
+            - **WebKit rendering fix** — switched to `WEBKIT_FORCE_SOFTWARE_RENDERING=1` which fixes the blank window issue on Hyprland/Wayland while keeping memory low
+            - **Notification fetch dedup** — `fetchNotifications` was firing 3× in the first 8 seconds of login; now fires once and the first background poll is delayed to 90s
+
             ### v0.12.7 — Upload Fixes
 
             - **Image uploads fixed** — updated to current NIP-96 endpoints for nostr.build and files.sovbit.host; removed dead services (void.cat, nostrcheck.me)
