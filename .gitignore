@@ -22,6 +22,9 @@ screenshots/
 *.png
 !src-tauri/icons/*.png
 
+# Memory test output (produced by scripts/memory-test.sh)
+memory-test-*.tsv
+
 # Private docs (drafts, specs, research, grant applications)
 private_docs/
 test/accounts.json
