@@ -1,6 +1,6 @@
 export { getNDK, getNDKUptimeMs, connectToRelays, ensureConnected, resetNDK, getStoredRelayUrls, normalizeRelayUrl, addRelay, removeRelay, fetchWithTimeout, withTimeout, FEED_TIMEOUT, THREAD_TIMEOUT, SINGLE_TIMEOUT } from "./core";
 export { fetchGlobalFeed, fetchMediaFeed, fetchFollowFeed, fetchUserNotes, fetchUserNotesNIP65, fetchNoteById, fetchReplies, publishNote, publishReply, publishRepost, publishQuote, fetchHashtagFeed, fetchThreadEvents, fetchAncestors } from "./notes";
-export { publishProfile, publishContactList, fetchProfile, fetchFollowSuggestions, fetchMentions, fetchFollowers, fetchNewFollowers, batchFetchProfileAges, getProfileAge } from "./social";
+export { publishProfile, publishContactList, fetchProfile, fetchFollowSuggestions, fetchMentions, fetchFollowers, fetchNewFollowers } from "./social";
 export { publishArticle, fetchArticle, fetchAuthorArticles, fetchArticleFeed, searchArticles, fetchByAddr } from "./articles";
 export { publishReaction, fetchReplyCount, fetchZapCount, fetchReactions, groupReactions, fetchBatchEngagement, fetchZapsReceived, fetchZapsSent } from "./engagement";
 export type { GroupedReactions, BatchEngagement } from "./engagement";

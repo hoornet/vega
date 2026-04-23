@@ -38,24 +38,6 @@ export async function fetchProfile(pubkey: string) {
   return user.profile ?? null;
 }
 
-// Bulk-fetch kind-0 events for many pubkeys in one relay query and populate
-// the profile-age cache. Called once per feed/thread load — not per note.
-const profileAgeCache = new Map<string, number>();
-
-export function getProfileAge(pubkey: string): number | null {
-  return profileAgeCache.get(pubkey) ?? null;
-}
-
-export async function batchFetchProfileAges(pubkeys: string[]): Promise<void> {
-  const needed = pubkeys.filter((pk) => !profileAgeCache.has(pk));
-  if (needed.length === 0) return;
-  const instance = getNDK();
-  const events = await fetchWithTimeout(instance, { kinds: [0], authors: needed }, FEED_TIMEOUT);
-  for (const event of events) {
-    if (event.created_at) profileAgeCache.set(event.pubkey, event.created_at);
-  }
-}
-
 export async function fetchFollowSuggestions(myFollows: string[]): Promise<{ pubkey: string; mutualCount: number }[]> {
   if (myFollows.length === 0) return [];
   const instance = getNDK();
