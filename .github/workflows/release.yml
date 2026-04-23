@@ -69,9 +69,14 @@ jobs:
 
             > **Windows note:** The installer is not yet code-signed. Windows SmartScreen will show an "Unknown publisher" warning — click "More info → Run anyway" to install.
 
+            ### v0.12.9 — Web of Trust everywhere
+
+            - **Web of Trust filter now applies everywhere.** Previously it only hid notes from outside your social graph on the global feed. It now also filters all feed tabs (global, following, trending), reaction pills, and zap totals. Zaps are filtered by the actual zapper's pubkey (from the inner zap request), not the outer LNURL service pubkey.
+            - **Removed the "new account" badge** on notes. The proxy was unreliable — kind-0 `created_at` is "profile last updated," not "account created," so it flagged anyone who tweaked their bio recently. Dropped until there's a real signal to use.
+
             ### v0.12.8 — Fix Linux OOM crash
 
-            - **Fix Linux memory crash** — Vega no longer crashes on Linux. Memory now oscillates at ~1.1–1.6 GB during heavy use instead of climbing to 8–12 GB. Root cause traced to v0.12.6: the Blossom SHA-256 URL auto-detection regex caused 3–5× more `<img>` elements per feed page, which combined with WebKitGTK's weak bitmap eviction pushed the WebKit process past its 8 GB self-kill threshold. Blossom auto-detection is temporarily disabled pending proper validation in v0.12.9.
+            - **Fix Linux memory crash** — Vega no longer crashes on Linux. Memory now oscillates at ~1.1–1.6 GB during heavy use instead of climbing to 8–12 GB. Root cause traced to v0.12.6: the Blossom SHA-256 URL auto-detection regex caused 3–5× more `<img>` elements per feed page, which combined with WebKitGTK's weak bitmap eviction pushed the WebKit process past its 8 GB self-kill threshold. Blossom auto-detection is temporarily disabled pending proper validation in a future release.
             - **Feed depths restored** — the v0.12.7 OOM firefighting that slashed follow/global feed limits to 30 is reverted; follow feed now fetches 100 and global caches up to 200, matching pre-crisis v0.12.6 behavior.
             - **WebKit rendering fix** — `WEBKIT_FORCE_SOFTWARE_RENDERING=1` keeps the Wayland compositor path intact on Hyprland.
             - **Notification fetch dedup** — `fetchNotifications` was firing 3× in the first 8 seconds of login; now fires once and the first background poll is delayed to 90s.

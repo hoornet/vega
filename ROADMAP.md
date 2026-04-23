@@ -100,7 +100,8 @@ Bugs found during testing are fixed before Phase N+1 starts. A release is cut be
 - ✓ Vertex DVM integration (kind 5312→6312)
 - ✓ "Followed by people you trust" on profiles with clickable follower avatars
 - ✓ Personalized trust scoring
-- Remaining: WoT-powered feed ranking, spam filtering
+- ✓ WoT spam filtering — v0.12.9 extends the filter to reactions, zaps, and all feed tabs (global, following, trending)
+- Remaining: WoT-powered feed ranking
 
 ### Long-form features (NIP-23 depth) — mostly shipped (v0.6.0 + v0.7.0)
 - ✓ Discovery: dedicated article feed with Latest/Following tabs

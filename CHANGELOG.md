@@ -1,9 +1,20 @@
 # Changelog
 
+## v0.12.9 — Web of Trust everywhere (2026-04-23)
+
+### Changed
+- **Web of Trust filter now applies everywhere.** Previously it only hid notes from outside your social graph on the global feed. It now also filters:
+  - **All feed tabs** — global, following, and trending.
+  - **Reaction pills** — emoji counts no longer include reactions from pubkeys outside your trust graph.
+  - **Zap totals** — sat counts and zap counts no longer include zaps from outside your trust graph. Zaps are filtered by the actual zapper's pubkey (from the inner zap request), not the outer LNURL service pubkey.
+
+### Removed
+- The "new account" badge on notes. It marked pubkeys whose kind-0 profile event was newer than 60 days, on the assumption that that approximated account age. It doesn't — kind-0 `created_at` is "profile last updated," so anyone who tweaked their bio recently got flagged regardless of how long they've been on Nostr. Dropped until there's a real signal to use.
+
 ## v0.12.8 — Fix Linux OOM crash (2026-04-16)
 
 ### Fixed
-- Linux WebKit web process no longer grows unbounded to 8–12 GB and self-kills. Memory now oscillates at ~0.85–1.6 GB during heavy scrolling on Linux and Windows. Root cause: the Blossom SHA-256 URL auto-detection regex introduced in v0.12.6 caused 3–5× more `<img>` elements per feed page, which combined with WebKitGTK's weak bitmap eviction pushed the WebProcess past its self-kill threshold. Blossom URL auto-detection is temporarily disabled pending proper validation in v0.12.9.
+- Linux WebKit web process no longer grows unbounded to 8–12 GB and self-kills. Memory now oscillates at ~0.85–1.6 GB during heavy scrolling on Linux and Windows. Root cause: the Blossom SHA-256 URL auto-detection regex introduced in v0.12.6 caused 3–5× more `<img>` elements per feed page, which combined with WebKitGTK's weak bitmap eviction pushed the WebProcess past its self-kill threshold. Blossom URL auto-detection is temporarily disabled pending proper validation in a future release.
 - WebKit rendering: `WEBKIT_FORCE_SOFTWARE_RENDERING=1` on Linux to keep the Wayland compositor path intact on Hyprland.
 - `fetchNotifications` was firing 3× in the first 8 seconds of login; now fires once and the first background poll is delayed to 90s.
 
