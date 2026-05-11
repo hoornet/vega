@@ -69,6 +69,15 @@ jobs:
 
             > **Windows note:** The installer is not yet code-signed. Windows SmartScreen will show an "Unknown publisher" warning — click "More info → Run anyway" to install.
 
+            ### v0.12.11 — Read-only mode polish
+
+            If you haven't created a key yet, or you're signed in with just an `npub` (view-only), the app now behaves correctly throughout: no broken Publish buttons, no dead-end "Not logged in" errors.
+
+            - **Sidebar shows only the views that work without a signer** — Feed, Articles, Media, Podcasts, Search, Follows, Relays, Settings, Support. Account-bound entries (Bookmarks, Messages, Notifications, Zaps, V4V) are hidden until you sign in.
+            - **Write surfaces are guarded everywhere.** Compose box, reply box, reactions, repost, quote, zap, bookmark, follow/unfollow, mute, profile edit, article publish, poll vote, relay-list publish — all properly hidden or replaced with a "Sign in" CTA that opens the login dialog.
+            - **Read-only banner now fires for npub-only logins too**, not just fully logged-out state.
+            - **The original bug:** in v0.12.10 and earlier, opening the article editor without a signer and clicking Publish raised `Failed to publish: Error: Not logged in`. That path no longer exists.
+
             ### v0.12.10 — Security update
 
             Dependency security bumps only. No functional changes.

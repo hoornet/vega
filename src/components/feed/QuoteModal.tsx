@@ -1,6 +1,8 @@
 import { useState, useRef, useEffect } from "react";
 import { NDKEvent } from "@nostr-dev-kit/ndk";
 import { publishQuote } from "../../lib/nostr";
+import { useCanSign } from "../../stores/user";
+import { LoginModal } from "../shared/LoginModal";
 
 interface QuoteModalProps {
   event: NDKEvent;
@@ -11,9 +13,11 @@ interface QuoteModalProps {
 }
 
 export function QuoteModal({ event, authorName, authorAvatar, onClose, onPublished }: QuoteModalProps) {
+  const canSign = useCanSign();
   const [text, setText] = useState("");
   const [publishing, setPublishing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showLogin, setShowLogin] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
@@ -89,17 +93,27 @@ export function QuoteModal({ event, authorName, authorAvatar, onClose, onPublish
           {error && <p className="text-danger text-[11px] mt-2">{error}</p>}
 
           <div className="flex items-center justify-between mt-3">
-            <span className="text-text-dim text-[10px]">Ctrl+Enter to post</span>
-            <button
-              onClick={handlePublish}
-              disabled={!canPublish}
-              className="px-4 py-1.5 text-[11px] bg-accent hover:bg-accent-hover text-accent-text transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-            >
-              {publishing ? "Posting…" : "Quote & post"}
-            </button>
+            <span className="text-text-dim text-[10px]">{canSign ? "Ctrl+Enter to post" : ""}</span>
+            {canSign ? (
+              <button
+                onClick={handlePublish}
+                disabled={!canPublish}
+                className="px-4 py-1.5 text-[11px] bg-accent hover:bg-accent-hover text-accent-text transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+              >
+                {publishing ? "Posting…" : "Quote & post"}
+              </button>
+            ) : (
+              <button
+                onClick={() => setShowLogin(true)}
+                className="px-4 py-1.5 text-[11px] border border-accent/60 text-accent hover:bg-accent hover:text-accent-text transition-colors"
+              >
+                Sign in to post
+              </button>
+            )}
           </div>
         </div>
       </div>
+      {showLogin && <LoginModal onClose={() => setShowLogin(false)} />}
     </div>
   );
 }

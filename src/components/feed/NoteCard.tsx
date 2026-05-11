@@ -3,11 +3,11 @@ import { NDKEvent } from "@nostr-dev-kit/ndk";
 import { useProfile } from "../../hooks/useProfile";
 import { useNip05Verified } from "../../hooks/useNip05Verified";
 import { useInView } from "../../hooks/useInView";
-import { useUserStore } from "../../stores/user";
+import { useUserStore, useCanSign } from "../../stores/user";
 import { useMuteStore } from "../../stores/mute";
 import { useUIStore } from "../../stores/ui";
 import { timeAgo, shortenPubkey } from "../../lib/utils";
-import { getNDK, fetchNoteById, ensureConnected } from "../../lib/nostr";
+import { fetchNoteById, ensureConnected } from "../../lib/nostr";
 import { getParentEventId } from "../../lib/threadTree";
 import { NoteContent } from "./NoteContent";
 import { NoteActions, LoggedOutStats } from "./NoteActions";
@@ -39,7 +39,7 @@ export const NoteCard = memo(function NoteCard({ event, focused, onReplyInThread
   const verified = useNip05Verified(event.pubkey, nip05, inView);
   const time = event.created_at ? timeAgo(event.created_at) : "";
 
-  const loggedIn = useUserStore((s) => s.loggedIn);
+  const canSign = useCanSign();
   const ownPubkey = useUserStore((s) => s.pubkey);
   const follows = useUserStore((s) => s.follows);
   const follow = useUserStore((s) => s.follow);
@@ -114,7 +114,7 @@ export const NoteCard = memo(function NoteCard({ event, focused, onReplyInThread
             )}
             <span className="text-text-dim text-[11px] shrink-0">{time}</span>
             {/* Context menu — hidden until card hover, not shown for own notes */}
-            {loggedIn && event.pubkey !== ownPubkey && (
+            {canSign && event.pubkey !== ownPubkey && (
               <div className="relative ml-auto">
                 <button
                   onClick={() => setMenuOpen((v) => !v)}
@@ -189,7 +189,7 @@ export const NoteCard = memo(function NoteCard({ event, focused, onReplyInThread
           {event.kind === 1068 && <PollWidget event={event} />}
 
           {/* Actions */}
-          {loggedIn && !!getNDK().signer && (
+          {canSign && (
             <NoteActions
               event={event}
               onReplyToggle={() => {
@@ -204,8 +204,8 @@ export const NoteCard = memo(function NoteCard({ event, focused, onReplyInThread
             />
           )}
 
-          {/* Stats visible when logged out */}
-          {!loggedIn && <LoggedOutStats event={event} enabled={inView} />}
+          {/* Stats visible in read-only mode (logged out or npub-only) */}
+          {!canSign && <LoggedOutStats event={event} enabled={inView} />}
 
           {/* Inline reply box */}
           {showReply && <InlineReplyBox event={event} name={name} />}

@@ -1,6 +1,7 @@
 import { useState, useRef } from "react";
 import { NDKEvent } from "@nostr-dev-kit/ndk";
 import { publishReply } from "../../lib/nostr";
+import { useCanSign } from "../../stores/user";
 import { uploadImage, uploadBytes } from "../../lib/upload";
 import { useAutoResize } from "../../hooks/useAutoResize";
 import { useReplyCount } from "../../hooks/useReplyCount";
@@ -15,6 +16,7 @@ interface InlineReplyBoxProps {
 }
 
 export function InlineReplyBox({ event, name, rootEvent }: InlineReplyBoxProps) {
+  const canSign = useCanSign();
   const [replyText, setReplyText] = useState("");
   const [attachments, setAttachments] = useState<string[]>([]);
   const [replying, setReplying] = useState(false);
@@ -26,6 +28,8 @@ export function InlineReplyBox({ event, name, rootEvent }: InlineReplyBoxProps) 
   const autoResize = useAutoResize(2, 8);
   const replyRef = useRef<HTMLTextAreaElement>(null);
   const [, adjustReplyCount] = useReplyCount(event.id);
+
+  if (!canSign) return null;
 
   const insertAtCursor = (str: string) => {
     const ta = replyRef.current;

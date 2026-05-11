@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { NDKEvent } from "@nostr-dev-kit/ndk";
 import { fetchArticleFeed, getNDK } from "../../lib/nostr";
-import { useUserStore } from "../../stores/user";
+import { useUserStore, useCanSign } from "../../stores/user";
 import { useUIStore } from "../../stores/ui";
 import { dbLoadArticles, dbSaveNotes } from "../../lib/db";
 import { ArticleCard } from "./ArticleCard";
@@ -9,6 +9,7 @@ import { ArticleCard } from "./ArticleCard";
 type ArticleTab = "latest" | "following";
 
 export function ArticleFeed() {
+  const canSign = useCanSign();
   const { loggedIn, follows } = useUserStore();
   const { setView } = useUIStore();
   const [tab, setTab] = useState<ArticleTab>("latest");
@@ -66,12 +67,14 @@ export function ArticleFeed() {
       {/* Header */}
       <header className="border-b border-border px-4 py-2.5 flex items-center justify-between shrink-0">
         <h1 className="text-text text-sm font-medium">Articles</h1>
-        <button
-          onClick={() => setView("article-editor")}
-          className="text-[11px] px-3 py-1 border border-accent/60 text-accent hover:bg-accent hover:text-accent-text transition-colors"
-        >
-          Write article
-        </button>
+        {canSign && (
+          <button
+            onClick={() => setView("article-editor")}
+            className="text-[11px] px-3 py-1 border border-accent/60 text-accent hover:bg-accent hover:text-accent-text transition-colors"
+          >
+            Write article
+          </button>
+        )}
       </header>
 
       {/* Tabs */}

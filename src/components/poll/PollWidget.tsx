@@ -1,7 +1,7 @@
 import { memo } from "react";
 import { NDKEvent } from "@nostr-dev-kit/ndk";
 import { usePollVotes } from "../../hooks/usePollVotes";
-import { useUserStore } from "../../stores/user";
+import { useUserStore, useCanSign } from "../../stores/user";
 import { publishPollResponse } from "../../lib/nostr";
 
 interface PollOption {
@@ -26,7 +26,7 @@ function getPollClosedAt(event: NDKEvent): number | null {
 export const PollWidget = memo(function PollWidget({ event }: { event: NDKEvent }) {
   const options = parsePollOptions(event);
   const [pollData, addVote] = usePollVotes(event.id!);
-  const loggedIn = useUserStore((s) => s.loggedIn);
+  const canSign = useCanSign();
   const myPubkey = useUserStore((s) => s.pubkey);
 
   if (options.length === 0) return null;
@@ -36,11 +36,11 @@ export const PollWidget = memo(function PollWidget({ event }: { event: NDKEvent 
   const isExpired = closedAt !== null && closedAt <= now;
   const isAuthor = myPubkey === event.pubkey;
   const hasVoted = pollData?.myVote !== null && pollData?.myVote !== undefined;
-  const showResults = hasVoted || isExpired || isAuthor || !loggedIn;
+  const showResults = hasVoted || isExpired || isAuthor || !canSign;
   const total = pollData?.total ?? 0;
 
   const handleVote = async (optionIndex: number) => {
-    if (showResults || !loggedIn) return;
+    if (showResults || !canSign) return;
     addVote(optionIndex);
     try {
       await publishPollResponse(event.id!, event.pubkey, optionIndex);
@@ -112,7 +112,7 @@ export const PollWidget = memo(function PollWidget({ event }: { event: NDKEvent 
         {closedAt && !isExpired && (
           <span>&#183; Ends {new Date(closedAt * 1000).toLocaleDateString()}</span>
         )}
-        {!hasVoted && !isExpired && !isAuthor && loggedIn && total === 0 && pollData && (
+        {!hasVoted && !isExpired && !isAuthor && canSign && total === 0 && pollData && (
           <span>&#183; Be the first to vote</span>
         )}
       </div>

@@ -2,8 +2,10 @@ import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { renderMarkdown } from "../../lib/markdown";
 import { publishArticle } from "../../lib/nostr";
 import { useUIStore } from "../../stores/ui";
+import { useCanSign } from "../../stores/user";
 import { MarkdownToolbar, handleEditorKeyDown } from "./MarkdownToolbar";
 import { useDraftStore, type ArticleDraft } from "../../stores/drafts";
+import { LoginModal } from "../shared/LoginModal";
 import { open } from "@tauri-apps/plugin-dialog";
 import { readFile } from "@tauri-apps/plugin-fs";
 import { uploadBytes, uploadImage } from "../../lib/upload";
@@ -31,9 +33,11 @@ function formatSavedAgo(elapsedMs: number): string {
 }
 
 export function ArticleEditor() {
+  const canSign = useCanSign();
   const { goBack } = useUIStore();
   const { activeDraftId, drafts, updateDraft, deleteDraft, setActiveDraft, createDraft } = useDraftStore();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const [showLoginModal, setShowLoginModal] = useState(false);
 
   // If no active draft, show draft list
   const activeDraft = activeDraftId ? drafts.find((d) => d.id === activeDraftId) : null;
@@ -336,13 +340,22 @@ export function ArticleEditor() {
             Meta
           </button>
 
-          <button
-            onClick={handlePublish}
-            disabled={!canPublish || publishing || published}
-            className="px-4 py-1 text-[11px] bg-accent hover:bg-accent-hover text-accent-text transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-          >
-            {published ? "Published ✓" : publishing ? "Publishing…" : "Publish"}
-          </button>
+          {canSign ? (
+            <button
+              onClick={handlePublish}
+              disabled={!canPublish || publishing || published}
+              className="px-4 py-1 text-[11px] bg-accent hover:bg-accent-hover text-accent-text transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+            >
+              {published ? "Published ✓" : publishing ? "Publishing…" : "Publish"}
+            </button>
+          ) : (
+            <button
+              onClick={() => setShowLoginModal(true)}
+              className="px-4 py-1 text-[11px] border border-accent/60 text-accent hover:bg-accent hover:text-accent-text transition-colors"
+            >
+              Sign in to publish
+            </button>
+          )}
         </div>
       </header>
 
@@ -498,6 +511,7 @@ export function ArticleEditor() {
           )}
         </div>
       </div>
+      {showLoginModal && <LoginModal onClose={() => setShowLoginModal(false)} />}
     </div>
   );
 }

@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { NDKEvent, nip19 } from "@nostr-dev-kit/ndk";
 import { useUIStore } from "../../stores/ui";
-import { useUserStore } from "../../stores/user";
+import { useUserStore, useCanSign } from "../../stores/user";
 import { useMuteStore } from "../../stores/mute";
 import { useProfile } from "../../hooks/useProfile";
 import { useReputation } from "../../hooks/useReputation";
-import { fetchUserNotesNIP65, fetchAuthorArticles, getNDK } from "../../lib/nostr";
+import { fetchUserNotesNIP65, fetchAuthorArticles } from "../../lib/nostr";
 import { shortenPubkey, profileName } from "../../lib/utils";
 import { NoteCard } from "../feed/NoteCard";
 import { ArticleCard } from "../article/ArticleCard";
@@ -47,7 +47,8 @@ function TopFollowerAvatar({ pubkey }: { pubkey: string }) {
 
 export function ProfileView() {
   const { selectedPubkey, goBack, openDM } = useUIStore();
-  const { pubkey: ownPubkey, profile: ownProfile, loggedIn, follows, follow, unfollow } = useUserStore();
+  const canSign = useCanSign();
+  const { pubkey: ownPubkey, profile: ownProfile, follows, follow, unfollow } = useUserStore();
   const pubkey = selectedPubkey!;
   const isOwn = pubkey === ownPubkey;
 
@@ -150,13 +151,13 @@ export function ProfileView() {
             ← {editing ? "Cancel" : "Back"}
           </button>
           <h1 className="text-text text-sm font-medium">{isOwn ? "Your Profile" : "Profile"}</h1>
-          {isOwn && !getNDK().signer && (
+          {isOwn && !canSign && (
             <span className="text-text-dim text-[10px] border border-border px-2 py-0.5">
               read-only
             </span>
           )}
         </div>
-        {isOwn && !editing && !!getNDK().signer && (
+        {isOwn && !editing && canSign && (
           <button
             onClick={() => setEditing(true)}
             className="text-[11px] px-3 py-1 border border-border text-text-muted hover:text-accent hover:border-accent/40 transition-colors"
@@ -164,7 +165,7 @@ export function ProfileView() {
             Edit profile
           </button>
         )}
-        {!isOwn && loggedIn && (
+        {!isOwn && canSign && (
           <div className="flex flex-wrap items-center gap-2">
             {(lud16 || profile?.lud06) && (
               <button

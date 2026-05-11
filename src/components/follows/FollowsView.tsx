@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useUIStore } from "../../stores/ui";
-import { useUserStore } from "../../stores/user";
+import { useUserStore, useCanSign } from "../../stores/user";
 import { useNotificationsStore } from "../../stores/notifications";
 import { useProfile } from "../../hooks/useProfile";
 import { useNip05Verified } from "../../hooks/useNip05Verified";
@@ -23,6 +23,7 @@ function FollowRow({
   const nip05 = typeof profile?.nip05 === "string" ? profile.nip05 : undefined;
   const verified = useNip05Verified(pubkey, nip05);
 
+  const canSign = useCanSign();
   const { follows, follow, unfollow, pubkey: ownPubkey } = useUserStore();
   const { openProfile } = useUIStore();
   const isFollowing = follows.includes(pubkey);
@@ -68,7 +69,7 @@ function FollowRow({
         </div>
       </div>
 
-      {!isSelf && (
+      {!isSelf && canSign && (
         <button
           onClick={() => isFollowing ? unfollow(pubkey) : follow(pubkey)}
           className={`shrink-0 px-3 py-1 text-[11px] transition-colors ${

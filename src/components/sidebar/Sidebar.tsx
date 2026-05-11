@@ -1,24 +1,25 @@
 import { useUIStore } from "../../stores/ui";
-import { useUserStore } from "../../stores/user";
+import { useCanSign } from "../../stores/user";
 import { useNotificationsStore } from "../../stores/notifications";
 import { useDraftStore } from "../../stores/drafts";
 import { useBookmarkStore } from "../../stores/bookmark";
-import { getNDK } from "../../lib/nostr";
 import { AccountSwitcher } from "./AccountSwitcher";
 import pkg from "../../../package.json";
 
+// Items marked `requiresSigner: true` are hidden in read-only mode
+// because they're account-bound and have no useful content without a signer.
 const NAV_ITEMS = [
   { id: "feed" as const, label: "feed", icon: "◈" },
   { id: "articles" as const, label: "articles", icon: "☰" },
   { id: "media" as const, label: "media", icon: "▶" },
   { id: "podcasts" as const, label: "podcasts", icon: "🎙" },
   { id: "search" as const, label: "search", icon: "⌕" },
-  { id: "bookmarks" as const, label: "bookmarks", icon: "★" },
-  { id: "dm" as const, label: "messages", icon: "✉" },
-  { id: "notifications" as const, label: "notifications", icon: "🔔" },
+  { id: "bookmarks" as const, label: "bookmarks", icon: "★", requiresSigner: true },
+  { id: "dm" as const, label: "messages", icon: "✉", requiresSigner: true },
+  { id: "notifications" as const, label: "notifications", icon: "🔔", requiresSigner: true },
   { id: "follows" as const, label: "follows", icon: "👥" },
-  { id: "zaps" as const, label: "zaps", icon: "⚡" },
-  { id: "v4v" as const, label: "v4v", icon: "📡" },
+  { id: "zaps" as const, label: "zaps", icon: "⚡", requiresSigner: true },
+  { id: "v4v" as const, label: "v4v", icon: "📡", requiresSigner: true },
   { id: "relays" as const, label: "relays", icon: "⟐" },
   { id: "settings" as const, label: "settings", icon: "⚙" },
   { id: "about" as const, label: "support", icon: "♥" },
@@ -26,10 +27,11 @@ const NAV_ITEMS = [
 
 export function Sidebar() {
   const { currentView, setView, sidebarCollapsed, toggleSidebar } = useUIStore();
-  const { loggedIn } = useUserStore();
+  const canSign = useCanSign();
   const { unreadCount: notifUnread, dmUnreadCount, newFollowersCount } = useNotificationsStore();
   const draftCount = useDraftStore((s) => s.drafts.length);
   const bookmarkUnread = useBookmarkStore((s) => s.unreadArticleCount());
+  const visibleNav = NAV_ITEMS.filter((item) => !("requiresSigner" in item && item.requiresSigner) || canSign);
 
   const c = sidebarCollapsed;
 
@@ -73,7 +75,7 @@ export function Sidebar() {
       {/* Nav */}
       <nav className="flex-1 overflow-y-auto py-2">
         {/* Write article — show icon even when collapsed */}
-        {loggedIn && !!getNDK().signer && (
+        {canSign && (
           <button
             onClick={() => setView("article-editor")}
             title="Write article"
@@ -96,7 +98,7 @@ export function Sidebar() {
           </button>
         )}
 
-        {NAV_ITEMS.map((item) => {
+        {visibleNav.map((item) => {
           const badge = item.id === "dm" ? dmUnreadCount : item.id === "notifications" ? notifUnread : item.id === "bookmarks" ? bookmarkUnread : item.id === "follows" ? newFollowersCount : 0;
           return (
             <button

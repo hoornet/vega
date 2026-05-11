@@ -2,6 +2,7 @@ import { useRef, useEffect, useCallback, useState } from "react";
 import type { PodcastEpisode } from "../../types/podcast";
 import { usePodcastStore } from "../../stores/podcast";
 import { publishNote } from "../../lib/nostr";
+import { useCanSign } from "../../stores/user";
 import { stopStreaming } from "../../lib/podcast/v4v";
 import { V4VIndicator } from "./V4VIndicator";
 
@@ -15,7 +16,10 @@ function formatTime(seconds: number): string {
 }
 
 function ShareButton({ episode }: { episode: PodcastEpisode | null }) {
+  const canSign = useCanSign();
   const [state, setState] = useState<"idle" | "confirm" | "shared">("idle");
+
+  if (!canSign) return null;
 
   const handleClick = useCallback(() => {
     if (!episode) return;

@@ -68,6 +68,15 @@ interface UserState {
   unfollow: (pubkey: string) => Promise<void>;
 }
 
+/** Returns true iff the active account can sign events (has a signer attached). */
+export function useCanSign(): boolean {
+  return useUserStore((s) => {
+    if (!s.loggedIn || !s.pubkey) return false;
+    const account = s.accounts.find((a) => a.pubkey === s.pubkey);
+    return account?.loginType !== "pubkey";
+  });
+}
+
 export const useUserStore = create<UserState>((set, get) => ({
   pubkey: null,
   npub: null,
@@ -471,6 +480,8 @@ export const useUserStore = create<UserState>((set, get) => ({
   },
 
   follow: async (pubkey: string) => {
+    // Runtime guard — UI should already prevent this, but belt-and-suspenders
+    if (!getNDK().signer) return;
     const { follows } = get();
     if (follows.includes(pubkey)) return;
     const updated = [...follows, pubkey];
@@ -479,6 +490,8 @@ export const useUserStore = create<UserState>((set, get) => ({
   },
 
   unfollow: async (pubkey: string) => {
+    // Runtime guard — UI should already prevent this, but belt-and-suspenders
+    if (!getNDK().signer) return;
     const { follows } = get();
     const updated = follows.filter((pk) => pk !== pubkey);
     set({ follows: updated });

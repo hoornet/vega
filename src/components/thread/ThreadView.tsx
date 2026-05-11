@@ -2,9 +2,9 @@ import { useEffect, useRef, useState } from "react";
 import { NDKEvent } from "@nostr-dev-kit/ndk";
 import { useAutoResize } from "../../hooks/useAutoResize";
 import { useUIStore } from "../../stores/ui";
-import { useUserStore } from "../../stores/user";
+import { useCanSign } from "../../stores/user";
 import { useMuteStore } from "../../stores/mute";
-import { fetchNoteById, fetchThreadEvents, fetchAncestors, publishReply, getNDK, ensureConnected } from "../../lib/nostr";
+import { fetchNoteById, fetchThreadEvents, fetchAncestors, publishReply, ensureConnected } from "../../lib/nostr";
 import { buildThreadTree, getRootEventId } from "../../lib/threadTree";
 import type { ThreadNode } from "../../lib/threadTree";
 import { debug } from "../../lib/debug";
@@ -16,7 +16,7 @@ import { EmojiPicker } from "../shared/EmojiPicker";
 
 export function ThreadView() {
   const { selectedNote, goBack } = useUIStore();
-  const { loggedIn } = useUserStore();
+  const canSign = useCanSign();
   const { mutedPubkeys, contentMatchesMutedKeyword } = useMuteStore();
 
   const [rootEvent, setRootEvent] = useState<NDKEvent | null>(null);
@@ -214,7 +214,7 @@ export function ThreadView() {
             </div>
 
             {/* Root reply box (inline, right below root) */}
-            {showRootReply && loggedIn && !!getNDK().signer && (
+            {showRootReply && canSign && (
               <div className="border-b border-border border-l-2 border-l-accent/40 ml-3 px-3 py-2">
                 <textarea
                   ref={replyRef}

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { getNDK, getStoredRelayUrls, addRelay, removeRelay, publishRelayList, fetchRelayRecommendations, normalizeRelayUrl } from "../../lib/nostr";
 import { useRelayHealthStore } from "../../stores/relayHealth";
-import { useUserStore } from "../../stores/user";
+import { useUserStore, useCanSign } from "../../stores/user";
 import type { RelayHealthResult } from "../../lib/nostr/relayHealth";
 
 function statusColor(status: RelayHealthResult["status"]): string {
@@ -151,6 +151,7 @@ function RelayPoolRow({ url, connected, onRemove }: { url: string; connected: bo
 
 export function RelaysView() {
   const { results, checking, lastChecked, checkAll } = useRelayHealthStore();
+  const canSign = useCanSign();
   const { loggedIn } = useUserStore();
   const ndk = getNDK();
   const poolRelays = Array.from(ndk.pool?.relays?.values() ?? []);
@@ -279,7 +280,7 @@ export function RelaysView() {
           >
             Add
           </button>
-          {loggedIn && !!getNDK().signer && (
+          {canSign && (
             <button
               onClick={handleRepublish}
               disabled={republishing}

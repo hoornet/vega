@@ -1,11 +1,13 @@
 import { useState } from "react";
-import { useUserStore } from "../../stores/user";
+import { useUserStore, useCanSign } from "../../stores/user";
+import { LoginModal } from "../shared/LoginModal";
 import { invalidateProfileCache } from "../../hooks/useProfile";
 import { publishProfile } from "../../lib/nostr";
 import { ImageField } from "./ImageField";
 import { Nip05Field } from "./Nip05Field";
 
 export function EditProfileForm({ pubkey, onSaved }: { pubkey: string; onSaved: () => void }) {
+  const canSign = useCanSign();
   const { profile, fetchOwnProfile } = useUserStore();
   const safeStr = (v: unknown) => (typeof v === "string" ? v : "");
   const [name, setName] = useState(safeStr(profile?.name));
@@ -19,6 +21,7 @@ export function EditProfileForm({ pubkey, onSaved }: { pubkey: string; onSaved: 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
+  const [showLoginModal, setShowLoginModal] = useState(false);
 
   const handleSave = async () => {
     setSaving(true);
@@ -84,14 +87,24 @@ export function EditProfileForm({ pubkey, onSaved }: { pubkey: string; onSaved: 
       </div>
       {error && <p className="text-danger text-[11px] mb-2">{error}</p>}
       <div className="flex items-center gap-2">
-        <button
-          onClick={handleSave}
-          disabled={saving || saved}
-          className="px-4 py-1.5 text-[11px] bg-accent hover:bg-accent-hover text-accent-text transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-        >
-          {saved ? "Saved ✓" : saving ? "Saving…" : "Save profile"}
-        </button>
+        {canSign ? (
+          <button
+            onClick={handleSave}
+            disabled={saving || saved}
+            className="px-4 py-1.5 text-[11px] bg-accent hover:bg-accent-hover text-accent-text transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+          >
+            {saved ? "Saved ✓" : saving ? "Saving…" : "Save profile"}
+          </button>
+        ) : (
+          <button
+            onClick={() => setShowLoginModal(true)}
+            className="px-4 py-1.5 text-[11px] border border-accent/60 text-accent hover:bg-accent hover:text-accent-text transition-colors"
+          >
+            Sign in to save
+          </button>
+        )}
       </div>
+      {showLoginModal && <LoginModal onClose={() => setShowLoginModal(false)} />}
     </div>
   );
 }

@@ -3,7 +3,7 @@ import { publishNote, publishPoll } from "../../lib/nostr";
 import { uploadImage, uploadBytes } from "../../lib/upload";
 import { PollCompose } from "../poll/PollCompose";
 import { useAutoResize } from "../../hooks/useAutoResize";
-import { useUserStore } from "../../stores/user";
+import { useUserStore, useCanSign } from "../../stores/user";
 import { useFeedStore } from "../../stores/feed";
 import { shortenPubkey, profileName } from "../../lib/utils";
 import { open } from "@tauri-apps/plugin-dialog";
@@ -13,6 +13,7 @@ import { EmojiPicker } from "../shared/EmojiPicker";
 const COMPOSE_DRAFT_KEY = "wrystr_compose_draft";
 
 export function ComposeBox({ onPublished, onNoteInjected }: { onPublished?: () => void; onNoteInjected?: (event: import("@nostr-dev-kit/ndk").NDKEvent) => void }) {
+  const canSign = useCanSign();
   const [text, setText] = useState(() => {
     try { return localStorage.getItem(COMPOSE_DRAFT_KEY) || ""; }
     catch { return ""; }
@@ -42,6 +43,8 @@ export function ComposeBox({ onPublished, onNoteInjected }: { onPublished?: () =
     }, 1000);
     return () => clearTimeout(t);
   }, [text]);
+
+  if (!canSign) return null;
 
   const charCount = text.length;
   const warnLimit = charCount > 3500;

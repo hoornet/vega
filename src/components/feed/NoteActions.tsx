@@ -4,7 +4,7 @@ import { useProfile } from "../../hooks/useProfile";
 import { useReactions } from "../../hooks/useReactions";
 import { useReplyCount } from "../../hooks/useReplyCount";
 import { useZapCount } from "../../hooks/useZapCount";
-import { useUserStore } from "../../stores/user";
+import { useCanSign } from "../../stores/user";
 import { useBookmarkStore } from "../../stores/bookmark";
 import { publishReaction, publishRepost } from "../../lib/nostr";
 import { profileName } from "../../lib/utils";
@@ -24,7 +24,7 @@ export function NoteActions({ event, onReplyToggle, showReply, enabled = true }:
   const profile = useProfile(event.pubkey);
   const name = profileName(profile, event.pubkey.slice(0, 8) + "…");
   const avatar = typeof profile?.picture === "string" ? profile.picture : undefined;
-  const { loggedIn } = useUserStore();
+  const canSign = useCanSign();
   const { bookmarkedIds, addBookmark, removeBookmark } = useBookmarkStore();
   const isBookmarked = bookmarkedIds.includes(event.id!);
 
@@ -42,7 +42,7 @@ export function NoteActions({ event, onReplyToggle, showReply, enabled = true }:
   const myReactions = reactionsData?.myReactions ?? new Set<string>();
 
   const handleReact = async (emoji: string) => {
-    if (!loggedIn || reacting || myReactions.has(emoji)) return;
+    if (!canSign || reacting || myReactions.has(emoji)) return;
     setReacting(true);
     setShowEmojiPicker(false);
     try {
@@ -111,7 +111,7 @@ export function NoteActions({ event, onReplyToggle, showReply, enabled = true }:
           ))}
 
           {/* Add reaction button */}
-          {loggedIn && (
+          {canSign && (
             <button
               onClick={() => setShowEmojiPicker((v) => !v)}
               disabled={reacting}
@@ -145,57 +145,61 @@ export function NoteActions({ event, onReplyToggle, showReply, enabled = true }:
           )}
         </div>
 
-        <span className="text-text-dim text-[10px] select-none">·</span>
-
-        <button
-          onClick={handleRepost}
-          disabled={reposting || reposted}
-          title="Repost"
-          className={`text-[14px] transition-colors disabled:cursor-default ${
-            reposted ? "text-accent" : "text-text hover:text-accent"
-          }`}
-        >
-          ⟳{reposted ? <span className="text-[11px] ml-0.5">✓</span> : reposting ? <span className="text-[11px] ml-0.5">…</span> : ""}
-        </button>
-
-        <span className="text-text-dim text-[10px] select-none">·</span>
-
-        <button
-          onClick={() => setShowQuote(true)}
-          title="Quote"
-          className="text-[14px] text-text hover:text-accent transition-colors"
-        >
-          ❝
-        </button>
-
-        {(profile?.lud16 || profile?.lud06) && (
+        {canSign && (
           <>
             <span className="text-text-dim text-[10px] select-none">·</span>
+
             <button
-              onClick={() => setShowZap(true)}
-              title="Zap"
-              className="text-[11px] text-text hover:text-zap transition-colors"
+              onClick={handleRepost}
+              disabled={reposting || reposted}
+              title="Repost"
+              className={`text-[14px] transition-colors disabled:cursor-default ${
+                reposted ? "text-accent" : "text-text hover:text-accent"
+              }`}
             >
-              {zapData && zapData.totalSats > 0
-                ? `⚡ ${zapData.totalSats.toLocaleString()} sats`
-                : "⚡"}
+              ⟳{reposted ? <span className="text-[11px] ml-0.5">✓</span> : reposting ? <span className="text-[11px] ml-0.5">…</span> : ""}
             </button>
+
+            <span className="text-text-dim text-[10px] select-none">·</span>
+
+            <button
+              onClick={() => setShowQuote(true)}
+              title="Quote"
+              className="text-[14px] text-text hover:text-accent transition-colors"
+            >
+              ❝
+            </button>
+
+            {(profile?.lud16 || profile?.lud06) && (
+              <>
+                <span className="text-text-dim text-[10px] select-none">·</span>
+                <button
+                  onClick={() => setShowZap(true)}
+                  title="Zap"
+                  className="text-[11px] text-text hover:text-zap transition-colors"
+                >
+                  {zapData && zapData.totalSats > 0
+                    ? `⚡ ${zapData.totalSats.toLocaleString()} sats`
+                    : "⚡"}
+                </button>
+              </>
+            )}
+
+            <span className="text-text-dim text-[10px] select-none">·</span>
+
+            <button
+              onClick={() => isBookmarked ? removeBookmark(event.id!) : addBookmark(event.id!)}
+              title={isBookmarked ? "Remove bookmark" : "Bookmark"}
+              className={`text-[14px] transition-colors ${
+                isBookmarked ? "text-accent" : "text-text hover:text-accent"
+              }`}
+            >
+              {isBookmarked ? "★" : "☆"}
+            </button>
+
+            <span className="text-text-dim text-[10px] select-none">·</span>
           </>
         )}
-
-        <span className="text-text-dim text-[10px] select-none">·</span>
-
-        <button
-          onClick={() => isBookmarked ? removeBookmark(event.id!) : addBookmark(event.id!)}
-          title={isBookmarked ? "Remove bookmark" : "Bookmark"}
-          className={`text-[14px] transition-colors ${
-            isBookmarked ? "text-accent" : "text-text hover:text-accent"
-          }`}
-        >
-          {isBookmarked ? "★" : "☆"}
-        </button>
-
-        <span className="text-text-dim text-[10px] select-none">·</span>
 
         <button
           onClick={handleShare}

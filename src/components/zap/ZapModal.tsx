@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { useLightningStore, ZapTargetSpec } from "../../stores/lightning";
 import { useUIStore } from "../../stores/ui";
+import { useCanSign } from "../../stores/user";
+import { LoginModal } from "../shared/LoginModal";
 
 const AMOUNT_PRESETS = [21, 100, 500, 1000, 5000];
 
@@ -13,6 +15,7 @@ interface ZapModalProps {
 }
 
 export function ZapModal({ target, recipientName, onClose }: ZapModalProps) {
+  const canSign = useCanSign();
   const { nwcUri, zap } = useLightningStore();
   const { setView } = useUIStore();
   const [amountSats, setAmountSats] = useState(21);
@@ -21,6 +24,7 @@ export function ZapModal({ target, recipientName, onClose }: ZapModalProps) {
   const [comment, setComment] = useState("");
   const [state, setState] = useState<ZapState>("idle");
   const [errorMsg, setErrorMsg] = useState("");
+  const [showLogin, setShowLogin] = useState(false);
 
   const effectiveAmount = useCustom ? (parseInt(customAmount) || 0) : amountSats;
 
@@ -60,8 +64,23 @@ export function ZapModal({ target, recipientName, onClose }: ZapModalProps) {
           <button onClick={onClose} aria-label="Close" className="text-text-dim hover:text-text text-[11px] transition-colors">✕</button>
         </div>
 
+        {/* Sign-in required state */}
+        {!canSign && (
+          <div className="px-4 py-5 text-center">
+            <p className="text-text-dim text-[12px] mb-3">
+              Sign in with a private key or remote signer to send zaps.
+            </p>
+            <button
+              onClick={() => setShowLogin(true)}
+              className="px-4 py-1.5 text-[11px] border border-accent/60 text-accent hover:bg-accent hover:text-accent-text transition-colors"
+            >
+              Sign in
+            </button>
+          </div>
+        )}
+
         {/* No wallet state */}
-        {!nwcUri && (
+        {canSign && !nwcUri && (
           <div className="px-4 py-5 text-center">
             <p className="text-text-dim text-[12px] mb-3">
               Connect a Lightning wallet using a Nostr Wallet Connect (NWC) URI to send zaps.
@@ -76,7 +95,7 @@ export function ZapModal({ target, recipientName, onClose }: ZapModalProps) {
         )}
 
         {/* Zap form */}
-        {nwcUri && state === "idle" && (
+        {canSign && nwcUri && state === "idle" && (
           <div className="px-4 py-4 space-y-4">
             {/* Amount presets */}
             <div>
@@ -131,7 +150,7 @@ export function ZapModal({ target, recipientName, onClose }: ZapModalProps) {
         )}
 
         {/* Paying state */}
-        {nwcUri && state === "paying" && (
+        {canSign && nwcUri && state === "paying" && (
           <div className="px-4 py-8 text-center">
             <div className="text-zap text-2xl mb-2">⚡</div>
             <p className="text-text-dim text-[12px]">Sending {effectiveAmount} sats…</p>
@@ -160,6 +179,7 @@ export function ZapModal({ target, recipientName, onClose }: ZapModalProps) {
           </div>
         )}
       </div>
+      {showLogin && <LoginModal onClose={() => setShowLogin(false)} />}
     </div>
   );
 }

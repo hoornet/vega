@@ -3,7 +3,7 @@ import { NDKEvent } from "@nostr-dev-kit/ndk";
 import { renderMarkdown } from "../../lib/markdown";
 import { useAutoResize } from "../../hooks/useAutoResize";
 import { useUIStore } from "../../stores/ui";
-import { useUserStore } from "../../stores/user";
+import { useCanSign } from "../../stores/user";
 import { useBookmarkStore } from "../../stores/bookmark";
 import { fetchArticle, publishReaction, publishRepost, publishNote } from "../../lib/nostr";
 import { nip19 } from "@nostr-dev-kit/ndk";
@@ -69,7 +69,7 @@ function AuthorRow({ pubkey, publishedAt, readingTime }: { pubkey: string; publi
 
 export function ArticleView() {
   const { pendingArticleNaddr, pendingArticleEvent, goBack } = useUIStore();
-  const { loggedIn } = useUserStore();
+  const canSign = useCanSign();
 
   const [event, setEvent] = useState<NDKEvent | null>(null);
   const [loading, setLoading] = useState(true);
@@ -241,7 +241,7 @@ export function ArticleView() {
           ← Back
         </button>
         <div className="flex items-center gap-2">
-          {event && loggedIn && (
+          {event && canSign && (
             <button
               onClick={handleBookmark}
               className={`text-[11px] px-3 py-1 border transition-colors ${
@@ -254,7 +254,7 @@ export function ArticleView() {
               {bookmarked ? "▪ Saved" : "▫ Save"}
             </button>
           )}
-          {event && loggedIn && (
+          {event && canSign && (
             <button
               onClick={() => setShowZap(true)}
               className="text-[11px] px-3 py-1 border border-border text-zap hover:border-zap/40 hover:bg-zap/5 transition-colors"
@@ -262,7 +262,7 @@ export function ArticleView() {
               ⚡ zap {authorName}
             </button>
           )}
-          {event && loggedIn && (
+          {event && canSign && (
             <button
               onClick={handleRepost}
               disabled={reposted}
@@ -275,7 +275,7 @@ export function ArticleView() {
               {reposted ? "Reposted" : "Repost"}
             </button>
           )}
-          {event && loggedIn && (
+          {event && canSign && (
             <button
               onClick={() => setShowComment(!showComment)}
               className={`text-[11px] px-3 py-1 border transition-colors ${
@@ -407,7 +407,7 @@ export function ArticleView() {
                   ← Back
                 </button>
                 <div className="flex items-center gap-2">
-                  {loggedIn && (
+                  {canSign && (
                     <button
                       onClick={handleReaction}
                       disabled={reacted}
@@ -420,7 +420,7 @@ export function ArticleView() {
                       {reacted ? "♥ Liked" : "♡ Like"}
                     </button>
                   )}
-                  {loggedIn && (
+                  {canSign && (
                     <button
                       onClick={handleBookmark}
                       className={`text-[11px] px-3 py-1.5 border transition-colors ${
@@ -432,7 +432,7 @@ export function ArticleView() {
                       {bookmarked ? "▪ Saved" : "▫ Save"}
                     </button>
                   )}
-                  {loggedIn && (
+                  {canSign && (
                     <button
                       onClick={handleRepost}
                       disabled={reposted}
@@ -445,7 +445,7 @@ export function ArticleView() {
                       {reposted ? "Reposted" : "Repost"}
                     </button>
                   )}
-                  {loggedIn && (
+                  {canSign && (
                     <button
                       onClick={() => { setShowComment(true); scrollRef.current?.scrollTo({ top: 0, behavior: "smooth" }); }}
                       className="text-[11px] px-3 py-1.5 border border-border text-text-muted hover:text-accent hover:border-accent/40 transition-colors"
@@ -453,7 +453,7 @@ export function ArticleView() {
                       Comment
                     </button>
                   )}
-                  {loggedIn && (
+                  {canSign && (
                     <button
                       onClick={() => setShowZap(true)}
                       className="text-[11px] px-4 py-1.5 bg-zap hover:bg-zap/90 text-zap-text transition-colors"
