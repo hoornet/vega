@@ -1,7 +1,7 @@
 {
   "name": "vega",
   "private": true,
-  "version": "0.12.9",
+  "version": "0.12.10",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -23,7 +23,7 @@
     "@tauri-apps/plugin-process": "^2.3.1",
     "@tauri-apps/plugin-updater": "^2.10.0",
     "@types/dompurify": "^3.0.5",
-    "dompurify": "^3.3.2",
+    "dompurify": "^3.4.0",
     "highlight.js": "^11.11.1",
     "marked": "^17.0.4",
     "marked-highlight": "^2.2.3",

@@ -69,6 +69,18 @@ jobs:
 
             > **Windows note:** The installer is not yet code-signed. Windows SmartScreen will show an "Unknown publisher" warning — click "More info → Run anyway" to install.
 
+            ### v0.12.10 — Security update
+
+            Dependency security bumps only. No functional changes.
+
+            - **Tauri 2.10.3 → 2.11.1** — fixes an Origin Confusion issue where remote pages could invoke local-only IPC commands. Brings updated webview (wry 0.54 → 0.55), windowing (tao 0.34 → 0.35), and system tray (tray-icon 0.21 → 0.23) layers.
+            - **rustls-webpki 0.103.10 → 0.103.13** — fixes a high-severity denial-of-service panic on malformed CRL BIT STRING, plus two name-constraint validation issues.
+            - **rand 0.8.5 → 0.8.6** and **rand 0.9.2 → 0.9.4** — fix soundness with custom loggers using `rand::rng()`.
+            - **dompurify 3.3.2 → 3.4.2** — fixes four sanitization bypass issues affecting `FORBID_TAGS`, `SAFE_FOR_TEMPLATES`, and `CUSTOM_ELEMENT_HANDLING`.
+            - **postcss 8.5.8 → 8.5.14** — fixes XSS via unescaped `</style>` in CSS stringify output.
+
+            `glib` stays at 0.18.5 because the gtk-rs / webkit2gtk stack is pinned there upstream by Tauri's wry crate; that one waits for upstream.
+
             ### v0.12.9 — Web of Trust everywhere
 
             - **Web of Trust filter now applies everywhere.** Previously it only hid notes from outside your social graph on the global feed. It now also filters all feed tabs (global, following, trending), reaction pills, and zap totals. Zaps are filtered by the actual zapper's pubkey (from the inner zap request), not the outer LNURL service pubkey.
