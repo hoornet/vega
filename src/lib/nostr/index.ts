@@ -6,6 +6,7 @@ export { publishReaction, fetchReplyCount, fetchZapCount, fetchReactions, groupR
 export type { GroupedReactions, BatchEngagement } from "./engagement";
 export { fetchDMConversations, fetchDMThread, sendDM, decryptDM } from "./dms";
 export { fetchBookmarkList, publishBookmarkList, fetchBookmarkListFull, publishBookmarkListFull } from "./bookmarks";
+export { fetchPodcastList, publishPodcastList } from "./podcasts";
 export { fetchMuteList, publishMuteList } from "./muting";
 export { searchNotes, searchUsers, resolveNip05, advancedSearch } from "./search";
 export type { AdvancedSearchResults } from "./search";

@@ -8,6 +8,7 @@ import { useLightningStore } from "./lightning";
 import { useUIStore } from "./ui";
 import { useNotificationsStore } from "./notifications";
 import { useFeedStore } from "./feed";
+import { usePodcastStore } from "./podcast";
 import { startNotificationPoller, stopNotificationPoller } from "../lib/notificationPoller";
 import { dbLoadProfile } from "../lib/db";
 import { debug } from "../lib/debug";
@@ -138,6 +139,8 @@ export const useUserStore = create<UserState>((set, get) => ({
       useMuteStore.getState().fetchMuteList(pubkey);
       useNotificationsStore.getState().fetchNotifications(pubkey);
       startNotificationPoller(pubkey);
+      usePodcastStore.getState().setActiveAccount(pubkey);
+      usePodcastStore.getState().hydrateSubscriptions(pubkey);
 
       // Navigate to feed and refresh so the new account's content loads
       useUIStore.getState().setView("feed");
@@ -182,6 +185,8 @@ export const useUserStore = create<UserState>((set, get) => ({
       useMuteStore.getState().fetchMuteList(pubkey);
       useNotificationsStore.getState().fetchNotifications(pubkey);
       startNotificationPoller(pubkey);
+      usePodcastStore.getState().setActiveAccount(pubkey);
+      usePodcastStore.getState().hydrateSubscriptions(pubkey);
 
       useUIStore.getState().setView("feed");
       useFeedStore.getState().loadFeed();
@@ -226,6 +231,8 @@ export const useUserStore = create<UserState>((set, get) => ({
       useMuteStore.getState().fetchMuteList(pubkey);
       useNotificationsStore.getState().fetchNotifications(pubkey);
       startNotificationPoller(pubkey);
+      usePodcastStore.getState().setActiveAccount(pubkey);
+      usePodcastStore.getState().hydrateSubscriptions(pubkey);
 
       useUIStore.getState().setView("feed");
       useFeedStore.getState().loadFeed();
@@ -304,6 +311,8 @@ export const useUserStore = create<UserState>((set, get) => ({
           useMuteStore.getState().fetchMuteList(savedPubkey);
           useNotificationsStore.getState().fetchNotifications(savedPubkey);
           startNotificationPoller(savedPubkey);
+        usePodcastStore.getState().setActiveAccount(savedPubkey);
+        usePodcastStore.getState().hydrateSubscriptions(savedPubkey);
         } catch (err) {
           debug.warn("Failed to restore NIP-46 session:", err);
         }
@@ -325,6 +334,8 @@ export const useUserStore = create<UserState>((set, get) => ({
         useMuteStore.getState().fetchMuteList(savedPubkey);
         useNotificationsStore.getState().fetchNotifications(savedPubkey);
         startNotificationPoller(savedPubkey);
+        usePodcastStore.getState().setActiveAccount(savedPubkey);
+        usePodcastStore.getState().hydrateSubscriptions(savedPubkey);
       }
       // No keychain entry → stay logged out, user re-enters nsec once.
     }
@@ -350,6 +361,8 @@ export const useUserStore = create<UserState>((set, get) => ({
         get().fetchFollows();
         useMuteStore.getState().fetchMuteList(pubkey);
         startNotificationPoller(pubkey);
+      usePodcastStore.getState().setActiveAccount(pubkey);
+      usePodcastStore.getState().hydrateSubscriptions(pubkey);
         useUIStore.getState().setView("feed");
         return;
       } catch (err) {
@@ -373,6 +386,8 @@ export const useUserStore = create<UserState>((set, get) => ({
       get().fetchFollows();
       useMuteStore.getState().fetchMuteList(pubkey);
       startNotificationPoller(pubkey);
+      usePodcastStore.getState().setActiveAccount(pubkey);
+      usePodcastStore.getState().hydrateSubscriptions(pubkey);
       useUIStore.getState().setView("feed");
       return;
     }
@@ -401,6 +416,7 @@ export const useUserStore = create<UserState>((set, get) => ({
         set({ pubkey, npub, loggedIn: false, loginError: null, profile: null, follows: [] });
         localStorage.setItem("wrystr_pubkey", pubkey);
         localStorage.setItem("wrystr_login_type", "nsec");
+        usePodcastStore.getState().setActiveAccount(pubkey);
       }
     }
     // Always land on feed to avoid stale UI from previous account's view

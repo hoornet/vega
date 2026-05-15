@@ -1,8 +1,16 @@
 import { create } from "zustand";
 import type { PodcastShow, PodcastEpisode, PlaybackState } from "../types/podcast";
+import { fetchPodcastList, publishPodcastList } from "../lib/nostr/podcasts";
+import { getNDK } from "../lib/nostr/core";
+import { debug } from "../lib/debug";
 
 const STORAGE_KEY = "wrystr_podcast";
-const SUBS_KEY = "wrystr_podcast_subs";
+const SUBS_KEY_LEGACY = "wrystr_podcast_subs";
+const LEGACY_MIGRATED_KEY = "wrystr_podcast_legacy_migrated";
+
+function subsKey(pubkey: string | null): string {
+  return pubkey ? `${SUBS_KEY_LEGACY}:${pubkey}` : SUBS_KEY_LEGACY;
+}
 
 interface EpisodeProgress {
   position: number;
@@ -39,6 +47,54 @@ function persist(partial: Partial<PodcastState>) {
   } catch { /* ignore */ }
 }
 
+function loadSubscriptions(pubkey: string | null): PodcastShow[] {
+  try {
+    return JSON.parse(localStorage.getItem(subsKey(pubkey)) ?? "[]");
+  } catch {
+    return [];
+  }
+}
+
+function saveSubscriptions(pubkey: string | null, subs: PodcastShow[]) {
+  localStorage.setItem(subsKey(pubkey), JSON.stringify(subs));
+}
+
+// One-time legacy seed: pre-pubkey installs stored everything under SUBS_KEY_LEGACY.
+// On the first account that hydrates after upgrade, adopt that list as the seed
+// so users don't appear to lose their podcasts.
+function consumeLegacySeed(pubkey: string): PodcastShow[] | null {
+  if (localStorage.getItem(LEGACY_MIGRATED_KEY) === "1") return null;
+  if (localStorage.getItem(subsKey(pubkey))) return null;
+  try {
+    const raw = localStorage.getItem(SUBS_KEY_LEGACY);
+    if (!raw) return null;
+    const legacy: PodcastShow[] = JSON.parse(raw);
+    if (!Array.isArray(legacy) || legacy.length === 0) return null;
+    return legacy;
+  } catch { return null; }
+}
+
+// Debounced publish — runs ~1.5s after the last change. Cancelled on account switch
+// so a stale list never gets published under the new account's signer.
+let publishTimer: number | null = null;
+
+function schedulePublish(shows: PodcastShow[]) {
+  if (publishTimer !== null) window.clearTimeout(publishTimer);
+  publishTimer = window.setTimeout(() => {
+    publishTimer = null;
+    publishPodcastList(shows).catch((err) => {
+      debug.warn("[Vega] Failed to publish podcast subscriptions:", err);
+    });
+  }, 1500);
+}
+
+function cancelPendingPublish() {
+  if (publishTimer !== null) {
+    window.clearTimeout(publishTimer);
+    publishTimer = null;
+  }
+}
+
 interface PodcastState {
   currentEpisode: PodcastEpisode | null;
   playbackState: PlaybackState;
@@ -54,6 +110,7 @@ interface PodcastState {
   progressMap: Record<string, EpisodeProgress>;
   playCounter: number;
   subscriptions: PodcastShow[];
+  activePubkey: string | null;
 
   play: (episode: PodcastEpisode) => void;
   pause: () => void;
@@ -74,18 +131,8 @@ interface PodcastState {
   subscribe: (show: PodcastShow) => void;
   unsubscribe: (feedUrl: string) => void;
   isSubscribed: (feedUrl: string) => boolean;
-}
-
-function loadSubscriptions(): PodcastShow[] {
-  try {
-    return JSON.parse(localStorage.getItem(SUBS_KEY) ?? "[]");
-  } catch {
-    return [];
-  }
-}
-
-function saveSubscriptions(subs: PodcastShow[]) {
-  localStorage.setItem(SUBS_KEY, JSON.stringify(subs));
+  setActiveAccount: (pubkey: string | null) => void;
+  hydrateSubscriptions: (pubkey: string) => Promise<void>;
 }
 
 const persisted = loadPersistedState();
@@ -104,7 +151,8 @@ export const usePodcastStore = create<PodcastState>((set, get) => ({
   v4vIntervalId: null,
   progressMap: persisted.progressMap,
   playCounter: 0,
-  subscriptions: loadSubscriptions(),
+  subscriptions: loadSubscriptions(null),
+  activePubkey: null,
 
   play: (episode) => {
     const position = get().loadProgress(episode.guid);
@@ -187,20 +235,70 @@ export const usePodcastStore = create<PodcastState>((set, get) => ({
   },
 
   subscribe: (show) => {
-    const { subscriptions } = get();
+    const { subscriptions, activePubkey } = get();
     if (subscriptions.some((s) => s.feedUrl === show.feedUrl)) return;
     const updated = [...subscriptions, show];
     set({ subscriptions: updated });
-    saveSubscriptions(updated);
+    saveSubscriptions(activePubkey, updated);
+    if (activePubkey && getNDK().signer) schedulePublish(updated);
   },
 
   unsubscribe: (feedUrl) => {
-    const updated = get().subscriptions.filter((s) => s.feedUrl !== feedUrl);
+    const { subscriptions, activePubkey } = get();
+    const updated = subscriptions.filter((s) => s.feedUrl !== feedUrl);
     set({ subscriptions: updated });
-    saveSubscriptions(updated);
+    saveSubscriptions(activePubkey, updated);
+    if (activePubkey && getNDK().signer) schedulePublish(updated);
   },
 
   isSubscribed: (feedUrl) => {
     return get().subscriptions.some((s) => s.feedUrl === feedUrl);
+  },
+
+  setActiveAccount: (pubkey) => {
+    // Cancel any pending publish — it belongs to the previous account.
+    cancelPendingPublish();
+    if (pubkey === get().activePubkey) return;
+    const subs = loadSubscriptions(pubkey);
+    set({ activePubkey: pubkey, subscriptions: subs });
+  },
+
+  hydrateSubscriptions: async (pubkey) => {
+    // 1. One-time legacy seed for first hydrate after upgrade
+    const legacy = consumeLegacySeed(pubkey);
+    if (legacy) {
+      saveSubscriptions(pubkey, legacy);
+      if (get().activePubkey === pubkey) set({ subscriptions: legacy });
+      localStorage.setItem(LEGACY_MIGRATED_KEY, "1");
+    }
+
+    // 2. Fetch from relay
+    let result: { shows: PodcastShow[]; createdAt: number } | null = null;
+    try {
+      result = await fetchPodcastList(pubkey);
+    } catch (err) {
+      debug.warn("[Vega] Failed to fetch podcast subscriptions:", err);
+      return;
+    }
+
+    // Account may have switched while we were fetching — bail if no longer active.
+    if (get().activePubkey !== pubkey) return;
+
+    if (result && result.shows.length > 0) {
+      // Cloud wins: replace local cache with relay state.
+      saveSubscriptions(pubkey, result.shows);
+      set({ subscriptions: result.shows });
+      return;
+    }
+
+    // 3. No cloud list yet — if we have local entries, publish them as initial seed.
+    const localSubs = get().subscriptions;
+    if (localSubs.length > 0 && getNDK().signer) {
+      try {
+        await publishPodcastList(localSubs);
+      } catch (err) {
+        debug.warn("[Vega] Failed to seed podcast subscriptions to relay:", err);
+      }
+    }
   },
 }));

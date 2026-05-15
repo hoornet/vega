@@ -69,6 +69,16 @@ jobs:
 
             > **Windows note:** The installer is not yet code-signed. Windows SmartScreen will show an "Unknown publisher" warning — click "More info → Run anyway" to install.
 
+            ### v0.12.12 — Podcasts that follow your account
+
+            Your "My Podcasts" list now lives on Nostr, keyed to your pubkey. Reinstall the app on a new machine, switch devices, wipe local storage — your subscriptions come back automatically as long as you sign in with the same key.
+
+            - **Published as a NIP-51 kind 30003 bookmark set** with `d="podcasts"`. Feed URLs are standard `r` tags; rich metadata (title, artwork, author, description, Podcast Index ID) rides along in the event content so the list renders offline on first paint.
+            - **Per-account isolation** — each pubkey has its own list. Switching accounts swaps the subscriptions immediately; a previous account's list never leaks under the new signer.
+            - **Cloud-wins hydration** on login. If the relay has a newer list, it replaces local. If the cloud is empty but you have local subscriptions, your list is published as the initial seed.
+            - **Existing users:** your current subscription list is automatically adopted into your active account on first launch.
+            - **Read-only accounts (`npub` login):** you can still see your list, but changes don't publish (no signer).
+
             ### v0.12.11 — Read-only mode polish
 
             If you haven't created a key yet, or you're signed in with just an `npub` (view-only), the app now behaves correctly throughout: no broken Publish buttons, no dead-end "Not logged in" errors.

@@ -105,6 +105,7 @@ minisign -Vm Vega_0.12.9_amd64.deb -p vega.pub
 - **Recipient breakdown** — see exactly who gets paid and their split percentages
 - **V4V nudge** — brief non-intrusive tooltip when a V4V-enabled episode starts playing (once per episode per session)
 - **V4V badges on episodes** — ⚡ V4V pill on episode cards so you know which shows support it
+- **Subscriptions follow your account** — "My Podcasts" is published as a NIP-51 kind 30003 bookmark set (`d="podcasts"`), so your show list syncs across devices and is restored on reinstall as long as you sign in with the same key
 
 **Lightning & zaps**
 - **Per-account NWC wallet** — each account remembers its own Lightning wallet; switching accounts loads the correct one automatically
