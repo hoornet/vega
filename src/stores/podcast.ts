@@ -285,7 +285,29 @@ export const usePodcastStore = create<PodcastState>((set, get) => ({
     if (get().activePubkey !== pubkey) return;
 
     if (result && result.shows.length > 0) {
-      // Cloud wins: replace local cache with relay state.
+      // Special case: if this is the FIRST hydrate after upgrade AND the user
+      // had a pre-upgrade local list AND the cloud already has data (from a
+      // different machine that upgraded first), union the two so the local-only
+      // additions on this machine aren't silently dropped. Publish the union so
+      // the first machine picks them up too. Subsequent hydrates keep
+      // cloud-wins semantics, so removals still propagate.
+      if (legacy && legacy.length > 0) {
+        const seen = new Set(result.shows.map((s) => s.feedUrl));
+        const localOnly = legacy.filter((s) => !seen.has(s.feedUrl));
+        const merged = [...result.shows, ...localOnly];
+        saveSubscriptions(pubkey, merged);
+        set({ subscriptions: merged });
+        if (localOnly.length > 0 && getNDK().signer) {
+          try {
+            await publishPodcastList(merged);
+          } catch (err) {
+            debug.warn("[Vega] Failed to publish merged podcast list:", err);
+          }
+        }
+        return;
+      }
+
+      // Steady-state: cloud wins, replace local cache with relay state.
       saveSubscriptions(pubkey, result.shows);
       set({ subscriptions: result.shows });
       return;
