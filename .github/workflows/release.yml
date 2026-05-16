@@ -69,6 +69,12 @@ jobs:
 
             > **Windows note:** The installer is not yet code-signed. Windows SmartScreen will show an "Unknown publisher" warning — click "More info → Run anyway" to install.
 
+            ### v0.12.14 — Fix macOS auto-updater
+
+            macOS users on Apple Silicon now get in-app update notifications. Since before v0.12.9, the macOS build shipped a `.dmg` for manual download but never produced the `.app.tar.gz` updater artifact — so `latest.json` carried no macOS entry and the in-app updater stayed silent on Macs. The `app` bundle target was missing from the build config; that's the target that generates the updater archive and its signature. Linux and Windows auto-update were unaffected throughout.
+
+            **One-time manual step for Mac users:** if you're on v0.12.13 or earlier, download v0.12.14 manually from this page once. Auto-updates work from v0.12.14 onward.
+
             ### v0.12.13 — Podcast subscription merge on first upgrade
 
             Fixes a data-loss edge case introduced by v0.12.12. If you'd been using Vega on **multiple machines before v0.12.12**, the first machine to upgrade would publish its list to the relay; the second machine to upgrade would then silently overwrite its own local-only additions with the cloud list. The first-time hydrate now **unions** the pre-upgrade local list with the cloud list and re-publishes the merger, so subscriptions you'd added on any pre-upgrade machine all survive. Subsequent hydrates keep the cloud-wins behavior — removals on one machine still propagate everywhere as expected.

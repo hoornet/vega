@@ -49,7 +49,8 @@ CI triggers on the tag and builds all three platforms (Ubuntu, Windows, macOS AR
 **Hard-won CI rules:**
 - `includeUpdaterJson: true` must be set in tauri-action — without it `latest.json` is never uploaded and the auto-updater silently does nothing
 - `bundle.createUpdaterArtifacts: true` must be set in `tauri.conf.json` — without it `.sig` files are never generated even if the signing key is set (Tauri 2 requirement)
-- Valid `bundle.targets`: `"deb"`, `"rpm"`, `"nsis"`, `"msi"`, `"dmg"` — do NOT add `"updater"` (that's a plugin, not a bundle format)
+- Valid `bundle.targets`: `"deb"`, `"rpm"`, `"nsis"`, `"msi"`, `"dmg"`, `"app"` — do NOT add `"updater"` (that's a plugin, not a bundle format)
+- `"app"` MUST be in `bundle.targets` or the macOS auto-updater silently breaks: the `.app.tar.gz` updater artifact (and its `.sig`) is generated from the `app` target, NOT `dmg`. With only `dmg`, the `.app` is built as a throwaway intermediate, no `.app.tar.gz` is emitted, and `latest.json` gets no `darwin-aarch64` entry. `app`/`dmg` are macOS-only and skipped on Linux/Windows builds. This was broken from before v0.12.9 through v0.12.13; fixed in v0.12.14.
 - macOS runner is `macos-latest` (ARM only) — `macos-12`/`macos-13` are gone
 - Verify after CI: `https://api.github.com/repos/hoornet/vega/releases/latest` (check for `.sig` assets + `latest.json`)
 
