@@ -17,3 +17,32 @@ export function profileName(profile: any, fallback: string): string {
   const raw = profile?.displayName || profile?.name;
   return (typeof raw === "string" ? raw : null) || fallback;
 }
+
+/**
+ * Returns `url` only if it uses a safe http(s) scheme, otherwise "#".
+ * Defense-in-depth for `href` sinks: blocks `javascript:`/`data:` URIs even if
+ * a future change to the content parser stops scheme-constraining them upstream.
+ */
+export function safeHttpUrl(url: string): string {
+  try {
+    const scheme = new URL(url).protocol;
+    return scheme === "http:" || scheme === "https:" ? url : "#";
+  } catch {
+    return "#";
+  }
+}
+
+/**
+ * Strips HTML tags, looping until the result is stable so split/nested tags
+ * like `<scr<script>ipt>` cannot survive a single pass. Used to flatten
+ * HTML-formatted text (e.g. podcast feed descriptions) into plain text.
+ */
+export function stripHtmlTags(input: string): string {
+  let prev: string;
+  let s = input;
+  do {
+    prev = s;
+    s = s.replace(/<[^>]*>/g, "");
+  } while (s !== prev);
+  return s;
+}

@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import type { PodcastShow, PodcastEpisode } from "../../types/podcast";
 import { getEpisodes } from "../../lib/podcast";
 import { usePodcastStore } from "../../stores/podcast";
+import { stripHtmlTags } from "../../lib/utils";
 
 function SubscribeButton({ show }: { show: PodcastShow }) {
   const subscribed = usePodcastStore((s) => s.isSubscribed(show.feedUrl));
@@ -87,7 +88,7 @@ export function EpisodeList({ show, onBack }: EpisodeListProps) {
           </div>
           {show.description && (
             <div className="text-[11px] text-text-dim mt-1 line-clamp-3">
-              {show.description.replace(/<[^>]+>/g, "").slice(0, 200)}
+              {stripHtmlTags(show.description).slice(0, 200)}
             </div>
           )}
         </div>

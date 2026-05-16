@@ -1,5 +1,6 @@
 import type { PodcastShow } from "../../types/podcast";
 import { usePodcastStore } from "../../stores/podcast";
+import { stripHtmlTags } from "../../lib/utils";
 
 interface PodcastCardProps {
   show: PodcastShow;
@@ -32,7 +33,7 @@ export function PodcastCard({ show, onClick }: PodcastCardProps) {
         <div className="text-[11px] text-text-muted truncate">{show.author}</div>
         {show.description && (
           <div className="text-[11px] text-text-dim mt-1 line-clamp-2">
-            {show.description.replace(/<[^>]+>/g, "").slice(0, 120)}
+            {stripHtmlTags(show.description).slice(0, 120)}
           </div>
         )}
       </button>

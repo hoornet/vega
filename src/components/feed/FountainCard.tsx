@@ -3,6 +3,7 @@ import type { ContentSegment } from "../../lib/parsing";
 import type { PodcastEpisode } from "../../types/podcast";
 import { resolveFountainEpisode } from "../../lib/podcast";
 import { usePodcastStore } from "../../stores/podcast";
+import { safeHttpUrl } from "../../lib/utils";
 
 export function FountainCard({ seg }: { seg: ContentSegment }) {
   const [episode, setEpisode] = useState<PodcastEpisode | null>(null);
@@ -22,7 +23,7 @@ export function FountainCard({ seg }: { seg: ContentSegment }) {
     // Fallback: render as a regular link
     return (
       <a
-        href={seg.value}
+        href={safeHttpUrl(seg.value)}
         target="_blank"
         rel="noopener noreferrer"
         className="mt-2 flex items-center gap-3 rounded-sm bg-bg-raised border border-border p-3 hover:bg-bg-hover transition-colors cursor-pointer"

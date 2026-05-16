@@ -1,5 +1,6 @@
 import { ContentSegment } from "../../lib/parsing";
 import { usePodcastStore } from "../../stores/podcast";
+import { safeHttpUrl } from "../../lib/utils";
 
 export function VideoBlock({ sources }: { sources: string[] }) {
   if (sources.length === 0) return null;
@@ -76,7 +77,7 @@ export function AudioBlock({ sources }: { sources: string[] }) {
 export function YouTubeCard({ seg }: { seg: ContentSegment }) {
   return (
     <a
-      href={seg.value}
+      href={safeHttpUrl(seg.value)}
       target="_blank"
       rel="noopener noreferrer"
       className="mt-2 flex items-center gap-3 rounded-sm bg-bg-raised border border-border p-3 hover:bg-bg-hover transition-colors cursor-pointer"
@@ -98,7 +99,7 @@ export function YouTubeCard({ seg }: { seg: ContentSegment }) {
 export function VimeoCard({ seg }: { seg: ContentSegment }) {
   return (
     <a
-      href={seg.value}
+      href={safeHttpUrl(seg.value)}
       target="_blank"
       rel="noopener noreferrer"
       className="mt-2 flex items-center gap-3 rounded-sm bg-bg-raised border border-border p-3 hover:bg-bg-hover transition-colors cursor-pointer"
@@ -117,7 +118,7 @@ export function VimeoCard({ seg }: { seg: ContentSegment }) {
 export function SpotifyCard({ seg }: { seg: ContentSegment }) {
   return (
     <a
-      href={seg.value}
+      href={safeHttpUrl(seg.value)}
       target="_blank"
       rel="noopener noreferrer"
       className="mt-2 flex items-center gap-3 rounded-sm bg-bg-raised border border-border p-3 hover:bg-bg-hover transition-colors cursor-pointer"
@@ -136,7 +137,7 @@ export function SpotifyCard({ seg }: { seg: ContentSegment }) {
 export function TidalCard({ seg }: { seg: ContentSegment }) {
   return (
     <a
-      href={seg.value}
+      href={safeHttpUrl(seg.value)}
       target="_blank"
       rel="noopener noreferrer"
       className="mt-2 flex items-center gap-3 rounded-sm bg-bg-raised border border-border p-3 hover:bg-bg-hover transition-colors cursor-pointer"

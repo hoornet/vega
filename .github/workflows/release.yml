@@ -69,6 +69,13 @@ jobs:
 
             > **Windows note:** The installer is not yet code-signed. Windows SmartScreen will show an "Unknown publisher" warning — click "More info → Run anyway" to install.
 
+            ### v0.12.16 — Security hardening
+
+            A defense-in-depth pass on link and text rendering, prompted by a CodeQL code-scanning review. No user-facing changes, and no exploitable vulnerability was found — note URLs were already scheme-constrained upstream — but the rendering sinks are now hardened directly.
+
+            - **External links** now route every `href` through a scheme guard that permits only `http(s)://`. A `javascript:` or `data:` URI in note content can never reach a clickable link, even if the content parser changes in future.
+            - **Podcast description text** is now stripped of HTML tags with a loop-until-stable pass, so split or nested tags can't survive sanitization.
+
             ### v0.12.15 — Honest update banner on Linux
 
             The "Update & restart" banner now adapts to how Vega was installed. On a package-manager install — the AUR `vega-nostr-git` package, or a `.deb`/`.rpm` — the in-app updater can't replace a root-owned binary under `/usr`, so the button did nothing. The banner now detects the install kind and shows the right path:

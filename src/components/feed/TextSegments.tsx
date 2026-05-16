@@ -4,6 +4,7 @@ import { useUIStore } from "../../stores/ui";
 import { useProfile } from "../../hooks/useProfile";
 import { ContentSegment } from "../../lib/parsing";
 import { getNDK, fetchWithTimeout } from "../../lib/nostr";
+import { safeHttpUrl } from "../../lib/utils";
 
 // Returns true if we handled the URL internally (njump.me interception).
 export function tryHandleUrlInternally(url: string): boolean {
@@ -122,7 +123,7 @@ export function renderTextSegments(
         elements.push(
           <a
             key={i}
-            href={seg.value}
+            href={safeHttpUrl(seg.value)}
             target="_blank"
             rel="noopener noreferrer"
             className="text-accent hover:text-accent-hover underline underline-offset-2 decoration-accent/40"
