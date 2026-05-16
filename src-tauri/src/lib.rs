@@ -407,6 +407,44 @@ fn relay_get_stats(state: tauri::State<relay::RelayHandle>) -> Result<serde_json
     }))
 }
 
+// ── Install kind detection ──────────────────────────────────────────────────
+
+/// Reports whether the in-app updater can actually self-install, plus a hint
+/// for the UI about how the user should update otherwise.
+///
+/// The Tauri updater can only replace a running binary it has write access to.
+/// A package-manager install (AUR, deb, rpm) puts Vega under root-owned /usr or
+/// /opt — the updater can't touch it, and doing so would desync the package DB.
+/// In those cases the banner shows manual update guidance instead of a dead
+/// "Update & restart" button.
+#[tauri::command]
+fn install_info() -> serde_json::Value {
+    #[cfg(any(target_os = "windows", target_os = "macos"))]
+    {
+        serde_json::json!({ "can_self_update": true, "kind": "updater" })
+    }
+    #[cfg(target_os = "linux")]
+    {
+        // AppImage is self-contained and user-writable — updater works.
+        if std::env::var("APPIMAGE").is_ok() {
+            return serde_json::json!({ "can_self_update": true, "kind": "appimage" });
+        }
+        let exe = std::env::current_exe()
+            .map(|p| p.to_string_lossy().into_owned())
+            .unwrap_or_default();
+        if exe.starts_with("/usr/") || exe.starts_with("/opt/") {
+            // Heuristic: pacman present ⇒ almost certainly the AUR package.
+            let is_arch = std::path::Path::new("/usr/bin/pacman").exists();
+            return serde_json::json!({
+                "can_self_update": false,
+                "kind": if is_arch { "pacman" } else { "deb-rpm" }
+            });
+        }
+        // Ran from home dir / extracted tarball — let the updater try.
+        serde_json::json!({ "can_self_update": true, "kind": "portable" })
+    }
+}
+
 // ── App entry ────────────────────────────────────────────────────────────────
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -532,6 +570,7 @@ pub fn run() {
             db_load_articles,
             relay_get_port,
             relay_get_stats,
+            install_info,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

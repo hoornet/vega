@@ -34,22 +34,45 @@ import { useUpdater } from "./hooks/useUpdater";
 import { useKeyboardShortcuts } from "./hooks/useKeyboardShortcuts";
 
 function UpdateBanner() {
-  const { available, version, installing, error, install, dismiss } = useUpdater();
+  const { available, version, installing, error, canSelfUpdate, kind, install, dismiss } = useUpdater();
+  const [copied, setCopied] = useState(false);
   if (!available) return null;
+
+  const aurCmd = "yay -S vega-nostr-git";
+
   return (
     <div className="flex items-center justify-between px-4 py-2 bg-accent/10 border-b border-accent/30 text-[12px] shrink-0">
       <span className="text-text">
-        Vega {version} is available.{" "}
+        Vega {version} is available.
+        {!canSelfUpdate && kind === "pacman" && (
+          <> Update with <code className="text-accent bg-bg-raised px-1 rounded-sm">{aurCmd}</code></>
+        )}
         {error && <span className="text-danger ml-1">{error}</span>}
       </span>
       <div className="flex items-center gap-3">
-        <button
-          onClick={install}
-          disabled={installing}
-          className="text-accent hover:text-accent-hover transition-colors disabled:opacity-50"
-        >
-          {installing ? "Installing…" : "Update & restart"}
-        </button>
+        {canSelfUpdate ? (
+          <button
+            onClick={install}
+            disabled={installing}
+            className="text-accent hover:text-accent-hover transition-colors disabled:opacity-50"
+          >
+            {installing ? "Installing…" : "Update & restart"}
+          </button>
+        ) : kind === "pacman" ? (
+          <button
+            onClick={() => navigator.clipboard.writeText(aurCmd).then(() => setCopied(true)).catch(() => {})}
+            className="text-accent hover:text-accent-hover transition-colors"
+          >
+            {copied ? "Copied" : "Copy command"}
+          </button>
+        ) : (
+          <button
+            onClick={() => openUrl("https://github.com/hoornet/vega/releases/latest").catch(() => {})}
+            className="text-accent hover:text-accent-hover transition-colors"
+          >
+            View release
+          </button>
+        )}
         <button onClick={dismiss} aria-label="Dismiss update" className="text-text-dim hover:text-text transition-colors">×</button>
       </div>
     </div>

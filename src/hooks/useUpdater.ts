@@ -1,6 +1,12 @@
 import { useEffect, useState } from "react";
 import { check } from "@tauri-apps/plugin-updater";
 import { relaunch } from "@tauri-apps/plugin-process";
+import { invoke } from "@tauri-apps/api/core";
+
+interface InstallInfo {
+  can_self_update: boolean;
+  kind: string;
+}
 
 interface UpdateState {
   available: boolean;
@@ -8,6 +14,8 @@ interface UpdateState {
   body: string | null;
   installing: boolean;
   error: string | null;
+  canSelfUpdate: boolean;
+  kind: string;
   install: () => Promise<void>;
   dismiss: () => void;
 }
@@ -19,6 +27,14 @@ export function useUpdater(): UpdateState {
   const [installing, setInstalling] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [dismissed, setDismissed] = useState(false);
+  // Optimistic default: assume the updater works until the backend says otherwise.
+  const [installInfo, setInstallInfo] = useState<InstallInfo>({ can_self_update: true, kind: "updater" });
+
+  useEffect(() => {
+    invoke<InstallInfo>("install_info")
+      .then(setInstallInfo)
+      .catch(() => { /* keep optimistic default */ });
+  }, []);
 
   useEffect(() => {
     // Check for updates ~5 s after startup (non-blocking)
@@ -58,6 +74,8 @@ export function useUpdater(): UpdateState {
     body,
     installing,
     error,
+    canSelfUpdate: installInfo.can_self_update,
+    kind: installInfo.kind,
     install,
     dismiss: () => setDismissed(true),
   };

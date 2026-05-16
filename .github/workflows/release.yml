@@ -69,6 +69,16 @@ jobs:
 
             > **Windows note:** The installer is not yet code-signed. Windows SmartScreen will show an "Unknown publisher" warning — click "More info → Run anyway" to install.
 
+            ### v0.12.15 — Honest update banner on Linux
+
+            The "Update & restart" banner now adapts to how Vega was installed. On a package-manager install — the AUR `vega-nostr-git` package, or a `.deb`/`.rpm` — the in-app updater can't replace a root-owned binary under `/usr`, so the button did nothing. The banner now detects the install kind and shows the right path:
+
+            - **Arch (AUR install):** shows the update command inline with a "Copy command" button — `yay -S vega-nostr-git`.
+            - **Debian / Fedora (.deb / .rpm):** a "View release" button opens the GitHub release page for a manual download.
+            - **Windows, macOS, AppImage, portable builds:** unchanged — one-click "Update & restart" still works.
+
+            The new-version notification itself always worked everywhere; only the install action needed to become install-method-aware.
+
             ### v0.12.14 — Fix macOS auto-updater
 
             macOS users on Apple Silicon now get in-app update notifications. Since before v0.12.9, the macOS build shipped a `.dmg` for manual download but never produced the `.app.tar.gz` updater artifact — so `latest.json` carried no macOS entry and the in-app updater stayed silent on Macs. The `app` bundle target was missing from the build config; that's the target that generates the updater archive and its signature. Linux and Windows auto-update were unaffected throughout.
