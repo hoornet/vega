@@ -1,4 +1,5 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
+import { useVirtualizer } from "@tanstack/react-virtual";
 import { useFeedStore } from "../../stores/feed";
 import { useUserStore } from "../../stores/user";
 import { useMuteStore } from "../../stores/mute";
@@ -137,6 +138,34 @@ export function Feed() {
     return true;
   });
 
+  // Virtualized feed list: only ~25 note cards stay mounted in the DOM at any
+  // time regardless of feed length. This is the structural fix for the WebKit
+  // bitmap-accumulation OOM — fewer <img> elements alive = bounded memory.
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const virtualizer = useVirtualizer({
+    count: filteredNotes.length,
+    getScrollElement: () => scrollRef.current,
+    estimateSize: () => 140,
+    overscan: 6,
+    // Re-measuring rows during upward scroll shifts scrollTop a frame late →
+    // visible flicker. On backward scroll, reuse the cached measurement instead.
+    // (TanStack/virtual#659; falls back to a real measure if never cached.)
+    measureElement: (element, _entry, instance) => {
+      if (instance.scrollDirection === "forward" || instance.scrollDirection === null) {
+        return element.getBoundingClientRect().height;
+      }
+      const index = Number(element.getAttribute("data-index"));
+      const cached = instance.getVirtualItems().find((v) => v.index === index)?.size;
+      return cached ?? element.getBoundingClientRect().height;
+    },
+  });
+
+  // Keyboard nav (j/k) moves focusedNoteIndex; virtualization unmounts off-screen
+  // rows, so bring the focused row into the rendered window when it changes.
+  useEffect(() => {
+    if (focusedNoteIndex >= 0) virtualizer.scrollToIndex(focusedNoteIndex, { align: "center" });
+  }, [focusedNoteIndex, virtualizer]);
+
   return (
     <div className="h-full flex flex-col">
       {/* Header */}
@@ -208,14 +237,25 @@ export function Feed() {
         <ComposeBox onPublished={isFollowing ? undefined : loadFeed} onNoteInjected={isFollowing ? (event) => setFollowNotes((prev) => [event, ...prev]) : undefined} />
       )}
 
-      {/* Feed */}
-      <div className="flex-1 overflow-y-auto">
-        {error && !isFollowing && !isTrending && (
-          <div className="px-4 py-3 text-danger text-[12px] border-b border-border bg-danger/5">
-            {error}
-          </div>
-        )}
+      {/* Error + new-notes banners — pinned above the scroll area so they never
+          offset the virtualizer's coordinate space (its spacer must start at scrollTop 0) */}
+      {error && !isFollowing && !isTrending && (
+        <div className="px-4 py-3 text-danger text-[12px] border-b border-border bg-danger/5 shrink-0">
+          {error}
+        </div>
+      )}
 
+      {tab === "global" && pendingNotes.length > 0 && (
+        <button
+          onClick={flushPendingNotes}
+          className="w-full py-2 text-[12px] text-accent border-b border-accent/20 bg-accent/5 hover:bg-accent/10 transition-colors shrink-0"
+        >
+          {pendingNotes.length} new {pendingNotes.length === 1 ? "note" : "notes"} — click to load
+        </button>
+      )}
+
+      {/* Feed (virtualized scroll container) */}
+      <div ref={scrollRef} className="flex-1 overflow-y-auto">
         {isLoading && filteredNotes.length === 0 && (
           <SkeletonNoteList count={6} />
         )}
@@ -264,22 +304,27 @@ export function Feed() {
           </div>
         )}
 
-        {/* New notes banner — only shown on global tab */}
-        {tab === "global" && pendingNotes.length > 0 && (
-          <button
-            onClick={flushPendingNotes}
-            className="w-full py-2 text-[12px] text-accent border-b border-accent/20 bg-accent/5 hover:bg-accent/10 transition-colors"
-          >
-            {pendingNotes.length} new {pendingNotes.length === 1 ? "note" : "notes"} — click to load
-          </button>
-        )}
-
-        {filteredNotes.map((event, index) =>
-          event.kind === 30023 ? (
-            <ArticleCard key={event.id} event={event} />
-          ) : (
-            <NoteCard key={event.id} event={event} focused={focusedNoteIndex === index} />
-          )
+        {/* Virtualized list — only the visible window of cards stays in the DOM */}
+        {filteredNotes.length > 0 && (
+          <div style={{ height: `${virtualizer.getTotalSize()}px`, position: "relative", width: "100%" }}>
+            {virtualizer.getVirtualItems().map((vi) => {
+              const event = filteredNotes[vi.index];
+              return (
+                <div
+                  key={event.id}
+                  data-index={vi.index}
+                  ref={virtualizer.measureElement}
+                  style={{ position: "absolute", top: 0, left: 0, width: "100%", transform: `translateY(${vi.start}px)` }}
+                >
+                  {event.kind === 30023 ? (
+                    <ArticleCard event={event} />
+                  ) : (
+                    <NoteCard event={event} focused={focusedNoteIndex === vi.index} />
+                  )}
+                </div>
+              );
+            })}
+          </div>
         )}
       </div>
     </div>
