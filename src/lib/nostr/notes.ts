@@ -2,11 +2,17 @@ import { NDKEvent, NDKFilter, NDKKind, NDKRelaySet, nip19 } from "@nostr-dev-kit
 import { getNDK, getStoredRelayUrls, fetchWithTimeout, withTimeout, FEED_TIMEOUT, THREAD_TIMEOUT, SINGLE_TIMEOUT } from "./core";
 import { fetchUserRelayList } from "./relays";
 
-export async function fetchGlobalFeed(limit: number = 50): Promise<NDKEvent[]> {
+export async function fetchGlobalFeed(limit: number = 50, until?: number): Promise<NDKEvent[]> {
   const instance = getNDK();
-  // Ask for notes from the last 2 hours to ensure freshness
-  const since = Math.floor(Date.now() / 1000) - 2 * 3600;
-  const filter: NDKFilter = { kinds: [NDKKind.Text, 1068 as NDKKind], limit, since };
+  const filter: NDKFilter = { kinds: [NDKKind.Text, 1068 as NDKKind], limit };
+  if (until !== undefined) {
+    // Older-notes pagination (infinite scroll): fetch events before `until`,
+    // with no `since` bound so we can page arbitrarily far back.
+    filter.until = until;
+  } else {
+    // Default: notes from the last 2 hours to ensure freshness.
+    filter.since = Math.floor(Date.now() / 1000) - 2 * 3600;
+  }
   const events = await fetchWithTimeout(instance, filter, FEED_TIMEOUT);
   return Array.from(events).sort((a, b) => (b.created_at ?? 0) - (a.created_at ?? 0));
 }

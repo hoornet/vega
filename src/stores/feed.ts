@@ -12,7 +12,9 @@ import { debug } from "../lib/debug";
 
 const TRENDING_CACHE_KEY = "wrystr_trending_cache";
 const TRENDING_TTL = 10 * 60 * 1000; // 10 minutes
-const MAX_FEED_SIZE = 200;
+// Virtualization bounds the DOM-node / decoded-bitmap count; this cap just
+// bounds the in-memory `notes` array as hygiene (not a hard memory limit).
+const MAX_FEED_SIZE = 1000;
 
 // Live subscription handle — persists across store calls
 let liveSub: NDKSubscription | null = null;
@@ -34,6 +36,8 @@ interface FeedState {
   notes: NDKEvent[];
   pendingNotes: NDKEvent[];
   loading: boolean;
+  loadingOlder: boolean;
+  feedReachedEnd: boolean;
   connected: boolean;
   error: string | null;
   focusedNoteIndex: number;
@@ -43,6 +47,7 @@ interface FeedState {
   connect: () => Promise<void>;
   loadCachedFeed: () => Promise<void>;
   loadFeed: () => Promise<void>;
+  loadOlderNotes: () => Promise<void>;
   startLiveFeed: () => void;
   flushPendingNotes: () => void;
   loadTrendingFeed: (force?: boolean) => Promise<void>;
@@ -53,6 +58,8 @@ export const useFeedStore = create<FeedState>((set, get) => ({
   notes: [],
   pendingNotes: [],
   loading: false,
+  loadingOlder: false,
+  feedReachedEnd: false,
   connected: false,
   error: null,
   focusedNoteIndex: -1,
@@ -185,7 +192,7 @@ export const useFeedStore = create<FeedState>((set, get) => ({
    */
   loadFeed: async () => {
     if (get().loading) return;
-    set({ loading: true, error: null });
+    set({ loading: true, error: null, feedReachedEnd: false });
     try {
       await ensureConnected();
       const fresh = await diagWrapFetch("global_fetch", () => fetchGlobalFeed(100));
@@ -208,6 +215,41 @@ export const useFeedStore = create<FeedState>((set, get) => ({
       // get().startLiveFeed();
     } catch (err) {
       set({ error: `Feed failed: ${err}`, loading: false });
+    }
+  },
+
+  /**
+   * Load a page of older notes for infinite scroll. Fetches notes created
+   * before the oldest one currently loaded, dedups, merges, caps at
+   * MAX_FEED_SIZE. Self-guards against concurrent calls and end-of-feed.
+   */
+  loadOlderNotes: async () => {
+    const { notes, loadingOlder, feedReachedEnd } = get();
+    if (loadingOlder || feedReachedEnd || notes.length === 0) return;
+    if (notes.length >= MAX_FEED_SIZE) {
+      set({ feedReachedEnd: true });
+      return;
+    }
+    set({ loadingOlder: true });
+    try {
+      const oldest = notes[notes.length - 1].created_at ?? Math.floor(Date.now() / 1000);
+      const older = await diagWrapFetch("global_older", () => fetchGlobalFeed(50, oldest));
+      // Re-read notes after the await — a refresh may have run concurrently.
+      const current = get().notes;
+      const currentIds = new Set(current.map((n) => n.id));
+      const newOlder = older.filter((e) => !currentIds.has(e.id));
+      if (newOlder.length === 0) {
+        // Relay returned nothing new — end of available history.
+        set({ loadingOlder: false, feedReachedEnd: true });
+        return;
+      }
+      const merged = [...current, ...newOlder]
+        .sort((a, b) => (b.created_at ?? 0) - (a.created_at ?? 0))
+        .slice(0, MAX_FEED_SIZE);
+      set({ notes: merged, loadingOlder: false });
+    } catch (err) {
+      debug.warn("[Vega] Failed to load older notes:", err);
+      set({ loadingOlder: false });
     }
   },
 

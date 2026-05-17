@@ -34,6 +34,8 @@ export function Feed() {
   const connect = useFeedStore((s) => s.connect);
   const loadCachedFeed = useFeedStore((s) => s.loadCachedFeed);
   const loadFeed = useFeedStore((s) => s.loadFeed);
+  const loadOlderNotes = useFeedStore((s) => s.loadOlderNotes);
+  const loadingOlder = useFeedStore((s) => s.loadingOlder);
   const trendingNotes = useFeedStore((s) => s.trendingNotes);
   const trendingLoading = useFeedStore((s) => s.trendingLoading);
   const loadTrendingFeed = useFeedStore((s) => s.loadTrendingFeed);
@@ -165,6 +167,18 @@ export function Feed() {
   useEffect(() => {
     if (focusedNoteIndex >= 0) virtualizer.scrollToIndex(focusedNoteIndex, { align: "center" });
   }, [focusedNoteIndex, virtualizer]);
+
+  // Infinite scroll (Global tab only): when the user nears the bottom of the
+  // virtualized list, load the next page of older notes. loadOlderNotes
+  // self-guards against concurrent calls and end-of-feed.
+  const virtualItems = virtualizer.getVirtualItems();
+  useEffect(() => {
+    if (tab !== "global") return;
+    const last = virtualItems[virtualItems.length - 1];
+    if (last && last.index >= filteredNotes.length - 8) {
+      loadOlderNotes();
+    }
+  }, [virtualItems, filteredNotes.length, tab, loadOlderNotes]);
 
   return (
     <div className="h-full flex flex-col">
@@ -307,7 +321,7 @@ export function Feed() {
         {/* Virtualized list — only the visible window of cards stays in the DOM */}
         {filteredNotes.length > 0 && (
           <div style={{ height: `${virtualizer.getTotalSize()}px`, position: "relative", width: "100%" }}>
-            {virtualizer.getVirtualItems().map((vi) => {
+            {virtualItems.map((vi) => {
               const event = filteredNotes[vi.index];
               return (
                 <div
@@ -325,6 +339,10 @@ export function Feed() {
               );
             })}
           </div>
+        )}
+
+        {tab === "global" && loadingOlder && (
+          <div className="py-4 text-center text-text-dim text-[12px]">Loading older notes…</div>
         )}
       </div>
     </div>
