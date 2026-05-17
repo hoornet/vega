@@ -69,6 +69,14 @@ jobs:
 
             > **Windows note:** The installer is not yet code-signed. Windows SmartScreen will show an "Unknown publisher" warning — click "More info → Run anyway" to install.
 
+            ### v0.12.17 — Infinite scroll & a virtualized feed
+
+            The feed no longer stops at a fixed number of notes. Scroll to the bottom and older notes load automatically — no manual Refresh.
+
+            - **Infinite scroll on the Global feed.** Reaching the bottom auto-loads the next page of older notes (up to 1,000), with a brief "Loading older notes…" indicator during each fetch.
+            - **Virtualized feed list.** Only the notes actually on screen (~25–35 cards) are kept in the page at any time, regardless of how far you scroll. This structurally bounds memory — the WebKitGTK image-memory growth behind past Linux crashes can't accumulate, because off-screen note images are released as you scroll past them.
+            - Verified on Linux: ~1,000 notes scrolled, memory oscillated and settled around 1.15 GB — bounded regardless of scroll depth.
+
             ### v0.12.16 — Security hardening
 
             A defense-in-depth pass on link and text rendering, prompted by a CodeQL code-scanning review. No user-facing changes, and no exploitable vulnerability was found — note URLs were already scheme-constrained upstream — but the rendering sinks are now hardened directly.
