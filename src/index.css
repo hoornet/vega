@@ -1,22 +1,26 @@
 @import "tailwindcss";
 
 @theme {
+  /* Colour vars below mirror the `midnight` theme in src/lib/themes.ts.
+     applyTheme() overrides these at runtime — keep them in sync so the
+     pre-theme initial paint matches and there is no colour flash. */
   --color-bg: #0a0a0a;
-  --color-bg-raised: #111111;
-  --color-bg-hover: #1a1a1a;
-  --color-border: #222222;
-  --color-border-subtle: #1a1a1a;
-  --color-text: #e0e0e0;
-  --color-text-muted: #7c7c7c;
-  --color-text-dim: #797979;
-  --color-accent: #8b5cf6;
-  --color-accent-hover: #7c3aed;
+  --color-bg-raised: #121212;
+  --color-bg-hover: #1c1c1c;
+  --color-border: #2a2a2a;
+  --color-border-subtle: #1e1e1e;
+  --color-text: #e8e8e8;
+  --color-text-muted: #a0a0a0;
+  --color-text-dim: #6e6e6e;
+  --color-accent: #9d7aff;
+  --color-accent-hover: #8b5cf6;
   --color-accent-text: #ffffff;
   --color-zap: #f59e0b;
   --color-zap-text: #000000;
   --color-danger: #ef4444;
   --color-warning: #f59e0b;
   --color-success: #22c55e;
+  --font-ui: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
   --font-mono: "JetBrains Mono", "Fira Code", "SF Mono", monospace;
   --font-reading: Georgia, "Times New Roman", "Noto Serif", serif;
 }
@@ -35,9 +39,9 @@
 body {
   background: var(--color-bg);
   color: var(--color-text);
-  font-family: var(--font-mono);
-  font-size: 13px;
-  line-height: 1.5;
+  font-family: var(--font-ui);
+  font-size: 14px;
+  line-height: 1.6;
   margin: 0;
   overflow: hidden;
 }
