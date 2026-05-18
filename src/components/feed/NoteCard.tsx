@@ -183,7 +183,11 @@ export const NoteCard = memo(function NoteCard({ event, focused, onReplyInThread
           <div>
             <NoteContent content={event.content} inline />
           </div>
-          {inView && <NoteContent content={event.content} mediaOnly />}
+          {/* Media boxes always render (fixed aspect ratio → stable row
+              height for the virtualizer), but the heavy <img>/<video> inside
+              them only mounts when the card is on screen (mediaInView), so
+              off-screen overscan rows stay light and scrolling stays smooth. */}
+          <NoteContent content={event.content} mediaOnly mediaInView={inView} />
 
           {/* Poll options — kind 1068 */}
           {event.kind === 1068 && <PollWidget event={event} />}

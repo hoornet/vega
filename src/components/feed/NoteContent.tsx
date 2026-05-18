@@ -10,7 +10,7 @@ import { renderTextSegments } from "./TextSegments";
 import { VideoBlock, AudioBlock, YouTubeCard, VimeoCard, SpotifyCard, TidalCard } from "./MediaCards";
 import { FountainCard } from "./FountainCard";
 
-function ImageGrid({ images, onImageClick }: { images: string[]; onImageClick: (index: number) => void }) {
+function ImageGrid({ images, onImageClick, inView }: { images: string[]; onImageClick: (index: number) => void; inView: boolean }) {
   const count = images.length;
   if (count === 0) return null;
 
@@ -18,17 +18,27 @@ function ImageGrid({ images, onImageClick }: { images: string[]; onImageClick: (
   const extraCount = count - 4;
   const visible = images.slice(0, maxVisible);
 
+  // Each image sits in a fixed-aspect box, so the card height is deterministic
+  // before anything loads — the virtualizer can't mis-measure it. The <img>
+  // itself only mounts when the card is on screen (inView); off-screen rows
+  // keep just the empty box, so scrolling stays light.
+  const boxCls = "rounded-sm bg-bg-raised border border-border overflow-hidden cursor-zoom-in";
+  const cellImg = (src: string, idx: number) =>
+    inView ? (
+      <img
+        src={src}
+        alt="Posted image"
+        loading="lazy"
+        className="w-full h-full object-cover"
+        onClick={(e) => { e.stopPropagation(); onImageClick(idx); }}
+        onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+      />
+    ) : null;
+
   if (count === 1) {
     return (
       <div className="mt-2">
-        <img
-          src={images[0]}
-          alt="Posted image"
-          loading="lazy"
-          className="max-w-full max-h-80 rounded-sm object-cover bg-bg-raised border border-border cursor-zoom-in"
-          onClick={(e) => { e.stopPropagation(); onImageClick(0); }}
-          onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
-        />
+        <div className={`w-full aspect-[4/3] ${boxCls}`}>{cellImg(images[0], 0)}</div>
       </div>
     );
   }
@@ -37,15 +47,7 @@ function ImageGrid({ images, onImageClick }: { images: string[]; onImageClick: (
     return (
       <div className="mt-2 grid grid-cols-2 gap-1">
         {visible.map((src, idx) => (
-          <img
-            key={idx}
-            src={src}
-            alt="Posted image"
-            loading="lazy"
-            className="w-full aspect-[4/3] rounded-sm object-cover bg-bg-raised border border-border cursor-zoom-in"
-            onClick={(e) => { e.stopPropagation(); onImageClick(idx); }}
-            onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
-          />
+          <div key={idx} className={`aspect-[4/3] ${boxCls}`}>{cellImg(src, idx)}</div>
         ))}
       </div>
     );
@@ -54,30 +56,9 @@ function ImageGrid({ images, onImageClick }: { images: string[]; onImageClick: (
   if (count === 3) {
     return (
       <div className="mt-2 grid grid-cols-2 grid-rows-2 gap-1">
-        <img
-          src={visible[0]}
-          alt="Posted image"
-          loading="lazy"
-          className="w-full h-full rounded-sm object-cover bg-bg-raised border border-border cursor-zoom-in row-span-2 aspect-[3/4]"
-          onClick={(e) => { e.stopPropagation(); onImageClick(0); }}
-          onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
-        />
-        <img
-          src={visible[1]}
-          alt="Posted image"
-          loading="lazy"
-          className="w-full aspect-[4/3] rounded-sm object-cover bg-bg-raised border border-border cursor-zoom-in"
-          onClick={(e) => { e.stopPropagation(); onImageClick(1); }}
-          onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
-        />
-        <img
-          src={visible[2]}
-          alt="Posted image"
-          loading="lazy"
-          className="w-full aspect-[4/3] rounded-sm object-cover bg-bg-raised border border-border cursor-zoom-in"
-          onClick={(e) => { e.stopPropagation(); onImageClick(2); }}
-          onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
-        />
+        <div className={`row-span-2 ${boxCls}`}>{cellImg(visible[0], 0)}</div>
+        <div className={`aspect-[4/3] ${boxCls}`}>{cellImg(visible[1], 1)}</div>
+        <div className={`aspect-[4/3] ${boxCls}`}>{cellImg(visible[2], 2)}</div>
       </div>
     );
   }
@@ -86,18 +67,11 @@ function ImageGrid({ images, onImageClick }: { images: string[]; onImageClick: (
   return (
     <div className="mt-2 grid grid-cols-2 gap-1">
       {visible.map((src, idx) => (
-        <div key={idx} className="relative">
-          <img
-            src={src}
-            alt="Posted image"
-            loading="lazy"
-            className="w-full aspect-[4/3] rounded-sm object-cover bg-bg-raised border border-border cursor-zoom-in"
-            onClick={(e) => { e.stopPropagation(); onImageClick(idx); }}
-            onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
-          />
+        <div key={idx} className={`relative aspect-[4/3] ${boxCls}`}>
+          {cellImg(src, idx)}
           {idx === 3 && extraCount > 0 && (
             <div
-              className="absolute inset-0 bg-bg/60 flex items-center justify-center rounded-sm cursor-zoom-in"
+              className="absolute inset-0 bg-bg/60 flex items-center justify-center cursor-zoom-in"
               onClick={(e) => { e.stopPropagation(); onImageClick(idx); }}
             >
               <span className="text-text text-[14px] font-semibold">+{extraCount}</span>
@@ -148,9 +122,11 @@ interface NoteContentProps {
   inline?: boolean;
   /** Render only media blocks (videos, embeds, quotes). Used outside the clickable area. */
   mediaOnly?: boolean;
+  /** When false, image/video boxes render empty — keeps off-screen rows light. */
+  mediaInView?: boolean;
 }
 
-export function NoteContent({ content, inline, mediaOnly }: NoteContentProps) {
+export function NoteContent({ content, inline, mediaOnly, mediaInView = true }: NoteContentProps) {
   const { openHashtag } = useUIStore();
   const segments = parseContent(content);
   const images: string[] = segments.filter((s) => s.type === "image").map((s) => s.value);
@@ -173,8 +149,10 @@ export function NoteContent({ content, inline, mediaOnly }: NoteContentProps) {
     );
   }
 
-  // --- Media blocks only (rendered OUTSIDE the clickable wrapper, gated by inView) ---
-  // Images are included here so they only load when the note is near the viewport.
+  // --- Media blocks only (rendered OUTSIDE the clickable wrapper) ---
+  // Split out so a click on media doesn't navigate to the thread. Images keep
+  // loading="lazy" so off-screen media isn't fetched; the boxes have a fixed
+  // aspect ratio so the card height is stable for the virtualizer.
   if (mediaOnly) {
     const hasMedia = images.length > 0 || videos.length > 0 || audios.length > 0 || youtubes.length > 0
       || vimeos.length > 0 || spotifys.length > 0 || tidals.length > 0 || fountains.length > 0 || quoteIds.length > 0;
@@ -182,7 +160,7 @@ export function NoteContent({ content, inline, mediaOnly }: NoteContentProps) {
 
     return (
       <div onClick={(e) => e.stopPropagation()}>
-        <ImageGrid images={images} onImageClick={setLightboxIndex} />
+        <ImageGrid images={images} onImageClick={setLightboxIndex} inView={mediaInView} />
         {lightboxIndex !== null && (
           <ImageLightbox
             images={images}
@@ -191,7 +169,7 @@ export function NoteContent({ content, inline, mediaOnly }: NoteContentProps) {
             onNavigate={setLightboxIndex}
           />
         )}
-        <VideoBlock sources={videos} />
+        <VideoBlock sources={videos} inView={mediaInView} />
         <AudioBlock sources={audios} />
         {youtubes.map((seg, i) => <YouTubeCard key={`yt-${i}`} seg={seg} />)}
         {vimeos.map((seg, i) => <VimeoCard key={`vim-${i}`} seg={seg} />)}
@@ -210,7 +188,7 @@ export function NoteContent({ content, inline, mediaOnly }: NoteContentProps) {
         {renderTextSegments(segments, openHashtag)}
       </div>
 
-      <ImageGrid images={images} onImageClick={setLightboxIndex} />
+      <ImageGrid images={images} onImageClick={setLightboxIndex} inView={mediaInView} />
 
       {lightboxIndex !== null && (
         <ImageLightbox
@@ -221,7 +199,7 @@ export function NoteContent({ content, inline, mediaOnly }: NoteContentProps) {
         />
       )}
 
-      <VideoBlock sources={videos} />
+      <VideoBlock sources={videos} inView={mediaInView} />
       <AudioBlock sources={audios} />
       {youtubes.map((seg, i) => <YouTubeCard key={`yt-${i}`} seg={seg} />)}
       {vimeos.map((seg, i) => <VimeoCard key={`vim-${i}`} seg={seg} />)}

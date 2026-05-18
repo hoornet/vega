@@ -149,17 +149,21 @@ export function Feed() {
     getScrollElement: () => scrollRef.current,
     estimateSize: () => 140,
     overscan: 6,
-    // Re-measuring rows during upward scroll shifts scrollTop a frame late →
-    // visible flicker. On backward scroll, reuse the cached measurement instead.
-    // (TanStack/virtual#659; falls back to a real measure if never cached.)
-    measureElement: (element, _entry, instance) => {
-      if (instance.scrollDirection === "forward" || instance.scrollDirection === null) {
-        return element.getBoundingClientRect().height;
-      }
-      const index = Number(element.getAttribute("data-index"));
-      const cached = instance.getVirtualItems().find((v) => v.index === index)?.size;
-      return cached ?? element.getBoundingClientRect().height;
-    },
+    // Key measurements by note id, not list index. The feed list mutates order
+    // constantly — new notes prepend (flushPendingNotes), the WoT filter removes
+    // mid-list items, tab switches swap the whole array. With the default
+    // index-based key, a cached row height would be reapplied to whatever note
+    // now sits at that index → cards overlap or leave gaps. Stable id keys pin
+    // each measurement to its own note.
+    getItemKey: (index) => filteredNotes[index]?.id ?? index,
+    // Default measureElement (real getBoundingClientRect + ResizeObserver).
+    // A previous custom measureElement reused cached sizes on backward scroll
+    // to dodge upward-scroll flicker (TanStack/virtual#659) — but for rows not
+    // yet measured (e.g. notes revealed by toggling the WoT filter) the
+    // "cache" was just the 140px estimate, so tall image notes rendered far
+    // bigger than their recorded size and overlapped their neighbours. Media
+    // now sits in fixed-aspect boxes, so row heights are stable and the
+    // flicker workaround is no longer needed.
   });
 
   // Keyboard nav (j/k) moves focusedNoteIndex; virtualization unmounts off-screen

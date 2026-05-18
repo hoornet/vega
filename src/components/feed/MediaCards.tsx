@@ -2,20 +2,31 @@ import { ContentSegment } from "../../lib/parsing";
 import { usePodcastStore } from "../../stores/podcast";
 import { safeHttpUrl } from "../../lib/utils";
 
-export function VideoBlock({ sources }: { sources: string[] }) {
+export function VideoBlock({ sources, inView }: { sources: string[]; inView: boolean }) {
   if (sources.length === 0) return null;
   return (
     <div className="mt-2 flex flex-col gap-2">
       {sources.map((src, i) => (
-        <video
+        // Fixed-aspect wrapper: the <video> resizes to the clip's intrinsic
+        // dimensions once `preload="metadata"` resolves. Inside a virtualized
+        // feed that late resize desyncs row measurements and overlaps cards,
+        // so the box height is deterministic. The <video> only mounts when the
+        // card is on screen (inView) — off-screen rows keep the empty box.
+        <div
           key={i}
-          src={src}
-          controls
-          playsInline
-          preload="metadata"
-          className="max-w-full max-h-80 rounded-sm bg-bg-raised border border-border"
-          onError={(e) => { (e.target as HTMLVideoElement).style.display = "none"; }}
-        />
+          className="w-full aspect-video rounded-sm bg-bg-raised border border-border overflow-hidden"
+        >
+          {inView && (
+            <video
+              src={src}
+              controls
+              playsInline
+              preload="metadata"
+              className="w-full h-full object-contain"
+              onError={(e) => { (e.target as HTMLVideoElement).style.display = "none"; }}
+            />
+          )}
+        </div>
       ))}
     </div>
   );
