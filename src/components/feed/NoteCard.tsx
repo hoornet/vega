@@ -86,14 +86,14 @@ export const NoteCard = memo(function NoteCard({ event, focused, onReplyInThread
               alt={`${name}'s avatar`}
               width={36}
               height={36}
-              className="w-9 h-9 rounded-sm object-cover bg-bg-raised ring-1 ring-transparent hover:ring-accent/40 transition-all"
+              className="w-9 h-9 rounded-md object-cover bg-bg-raised ring-1 ring-transparent hover:ring-accent/40 transition-all"
               loading="lazy"
               onError={(e) => {
                 (e.target as HTMLImageElement).style.display = "none";
               }}
             />
           ) : (
-            <div className="w-9 h-9 rounded-sm bg-bg-raised border border-border flex items-center justify-center text-text-dim text-xs hover:border-accent/40 transition-colors">
+            <div className="w-9 h-9 rounded-md bg-bg-raised border border-border flex items-center justify-center text-text-dim text-xs hover:border-accent/40 transition-colors">
               {name.charAt(0).toUpperCase()}
             </div>
           )}

@@ -52,7 +52,7 @@ export const ArticleCard = memo(function ArticleCard({ event }: { event: NDKEven
         {/* Text content */}
         <div className="flex-1 min-w-0">
           {/* Title */}
-          <h3 className="text-text text-[14px] font-medium leading-snug mb-1 line-clamp-2">
+          <h3 className="text-text text-[15px] font-semibold leading-snug mb-1.5 line-clamp-2">
             {title || "Untitled"}
           </h3>
 
@@ -73,11 +73,11 @@ export const ArticleCard = memo(function ArticleCard({ event }: { event: NDKEven
                 <img
                   src={profile.picture}
                   alt={`${authorName}'s avatar`}
-                  className="w-5 h-5 rounded-sm object-cover"
+                  className="w-5 h-5 rounded-md object-cover"
                   onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
                 />
               ) : (
-                <div className="w-5 h-5 rounded-sm bg-bg-raised border border-border flex items-center justify-center text-text-dim text-[9px]">
+                <div className="w-5 h-5 rounded-md bg-bg-raised border border-border flex items-center justify-center text-text-dim text-[9px]">
                   {authorName.charAt(0).toUpperCase()}
                 </div>
               )}
@@ -96,7 +96,7 @@ export const ArticleCard = memo(function ArticleCard({ event }: { event: NDKEven
           {tags.length > 0 && (
             <div className="flex flex-wrap gap-1">
               {tags.slice(0, 5).map((tag) => (
-                <span key={tag} className="px-1.5 py-0 text-[9px] border border-border text-text-dim">
+                <span key={tag} className="px-2 py-0.5 text-[10px] border border-border text-text-dim rounded-sm">
                   #{tag}
                 </span>
               ))}

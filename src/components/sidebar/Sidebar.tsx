@@ -9,20 +9,20 @@ import pkg from "../../../package.json";
 // Items marked `requiresSigner: true` are hidden in read-only mode
 // because they're account-bound and have no useful content without a signer.
 const NAV_ITEMS = [
-  { id: "feed" as const, label: "feed", icon: "◈" },
-  { id: "articles" as const, label: "articles", icon: "☰" },
-  { id: "media" as const, label: "media", icon: "▶" },
-  { id: "podcasts" as const, label: "podcasts", icon: "🎙" },
-  { id: "search" as const, label: "search", icon: "⌕" },
-  { id: "bookmarks" as const, label: "bookmarks", icon: "★", requiresSigner: true },
-  { id: "dm" as const, label: "messages", icon: "✉", requiresSigner: true },
-  { id: "notifications" as const, label: "notifications", icon: "🔔", requiresSigner: true },
-  { id: "follows" as const, label: "follows", icon: "👥" },
-  { id: "zaps" as const, label: "zaps", icon: "⚡", requiresSigner: true },
-  { id: "v4v" as const, label: "v4v", icon: "📡", requiresSigner: true },
-  { id: "relays" as const, label: "relays", icon: "⟐" },
-  { id: "settings" as const, label: "settings", icon: "⚙" },
-  { id: "about" as const, label: "support", icon: "♥" },
+  { id: "feed" as const, label: "Feed", icon: "◈" },
+  { id: "articles" as const, label: "Articles", icon: "☰" },
+  { id: "media" as const, label: "Media", icon: "▶" },
+  { id: "podcasts" as const, label: "Podcasts", icon: "🎙" },
+  { id: "search" as const, label: "Search", icon: "⌕" },
+  { id: "bookmarks" as const, label: "Bookmarks", icon: "★", requiresSigner: true },
+  { id: "dm" as const, label: "Messages", icon: "✉", requiresSigner: true },
+  { id: "notifications" as const, label: "Notifications", icon: "🔔", requiresSigner: true },
+  { id: "follows" as const, label: "People", icon: "👥" },
+  { id: "zaps" as const, label: "Zaps", icon: "⚡", requiresSigner: true },
+  { id: "v4v" as const, label: "Value 4 Value", icon: "📡", requiresSigner: true },
+  { id: "relays" as const, label: "Relays", icon: "⟐" },
+  { id: "settings" as const, label: "Settings", icon: "⚙" },
+  { id: "about" as const, label: "Support", icon: "♥" },
 ] as const;
 
 export function Sidebar() {
@@ -57,7 +57,7 @@ export function Sidebar() {
           /* Expanded: brand on left, collapse chevron on right */
           <>
             <div className="flex flex-col">
-              <span className="text-sm font-bold tracking-widest text-text select-none">VEGA</span>
+              <span className="text-sm font-bold tracking-[0.2em] text-text select-none">VEGA</span>
               <span className="text-text-dim text-[9px] font-mono opacity-50">v{pkg.version}</span>
             </div>
             <button
@@ -91,7 +91,7 @@ export function Sidebar() {
                 <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full bg-accent" />
               )}
             </span>
-            {!c && <span>write article</span>}
+            {!c && <span>Write Article</span>}
             {!c && draftCount > 0 && (
               <span className="ml-auto text-[10px] bg-accent/20 text-accent px-1.5 py-0.5 rounded-sm">{draftCount}</span>
             )}
