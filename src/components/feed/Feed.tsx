@@ -8,6 +8,7 @@ import { useWoTStore } from "../../stores/wot";
 import { fetchFollowFeed, getNDK, ensureConnected } from "../../lib/nostr";
 import { diagWrapFetch, logDiag } from "../../lib/feedDiagnostics";
 import { detectScript, getEventLanguageTag, FILTER_SCRIPTS } from "../../lib/language";
+import { estimateNoteHeight } from "../../lib/feedEstimate";
 import { NoteCard } from "./NoteCard";
 import { ArticleCard } from "../article/ArticleCard";
 import { ComposeBox } from "./ComposeBox";
@@ -147,7 +148,15 @@ export function Feed() {
   const virtualizer = useVirtualizer({
     count: filteredNotes.length,
     getScrollElement: () => scrollRef.current,
-    estimateSize: () => 140,
+    // Content-aware estimate: a flat estimate makes every row snap to its real
+    // height on first measurement → upward-scroll flicker. estimateNoteHeight
+    // predicts the height from the note's content so the snap is negligible.
+    estimateSize: (index) => {
+      const e = filteredNotes[index];
+      if (!e) return 140;
+      // content column = scroll width minus card padding (32) + avatar col (48)
+      return estimateNoteHeight(e, (scrollRef.current?.clientWidth ?? 600) - 80);
+    },
     overscan: 6,
     // Key measurements by note id, not list index. The feed list mutates order
     // constantly — new notes prepend (flushPendingNotes), the WoT filter removes

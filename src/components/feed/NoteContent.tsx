@@ -93,25 +93,32 @@ function QuotePreview({ eventId }: { eventId: string }) {
     fetchNoteById(eventId).then(setEvent);
   }, [eventId]);
 
-  if (!event) return null;
-
   const rawName = profile?.displayName || profile?.name;
-  const name = (typeof rawName === "string" ? rawName : null) || shortenPubkey(event.pubkey);
-  const preview = event.content.slice(0, 160) + (event.content.length > 160 ? "…" : "");
+  const name = (typeof rawName === "string" ? rawName : null) || (event ? shortenPubkey(event.pubkey) : "");
+  const preview = event ? event.content.slice(0, 160) + (event.content.length > 160 ? "…" : "") : "";
 
+  // Fixed-height box, reserved whether or not the quoted note has resolved.
+  // QuotePreview used to render null until fetchNoteById resolved, then pop in
+  // a box — that late growth (~70-200px) desynced the virtualizer and was the
+  // main cause of upward-scroll flicker. The box height never changes now; the
+  // 2-line clamp keeps resolved content inside the reserved space.
   return (
     <div
-      className="mt-2 border border-border bg-bg-raised px-3 py-2 cursor-pointer hover:bg-bg-hover transition-colors"
-      onClick={(e) => { e.stopPropagation(); openThread(event, currentView as "feed" | "profile"); }}
+      className={`mt-2 h-20 border border-border bg-bg-raised px-3 py-2 overflow-hidden transition-colors ${event ? "cursor-pointer hover:bg-bg-hover" : ""}`}
+      onClick={event ? (e) => { e.stopPropagation(); openThread(event, currentView as "feed" | "profile"); } : undefined}
     >
-      <div className="flex items-center gap-2 mb-1">
-        {profile?.picture && (
-          <img src={profile.picture} alt={`${name}'s avatar`} className="w-4 h-4 rounded-sm object-cover shrink-0"
-            onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
-        )}
-        <span className="text-text-muted text-[11px] font-medium truncate">{name}</span>
-      </div>
-      <p className="text-text-dim text-[11px] leading-relaxed whitespace-pre-wrap break-words">{preview}</p>
+      {event && (
+        <>
+          <div className="flex items-center gap-2 mb-1">
+            {profile?.picture && (
+              <img src={profile.picture} alt={`${name}'s avatar`} className="w-4 h-4 rounded-md object-cover shrink-0"
+                onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
+            )}
+            <span className="text-text-muted text-[11px] font-medium truncate">{name}</span>
+          </div>
+          <p className="text-text-dim text-[11px] leading-relaxed break-words line-clamp-2">{preview}</p>
+        </>
+      )}
     </div>
   );
 }
