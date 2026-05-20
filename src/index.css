@@ -4,22 +4,22 @@
   /* Colour vars below mirror the `midnight` theme in src/lib/themes.ts.
      applyTheme() overrides these at runtime — keep them in sync so the
      pre-theme initial paint matches and there is no colour flash. */
-  --color-bg: #0a0a0a;
-  --color-bg-raised: #121212;
-  --color-bg-hover: #1c1c1c;
-  --color-border: #2a2a2a;
-  --color-border-subtle: #1e1e1e;
-  --color-text: #e8e8e8;
-  --color-text-muted: #a0a0a0;
-  --color-text-dim: #6e6e6e;
-  --color-accent: #9d7aff;
+  --color-bg: #0d0e12;
+  --color-bg-raised: #161820;
+  --color-bg-hover: #1f222c;
+  --color-border: #2b2e3a;
+  --color-border-subtle: #1d1f29;
+  --color-text: #e8e9ee;
+  --color-text-muted: #9a9db0;
+  --color-text-dim: #686b7d;
+  --color-accent: #a78bfa;
   --color-accent-hover: #8b5cf6;
   --color-accent-text: #ffffff;
-  --color-zap: #f59e0b;
-  --color-zap-text: #000000;
-  --color-danger: #ef4444;
-  --color-warning: #f59e0b;
-  --color-success: #22c55e;
+  --color-zap: #f5b73d;
+  --color-zap-text: #15161a;
+  --color-danger: #ef5f6b;
+  --color-warning: #f5b73d;
+  --color-success: #4cc98a;
   --font-ui: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
   --font-mono: "JetBrains Mono", "Fira Code", "SF Mono", monospace;
   --font-reading: Georgia, "Times New Roman", "Noto Serif", serif;
