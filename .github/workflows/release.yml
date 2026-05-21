@@ -69,6 +69,34 @@ jobs:
 
             > **Windows note:** The installer is not yet code-signed. Windows SmartScreen will show an "Unknown publisher" warning — click "More info → Run anyway" to install.
 
+            ### v0.13.0 — Visual overhaul: themes, readability & accessibility
+
+            A broad visual pass — typography, colour, and icons reworked across the app — plus two new accessibility features and a round of feed fixes.
+
+            **Themes**
+
+            - All four home-grown themes — **Midnight, Light, Sepia, Hackerman** — were redesigned as proper palettes: even background-elevation steps, a real three-tier text hierarchy with verified contrast, and considered accents. The community palettes (Catppuccin, Nord, Gruvbox) are unchanged.
+            - **New "Reader" theme** — a warm, low-glare cream palette for comfortable long reading. Pairs naturally with the long-form article view.
+
+            **Accessibility**
+
+            - **Easy-Read Font** (Settings → Appearance) — switches the interface to Atkinson Hyperlegible, a typeface designed by the Braille Institute for legibility, with slightly wider letter-spacing and line-height. Helps dyslexic readers and anyone in a long reading session.
+            - **Your secret key is now viewable** in Settings → Identity — reveal, hide, copy. Previously the `nsec` was unreachable after onboarding; you can now back it up or move to another client at any time.
+
+            **Interface**
+
+            - The UI font is now a system sans-serif rather than monospace; base text is a little larger with more line-height. Sidebar labels are Title Case.
+            - **Lucide icon set** — the sidebar's Unicode glyphs are replaced with crisp SVG icons that render consistently at any size and zoom.
+            - Redrawn default (Midnight) theme with deeper, calmer contrast; rounded avatars; stronger article-card titles.
+
+            **Feed fixes**
+
+            - Fixed cards overlapping or leaving gaps while scrolling, and an upward-scroll flicker — three separate row-measurement bugs in the v0.12.17 virtualized feed.
+
+            **Onboarding**
+
+            - A step-progress indicator across the create-key flow, and an "I'll back up my key later" option for people who want to explore the app first (the key stays retrievable in Settings → Identity).
+
             ### v0.12.17 — Infinite scroll & a virtualized feed
 
             The feed no longer stops at a fixed number of notes. Scroll to the bottom and older notes load automatically — no manual Refresh.
