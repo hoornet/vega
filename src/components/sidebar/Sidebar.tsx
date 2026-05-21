@@ -1,4 +1,9 @@
-import { useUIStore } from "../../stores/ui";
+import type { ReactNode } from "react";
+import {
+  Rss, BookOpen, Image as ImageIcon, Mic2, Search, Bookmark, Mail, Bell,
+  Users, Zap, Radio, Wifi, Settings, Heart, PenLine,
+} from "lucide-react";
+import { useUIStore, type View } from "../../stores/ui";
 import { useCanSign } from "../../stores/user";
 import { useNotificationsStore } from "../../stores/notifications";
 import { useDraftStore } from "../../stores/drafts";
@@ -8,22 +13,29 @@ import pkg from "../../../package.json";
 
 // Items marked `requiresSigner: true` are hidden in read-only mode
 // because they're account-bound and have no useful content without a signer.
-const NAV_ITEMS = [
-  { id: "feed" as const, label: "Feed", icon: "◈" },
-  { id: "articles" as const, label: "Articles", icon: "☰" },
-  { id: "media" as const, label: "Media", icon: "▶" },
-  { id: "podcasts" as const, label: "Podcasts", icon: "🎙" },
-  { id: "search" as const, label: "Search", icon: "⌕" },
-  { id: "bookmarks" as const, label: "Bookmarks", icon: "★", requiresSigner: true },
-  { id: "dm" as const, label: "Messages", icon: "✉", requiresSigner: true },
-  { id: "notifications" as const, label: "Notifications", icon: "🔔", requiresSigner: true },
-  { id: "follows" as const, label: "People", icon: "👥" },
-  { id: "zaps" as const, label: "Zaps", icon: "⚡", requiresSigner: true },
-  { id: "v4v" as const, label: "Value 4 Value", icon: "📡", requiresSigner: true },
-  { id: "relays" as const, label: "Relays", icon: "⟐" },
-  { id: "settings" as const, label: "Settings", icon: "⚙" },
-  { id: "about" as const, label: "Support", icon: "♥" },
-] as const;
+interface NavItem {
+  id: View;
+  label: string;
+  icon: ReactNode;
+  requiresSigner?: boolean;
+}
+
+const NAV_ITEMS: NavItem[] = [
+  { id: "feed", label: "Feed", icon: <Rss size={15} /> },
+  { id: "articles", label: "Articles", icon: <BookOpen size={15} /> },
+  { id: "media", label: "Media", icon: <ImageIcon size={15} /> },
+  { id: "podcasts", label: "Podcasts", icon: <Mic2 size={15} /> },
+  { id: "search", label: "Search", icon: <Search size={15} /> },
+  { id: "bookmarks", label: "Bookmarks", icon: <Bookmark size={15} />, requiresSigner: true },
+  { id: "dm", label: "Messages", icon: <Mail size={15} />, requiresSigner: true },
+  { id: "notifications", label: "Notifications", icon: <Bell size={15} />, requiresSigner: true },
+  { id: "follows", label: "People", icon: <Users size={15} /> },
+  { id: "zaps", label: "Zaps", icon: <Zap size={15} />, requiresSigner: true },
+  { id: "v4v", label: "Value 4 Value", icon: <Radio size={15} />, requiresSigner: true },
+  { id: "relays", label: "Relays", icon: <Wifi size={15} /> },
+  { id: "settings", label: "Settings", icon: <Settings size={15} /> },
+  { id: "about", label: "Support", icon: <Heart size={15} /> },
+];
 
 export function Sidebar() {
   const { currentView, setView, sidebarCollapsed, toggleSidebar } = useUIStore();
@@ -85,8 +97,8 @@ export function Sidebar() {
                 : "text-text-muted hover:text-text hover:bg-bg-hover"
             }`}
           >
-            <span className="relative w-4 text-center text-[14px]">
-              ✦
+            <span className="relative w-4 flex items-center justify-center shrink-0">
+              <PenLine size={15} />
               {c && draftCount > 0 && (
                 <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full bg-accent" />
               )}
@@ -111,7 +123,7 @@ export function Sidebar() {
                   : "text-text-muted hover:text-text hover:bg-bg-hover"
               }`}
             >
-              <span className="relative w-4 text-center text-[14px]">
+              <span className="relative w-4 flex items-center justify-center shrink-0">
                 {item.icon}
                 {badge > 0 && c && (
                   <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full bg-accent" />
