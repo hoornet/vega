@@ -96,6 +96,7 @@ function App() {
   const showDebugPanel = useUIStore((s) => s.showDebugPanel);
   const toggleDebugPanel = useUIStore((s) => s.toggleDebugPanel);
   const fontSize = useUIStore((s) => s.fontSize);
+  const easyReadFont = useUIStore((s) => s.easyReadFont);
   const themeId = useUIStore((s) => s.themeId);
   const [onboardingDone, setOnboardingDone] = useState(
     () => !!localStorage.getItem("wrystr_pubkey")
@@ -116,6 +117,11 @@ function App() {
     const theme = getTheme(themeId);
     if (theme) applyTheme(theme);
   }, [themeId]);
+
+  // Apply easy-read font class on <html>
+  useEffect(() => {
+    document.documentElement.classList.toggle("font-readable", easyReadFont);
+  }, [easyReadFont]);
 
   // Intercept external link clicks and open in system browser via Tauri opener
   useEffect(() => {

@@ -434,6 +434,36 @@ function FontSizeSection() {
   );
 }
 
+function EasyReadFontSection() {
+  const { easyReadFont, setEasyReadFont } = useUIStore();
+
+  return (
+    <section>
+      <h2 className="text-text text-[11px] font-medium uppercase tracking-widest mb-2 text-text-dim">
+        Easy-Read Font
+      </h2>
+      <div className="flex flex-wrap items-center gap-2">
+        <button
+          onClick={() => setEasyReadFont(!easyReadFont)}
+          className={`px-3 py-1.5 text-[11px] border transition-colors ${
+            easyReadFont
+              ? "border-accent text-accent"
+              : "border-border text-text-muted hover:text-text hover:border-accent/40"
+          }`}
+        >
+          {easyReadFont ? "On" : "Off"}
+        </button>
+      </div>
+      <p className="text-text-dim text-[10px] mt-2 px-1">
+        Switches the UI to Atkinson Hyperlegible — a font designed by the
+        Braille Institute for legibility. Helps dyslexic readers and anyone
+        reading long sessions; slightly wider letter-spacing and line-height
+        applied per evidence-based guidance.
+      </p>
+    </section>
+  );
+}
+
 function formatBytes(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
@@ -515,6 +545,7 @@ export function SettingsView() {
       <div className="flex-1 overflow-y-auto p-4 space-y-8">
         <ThemeSection />
         <FontSizeSection />
+        <EasyReadFontSection />
         <WalletSection />
         <NotificationSection />
         <ExperimentalSection />

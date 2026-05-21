@@ -4,6 +4,8 @@ import { debug } from "./lib/debug";
 import { createRoot } from "react-dom/client";
 import App from "./App";
 import "./index.css";
+import "@fontsource/atkinson-hyperlegible/400.css";
+import "@fontsource/atkinson-hyperlegible/700.css";
 import { useUserStore } from "./stores/user";
 
 // Error boundary to catch React error #31 and show details instead of blank screen

@@ -31,6 +31,7 @@ interface UIState {
   feedLanguageFilter: string | null;
   followsTab: "followers" | "following";
   fontSize: number;
+  easyReadFont: boolean;
   themeId: string;
   setView: (view: View) => void;
   setFollowsTab: (tab: "followers" | "following") => void;
@@ -44,6 +45,7 @@ interface UIState {
   goBack: () => void;
   setFeedLanguageFilter: (filter: string | null) => void;
   setFontSize: (size: number) => void;
+  setEasyReadFont: (on: boolean) => void;
   setTheme: (id: string) => void;
   toggleSidebar: () => void;
   toggleHelp: () => void;
@@ -52,6 +54,7 @@ interface UIState {
 
 const SIDEBAR_KEY = "wrystr_sidebar_collapsed";
 const FONT_SIZE_KEY = "wrystr_font_size";
+const EASY_READ_FONT_KEY = "wrystr_easy_read_font";
 const THEME_KEY = "wrystr_theme";
 const SCRIPT_FILTER_KEY = "wrystr_script_filter";
 
@@ -73,6 +76,7 @@ export const useUIStore = create<UIState>((set, _get) => ({
   feedLanguageFilter: localStorage.getItem(SCRIPT_FILTER_KEY) || null,
   followsTab: "followers",
   fontSize: parseInt(localStorage.getItem(FONT_SIZE_KEY) || "14", 10),
+  easyReadFont: localStorage.getItem(EASY_READ_FONT_KEY) === "true",
   themeId: localStorage.getItem(THEME_KEY) || "midnight",
   setView: (currentView) => set({ currentView }),
   setFeedTab: (feedTab) => set({ feedTab }),
@@ -114,6 +118,10 @@ export const useUIStore = create<UIState>((set, _get) => ({
   setFontSize: (fontSize) => {
     localStorage.setItem(FONT_SIZE_KEY, String(fontSize));
     set({ fontSize });
+  },
+  setEasyReadFont: (easyReadFont) => {
+    localStorage.setItem(EASY_READ_FONT_KEY, String(easyReadFont));
+    set({ easyReadFont });
   },
   setTheme: (themeId) => {
     localStorage.setItem(THEME_KEY, themeId);

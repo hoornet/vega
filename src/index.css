@@ -46,6 +46,18 @@ body {
   overflow: hidden;
 }
 
+/* Easy-read font — Atkinson Hyperlegible — toggleable in Settings.
+   Designed by the Braille Institute for legibility; helps dyslexic readers
+   and anyone reading long sessions. Letter-spacing and line-height nudged
+   per evidence-based guidance. */
+html.font-readable {
+  --font-ui: "Atkinson Hyperlegible", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+html.font-readable body {
+  letter-spacing: 0.012em;
+  line-height: 1.65;
+}
+
 /* Allow text selection in article editor */
 .article-editor textarea,
 .article-editor input {
