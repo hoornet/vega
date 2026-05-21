@@ -10,11 +10,36 @@ interface OnboardingFlowProps {
 
 // ─── Shared layout ───────────────────────────────────────────────────────────
 
-function Shell({ children }: { children: React.ReactNode }) {
+function Shell({
+  children,
+  step,
+  totalSteps,
+}: {
+  children: React.ReactNode;
+  step?: number;
+  totalSteps?: number;
+}) {
   return (
     <div className="h-screen w-screen bg-bg flex items-center justify-center">
       <div className="w-full max-w-md px-8">
-        <div className="text-text-dim text-[10px] font-bold tracking-[0.3em] uppercase mb-8">VEGA</div>
+        {/* Logo wordmark */}
+        <div className="text-accent text-[18px] font-bold tracking-[0.25em] mb-2 select-none">VEGA</div>
+
+        {/* Step dots — shown only for the linear create→backup→interests path */}
+        {step !== undefined && totalSteps !== undefined && (
+          <div className="flex gap-1.5 mb-8">
+            {Array.from({ length: totalSteps }).map((_, i) => (
+              <span
+                key={i}
+                className={`h-1 rounded-full transition-all duration-300 ${
+                  i < step ? "bg-accent w-4" : i === step ? "bg-accent w-6" : "bg-border w-4"
+                }`}
+              />
+            ))}
+          </div>
+        )}
+        {step === undefined && <div className="mb-8" />}
+
         {children}
       </div>
     </div>
@@ -70,7 +95,7 @@ function InterestsStep({ onComplete }: { onComplete: () => void }) {
   };
 
   return (
-    <Shell>
+    <Shell step={2} totalSteps={3}>
       <Heading>What are you into?</Heading>
       <Body>Pick a few topics to get your feed started. You can always change this later.</Body>
 
@@ -157,7 +182,7 @@ function CreateStep({ onNext }: { onNext: (signer: NDKPrivateKeySigner) => void 
   };
 
   return (
-    <Shell>
+    <Shell step={0} totalSteps={3}>
       <Heading>Your identity is ready.</Heading>
       <Body>
         We generated a unique key pair for you. Your <strong className="text-text">public key</strong> is
@@ -215,8 +240,18 @@ function BackupStep({ signer, onComplete }: { signer: NDKPrivateKeySigner; onCom
     onComplete();
   };
 
+  // "Back up later" escape hatch — runs the SAME login as confirming (this is
+  // what saves the key to the keychain and signs in); it only skips the
+  // checkbox gate. The key stays retrievable via Settings → Identity.
+  const handleSkipBackup = async () => {
+    setSaving(true);
+    await loginWithNsec(signer.nsec);
+    setSaving(false);
+    onComplete();
+  };
+
   return (
-    <Shell>
+    <Shell step={1} totalSteps={3}>
       <Heading>Save your secret key.</Heading>
       <Body>
         Your <strong className="text-text">secret key</strong> is the only way to recover your
@@ -272,6 +307,16 @@ function BackupStep({ signer, onComplete }: { signer: NDKPrivateKeySigner; onCom
       >
         {saving ? "Setting up…" : "Start using Vega"}
       </button>
+      <button
+        onClick={handleSkipBackup}
+        disabled={saving}
+        className="w-full py-2 text-[11px] text-text-dim hover:text-text transition-colors mt-1 disabled:opacity-30"
+      >
+        I'll back up my key later
+      </button>
+      <p className="text-warning text-[10px] text-center mt-1 opacity-70">
+        You can reveal your key any time in Settings → Identity.
+      </p>
     </Shell>
   );
 }

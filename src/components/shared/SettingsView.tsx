@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { save } from "@tauri-apps/plugin-dialog";
 import { writeTextFile } from "@tauri-apps/plugin-fs";
+import { invoke } from "@tauri-apps/api/core";
 import { useUserStore } from "../../stores/user";
 import { useUIStore } from "../../stores/ui";
 import { useWoTStore } from "../../stores/wot";
@@ -206,8 +207,18 @@ function WoTSection() {
 }
 
 function IdentitySection() {
-  const { npub, loggedIn } = useUserStore();
+  const { npub, loggedIn, pubkey } = useUserStore();
   const [copied, setCopied] = useState(false);
+  const [nsec, setNsec] = useState<string | null>(null);
+  const [revealed, setRevealed] = useState(false);
+  const [nsecCopied, setNsecCopied] = useState(false);
+
+  // Load the secret key from the OS keychain. Returns null for read-only
+  // (npub) and remote-signer (bunker) accounts — the nsec row is hidden then.
+  useEffect(() => {
+    if (!pubkey) return;
+    invoke<string | null>("load_nsec", { pubkey }).then(setNsec).catch(() => setNsec(null));
+  }, [pubkey]);
 
   if (!loggedIn || !npub) {
     return (
@@ -225,6 +236,14 @@ function IdentitySection() {
     });
   };
 
+  const handleCopyNsec = () => {
+    if (!nsec) return;
+    navigator.clipboard.writeText(nsec).then(() => {
+      setNsecCopied(true);
+      setTimeout(() => setNsecCopied(false), 2000);
+    });
+  };
+
   return (
     <section>
       <h2 className="text-text text-[11px] font-medium uppercase tracking-widest mb-2 text-text-dim">Identity</h2>
@@ -238,6 +257,33 @@ function IdentitySection() {
         </button>
       </div>
       <p className="text-text-dim text-[10px] mt-1 px-1">Your public key. Safe to share.</p>
+
+      {nsec && (
+        <>
+          <div className="flex items-center gap-2 px-3 py-2 border border-danger/40 mt-3">
+            <span className={`font-mono text-[11px] truncate flex-1 ${revealed ? "text-text" : "text-text-dim"}`}>
+              {revealed ? nsec : "•".repeat(48)}
+            </span>
+            <button
+              onClick={() => setRevealed((v) => !v)}
+              className="text-[10px] text-text-dim hover:text-text transition-colors shrink-0"
+            >
+              {revealed ? "hide" : "reveal"}
+            </button>
+            {revealed && (
+              <button
+                onClick={handleCopyNsec}
+                className="text-[10px] text-text-dim hover:text-danger transition-colors shrink-0"
+              >
+                {nsecCopied ? "copied ✓" : "copy"}
+              </button>
+            )}
+          </div>
+          <p className="text-text-dim text-[10px] mt-1 px-1">
+            Your secret key — the only way to recover this account. Never share it. Back it up somewhere safe.
+          </p>
+        </>
+      )}
     </section>
   );
 }
