@@ -32,7 +32,9 @@ export function useUpdater(): UpdateState {
 
   useEffect(() => {
     invoke<InstallInfo>("install_info")
-      .then(setInstallInfo)
+      // Guard: a null/garbage response must not blow away the optimistic
+      // default — installInfo is dereferenced unconditionally in the return.
+      .then((info) => { if (info) setInstallInfo(info); })
       .catch(() => { /* keep optimistic default */ });
   }, []);
 

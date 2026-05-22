@@ -97,7 +97,7 @@ function InterestsStep({ onComplete }: { onComplete: () => void }) {
   return (
     <Shell step={2} totalSteps={3}>
       <Heading>What are you into?</Heading>
-      <Body>Pick a few topics to get your feed started. You can always change this later.</Body>
+      <Body>Pick a few topics — we'll suggest them as hashtags to explore.</Body>
 
       <div className="grid grid-cols-3 gap-2 mb-7">
         {INTEREST_TOPICS.map(({ emoji, label, tag }) => {

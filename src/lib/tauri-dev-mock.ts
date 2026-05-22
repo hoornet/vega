@@ -29,6 +29,9 @@ if (import.meta.env.DEV && !(window as any).__TAURI_INTERNALS__) {
         return [];
       case "db_load_profile":
         return null;
+      case "install_info":
+        // Browser dev mode has no real install — mirror useUpdater's default.
+        return { can_self_update: true, kind: "updater" };
       default:
         console.warn("[tauri-dev-mock] unhandled invoke:", cmd, args);
         return null;
