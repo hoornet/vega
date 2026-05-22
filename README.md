@@ -45,7 +45,7 @@ echo "untrusted comment: minisign public key: F9D2C39297592652
 RWRSJlmXksPS+cSpOrnmUpmJSebrbT1gxNeS33X/S7fxBAb/SdvWewNm" > vega.pub
 
 # Verify an artifact
-minisign -Vm Vega_0.12.9_amd64.deb -p vega.pub
+minisign -Vm Vega_0.13.0_amd64.deb -p vega.pub
 ```
 
 **Note:** The macOS `.dmg` is not yet signed. Linux `.deb`/`.rpm` and Windows `.exe`/`.msi` ship with minisign `.sig` files — the same signatures used by the auto-updater.
@@ -59,10 +59,11 @@ minisign -Vm Vega_0.12.9_amd64.deb -p vega.pub
 - **NIP-46 remote signer** — connect via `bunker://` URI (nsecBunker, Amber, etc.) with session persistence across restarts
 - **Multi-account switcher** — save multiple identities, switch instantly from the sidebar
 - **OS keychain integration** — nsec stored in macOS Keychain / Windows Credential Manager / Linux Secret Service; sessions survive restarts
+- **View your secret key** — reveal and copy your `nsec` from Settings → Identity at any time, to back it up or move to another client
 
 **Feed & content**
-- **Live streaming feed** — persistent relay subscriptions deliver new notes in real-time; no manual refresh needed
-- Global and following feeds with live relay connection
+- **Virtualized feed with infinite scroll** — the Global feed loads older notes automatically as you scroll; only on-screen notes stay in memory, so it remains fast and memory-bounded no matter how far you go
+- Global, Following, and Trending feeds; instant load from local cache on startup, Refresh pulls the latest
 - **Language/script feed filter** — filter by writing system (Latin, CJK, Cyrillic, Arabic, Korean, etc.) via dropdown in feed header; uses Unicode detection + NIP-32 language tags
 - Compose notes, inline replies, **nested thread trees** with reply-to-any-note and multi-level back navigation
 - **Image upload with NIP-98 auth** — paste from clipboard, drag-drop, or use the file picker; uploads authenticated via NIP-98 HTTP Auth with fallback services
@@ -126,8 +127,9 @@ minisign -Vm Vega_0.12.9_amd64.deb -p vega.pub
 - **NIP-05 verification badges** — cached verification with green checkmark on note cards
 
 **Personalization**
-- **Color themes** — 7 built-in themes: Midnight (default dark), Light, Catppuccin Mocha, Sepia, Gruvbox, Nord Frost, Hackerman; instant switching from Settings
+- **Color themes** — 8 built-in themes: Midnight (default dark), Light, Catppuccin Mocha, Sepia, Gruvbox, Nord Frost, Hackerman, and **Reader** (a warm, low-glare palette for comfortable long reading); instant switching from Settings
 - **Font size** — Small / Normal / Large / Extra Large presets; scales the entire UI uniformly
+- **Easy-Read Font** — optional Atkinson Hyperlegible typeface, designed by the Braille Institute for legibility, with slightly wider letter-spacing and line-height; helps dyslexic readers and long reading sessions
 
 **Performance & UX**
 - **Resilient relay connectivity** — all relay queries have timeouts (no more infinite loading); automatic reconnection with NDK instance reset as last resort; toast notifications for connection events; feed diagnostics for debugging
