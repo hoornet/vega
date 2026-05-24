@@ -10,6 +10,7 @@ import { nip19 } from "@nostr-dev-kit/ndk";
 import { useProfile } from "../../hooks/useProfile";
 import { profileName } from "../../lib/utils";
 import { ZapModal } from "../zap/ZapModal";
+import { ImageLightbox } from "../shared/ImageLightbox";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -138,6 +139,18 @@ export function ArticleView() {
   const [progress, setProgress] = useState(0);
   const [headings, setHeadings] = useState<TocHeading[]>([]);
   const [activeId, setActiveId] = useState("");
+  const [lightbox, setLightbox] = useState<{ images: string[]; index: number } | null>(null);
+
+  const handleContentClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    const target = e.target as HTMLElement;
+    if (!(target instanceof HTMLImageElement)) return;
+    const root = contentRef.current;
+    if (!root) return;
+    const imgs = Array.from(root.querySelectorAll<HTMLImageElement>("img"));
+    const index = imgs.indexOf(target);
+    if (index < 0) return;
+    setLightbox({ images: imgs.map((img) => img.src), index });
+  }, []);
 
   // Extract headings from rendered content and assign IDs
   useEffect(() => {
@@ -398,8 +411,17 @@ export function ArticleView() {
               <div
                 ref={contentRef}
                 className="prose-article"
+                onClick={handleContentClick}
                 dangerouslySetInnerHTML={{ __html: bodyHtml }}
               />
+              {lightbox && (
+                <ImageLightbox
+                  images={lightbox.images}
+                  index={lightbox.index}
+                  onClose={() => setLightbox(null)}
+                  onNavigate={(i) => setLightbox({ ...lightbox, index: i })}
+                />
+              )}
 
               {/* Footer */}
               <div className="mt-10 pt-6 border-t border-border flex items-center justify-between">

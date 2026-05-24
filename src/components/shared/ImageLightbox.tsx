@@ -60,12 +60,12 @@ export function ImageLightbox({ images, index, onClose, onNavigate }: ImageLight
         </button>
       )}
 
-      {/* Image */}
+      {/* Image — click to close (same gesture as clicking the backdrop) */}
       <img
         src={images[index]}
         alt={`Image ${index + 1} of ${images.length}`}
-        className="max-w-[90vw] max-h-[90vh] object-contain select-none"
-        onClick={(e) => e.stopPropagation()}
+        className="max-w-[90vw] max-h-[90vh] object-contain select-none cursor-zoom-out"
+        onClick={onClose}
         draggable={false}
       />
 
