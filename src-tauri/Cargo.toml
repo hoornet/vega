@@ -1,6 +1,6 @@
 [package]
 name = "vega"
-version = "0.13.0"
+version = "0.13.1"
 description = "Cross-platform Nostr desktop client with Lightning integration"
 authors = ["hoornet"]
 edition = "2021"

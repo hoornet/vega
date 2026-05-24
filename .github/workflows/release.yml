@@ -69,6 +69,13 @@ jobs:
 
             > **Windows note:** The installer is not yet code-signed. Windows SmartScreen will show an "Unknown publisher" warning — click "More info → Run anyway" to install.
 
+            ### v0.13.1 — Article reader: scroll lock fix + click-to-zoom
+
+            A targeted fix for a long-standing article-reader bug on Linux.
+
+            - **Scroll lock fixed.** Articles with body images would refuse to scroll past a certain point on Linux (WebKitGTK). Body images now sit in a reserved layout box that survives WebKit's image re-decode loop, so the article scrolls all the way through.
+            - **Click any body image to open it full-size.** The existing image lightbox is now wired up to article body images — click to enlarge, click again (or press Escape, or hit the ✕) to close. Arrow keys navigate between images in the article.
+
             ### v0.13.0 — Visual overhaul: themes, readability & accessibility
 
             A broad visual pass — typography, colour, and icons reworked across the app — plus two new accessibility features and a round of feed fixes.
