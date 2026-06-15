@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useState, useRef, useEffect, type ReactNode } from "react";
 import {
   Rss, BookOpen, Image as ImageIcon, Mic2, Search, Bookmark, Mail, Bell,
   Users, Zap, Radio, Wifi, Settings, Heart, PenLine,
@@ -47,11 +47,48 @@ export function Sidebar() {
 
   const c = sidebarCollapsed;
 
+  // Resizable width when expanded (issue #6), persisted to localStorage.
+  const SIDEBAR_WIDTH_KEY = "wrystr_sidebar_width";
+  const MIN_WIDTH = 160;
+  const MAX_WIDTH = 360;
+  const DEFAULT_WIDTH = 192; // matches the old w-48
+  const asideRef = useRef<HTMLElement>(null);
+  const [width, setWidth] = useState<number>(() => {
+    const saved = parseInt(localStorage.getItem(SIDEBAR_WIDTH_KEY) ?? "", 10);
+    return Number.isFinite(saved) && saved >= MIN_WIDTH && saved <= MAX_WIDTH ? saved : DEFAULT_WIDTH;
+  });
+  const [dragging, setDragging] = useState(false);
+
+  useEffect(() => {
+    if (!dragging) return;
+    const onMove = (e: MouseEvent) => {
+      const left = asideRef.current?.getBoundingClientRect().left ?? 0;
+      setWidth(Math.min(MAX_WIDTH, Math.max(MIN_WIDTH, e.clientX - left)));
+    };
+    const onUp = () => setDragging(false);
+    document.body.style.userSelect = "none";
+    document.body.style.cursor = "col-resize";
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+    return () => {
+      document.body.style.userSelect = "";
+      document.body.style.cursor = "";
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup", onUp);
+    };
+  }, [dragging]);
+
+  useEffect(() => {
+    localStorage.setItem(SIDEBAR_WIDTH_KEY, String(width));
+  }, [width]);
+
   return (
     <aside
-      className={`h-full border-r border-border bg-bg flex flex-col transition-all duration-150 shrink-0 ${
-        c ? "w-12" : "w-48"
-      }`}
+      ref={asideRef}
+      style={c ? undefined : { width }}
+      className={`relative h-full border-r border-border bg-bg flex flex-col shrink-0 ${
+        dragging ? "" : "transition-all duration-150"
+      } ${c ? "w-12" : ""}`}
     >
       {/* Header / logo */}
       <div className="border-b border-border px-2 py-2.5 flex items-center justify-between shrink-0">
@@ -143,6 +180,20 @@ export function Sidebar() {
         <div className="shrink-0">
           <AccountSwitcher />
         </div>
+      )}
+
+      {/* Resize handle — drag to set sidebar width (expanded only) */}
+      {!c && (
+        <div
+          onMouseDown={(e) => { e.preventDefault(); setDragging(true); }}
+          onDoubleClick={() => setWidth(DEFAULT_WIDTH)}
+          title="Drag to resize • double-click to reset"
+          role="separator"
+          aria-orientation="vertical"
+          className={`absolute top-0 right-0 h-full w-1 cursor-col-resize transition-colors ${
+            dragging ? "bg-accent/50" : "hover:bg-accent/40"
+          }`}
+        />
       )}
 
     </aside>
