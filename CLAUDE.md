@@ -146,6 +146,10 @@ CI triggers on the tag and builds all three platforms (Ubuntu, Windows, macOS AR
 - Media players (video/audio inline, YouTube/Vimeo/Spotify cards)
 - Multi-account switcher with keychain-backed session restore
 - System tray, keyboard shortcuts, auto-updater
+- **Update banner changelog** (v0.13.2) — "What's new" toggle expands the new version's release notes inline (sliced from the cumulative updater body via `latestChangelogSection` in `App.tsx`, rendered with `renderMarkdown`), plus a "Full changelog on GitHub" link
+- **Mute-aware search** (v0.13.2) — search results (notes/articles by pubkey + keyword, people by pubkey) honour the mute list, not just the feed
+- **Collapsing compose box** (v0.13.2) — single line when idle, expands on focus; uses focus-within blur semantics so toolbar clicks don't collapse it
+- **Resizable sidebar** (v0.13.2) — drag right edge (160–360px), double-click reset, width persisted to `wrystr_sidebar_width`
 - **NIP-05 verification badges** — cached verification with green checkmark on note cards
 - **Dedicated hashtag pages** — clicking #tag opens a live feed, not generic search
 - **Keyword muting** — word/phrase mute list, client-side filtering across all views

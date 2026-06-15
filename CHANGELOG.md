@@ -1,5 +1,18 @@
 # Changelog
 
+> Note: entries for v0.12.10 through v0.13.1 live in the [GitHub Releases](https://github.com/hoornet/vega/releases) notes; this file resumes at v0.13.2.
+
+## v0.13.2 — Mute-aware search, collapsing compose box & resizable sidebar (2026-06-15)
+
+### Added
+- **Update banner changelog.** When an update is available, a "What's new" toggle expands the newest version's release notes inline (rendered as markdown), with a link to the full changelog on GitHub. The notes were already fetched by the updater but never shown.
+- **Resizable left sidebar.** Drag the right edge to set the sidebar width (clamped 160–360px); double-click to reset. The chosen width persists to localStorage. Collapse-to-icons is unchanged.
+
+### Changed
+- **Search now respects the mute list (#7).** Notes, articles, and people from muted pubkeys — and posts matching muted keywords — are filtered out of search results, matching the feed. Previously only the people *suggestions* list was filtered.
+- **Compose box collapses when idle (#6).** The note composer shows as a single line until focused, then expands to full height with its toolbar; it stays expanded while you interact with its controls or have unsent content. Reclaims vertical space at the top of the feed (reported as oversized on macOS).
+- **Build migrated to Vite 8 / Rolldown.** `manualChunks` converted to the function form Rolldown requires. This also drops the `esbuild` dev-server dependency, clearing two Dependabot alerts (one high, one low).
+
 ## v0.12.9 — Web of Trust everywhere (2026-04-23)
 
 ### Changed

@@ -45,7 +45,7 @@ echo "untrusted comment: minisign public key: F9D2C39297592652
 RWRSJlmXksPS+cSpOrnmUpmJSebrbT1gxNeS33X/S7fxBAb/SdvWewNm" > vega.pub
 
 # Verify an artifact
-minisign -Vm Vega_0.13.0_amd64.deb -p vega.pub
+minisign -Vm Vega_0.13.2_amd64.deb -p vega.pub
 ```
 
 **Note:** The macOS `.dmg` is not yet signed. Linux `.deb`/`.rpm` and Windows `.exe`/`.msi` ship with minisign `.sig` files — the same signatures used by the auto-updater.
@@ -73,7 +73,7 @@ minisign -Vm Vega_0.13.0_amd64.deb -p vega.pub
 - Follow / unfollow (NIP-02) with contact list publishing
 - **Quote & Repost** (NIP-18) — one-click repost or quote with compose modal
 - **Bookmarks** (NIP-51 kind 10003) — save/unsave notes and articles; **Notes/Articles tabs** in bookmark view; article bookmarks use `a` tags for parameterized replaceable events; synced to relays
-- **Mute users** (NIP-51) — muted list synced to relays, filtered from feed
+- **Mute users** (NIP-51) — muted list synced to relays, filtered from feed and search results
 - **Long-form article experience** (NIP-23) — **markdown toolbar** (bold, italic, heading, link, image, quote, code, list) with keyboard shortcuts (Ctrl+B/I/K); **multi-draft management** with draft list, resume, delete; **cover image file picker**; dedicated article feed with Latest/Following tabs; article search by keyword or hashtag; article reader with reading time, bookmark, like, and zap; profile Articles tab
 - **Quoted note inline preview** — `nostr:note1…` / `nostr:nevent1…` renders as an inline card
 - **naddr clickable links** — `nostr:naddr1…` references resolve to clickable named links (article titles, etc.)
@@ -142,7 +142,9 @@ minisign -Vm Vega_0.13.0_amd64.deb -p vega.pub
 - **Reading list tracking** — read/unread state on bookmarked articles with unread dot indicators and sidebar badge
 - **Profile banner polish** — hero-height banner with click-to-lightbox, avatar overlaps banner edge with ring
 - **System tray** — close button hides to tray; "Quit" in tray menu to fully exit
-- Collapsible sidebar (icon-only mode)
+- **Collapsible & resizable sidebar** — collapse to icon-only mode, or drag the right edge to set the width (double-click to reset; remembered between sessions)
+- **Collapsing compose box** — sits as a single line when idle and expands to full height with the toolbar when you focus it, keeping the top of the feed compact
+- **Update banner with changelog** — when an update is available, "What's new" shows that version's changes inline, with a link to the full changelog on GitHub
 - **Keyboard shortcuts** — `n` compose, `/` search, `j`/`k` navigate feed, `Esc` back, `?` help overlay
 - Skeleton loading placeholders, view fade transitions
 - **Media pause on navigation** — video and audio in feed automatically pause when you navigate to another view
