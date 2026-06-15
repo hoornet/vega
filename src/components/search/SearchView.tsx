@@ -151,7 +151,7 @@ export function SearchView() {
   }, []);
 
   const { loggedIn, follows } = useUserStore();
-  const { mutedPubkeys } = useMuteStore();
+  const { mutedPubkeys, contentMatchesMutedKeyword } = useMuteStore();
   const { dismissedPubkeys, dismiss } = useDismissedSuggestionsStore();
 
   const visibleSuggestions = suggestions.filter(
@@ -265,7 +265,15 @@ export function SearchView() {
     if (e.key === "Enter") handleSearch();
   };
 
-  const totalResults = noteResults.length + userResults.length + articleResults.length;
+  // Respect the mute list in search results (issue #7): hide notes/articles
+  // from muted pubkeys or matching a muted keyword, and people who are muted.
+  const isMutedEvent = (e: NDKEvent) =>
+    mutedPubkeys.includes(e.pubkey) || contentMatchesMutedKeyword(e.content);
+  const filteredNoteResults = noteResults.filter((e) => !isMutedEvent(e));
+  const filteredArticleResults = articleResults.filter((e) => !isMutedEvent(e));
+  const filteredUserResults = userResults.filter((u) => !mutedPubkeys.includes(u.pubkey));
+
+  const totalResults = filteredNoteResults.length + filteredUserResults.length + filteredArticleResults.length;
 
   return (
     <div className="h-full flex flex-col">
@@ -297,7 +305,7 @@ export function SearchView() {
       {searched && (
         <div className="border-b border-border flex shrink-0">
           {(["notes", "articles", "people"] as const).map((tab) => {
-            const count = tab === "notes" ? noteResults.length : tab === "articles" ? articleResults.length : userResults.length;
+            const count = tab === "notes" ? filteredNoteResults.length : tab === "articles" ? filteredArticleResults.length : filteredUserResults.length;
             return (
               <button
                 key={tab}
@@ -467,24 +475,24 @@ export function SearchView() {
         )}
 
         {/* People tab — zero results hint */}
-        {searched && activeTab === "people" && userResults.length === 0 && totalResults > 0 && (
+        {searched && activeTab === "people" && filteredUserResults.length === 0 && totalResults > 0 && (
           <div className="px-4 py-6 text-center">
             <p className="text-text-dim text-[12px]">No people found for <span className="text-text">{query}</span>.</p>
           </div>
         )}
 
         {/* People results */}
-        {activeTab === "people" && userResults.map((user) => (
+        {activeTab === "people" && filteredUserResults.map((user) => (
           <UserRow key={user.pubkey} user={user} />
         ))}
 
         {/* Articles results */}
-        {activeTab === "articles" && articleResults.map((event) => (
+        {activeTab === "articles" && filteredArticleResults.map((event) => (
           <ArticleCard key={event.id} event={event} />
         ))}
 
         {/* Notes results */}
-        {activeTab === "notes" && noteResults.map((event) => (
+        {activeTab === "notes" && filteredNoteResults.map((event) => (
           <NoteCard key={event.id} event={event} />
         ))}
       </div>
