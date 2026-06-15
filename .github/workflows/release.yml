@@ -69,6 +69,16 @@ jobs:
 
             > **Windows note:** The installer is not yet code-signed. Windows SmartScreen will show an "Unknown publisher" warning — click "More info → Run anyway" to install.
 
+            ### v0.13.2 — Mute-aware search, a tidier compose box & a resizable sidebar
+
+            Three community-requested improvements plus a couple of nice touches.
+
+            - **Search now respects your mute list.** Notes, articles, and people from muted accounts — and posts matching your muted keywords — no longer show up in search results, just like in the feed. (#7)
+            - **The compose box collapses when idle.** "What's on your mind?" now sits as a single line until you click it, then expands to full height with the toolbar — reclaiming space at the top of the feed. (#6)
+            - **The left sidebar is resizable.** Drag its right edge to set the width; double-click to reset. Your choice is remembered between sessions. (#6)
+            - **The update banner shows what's new.** When an update is available, click "What's new" to read that version's changes inline, with a link to the full changelog on GitHub.
+            - **Under the hood:** migrated the build to Vite 8 and dropped a vulnerable `esbuild` dev-server dependency.
+
             ### v0.13.1 — Article reader: scroll lock fix + click-to-zoom
 
             A targeted fix for a long-standing article-reader bug on Linux.
