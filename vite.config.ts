@@ -18,12 +18,14 @@ export default defineConfig(async () => ({
   build: {
     rollupOptions: {
       output: {
-        manualChunks: {
+        // Vite 8 / Rolldown requires manualChunks as a function (the object
+        // form is no longer accepted). Same intent as before:
+        manualChunks(id: string) {
           // NDK is the largest dependency (~300kB) — split it out so the
           // main bundle parses faster at startup and the chunk can be cached.
-          "ndk": ["@nostr-dev-kit/ndk"],
+          if (id.includes("node_modules/@nostr-dev-kit/ndk")) return "ndk";
           // React runtime — stable across releases, cache-friendly.
-          "vendor": ["react", "react-dom"],
+          if (id.includes("node_modules/react-dom/") || id.includes("node_modules/react/")) return "vendor";
         },
       },
     },

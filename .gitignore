@@ -48,3 +48,6 @@ skills-lock.json
 *.njsproj
 *.sln
 *.sw?
+
+# TypeScript incremental build info
+*.tsbuildinfo
