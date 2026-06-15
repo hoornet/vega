@@ -25,8 +25,22 @@ export function ComposeBox({ onPublished, onNoteInjected }: { onPublished?: () =
   const [showEmoji, setShowEmoji] = useState(false);
   const [isPoll, setIsPoll] = useState(false);
   const [pollOptions, setPollOptions] = useState<string[]>(["", ""]);
+  const [focused, setFocused] = useState(false);
   const autoResize = useAutoResize(3, 12);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // Collapse the compose box to a single line when it's idle (empty + not
+  // focused), expand to full height + toolbar on focus or when there's
+  // content. Keeps the feed header compact (issue #6).
+  const expanded = focused || text.trim().length > 0 || attachments.length > 0 || isPoll;
+
+  // When the box collapses, clear the inline height useAutoResize set so the
+  // rows={1} attribute governs the single-line height again.
+  useEffect(() => {
+    if (!expanded && textareaRef.current) {
+      textareaRef.current.style.height = "";
+    }
+  }, [expanded]);
 
   const { profile, npub } = useUserStore();
   const avatar = typeof profile?.picture === "string" ? profile.picture : undefined;
@@ -244,7 +258,15 @@ export function ComposeBox({ onPublished, onNoteInjected }: { onPublished?: () =
         </div>
 
         {/* Input area */}
-        <div className="flex-1 min-w-0">
+        <div
+          className="flex-1 min-w-0"
+          onFocus={() => setFocused(true)}
+          onBlur={(e) => {
+            // Keep expanded while focus moves to a child control (emoji,
+            // attach, poll, post); only collapse when focus truly leaves.
+            if (!e.currentTarget.contains(e.relatedTarget as Node)) setFocused(false);
+          }}
+        >
           <textarea
             ref={textareaRef}
             data-compose
@@ -255,7 +277,7 @@ export function ComposeBox({ onPublished, onNoteInjected }: { onPublished?: () =
             onDrop={handleDrop}
             onDragOver={handleDragOver}
             placeholder="What's on your mind?"
-            rows={3}
+            rows={expanded ? 3 : 1}
             className="w-full bg-transparent text-text text-[13px] placeholder:text-text-dim resize-none focus:outline-none leading-relaxed"
           />
 
@@ -298,6 +320,7 @@ export function ComposeBox({ onPublished, onNoteInjected }: { onPublished?: () =
             <p className="text-danger text-[11px] mb-2">{error}</p>
           )}
 
+          {expanded && (
           <div className="flex flex-wrap items-center justify-between gap-y-1 mt-1">
             <span className={`text-[10px] ${overLimit ? "text-danger" : warnLimit ? "text-warning" : "text-text-dim"}`}>
               {uploading ? (
@@ -353,6 +376,7 @@ export function ComposeBox({ onPublished, onNoteInjected }: { onPublished?: () =
               </button>
             </div>
           </div>
+          )}
         </div>
       </div>
     </div>
