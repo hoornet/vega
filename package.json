@@ -14,7 +14,7 @@
   "dependencies": {
     "@fontsource/atkinson-hyperlegible": "5.2.8",
     "@nostr-dev-kit/ndk": "^3.0.3",
-    "@tailwindcss/vite": "^4.2.1",
+    "@tailwindcss/vite": "^4.3.1",
     "@tanstack/react-virtual": "3.13.24",
     "@tauri-apps/api": "^2.11.0",
     "@tauri-apps/plugin-dialog": "^2.7.0",
@@ -43,10 +43,10 @@
     "@types/marked": "^5.0.2",
     "@types/react": "^19.1.8",
     "@types/react-dom": "^19.1.6",
-    "@vitejs/plugin-react": "^4.6.0",
+    "@vitejs/plugin-react": "^6.0.2",
     "jsdom": "^29.0.0",
     "typescript": "~5.8.3",
-    "vite": "^7.0.4",
+    "vite": "^8.0.16",
     "vitest": "^4.1.0"
   }
 }
