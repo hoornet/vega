@@ -1,7 +1,5 @@
 # Vega
 
-> **Wrystr is now Vega.** Same project, same developer, new name. If you were using Wrystr, your data migrates automatically on first launch — no action needed. [Read more about the rename.](#wrystr-is-now-vega)
-
 A cross-platform desktop Nostr client built with Tauri 2.0 + React + TypeScript. Polished UI, deep Lightning integration, and first-class support for long-form writing.
 
 **Website:** [veganostr.com](https://veganostr.com) · **Download:** [Releases](https://github.com/hoornet/vega/releases) · **AUR:** `vega-nostr-git`
@@ -222,21 +220,6 @@ Vega is free and open-source. If it's useful to you:
 | ☕ Ko-fi | [ko-fi.com/jure](https://ko-fi.com/jure) |
 | ♥ GitHub Sponsors | [github.com/sponsors/hoornet](https://github.com/sponsors/hoornet) |
 | ★ GitHub star | Helps with visibility and grant applications |
-
-## Wrystr is now Vega
-
-In March 2026, Wrystr was renamed to **Vega** — named after [Jurij Vega](https://en.wikipedia.org/wiki/Jurij_Vega) (1754–1802), a Slovenian mathematician and artillery officer from the same region as the developer. Vega made knowledge accessible through his pioneering logarithm tables; this project aims to do the same for writing on Nostr.
-
-**Why rename?** Wrystr was a working title that never rolled off the tongue. With real users arriving, it was time for a name that's easy to say, easy to remember, and carries meaning.
-
-**What changed:**
-- GitHub repo: `hoornet/wrystr` → `hoornet/vega` (old URLs redirect)
-- AUR package: `wrystr-git` → `vega-nostr-git`
-- Binary name: `wrystr` → `vega`
-- Database: auto-migrates `wrystr.db` → `vega.db` on first launch
-- Settings, keychain, localStorage: preserved automatically, no action needed
-
-**What didn't change:** The code, the features, the developer, the license. It's the same project.
 
 ## Acknowledgements
 

@@ -61,12 +61,13 @@ Bugs found during testing are fixed before Phase N+1 starts. A release is cut be
 
 ## Up next
 
-- **V4V section** — dedicated sidebar view with Dashboard (live budget bars), Settings (auto-enable, caps, rate), and History (streaming log with recipient breakdowns)
 - **Custom feeds / lists** (NIP-51)
 - **NIP-96 file storage** integration
+- **WoT-powered feed ranking** — use Web of Trust scores to rank, not just filter, the feed
 - **Article editor improvements** — image insertion UX, possibly WYSIWYG
 - **Encrypted group chat** — NIP-29 (relay-based groups) + NIP-44 (encryption); NIP-104 (gift-wrapped E2E) for small private groups
 - **NIP-72 moderated communities** — Reddit-style public communities
+- **NIP-58 badges** — achievements/awards on profiles
 - **Code signing** — Windows EV cert + macOS notarization
 
 ---
