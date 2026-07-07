@@ -1,4 +1,4 @@
-import { fetch } from "@tauri-apps/plugin-http";
+import { fetchWithProxy as fetch } from "../proxy";
 import type { PodcastEpisode, V4VRecipient } from "../../types/podcast";
 
 const API_KEY = "VKWWTGY25NVCKYJWHSNY";

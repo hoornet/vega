@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { save } from "@tauri-apps/plugin-dialog";
 import { writeTextFile } from "@tauri-apps/plugin-fs";
 import { invoke } from "@tauri-apps/api/core";
+import { relaunch } from "@tauri-apps/plugin-process";
 import { useUserStore } from "../../stores/user";
 import { useUIStore } from "../../stores/ui";
 import { useWoTStore } from "../../stores/wot";
@@ -11,6 +12,7 @@ import { useBookmarkStore } from "../../stores/bookmark";
 import { getStoredRelayUrls } from "../../lib/nostr";
 import { useProfile } from "../../hooks/useProfile";
 import { profileName } from "../../lib/utils";
+import { refreshProxySettingsCache, type ProxySettings } from "../../lib/proxy";
 import { NWCWizard } from "./NWCWizard";
 import { getNotificationSettings, saveNotificationSettings, ensurePermission } from "../../lib/notifications";
 import {
@@ -408,6 +410,139 @@ function NotificationSection() {
   );
 }
 
+function validateProxyUrl(enabled: boolean, url: string): string | null {
+  if (!enabled) return null;
+  const trimmed = url.trim();
+  if (!trimmed) return "Proxy URL is required";
+  try {
+    const parsed = new URL(trimmed);
+    if (parsed.protocol !== "socks5:" && parsed.protocol !== "http:") {
+      return "Use socks5:// or http://";
+    }
+    if (!parsed.hostname) return "Proxy URL must include a host";
+    if (!parsed.port) return "Proxy URL must include a port";
+  } catch {
+    return "Proxy URL is invalid";
+  }
+  return null;
+}
+
+function ProxySection() {
+  const [settings, setSettings] = useState<ProxySettings>({ enabled: false, url: "" });
+  const [initial, setInitial] = useState<ProxySettings>({ enabled: false, url: "" });
+  const [status, setStatus] = useState<"loading" | "idle" | "saving" | "saved" | "error">("loading");
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    invoke<ProxySettings>("get_proxy_settings")
+      .then((loaded) => {
+        setSettings(loaded);
+        setInitial(loaded);
+        setStatus("idle");
+      })
+      .catch((err) => {
+        setError(String(err));
+        setStatus("error");
+      });
+  }, []);
+
+  const validationError = validateProxyUrl(settings.enabled, settings.url);
+  const dirty = settings.enabled !== initial.enabled || settings.url.trim() !== initial.url.trim();
+  const savedNeedsRestart = status === "saved" && !dirty;
+
+  const saveSettings = async () => {
+    if (validationError) {
+      setError(validationError);
+      return;
+    }
+    setStatus("saving");
+    setError(null);
+    const next = { enabled: settings.enabled, url: settings.url.trim() };
+    try {
+      await invoke("save_proxy_settings", { settings: next });
+      refreshProxySettingsCache();
+      setSettings(next);
+      setInitial(next);
+      setStatus("saved");
+    } catch (err) {
+      setError(String(err));
+      setStatus("error");
+    }
+  };
+
+  const toggle = () => {
+    setSettings((current) => ({ ...current, enabled: !current.enabled }));
+    setError(null);
+    if (status === "saved") setStatus("idle");
+  };
+
+  const updateUrl = (value: string) => {
+    setSettings((current) => ({ ...current, url: value }));
+    setError(null);
+    if (status === "saved") setStatus("idle");
+  };
+
+  return (
+    <section>
+      <h2 className="text-text text-[11px] font-medium uppercase tracking-widest mb-2 text-text-dim">
+        Network Proxy
+      </h2>
+      <p className="text-text-dim text-[11px] mb-3">
+        Route Vega's in-app network traffic through an HTTP or SOCKS5 proxy.
+      </p>
+      <label className="flex items-center gap-3 cursor-pointer group mb-3">
+        <button
+          onClick={toggle}
+          disabled={status === "loading"}
+          className={`w-9 h-5 rounded-full transition-colors relative shrink-0 disabled:opacity-50 ${
+            settings.enabled ? "bg-accent" : "bg-border"
+          }`}
+        >
+          <span
+            className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-bg transition-transform ${
+              settings.enabled ? "translate-x-4" : "translate-x-0"
+            }`}
+          />
+        </button>
+        <span className="text-text text-[12px]">Use proxy for connections</span>
+      </label>
+      <div className="flex gap-2 ml-12">
+        <input
+          value={settings.url}
+          onChange={(e) => updateUrl(e.target.value)}
+          placeholder="socks5://127.0.0.1:9050"
+          disabled={!settings.enabled || status === "loading"}
+          className="flex-1 bg-bg border border-border px-3 py-1.5 text-text text-[12px] focus:outline-none focus:border-accent/50 placeholder:text-text-dim disabled:opacity-50 disabled:cursor-not-allowed font-mono"
+        />
+        <button
+          onClick={saveSettings}
+          disabled={status === "saving" || status === "loading" || !!validationError || !dirty}
+          className="px-3 py-1.5 text-[11px] border border-border text-text-muted hover:text-accent hover:border-accent/40 transition-colors disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
+        >
+          {status === "saving" ? "Saving..." : "Save"}
+        </button>
+      </div>
+      <p className="text-text-dim text-[10px] mt-1.5 ml-12">
+        Applies after restart. Example: socks5://127.0.0.1:9050
+      </p>
+      {(error || validationError) && (
+        <p className="text-danger text-[10px] mt-1 ml-12">{error ?? validationError}</p>
+      )}
+      {savedNeedsRestart && (
+        <div className="flex items-center gap-3 mt-2 ml-12">
+          <p className="text-accent text-[10px]">Saved. Restart Vega to apply it to all connections.</p>
+          <button
+            onClick={() => relaunch()}
+            className="px-2 py-1 text-[10px] border border-accent/40 text-accent hover:bg-bg-hover transition-colors"
+          >
+            Restart now
+          </button>
+        </div>
+      )}
+    </section>
+  );
+}
+
 function ThemeSection() {
   const { themeId, setTheme } = useUIStore();
 
@@ -594,6 +729,7 @@ export function SettingsView() {
         <EasyReadFontSection />
         <WalletSection />
         <NotificationSection />
+        <ProxySection />
         <ExperimentalSection />
         <ExportSection />
         <IdentitySection />

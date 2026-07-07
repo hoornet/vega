@@ -11,6 +11,7 @@
 
 if (import.meta.env.DEV && !(window as any).__TAURI_INTERNALS__) {
   const keychainKey = (pubkey: string) => `__dev_nsec_${pubkey}`;
+  const proxyKey = "__dev_proxy_settings";
 
   const mockInvoke = async (cmd: string, args: Record<string, unknown> = {}): Promise<unknown> => {
     switch (cmd) {
@@ -22,6 +23,13 @@ if (import.meta.env.DEV && !(window as any).__TAURI_INTERNALS__) {
       case "delete_nsec":
         localStorage.removeItem(keychainKey(args.pubkey as string));
         return null;
+      case "get_proxy_settings": {
+        const stored = localStorage.getItem(proxyKey);
+        return stored ? JSON.parse(stored) : { enabled: false, url: "" };
+      }
+      case "save_proxy_settings":
+        localStorage.setItem(proxyKey, JSON.stringify(args.settings));
+        return null;
       case "db_save_notes":
       case "db_save_profile":
         return null;
@@ -29,6 +37,8 @@ if (import.meta.env.DEV && !(window as any).__TAURI_INTERNALS__) {
         return [];
       case "db_load_profile":
         return null;
+      case "get_proxy_settings":
+        return { enabled: false, url: "" };
       case "install_info":
         // Browser dev mode has no real install — mirror useUpdater's default.
         return { can_self_update: true, kind: "updater" };

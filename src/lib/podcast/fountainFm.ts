@@ -1,4 +1,4 @@
-import { fetch } from "@tauri-apps/plugin-http";
+import { fetchWithProxy as fetch } from "../proxy";
 import type { PodcastEpisode } from "../../types/podcast";
 import { enrichWithV4V } from "./podcastIndexV4V";
 

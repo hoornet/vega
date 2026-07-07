@@ -1,4 +1,4 @@
-import { fetch } from "@tauri-apps/plugin-http";
+import { fetchWithProxy as fetch } from "./proxy";
 import { getNDK } from "./nostr";
 import { NDKEvent } from "@nostr-dev-kit/ndk";
 

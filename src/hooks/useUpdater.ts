@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { check } from "@tauri-apps/plugin-updater";
 import { relaunch } from "@tauri-apps/plugin-process";
 import { invoke } from "@tauri-apps/api/core";
+import { getProxySettings } from "../lib/proxy";
 
 interface InstallInfo {
   can_self_update: boolean;
@@ -18,6 +19,12 @@ interface UpdateState {
   kind: string;
   install: () => Promise<void>;
   dismiss: () => void;
+}
+
+async function checkForUpdate() {
+  const settings = await getProxySettings();
+  const proxy = settings.enabled ? settings.url.trim() : "";
+  return check(proxy ? { proxy } : undefined);
 }
 
 export function useUpdater(): UpdateState {
@@ -42,7 +49,7 @@ export function useUpdater(): UpdateState {
     // Check for updates ~5 s after startup (non-blocking)
     const t = setTimeout(async () => {
       try {
-        const update = await check();
+        const update = await checkForUpdate();
         if (update?.available) {
           setAvailable(true);
           setVersion(update.version);
@@ -59,7 +66,7 @@ export function useUpdater(): UpdateState {
     setInstalling(true);
     setError(null);
     try {
-      const update = await check();
+      const update = await checkForUpdate();
       if (update?.available) {
         await update.downloadAndInstall();
         await relaunch();

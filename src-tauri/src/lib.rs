@@ -4,6 +4,7 @@ use std::sync::Mutex;
 use tauri::{
     menu::{Menu, MenuItem},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
+    WebviewUrl, WebviewWindowBuilder,
     Manager, WindowEvent,
 };
 
@@ -111,6 +112,128 @@ fn migrate_legacy_data_dirs() {
     if let Some(home) = dirs::home_dir() {
         migrate_dir(&home.join("Library").join("WebKit").join(APP_IDENTIFIER));
     }
+}
+
+// ── Network proxy ───────────────────────────────────────────────────────────
+
+const PROXY_SETTINGS_FILE: &str = "proxy.json";
+
+#[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ProxySettings {
+    enabled: bool,
+    url: String,
+}
+
+impl Default for ProxySettings {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            url: String::new(),
+        }
+    }
+}
+
+fn proxy_settings_path(app: &tauri::AppHandle) -> Result<std::path::PathBuf, String> {
+    app.path()
+        .app_data_dir()
+        .map(|dir| dir.join(PROXY_SETTINGS_FILE))
+        .map_err(|e| e.to_string())
+}
+
+fn load_proxy_settings(path: std::path::PathBuf) -> ProxySettings {
+    let Ok(raw) = std::fs::read_to_string(path) else {
+        return ProxySettings::default();
+    };
+    serde_json::from_str(&raw).unwrap_or_default()
+}
+
+fn load_proxy_settings_from_disk(app: &tauri::AppHandle) -> ProxySettings {
+    let Ok(path) = proxy_settings_path(app) else {
+        return ProxySettings::default();
+    };
+    load_proxy_settings(path)
+}
+
+fn validate_proxy_settings(settings: &ProxySettings) -> Result<(), String> {
+    if !settings.enabled {
+        return Ok(());
+    }
+
+    let url = settings.url.trim();
+    if url.is_empty() {
+        return Err("Proxy URL is required when proxy is enabled".into());
+    }
+
+    let parsed = url
+        .parse::<tauri::Url>()
+        .map_err(|_| "Proxy URL must be a valid http:// or socks5:// URL".to_string())?;
+    match parsed.scheme() {
+        "http" | "socks5" => {}
+        _ => return Err("Proxy URL must start with http:// or socks5://".into()),
+    }
+    if parsed.host_str().is_none() {
+        return Err("Proxy URL must include a host".into());
+    }
+    if parsed.port_or_known_default().is_none() {
+        return Err("Proxy URL must include a port".into());
+    }
+
+    Ok(())
+}
+
+fn enabled_proxy_url(settings: &ProxySettings) -> Result<Option<tauri::Url>, String> {
+    if !settings.enabled {
+        return Ok(None);
+    }
+
+    validate_proxy_settings(settings)?;
+    settings
+        .url
+        .trim()
+        .parse::<tauri::Url>()
+        .map(Some)
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn get_proxy_settings(app: tauri::AppHandle) -> Result<ProxySettings, String> {
+    Ok(load_proxy_settings_from_disk(&app))
+}
+
+#[tauri::command]
+fn save_proxy_settings(app: tauri::AppHandle, settings: ProxySettings) -> Result<(), String> {
+    validate_proxy_settings(&settings)?;
+    let path = proxy_settings_path(&app)?;
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+    }
+
+    let normalized = ProxySettings {
+        enabled: settings.enabled,
+        url: settings.url.trim().to_string(),
+    };
+    let raw = serde_json::to_string_pretty(&normalized).map_err(|e| e.to_string())?;
+    std::fs::write(path, raw).map_err(|e| e.to_string())
+}
+
+fn create_main_window(app: &tauri::App) -> tauri::Result<tauri::WebviewWindow> {
+    let mut builder = WebviewWindowBuilder::new(app, "main", WebviewUrl::App("index.html".into()))
+        .title("Vega")
+        .inner_size(1200.0, 800.0)
+        .min_inner_size(900.0, 600.0);
+
+    match enabled_proxy_url(&load_proxy_settings_from_disk(app.handle())) {
+        Ok(Some(url)) => {
+            builder = builder.proxy_url(url);
+        }
+        Ok(None) => {}
+        Err(e) => {
+            eprintln!("[proxy] Ignoring invalid saved proxy setting: {}", e);
+        }
+    }
+
+    builder.build()
 }
 
 // ── OS keychain ─────────────────────────────────────────────────────────────
@@ -569,6 +692,8 @@ pub fn run() {
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_notification::init())
         .setup(|app| {
+            let main_window = create_main_window(app)?;
+
             // ── SQLite ───────────────────────────────────────────────────────
             let data_dir = app.path().app_data_dir()?;
             let conn = open_db(data_dir.clone())
@@ -588,7 +713,6 @@ pub fn run() {
             // ── WebKit memory tuning for Linux (webkit2gtk) ──────────────────
             #[cfg(target_os = "linux")]
             {
-                let main_window = app.get_webview_window("main").unwrap();
                 main_window.with_webview(|webview| {
                     use webkit2gtk::{CacheModel, SettingsExt, WebContextExt, WebViewExt};
                     let wv = webview.inner();
@@ -651,9 +775,8 @@ pub fn run() {
             // ── Close → hide to tray ─────────────────────────────────────────
             // Closing the window hides it instead of exiting. Use "Quit" in the
             // tray menu (or ⌘Q / Alt-F4) to fully exit.
-            let window = app.get_webview_window("main").unwrap();
-            let window_clone = window.clone();
-            window.on_window_event(move |event| {
+            let window_clone = main_window.clone();
+            main_window.on_window_event(move |event| {
                 if let WindowEvent::CloseRequested { api, .. } = event {
                     api.prevent_close();
                     let _ = window_clone.hide();
@@ -663,6 +786,8 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            get_proxy_settings,
+            save_proxy_settings,
             store_nsec,
             load_nsec,
             delete_nsec,
@@ -689,7 +814,7 @@ pub fn run() {
 
 #[cfg(test)]
 mod tests {
-    use super::{migrate_dir, APP_IDENTIFIER, LEGACY_IDENTIFIER};
+    use super::{enabled_proxy_url, migrate_dir, ProxySettings, APP_IDENTIFIER, LEGACY_IDENTIFIER};
     use std::fs;
     use std::path::{Path, PathBuf};
     use std::sync::atomic::{AtomicU32, Ordering};
@@ -817,5 +942,25 @@ mod tests {
         assert!(!new.exists(), "must not fabricate a data dir for a new user");
         fs::remove_dir_all(&root).ok();
     }
-}
 
+    #[test]
+    fn accepts_http_and_socks5_proxy_urls() {
+        for url in ["http://127.0.0.1:8118", "socks5://127.0.0.1:9050"] {
+            let settings = ProxySettings {
+                enabled: true,
+                url: url.into(),
+            };
+            assert!(enabled_proxy_url(&settings).unwrap().is_some(), "{url}");
+        }
+    }
+
+    #[test]
+    fn rejects_socks5h_until_webview_support_is_available() {
+        let settings = ProxySettings {
+            enabled: true,
+            url: "socks5h://127.0.0.1:9050".into(),
+        };
+
+        assert!(enabled_proxy_url(&settings).is_err());
+    }
+}
