@@ -5435,6 +5435,7 @@ dependencies = [
  "futures-util",
  "hex",
  "keyring",
+ "reqwest 0.13.2",
  "rusqlite",
  "secp256k1",
  "serde",

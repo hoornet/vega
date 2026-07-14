@@ -963,4 +963,9 @@ mod tests {
 
         assert!(enabled_proxy_url(&settings).is_err());
     }
+
+    #[test]
+    fn updater_http_client_supports_socks5_proxy_urls() {
+        assert!(reqwest::Proxy::all("socks5://127.0.0.1:9050").is_ok());
+    }
 }
