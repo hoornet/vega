@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "Vega",
-  "version": "0.13.2",
-  "identifier": "com.hoornet.vega",
+  "version": "0.14.0",
+  "identifier": "com.veganostr.Vega",
   "build": {
     "beforeDevCommand": "npm run dev",
     "devUrl": "http://localhost:1420",

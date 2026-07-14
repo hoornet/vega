@@ -1,5 +1,17 @@
 # Vega
 
+> ## ⚠️ v0.14.0 changes Vega's app identifier — please read before upgrading
+>
+> Vega's internal app identifier changes from `com.hoornet.vega` to **`com.veganostr.Vega`** in v0.14.0. Sorry for the disruption — here is exactly what it means and why it has to happen now.
+>
+> **Your data is migrated for you.** On first launch, v0.14.0 moves your existing data across automatically: cached notes and profiles, the embedded relay's database, and your themes, drafts, podcast subscriptions and article read-state. Your keys live in the OS keychain, which is not tied to the identifier, so **you stay logged in.** If a folder already exists at the new location, Vega leaves it alone rather than overwriting anything.
+>
+> **Windows users — one manual step.** Because the identifier changed, Windows treats v0.14.0 as a *new* application, so it installs **alongside** v0.13.2 instead of replacing it. Your data is still carried over. Once v0.14.0 is running, uninstall the old **Vega** entry from Add/Remove Programs. This is a one-time step — future updates upgrade in place as normal.
+>
+> **Why this is necessary, and why now.** A reverse-DNS app identifier is supposed to sit on a domain its owner controls. `com.hoornet.vega` does not — it was a placeholder from Vega's earliest days, and it blocks publishing Vega on **Flathub**, which rejects app IDs on domains you cannot prove you own. Flathub is how most Linux users discover and install software, and there is currently almost no Nostr client there at all. Making the identifier `com.veganostr.Vega` also gives Vega one consistent identity across Flathub, winget and the native installers.
+>
+> The identifier keys every per-app directory, so changing it is inherently disruptive — and it only gets worse the longer it waits. Vega's install base is still small, so this is the cheapest this change will ever be. Doing it now means it never has to be done to a larger group of people later.
+
 A cross-platform desktop Nostr client built with Tauri 2.0 + React + TypeScript. Polished UI, deep Lightning integration, and first-class support for long-form writing.
 
 **Website:** [veganostr.com](https://veganostr.com) · **Download:** [Releases](https://github.com/hoornet/vega/releases) · **AUR:** `vega-nostr-git`

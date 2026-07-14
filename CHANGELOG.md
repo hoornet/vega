@@ -2,6 +2,17 @@
 
 > Note: entries for v0.12.10 through v0.13.1 live in the [GitHub Releases](https://github.com/hoornet/vega/releases) notes; this file resumes at v0.13.2.
 
+## v0.14.0 — App identifier moves to `com.veganostr.Vega` (2026-07-14)
+
+### Changed
+- **App identifier is now `com.veganostr.Vega`** (was `com.hoornet.vega`). Reverse-DNS app IDs must sit on a domain the project controls; Flathub rejects anything else, and this keeps Vega's identity consistent across Flathub, winget and the native installers.
+
+### Migration
+- **Existing data is carried across automatically on first launch.** The identifier keys every per-app directory, so v0.14.0 moves the old directories to the new ones before opening anything: the SQLite cache (`vega.db`), the embedded relay's database (`relay.db`), and webview localStorage (themes, drafts, podcast subscriptions, article read-state). All three per-platform roots are covered — WebView2 keeps localStorage under `%LOCALAPPDATA%` on Windows, and WKWebView keeps it under `~/Library/WebKit` on macOS, neither of which is the app data dir.
+- The migration only ever moves into a fresh install; an existing directory with data in it is never overwritten.
+- **Keys are unaffected.** The OS keychain service name is independent of the app identifier, so you stay logged in.
+- **Windows only:** the identifier change makes Windows treat v0.14.0 as a new application, so it installs alongside v0.13.2 rather than replacing it. Data is carried over; remove the old "Vega" entry from Add/Remove Programs. One-time only.
+
 ## v0.13.2 — Mute-aware search, collapsing compose box & resizable sidebar (2026-06-15)
 
 ### Added

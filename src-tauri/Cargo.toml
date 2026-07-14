@@ -1,6 +1,6 @@
 [package]
 name = "vega"
-version = "0.13.2"
+version = "0.14.0"
 description = "Cross-platform Nostr desktop client with Lightning integration"
 authors = ["hoornet"]
 edition = "2021"
@@ -19,6 +19,9 @@ tauri-build = { version = "2", features = [] }
 
 [dependencies]
 tauri = { version = "2", features = ["devtools", "tray-icon"] }
+# Resolves the per-platform data/config roots before Tauri exists — the identifier
+# migration must run before tauri::Builder, so it cannot use app.path().
+dirs = "6"
 tauri-plugin-opener = "2"
 tauri-plugin-updater = "2"
 tauri-plugin-process = "2"

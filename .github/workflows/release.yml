@@ -69,6 +69,14 @@ jobs:
 
             > **Windows note:** The installer is not yet code-signed. Windows SmartScreen will show an "Unknown publisher" warning — click "More info → Run anyway" to install.
 
+            ### v0.14.0 — Vega moves to its own app identifier
+
+            Vega's internal app identifier changes from `com.hoornet.vega` to `com.veganostr.Vega`, so it is anchored to a domain the project controls. This is a prerequisite for publishing Vega on Flathub and winget, and it makes the app's identity consistent across every platform.
+
+            **Your data comes with you.** On first launch, v0.14.0 moves your existing data directory across automatically — cached notes and profiles, the embedded relay's database, your themes, drafts, podcast subscriptions and article read-state. Your keys are stored in the OS keychain and are not affected at all, so you stay logged in.
+
+            > **Upgrading on Windows:** because the identifier changed, Windows treats this as a new application, so v0.14.0 installs alongside v0.13.2 instead of replacing it. Your data is carried over — you can uninstall the old "Vega" entry from Add/Remove Programs afterwards. This is a one-time step; future updates will upgrade in place as normal.
+
             ### v0.13.2 — Mute-aware search, a tidier compose box & a resizable sidebar
 
             Three community-requested improvements plus a couple of nice touches.
