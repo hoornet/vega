@@ -182,8 +182,20 @@ CI triggers on the tag and builds all three platforms (Ubuntu, Windows, macOS AR
 - Custom feeds / lists
 - Safe Blossom URL auto-detection (temporarily disabled in v0.12.8 after OOM regression — needs HEAD `Content-Type` validation or known-server whitelist before reintroduction)
 
+## App identifier & data migration (v0.14.0)
+
+The identifier is **`com.veganostr.Vega`** (was `com.hoornet.vega` before v0.14.0). It must stay on a domain the project controls — **Flathub rejects anything else**, and it keys the app ID for winget and the native installers too.
+
+- **Never migrate app data from inside `.setup()`.** Tauri builds the config-defined windows *before* invoking the setup hook, and building a webview unconditionally `create_dir_all`s `<LocalData>/<identifier>` — which on Linux is the same directory holding `vega.db`, `relay.db` and localStorage. A migration running in `setup()` therefore always sees a non-empty destination. `migrate_legacy_data_dirs()` runs at the **top of `run()`, before `tauri::Builder`**, and uses the `dirs` crate (no `App` needed). Do not move it back.
+- **Never use "destination is empty" as the migration trigger** — it is guaranteed non-empty after one launch, so the failure is self-sealing and unrecoverable. Migrate entry-by-entry; never overwrite an entry that already exists at the destination.
+- **localStorage is not in the app data dir on every platform.** Linux → data dir (WebKitGTK). Windows → `%LOCALAPPDATA%` (WebView2 `EBWebView/`), *not* `%APPDATA%`. macOS → `~/Library/WebKit/<bundle-id>`. Migrating only `app_data_dir` silently loses themes, drafts, podcast subs and read-state on Windows and macOS.
+- Keys are safe across identifier changes: `KEYRING_SERVICE` is the hardcoded literal `"wrystr"`, independent of the identifier.
+- **Changing the identifier makes Windows treat the app as new** — it installs alongside the old version rather than upgrading in place. Document it; it's a one-time manual uninstall for users.
+- The v0.10.0 Wrystr→Vega rename did this *without* a migration and silently stranded a full data directory (768 MB found on the dev machine). That is what this machinery exists to prevent.
+
 ## Hard-won Linux/WebKitGTK lessons
 
+- **Startup/lifecycle changes must be verified by running the real binary**, not unit tests. The v0.14.0 migration had four passing unit tests and would still have wiped every Linux user's data — the defect was in *when* it ran, which no unit test could see. Run it against a scratch env: `XDG_DATA_HOME=/tmp/scratch ./target/debug/vega`, with data seeded beforehand and asserted after. Note `#[cfg(target_os = "...")]` branches are never type-checked on the build host.
 - **WebKitGTK does not evict decoded bitmaps** under memory pressure the way Chromium does. Any path that multiplies `<img>` elements per feed page will translate ~linearly into WebProcess RSS. Validate new "render as image" heuristics (e.g. Blossom SHA-256 URLs) with a real content-type probe before shipping.
 - **`MemoryPressureSettings` set on `WebsiteDataManager` only affects the NetworkProcess**, not the WebProcess where decoded bitmaps live. Setting a WebProcess cap requires reaching `WebContext` at construction time (construct-only GObject property) — wry does not currently expose this.
 - **Bisect regression windows before investigating root cause.** If memory behavior changed between versions, `git bisect` the release tags first. Four days of WebKit-level investigation was avoidable once the regression was traced to a single commit in v0.12.6.
