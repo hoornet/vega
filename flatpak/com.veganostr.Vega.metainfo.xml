@@ -48,16 +48,20 @@
 
   <screenshots>
     <screenshot type="default">
-      <image>https://raw.githubusercontent.com/hoornet/vega/main/flatpak/screenshots/feed.png</image>
+      <image>https://raw.githubusercontent.com/hoornet/vega/ba57143c6d46d262ec7412dcc26b85fa4a45247b/flatpak/screenshots/feed.png</image>
       <caption>The main feed with notes, reactions and zaps</caption>
     </screenshot>
     <screenshot>
-      <image>https://raw.githubusercontent.com/hoornet/vega/main/flatpak/screenshots/article.png</image>
-      <caption>Reading a long-form article</caption>
+      <image>https://raw.githubusercontent.com/hoornet/vega/ba57143c6d46d262ec7412dcc26b85fa4a45247b/flatpak/screenshots/articles.png</image>
+      <caption>Discovering long-form articles</caption>
     </screenshot>
     <screenshot>
-      <image>https://raw.githubusercontent.com/hoornet/vega/main/flatpak/screenshots/editor.png</image>
+      <image>https://raw.githubusercontent.com/hoornet/vega/ba57143c6d46d262ec7412dcc26b85fa4a45247b/flatpak/screenshots/editor.png</image>
       <caption>Writing an article in the markdown editor</caption>
+    </screenshot>
+    <screenshot>
+      <image>https://raw.githubusercontent.com/hoornet/vega/ba57143c6d46d262ec7412dcc26b85fa4a45247b/flatpak/screenshots/podcasts.png</image>
+      <caption>Podcast subscriptions with value-for-value streaming</caption>
     </screenshot>
   </screenshots>
 

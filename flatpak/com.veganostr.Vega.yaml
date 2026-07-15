@@ -20,14 +20,9 @@ finish-args:
   - --talk-name=org.freedesktop.secrets                # keyring crate → Secret Service (nsec storage)
   - --talk-name=org.kde.StatusNotifierWatcher          # system tray
 
-# GStreamer codecs for AAC/MP3/H.264 podcast & media playback. The base runtime
-# only ships open/royalty-free codecs.
-add-extensions:
-  org.freedesktop.Platform.ffmpeg-full:
-    directory: lib/ffmpeg
-    add-ld-path: .
-    version: "24.08"
-    autodelete: false
+# Note: extra codecs (AAC/MP3/H.264) for podcast/media playback are provided by
+# org.freedesktop.Platform.codecs-extra on the GNOME 50 runtime. Added as a
+# follow-up once the base build is confirmed.
 
 build-options:
   append-path: /usr/lib/sdk/node20/bin:/usr/lib/sdk/rust-stable/bin
@@ -78,9 +73,6 @@ modules:
       - install -Dm644 src-tauri/icons/128x128.png /app/share/icons/hicolor/128x128/apps/com.veganostr.Vega.png
       - install -Dm644 src-tauri/icons/128x128@2x.png /app/share/icons/hicolor/256x256/apps/com.veganostr.Vega.png
       - install -Dm644 src-tauri/icons/icon.png /app/share/icons/hicolor/512x512/apps/com.veganostr.Vega.png
-
-      # Create the ffmpeg extension mount point
-      - mkdir -p /app/lib/ffmpeg
 
     post-install:
       - install -Dm644 LICENSE /app/share/licenses/com.veganostr.Vega/LICENSE
