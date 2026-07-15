@@ -51,3 +51,7 @@ skills-lock.json
 
 # TypeScript incremental build info
 *.tsbuildinfo
+
+# Flatpak vendored sources (generated; belong in the flathub repo)
+flatpak/cargo-sources.json
+flatpak/node-sources.json

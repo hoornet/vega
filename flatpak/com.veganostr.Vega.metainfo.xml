@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>com.veganostr.Vega</id>
+
+  <name>Vega</name>
+  <summary>Read, write and zap on Nostr</summary>
+
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>MIT</project_license>
+
+  <developer id="com.veganostr">
+    <name>Jure Sršen</name>
+  </developer>
+
+  <launchable type="desktop-id">com.veganostr.Vega.desktop</launchable>
+
+  <description>
+    <p>
+      Vega is a desktop client for Nostr, a decentralized social network where you
+      own your identity, your content and your social graph. No company can delete
+      your account or censor your posts.
+    </p>
+    <p>
+      Long-form writing and reading is a first-class feature, not an afterthought.
+      Alongside the social feed, Vega gives you a proper markdown article editor and
+      reader for publishing and following long-form content.
+    </p>
+    <p>Features:</p>
+    <ul>
+      <li>Long-form articles (NIP-23) with a markdown editor and reader</li>
+      <li>Lightning zaps over Nostr Wallet Connect</li>
+      <li>Value-for-value podcast streaming</li>
+      <li>Web-of-trust filtering to keep the feed trustworthy</li>
+      <li>An optional built-in relay, so your notes stay available locally</li>
+      <li>Encrypted direct messages</li>
+      <li>Private keys stored in your system keyring</li>
+    </ul>
+  </description>
+
+  <content_rating type="oars-1.1">
+    <content_attribute id="social-chat">intense</content_attribute>
+    <content_attribute id="money-purchasing">mild</content_attribute>
+  </content_rating>
+
+  <url type="homepage">https://veganostr.com</url>
+  <url type="bugtracker">https://github.com/hoornet/vega/issues</url>
+  <url type="vcs-browser">https://github.com/hoornet/vega</url>
+
+  <screenshots>
+    <screenshot type="default">
+      <image>https://raw.githubusercontent.com/hoornet/vega/main/flatpak/screenshots/feed.png</image>
+      <caption>The main feed with notes, reactions and zaps</caption>
+    </screenshot>
+    <screenshot>
+      <image>https://raw.githubusercontent.com/hoornet/vega/main/flatpak/screenshots/article.png</image>
+      <caption>Reading a long-form article</caption>
+    </screenshot>
+    <screenshot>
+      <image>https://raw.githubusercontent.com/hoornet/vega/main/flatpak/screenshots/editor.png</image>
+      <caption>Writing an article in the markdown editor</caption>
+    </screenshot>
+  </screenshots>
+
+  <branding>
+    <color type="primary" scheme_preference="light">#c9b6ff</color>
+    <color type="primary" scheme_preference="dark">#2a2140</color>
+  </branding>
+
+  <releases>
+    <release version="0.14.1" date="2026-07-15">
+      <description>
+        <p>Fixes a crash in the Support view and adds an optional network proxy (HTTP/SOCKS5), including Tor.</p>
+      </description>
+    </release>
+    <release version="0.14.0" date="2026-07-14">
+      <description>
+        <p>Internal maintenance release aligning the application identifier with the project domain.</p>
+      </description>
+    </release>
+  </releases>
+</component>
