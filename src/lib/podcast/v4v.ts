@@ -1,4 +1,4 @@
-import { fetch } from "@tauri-apps/plugin-http";
+import { fetchWithProxy as fetch } from "../proxy";
 import type { PodcastEpisode, V4VRecipient } from "../../types/podcast";
 import { payInvoiceViaNWC, payKeysendViaNWC } from "../lightning/nwc";
 import { useV4VStore } from "../../stores/v4v";
