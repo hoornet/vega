@@ -233,6 +233,15 @@ Vega is free and open-source. If it's useful to you:
 | ♥ GitHub Sponsors | [github.com/sponsors/hoornet](https://github.com/sponsors/hoornet) |
 | ★ GitHub star | Helps with visibility and grant applications |
 
+## Contributors
+
+Vega is built by one person, but it's better because of the people who've pitched in. Thank you:
+
+- **[Anderseta](https://github.com/Anderseta)** — configurable HTTP/SOCKS5 network proxy, including Tor support, with the update checks routed through the proxy too ([#10](https://github.com/hoornet/vega/pull/10)).
+- **[SondreB](https://github.com/SondreB)** — Vega's first external contributor; early new-user-experience feedback that shaped onboarding ([#2](https://github.com/hoornet/vega/issues/2)).
+
+Spotted a bug or have an idea? Issues and pull requests are welcome.
+
 ## Acknowledgements
 
 Vega is built on the shoulders of excellent open-source projects:

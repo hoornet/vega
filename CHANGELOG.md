@@ -2,6 +2,18 @@
 
 > Note: entries for v0.12.10 through v0.13.1 live in the [GitHub Releases](https://github.com/hoornet/vega/releases) notes; this file resumes at v0.13.2.
 
+## v0.14.1 — Fix Support view crash, add proxy/Tor support (2026-07-15)
+
+### Fixed
+- **Support view no longer crashes.** Opening Support (the About/donate view) crashed the app with a blank "Vega crashed" screen (React error #130). `react-qr-code` ships CommonJS, and since the Vite 8 / Rolldown migration (v0.13.2) its default import resolved to the module namespace object instead of the component, making the QR code an invalid element. The import now unwraps to the real component. Reproduced and verified fixed against the production build.
+
+### Added
+- **Configurable network proxy (HTTP / SOCKS5), including Tor.** New section in Settings routes Vega's traffic — relay WebSockets, Rust-side fetches, and update checks — through a proxy. Contributed by [Anderseta](https://github.com/Anderseta) ([#10](https://github.com/hoornet/vega/pull/10)).
+- **Contributors section** in the README.
+
+### Known limitation
+- The proxy routes traffic but DNS may still resolve locally, so relay hostnames can leak. Full DNS privacy (e.g. `socks5h` for Tor) is not guaranteed yet — noted in the proxy settings and tracked in [#11](https://github.com/hoornet/vega/issues/11).
+
 ## v0.14.0 — App identifier moves to `com.veganostr.Vega` (2026-07-14)
 
 ### Changed

@@ -1,7 +1,16 @@
 import { useState } from "react";
-import QRCode from "react-qr-code";
+import QRCodeImport from "react-qr-code";
 import { ZapModal } from "../zap/ZapModal";
 import pkg from "../../../package.json";
+
+// react-qr-code ships CommonJS. Under the app's bundler (Vite 8 / Rolldown) the
+// default import can resolve to the module namespace object ({ QRCode, default })
+// rather than the component itself, which makes <QRCode/> an invalid React element
+// and crashes the whole view with "Element type is invalid" (#130). Unwrap to the
+// real component, tolerating both a correct default import and the namespace form.
+const QRCode =
+  (QRCodeImport as unknown as { default?: typeof QRCodeImport }).default ??
+  QRCodeImport;
 
 const DEV_NPUB   = "npub1ezt7xcq87ljj65jkjsuagwll4yp75tacgkuyjdhkw6mza8j3azfq2vrvl6";
 const DEV_PUBKEY = "c897e36007f7e52d52569439d43bffa903ea2fb845b84936f676b62e9e51e892";

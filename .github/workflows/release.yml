@@ -69,6 +69,11 @@ jobs:
 
             > **Windows note:** The installer is not yet code-signed. Windows SmartScreen will show an "Unknown publisher" warning — click "More info → Run anyway" to install.
 
+            ### v0.14.1 — Support view crash fix + proxy/Tor support
+
+            - **Fixed the Support view crash.** Opening Support showed a blank "Vega crashed" screen. This affected every release build since v0.13.2; it now opens correctly.
+            - **Network proxy (HTTP / SOCKS5), including Tor.** A new Settings section routes Vega's traffic — including update checks — through a proxy. Thanks to [Anderseta](https://github.com/Anderseta) for contributing this (#10). Note: the proxy routes traffic but does not yet guarantee DNS privacy.
+
             ### v0.14.0 — Vega moves to its own app identifier
 
             Vega's internal app identifier changes from `com.hoornet.vega` to `com.veganostr.Vega`, so it is anchored to a domain the project controls. This is a prerequisite for publishing Vega on Flathub and winget, and it makes the app's identity consistent across every platform.
