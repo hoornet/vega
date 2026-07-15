@@ -53,6 +53,11 @@ CI triggers on the tag and builds all three platforms (Ubuntu, Windows, macOS AR
 - `"app"` MUST be in `bundle.targets` or the macOS auto-updater silently breaks: the `.app.tar.gz` updater artifact (and its `.sig`) is generated from the `app` target, NOT `dmg`. With only `dmg`, the `.app` is built as a throwaway intermediate, no `.app.tar.gz` is emitted, and `latest.json` gets no `darwin-aarch64` entry. `app`/`dmg` are macOS-only and skipped on Linux/Windows builds. This was broken from before v0.12.9 through v0.12.13; fixed in v0.12.14.
 - macOS runner is `macos-latest` (ARM only) — `macos-12`/`macos-13` are gone
 - Verify after CI: `https://api.github.com/repos/hoornet/vega/releases/latest` (check for `.sig` assets + `latest.json`)
+- **Release notes in `release.yml` can trigger a GitHub workflow startup failure** ("workflow file issue", 0 jobs) that passes `yaml.safe_load` AND `actionlint`. Hit in v0.14.1 by 5 lines of plain-markdown release notes in the `releaseBody` block scalar; root cause never found. Keep the workflow's `releaseBody` minimal and known-good; put rich per-version notes on the release afterward with `gh release edit vX.Y.Z --notes-file f.md` — the release-body path doesn't go through the workflow parser.
+
+## CommonJS default imports (bundler gotcha)
+
+`react-qr-code` (and any CommonJS-only lib) can crash a view: under Vite 8 / Rolldown, `import X from "cjs-lib"` may resolve to the module namespace object `{ ..., default }` instead of the component, so `<X/>` throws React #130 ("element type is invalid… got: object") and the error boundary blanks the app. This only shows in built bundles, not `npm run tauri dev`. `AboutView.tsx` keeps a defensive unwrap (`(X as ...).default ?? X`) — don't revert it to a plain default import, and use the same guard for other CJS libs rendered as JSX.
 
 ## Architecture
 
