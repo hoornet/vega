@@ -38,8 +38,8 @@ modules:
     sources:
       - type: git
         url: https://github.com/hoornet/vega.git
-        tag: v0.14.1
-        commit: e0a7c2e1a4368e22b6ca6982d02857ed65d8ef51
+        tag: v0.14.2
+        # commit: <filled in the flathub repo with the v0.14.2 tag's SHA>
 
       # flatpak-node-generator npm -o node-sources.json package-lock.json
       - node-sources.json

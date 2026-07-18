@@ -2,6 +2,15 @@
 
 > Note: entries for v0.12.10 through v0.13.1 live in the [GitHub Releases](https://github.com/hoornet/vega/releases) notes; this file resumes at v0.13.2.
 
+## v0.14.2 — Reliable key storage on Linux (2026-07-18)
+
+### Changed
+- **Linux key storage now uses the system secret service** (gnome-keyring / KWallet) instead of the kernel keyring. Your secret key now survives reboots reliably, and — importantly — persists inside sandboxed installs (Flatpak), which the kernel keyring could not. macOS and Windows are unchanged.
+
+### Migration
+- **Linux users re-enter their key once** after this update. The previous kernel-keyring entry isn't readable by the new backend, so on first launch you'll sign in again; after that it persists as normal.
+- Requires a running secret-service provider (gnome-keyring or KWallet — standard on GNOME/KDE and most desktops).
+
 ## v0.14.1 — Fix Support view crash, add proxy/Tor support (2026-07-15)
 
 ### Fixed
