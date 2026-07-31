@@ -308,3 +308,18 @@ jobs:
           prerelease: false
           includeUpdaterJson: true
           args: ${{ matrix.args }}
+
+  winget:
+    needs: release
+    runs-on: windows-latest
+    env:
+      WINGET_TOKEN: ${{ secrets.WINGET_TOKEN }}
+    steps:
+      - name: Submit version update to winget-pkgs
+        if: env.WINGET_TOKEN != ''
+        shell: pwsh
+        run: |
+          $version = $env:GITHUB_REF_NAME.TrimStart('v')
+          $url = "https://github.com/hoornet/vega/releases/download/v$version/Vega_${version}_x64-setup.exe"
+          Invoke-WebRequest -Uri https://aka.ms/wingetcreate -OutFile wingetcreate.exe
+          .\wingetcreate.exe update Hoornet.Vega --version $version --urls $url --submit --token $env:WINGET_TOKEN
