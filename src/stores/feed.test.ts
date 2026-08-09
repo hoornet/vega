@@ -65,7 +65,12 @@ describe("useFeedStore - loadTrendingFeed", () => {
     expect(trending[2].id).toBe("c"); // score: 5
   });
 
-  it("filters out notes with zero engagement", async () => {
+  // Trending deliberately does NOT drop zero-engagement notes. 2bb1341
+  // ("trending always shows notes") removed the `.filter(s => s.score > 0)`
+  // and added a +0.1 base score, because engagement fetches time out often
+  // enough that the filter produced an empty Trending tab. Don't reinstate
+  // the filter to make a test pass — these two pin the intended behaviour.
+  it("ranks zero-engagement notes last instead of dropping them", async () => {
     const now = Math.floor(Date.now() / 1000);
     const notes = [
       makeMockNote("a", now - 100),
@@ -83,8 +88,24 @@ describe("useFeedStore - loadTrendingFeed", () => {
     await useFeedStore.getState().loadTrendingFeed(true);
 
     const trending = useFeedStore.getState().trendingNotes;
-    expect(trending).toHaveLength(1);
-    expect(trending[0].id).toBe("a");
+    expect(trending.map((n) => n.id)).toEqual(["a", "b"]);
+  });
+
+  it("still shows notes when engagement data is unavailable", async () => {
+    const now = Math.floor(Date.now() / 1000);
+    // Newest last, to prove the ordering comes from recency decay rather than
+    // from the order the relays happened to return them in.
+    const notes = [
+      makeMockNote("older", now - 7200),
+      makeMockNote("newer", now - 60),
+    ];
+
+    vi.mocked(fetchTrendingCandidates).mockResolvedValue(notes);
+    vi.mocked(fetchBatchEngagement).mockResolvedValue(new Map());
+
+    await useFeedStore.getState().loadTrendingFeed(true);
+
+    expect(useFeedStore.getState().trendingNotes.map((n) => n.id)).toEqual(["newer", "older"]);
   });
 
   it("limits results to 50", async () => {
