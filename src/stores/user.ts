@@ -1,6 +1,12 @@
 import { create } from "zustand";
 import { NDKPrivateKeySigner, NDKNip46Signer } from "@nostr-dev-kit/ndk";
 import { getNDK, publishContactList } from "../lib/nostr";
+import {
+  acceptSecretEchoAsAck,
+  forgetPendingClientKey,
+  pendingClientKeyFor,
+  rememberPendingClientKey,
+} from "../lib/nostr/nip46";
 import { nip19 } from "@nostr-dev-kit/ndk";
 import { invoke } from "@tauri-apps/api/core";
 import { useMuteStore } from "./mute";
@@ -200,7 +206,10 @@ export const useUserStore = create<UserState>((set, get) => ({
       set({ loginError: null });
 
       const ndk = getNDK();
-      const signer = NDKNip46Signer.bunker(ndk, bunkerUri);
+      const uri = bunkerUri.trim();
+      const signer = NDKNip46Signer.bunker(ndk, uri, pendingClientKeyFor(uri));
+      rememberPendingClientKey(uri, signer.localSigner.privateKey);
+      acceptSecretEchoAsAck(signer);
 
       // Wait for signer with 15s timeout
       const user = await Promise.race([
@@ -215,6 +224,9 @@ export const useUserStore = create<UserState>((set, get) => ({
       const npub = nip19.npubEncode(pubkey);
 
       _nip46SignerCache.set(pubkey, signer);
+
+      // The client key now lives in the account's signerPayload; drop the scratch copy.
+      forgetPendingClientKey();
 
       const signerPayload = signer.toPayload();
       const accounts = upsertAccount(get().accounts, { pubkey, npub, loginType: "remote-signer", signerPayload });
@@ -237,7 +249,10 @@ export const useUserStore = create<UserState>((set, get) => ({
       useUIStore.getState().setView("feed");
       useFeedStore.getState().loadFeed();
     } catch (err) {
-      set({ loginError: `Remote signer login failed: ${err}` });
+      // NDK rejects the connect promise with the raw `error` field, which is
+      // undefined whenever the bunker replied without one — don't print "undefined".
+      const reason = err instanceof Error ? err.message : typeof err === "string" ? err : "";
+      set({ loginError: `Remote signer login failed: ${reason || "the signer rejected the connection"}` });
     }
   },
 
