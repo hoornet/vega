@@ -14,7 +14,7 @@
   "dependencies": {
     "@fontsource/atkinson-hyperlegible": "5.2.8",
     "@nostr-dev-kit/ndk": "3.0.3",
-    "@tailwindcss/vite": "^4.3.1",
+    "@tailwindcss/vite": "^4.3.3",
     "@tanstack/react-virtual": "3.13.24",
     "@tauri-apps/api": "^2.11.0",
     "@tauri-apps/plugin-dialog": "^2.7.0",
