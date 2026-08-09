@@ -1,0 +1,36 @@
+version: 2
+
+# Vega ships signed binaries built from this repo, so every dependency is part
+# of the release's trusted computing base. Alerts alone only cover npm; these
+# ecosystems get update PRs too, including the Rust tree and the Actions that
+# do the signing.
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      # One PR per ecosystem-week for routine bumps; security updates are
+      # always raised separately and immediately, regardless of grouping.
+      dev-dependencies:
+        dependency-type: development
+        update-types: [minor, patch]
+      tauri:
+        patterns: ["@tauri-apps/*"]
+
+  - package-ecosystem: cargo
+    directory: /src-tauri
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      tauri:
+        patterns: ["tauri", "tauri-*"]
+
+  # Actions are pinned to commit SHAs in release.yml — this is what keeps them
+  # from silently rotting once pinned.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
