@@ -16,6 +16,22 @@ type TauriFetchInitWithProxy = NonNullable<TauriFetchInit> & {
 
 let proxySettingsPromise: Promise<ProxySettings> | null = null;
 
+/**
+ * Upgrade `socks5://` to `socks5h://` for requests that go out through Rust.
+ *
+ * With plain `socks5`, the client resolves hostnames itself, so a user on Tor
+ * still leaks every relay/media hostname to their DNS resolver. `socks5h` hands
+ * the hostname to the proxy instead. reqwest — which backs both plugin-http and
+ * the updater — supports it; the webview's `proxy_url` only documents `socks5`,
+ * so the stored setting stays `socks5://` and this upgrade is applied per call.
+ * See https://github.com/hoornet/vega/issues/11.
+ */
+export function remoteDnsProxyUrl(url: string): string {
+  const trimmed = url.trim();
+  const socks5 = "socks5://";
+  return trimmed.startsWith(socks5) ? `socks5h://${trimmed.slice(socks5.length)}` : trimmed;
+}
+
 export function getProxySettings(): Promise<ProxySettings> {
   if (!proxySettingsPromise) {
     proxySettingsPromise = invoke<ProxySettings>("get_proxy_settings")
@@ -37,7 +53,7 @@ export async function fetchWithProxy(input: TauriFetchInput, init?: TauriFetchIn
 
   const proxiedInit: TauriFetchInitWithProxy = {
     ...(init ?? {}),
-    proxy: { all: settings.url.trim() },
+    proxy: { all: remoteDnsProxyUrl(settings.url) },
   };
   return tauriFetch(input, proxiedInit);
 }

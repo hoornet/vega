@@ -526,8 +526,9 @@ function ProxySection() {
         Applies after restart. Example: socks5://127.0.0.1:9050
       </p>
       <p className="text-text-dim text-[10px] mt-1 ml-12 leading-relaxed">
-        Note: this routes your traffic, but DNS may still be resolved locally, so
-        relay hostnames can leak. Full DNS privacy (e.g. for Tor) is not guaranteed yet.
+        Note: Vega's own HTTP requests (update checks, uploads, link previews) resolve
+        DNS through the proxy. Relay connections run in the webview, which may still
+        resolve hostnames locally — full DNS privacy for Tor is not guaranteed yet.
       </p>
       {(error || validationError) && (
         <p className="text-danger text-[10px] mt-1 ml-12">{error ?? validationError}</p>

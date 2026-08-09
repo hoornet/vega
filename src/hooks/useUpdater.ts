@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { check } from "@tauri-apps/plugin-updater";
 import { relaunch } from "@tauri-apps/plugin-process";
 import { invoke } from "@tauri-apps/api/core";
-import { getProxySettings } from "../lib/proxy";
+import { getProxySettings, remoteDnsProxyUrl } from "../lib/proxy";
 
 interface InstallInfo {
   can_self_update: boolean;
@@ -23,7 +23,7 @@ interface UpdateState {
 
 async function checkForUpdate() {
   const settings = await getProxySettings();
-  const proxy = settings.enabled ? settings.url.trim() : "";
+  const proxy = settings.enabled ? remoteDnsProxyUrl(settings.url) : "";
   return check(proxy ? { proxy } : undefined);
 }
 

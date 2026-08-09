@@ -968,4 +968,13 @@ mod tests {
     fn updater_http_client_supports_socks5_proxy_urls() {
         assert!(reqwest::Proxy::all("socks5://127.0.0.1:9050").is_ok());
     }
+
+    // The stored setting stays socks5:// (the webview only documents that scheme),
+    // but every request that goes out through reqwest is upgraded to socks5h:// by
+    // `remoteDnsProxyUrl` in src/lib/proxy.ts so the proxy resolves DNS. Guard that
+    // reqwest keeps accepting the scheme we hand it. See issue #11.
+    #[test]
+    fn updater_http_client_supports_socks5h_proxy_urls() {
+        assert!(reqwest::Proxy::all("socks5h://127.0.0.1:9050").is_ok());
+    }
 }
