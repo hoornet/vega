@@ -54,6 +54,15 @@ CI triggers on the tag and builds all three platforms (Ubuntu, Windows, macOS AR
 - macOS runner is `macos-latest` (ARM only) — `macos-12`/`macos-13` are gone
 - Verify after CI: `https://api.github.com/repos/hoornet/vega/releases/latest` (check for `.sig` assets + `latest.json`)
 - **Release notes in `release.yml` can trigger a GitHub workflow startup failure** ("workflow file issue", 0 jobs) that passes `yaml.safe_load` AND `actionlint`. Hit in v0.14.1 by 5 lines of plain-markdown release notes in the `releaseBody` block scalar; root cause never found. Keep the workflow's `releaseBody` minimal and known-good; put rich per-version notes on the release afterward with `gh release edit vX.Y.Z --notes-file f.md` — the release-body path doesn't go through the workflow parser.
+- **`tauri-action` is pinned to the v0 SHA on purpose — v1.0.0 is a deliberate hold.** v1 renames the macOS updater artifact (`.app.tar.gz`/`.sig` now carry the version) and switches `latest.json` to github URLs instead of browser-download URLs. Both touch the exact machinery that silently broke macOS updates for five releases (see the `"app"` rule above). Take it at the *start* of a release cycle, then check the releases API for per-platform `.sig` assets and a `darwin-aarch64` entry in `latest.json` before announcing.
+- **Never write `@dependabot <command>` as literal text in a GitHub comment.** Dependabot parses commands out of comment bodies with no regard for surrounding prose — a sentence explaining why you would *not* run a command still runs it. Writing "`@dependabot ignore this major version` would be wrong here" in a comment on the tauri-action PR closed it and set a permanent 1.x ignore two seconds later; recovered with `@dependabot unignore tauri-apps/tauri-action`. Refer to commands descriptively ("the ignore-this-major-version command") instead.
+
+## Supply chain
+
+- The release job builds and signs what users install, so `release.yml` runs **`npm ci --ignore-scripts`, never `npm install`** — `install` re-resolves inside caret ranges, so a compromised patch release could reach a signed build without appearing in the reviewed lockfile.
+- **All actions are pinned to commit SHAs**, with the version in a trailing comment. Tags are mutable; `tauri-action` runs with the signing key in env. Dependabot (`.github/dependabot.yml`, covering npm + cargo + github-actions) keeps the SHAs current.
+- `@nostr-dev-kit/ndk` is pinned **exactly**, not with a caret. Upstream is effectively single-maintainer, last published 2026-02-23, and a request to enable private security reporting has gone unanswered since June (nostr-dev-kit/ndk#393). NDK moves when we choose to move it. Vega carries a NIP-46 workaround for it in `src/lib/nostr/nip46.ts`.
+- Known-and-accepted `cargo audit` noise: 4 quick-xml DoS advisories (build-time via `plist`, and XML *writing* via `tauri-winrt-notification` — neither parses untrusted input) plus ~22 `unmaintained` warnings, mostly gtk3-rs, which is Tauri's Linux stack.
 
 ## CommonJS default imports (bundler gotcha)
 
