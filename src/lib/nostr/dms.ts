@@ -35,6 +35,41 @@ async function unwrapGiftWraps(events: NDKEvent[]): Promise<NDKEvent[]> {
   return rumors;
 }
 
+/**
+ * Recent inbound DMs for notification polling, newest last.
+ *
+ * `sinceRumorTs` is compared against the **rumor's** timestamp, never the gift
+ * wrap's: NIP-59 randomizes a wrap's `created_at`, backdating it by up to two
+ * days to frustrate timing analysis. A `since` filter on kind 1059 therefore
+ * drops real messages, so the wraps are fetched by limit and judged after
+ * unwrapping. Legacy kind 4 carries a truthful timestamp and can use `since`.
+ *
+ * Returns [] for read-only accounts — without a signer there is nothing to
+ * decrypt with.
+ */
+export async function fetchNewDMs(
+  myPubkey: string,
+  sinceRumorTs: number,
+  limit = 20,
+): Promise<NDKEvent[]> {
+  const instance = getNDK();
+  if (!instance.signer) return [];
+
+  const [nip04, giftWrapEvents] = await Promise.all([
+    fetchWithTimeout(
+      instance,
+      { kinds: [NDKKind.EncryptedDirectMessage], "#p": [myPubkey], since: sinceRumorTs, limit },
+      FEED_TIMEOUT,
+    ),
+    fetchGiftWraps(myPubkey, limit, FEED_TIMEOUT),
+  ]);
+
+  const rumors = await unwrapGiftWraps(giftWrapEvents);
+  return [...Array.from(nip04), ...rumors]
+    .filter((e) => e.pubkey !== myPubkey && (e.created_at ?? 0) > sinceRumorTs)
+    .sort((a, b) => (a.created_at ?? 0) - (b.created_at ?? 0));
+}
+
 export async function fetchDMConversations(myPubkey: string): Promise<NDKEvent[]> {
   const instance = getNDK();
   // Fetch NIP-04 (legacy) and NIP-17 (gift-wrap) in parallel with timeouts

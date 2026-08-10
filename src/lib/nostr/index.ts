@@ -4,7 +4,7 @@ export { publishProfile, publishContactList, fetchProfile, fetchFollowSuggestion
 export { publishArticle, fetchArticle, fetchAuthorArticles, fetchArticleFeed, searchArticles, fetchByAddr } from "./articles";
 export { publishReaction, fetchReplyCount, fetchZapCount, fetchReactions, groupReactions, fetchBatchEngagement, fetchZapsReceived, fetchZapsSent } from "./engagement";
 export type { GroupedReactions, BatchEngagement } from "./engagement";
-export { fetchDMConversations, fetchDMThread, sendDM, decryptDM } from "./dms";
+export { fetchDMConversations, fetchDMThread, fetchNewDMs, sendDM, decryptDM } from "./dms";
 export { fetchBookmarkList, publishBookmarkList, fetchBookmarkListFull, publishBookmarkListFull } from "./bookmarks";
 export { fetchPodcastList, publishPodcastList } from "./podcasts";
 export { fetchMuteList, publishMuteList } from "./muting";

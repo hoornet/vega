@@ -1,5 +1,5 @@
-import { fetchMentions, fetchZapsReceived, fetchNewFollowers, fetchProfile, ensureConnected } from "./nostr";
-import { notifyMention, notifyZap, notifyFollower } from "./notifications";
+import { fetchMentions, fetchZapsReceived, fetchNewFollowers, fetchNewDMs, fetchProfile, ensureConnected } from "./nostr";
+import { notifyMention, notifyZap, notifyFollower, notifyDM, getNotificationSettings } from "./notifications";
 import { useNotificationsStore } from "../stores/notifications";
 import { dbSaveNotifications, dbNewestNotificationTs } from "./db";
 import { debug } from "./debug";
@@ -7,6 +7,29 @@ import { debug } from "./debug";
 const POLL_INTERVAL = 60_000; // 60 seconds
 
 let intervalId: ReturnType<typeof setInterval> | null = null;
+
+// How far we've already notified for DMs, per account. Only a unix timestamp is
+// stored — decrypted message content never leaves memory, unlike the other
+// notification types which are cached in the DB for the Notifications view.
+const DM_HIGHWATER_KEY = "wrystr_dm_notified_through";
+
+export function dmHighWater(pubkey: string): number {
+  const key = `${DM_HIGHWATER_KEY}:${pubkey}`;
+  const raw = localStorage.getItem(key);
+  const now = Math.floor(Date.now() / 1000);
+  if (raw === null) {
+    // First run on this account: start from now. Without this, the first poll
+    // after upgrading would fire an OS notification for every DM ever received.
+    localStorage.setItem(key, String(now));
+    return now;
+  }
+  const parsed = parseInt(raw, 10);
+  return Number.isFinite(parsed) ? parsed : now;
+}
+
+export function setDmHighWater(pubkey: string, ts: number): void {
+  localStorage.setItem(`${DM_HIGHWATER_KEY}:${pubkey}`, String(ts));
+}
 
 async function getProfileName(pubkey: string): Promise<string> {
   try {
@@ -96,6 +119,26 @@ async function pollOnce(pubkey: string) {
         const name = await getProfileName(e.pubkey);
         notifyFollower(name).catch(() => {});
         useNotificationsStore.getState().addNewFollower(e.pubkey);
+      }
+    }
+  } catch { /* non-critical */ }
+
+  // Direct messages. Unlike the types above these are not written to the
+  // notifications DB — DMs have their own view, and caching decrypted content
+  // in a second place is not worth it for a badge. We only track how far we've
+  // notified. Skipped entirely when the toggle is off so we don't pay for the
+  // fetch and decrypt.
+  try {
+    if (getNotificationSettings().dms) {
+      const since = dmHighWater(pubkey);
+      const newDMs = await fetchNewDMs(pubkey, since, 20);
+      if (newDMs.length > 0) {
+        debug.log(`[notif] ${newDMs.length} new DM(s) since ${since}`);
+        for (const e of newDMs) {
+          const name = await getProfileName(e.pubkey);
+          notifyDM(name, e.content?.slice(0, 120) || "New message").catch(() => {});
+        }
+        setDmHighWater(pubkey, Math.max(...newDMs.map((e) => e.created_at ?? since)));
       }
     }
   } catch { /* non-critical */ }
