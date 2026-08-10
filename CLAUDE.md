@@ -29,12 +29,14 @@ Prerequisites: Node.js 20+, Rust stable, `@tauri-apps/cli`
 
 **Order matters — do not tag before bumping versions.**
 
-1. Bump version to `X.Y.Z` in all four files (they must stay in sync):
+0. **Verify we are not shipping someone else's payload** — run `scripts/verify-aur-package.sh`. It must print `AUR package is clean.` (exit 0) before you tag. See "Distribution channel integrity" below for why this is step zero and not an afterthought.
+1. Bump version to `X.Y.Z` in all **five** files (they must stay in sync):
    - `src-tauri/tauri.conf.json` → `"version": "X.Y.Z"`
    - `package.json` → `"version": "X.Y.Z"`
-   - `src-tauri/Cargo.toml` → `version = "X.Y.Z"`
+   - `package-lock.json` → run `npm install --package-lock-only` after bumping `package.json`
+   - `src-tauri/Cargo.toml` → `version = "X.Y.Z"` (then `cargo check` to sync `Cargo.lock`)
    - `PKGBUILD` → `pkgver=X.Y.Z`
-2. Update the release notes in `.github/workflows/release.yml`
+2. **Leave `.github/workflows/release.yml` alone.** Do not add per-version notes to `releaseBody` — see the release-notes rule below. Write the notes to a file and apply them after CI with `gh release edit vX.Y.Z --notes-file f.md`.
 3. Commit: `git commit -m "Bump to vX.Y.Z — <summary>"`
 4. Tag: `git tag vX.Y.Z`
 5. Push: `git push origin main vX.Y.Z`
@@ -43,8 +45,20 @@ Prerequisites: Node.js 20+, Rust stable, `@tauri-apps/cli`
    makepkg --printsrcinfo > .SRCINFO
    git add PKGBUILD .SRCINFO && git commit -m "Bump to vX.Y.Z" && git push
    ```
+   Not urgent, and safe to do late: `vega-nostr-git` is a VCS package that builds the default branch, so Arch users get the new version from the pushed tag whether or not `pkgver` has been bumped. The bump is display metadata. AUR git writes are also gated independently of the website — the site can be HTTP 200 while pushes report "The AUR is down due to maintenance".
+7. Re-run `scripts/verify-aur-package.sh` after the AUR push, so the check also covers what you just published.
 
-CI triggers on the tag and builds all three platforms (Ubuntu, Windows, macOS ARM). All jobs must complete for `latest.json` to be assembled.
+**`package-lock.json` is a version file.** CI runs `npm ci`, which *fails* on a package.json/lockfile mismatch — `npm install` used to reconcile it silently. Forgetting it breaks the build on all three platforms.
+
+CI triggers on the tag and builds all three platforms (Ubuntu, Windows, macOS ARM). All jobs must complete for `latest.json` to be assembled. The winget submission is a **separate** workflow (`winget.yml`) so a package-submission failure can't mark a good release red.
+
+## Distribution channel integrity
+
+Vega is shipped through channels that carry our name: the AUR, winget, GitHub releases, and Flathub. If one of them were adopted, modified or hijacked, we would be the ones distributing the payload. Being the vector is worse than being the victim, so this is checked on every release, not when something feels wrong.
+
+- `scripts/verify-aur-package.sh` diffs the PKGBUILD and .SRCINFO that the AUR is *actually serving* against the last commit pushed to `origin/master` in the local `vega-aur` checkout. Byte-identity is sufficient on its own — an injected `install=` script, a repointed `source=`, or an added `prepare()` all have to appear in the PKGBUILD to take effect. Exit 0 clean, 1 mismatch, 2 couldn't check (treat 2 as unverified, not as a pass).
+- Prompted by the Arch advisory of 2026-06-12, "Active AUR malicious packages incident" — a high volume of malicious package *adoptions and updates*, with AUR submissions blocked in response. First run against `vega-nostr-git` on 2026-08-10: clean.
+- A mismatch is never "probably fine". Investigate before announcing.
 
 **Hard-won CI rules:**
 - `includeUpdaterJson: true` must be set in tauri-action — without it `latest.json` is never uploaded and the auto-updater silently does nothing
