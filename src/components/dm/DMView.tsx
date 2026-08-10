@@ -341,13 +341,17 @@ function NewConvInput({ onStart }: { onStart: (pubkey: string) => void }) {
 
   return (
     <div className="px-3 py-3 border-t border-border">
+      {/* min-w-0 on the input is required, not cosmetic: flex-1 leaves
+          min-width:auto, so the input won't shrink below its intrinsic size=20
+          monospace width. Below roughly a 240px list column the row overflows
+          and pushes the shrink-0 Start button out under the message panel. */}
       <div className="flex gap-1.5">
         <input
           value={input}
           onChange={(e) => { setInput(e.target.value); setError(null); }}
           onKeyDown={(e) => e.key === "Enter" && handleStart()}
           placeholder="npub1… or hex pubkey"
-          className="flex-1 bg-bg border border-border px-2 py-1.5 text-text text-[11px] font-mono focus:outline-none focus:border-accent/50 placeholder:text-text-dim"
+          className="flex-1 min-w-0 bg-bg border border-border px-2 py-1.5 text-text text-[11px] font-mono focus:outline-none focus:border-accent/50 placeholder:text-text-dim"
           style={{ WebkitUserSelect: "text", userSelect: "text" } as React.CSSProperties}
         />
         <button
