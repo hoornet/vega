@@ -317,9 +317,25 @@ function ThreadPanel({
 
 // ── New conversation input ────────────────────────────────────────────────────
 
+// Collapsed to a single "New message" link until it's actually needed. It lives
+// at the bottom of the list column, directly alongside the thread's Send button,
+// so a permanently visible field and a second always-there button read as two
+// competing send affordances.
 function NewConvInput({ onStart }: { onStart: (pubkey: string) => void }) {
+  const [open, setOpen] = useState(false);
   const [input, setInput] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (open) inputRef.current?.focus();
+  }, [open]);
+
+  const close = () => {
+    setOpen(false);
+    setInput("");
+    setError(null);
+  };
 
   const handleStart = () => {
     const raw = input.trim();
@@ -329,8 +345,10 @@ function NewConvInput({ onStart }: { onStart: (pubkey: string) => void }) {
         const decoded = nip19.decode(raw);
         if (decoded.type !== "npub") throw new Error("Not an npub");
         onStart(decoded.data as string);
+        close();
       } else if (/^[0-9a-f]{64}$/.test(raw)) {
         onStart(raw);
+        close();
       } else {
         setError("Enter an npub1… or hex pubkey");
       }
@@ -339,27 +357,48 @@ function NewConvInput({ onStart }: { onStart: (pubkey: string) => void }) {
     }
   };
 
+  if (!open) {
+    return (
+      <div className="px-3 py-2 border-t border-border">
+        <button
+          onClick={() => setOpen(true)}
+          className="w-full text-left text-text-dim hover:text-accent text-[11px] py-1 transition-colors focus-visible:ring-1 focus-visible:ring-accent"
+        >
+          + New message
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div className="px-3 py-3 border-t border-border">
-      {/* min-w-0 on the input is required, not cosmetic: flex-1 leaves
-          min-width:auto, so the input won't shrink below its intrinsic size=20
-          monospace width. Below roughly a 240px list column the row overflows
-          and pushes the shrink-0 Start button out under the message panel. */}
+      {/* min-w-0 is required, not cosmetic: flex-1 leaves min-width:auto, so the
+          input won't shrink below its intrinsic size=20 monospace width. Below
+          roughly a 240px list column the row overflows and pushes the shrink-0
+          button out under the message panel. */}
       <div className="flex gap-1.5">
         <input
+          ref={inputRef}
           value={input}
           onChange={(e) => { setInput(e.target.value); setError(null); }}
-          onKeyDown={(e) => e.key === "Enter" && handleStart()}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") handleStart();
+            if (e.key === "Escape") close();
+          }}
+          onBlur={() => { if (!input.trim()) close(); }}
           placeholder="npub1… or hex pubkey"
           className="flex-1 min-w-0 bg-bg border border-border px-2 py-1.5 text-text text-[11px] font-mono focus:outline-none focus:border-accent/50 placeholder:text-text-dim"
           style={{ WebkitUserSelect: "text", userSelect: "text" } as React.CSSProperties}
         />
         <button
+          onMouseDown={(e) => e.preventDefault()} /* don't let onBlur close before the click lands */
           onClick={handleStart}
           disabled={!input.trim()}
-          className="px-2 py-1.5 text-[10px] border border-border text-text-dim hover:text-accent hover:border-accent/40 transition-colors disabled:opacity-30 shrink-0"
+          aria-label="Start conversation"
+          title="Start conversation"
+          className="px-2 py-1.5 text-[11px] border border-border text-text-dim hover:text-accent hover:border-accent/40 transition-colors disabled:opacity-30 shrink-0"
         >
-          Start
+          →
         </button>
       </div>
       {error && <p className="text-danger text-[10px] mt-1">{error}</p>}
