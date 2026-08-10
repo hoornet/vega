@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { NDKEvent } from "@nostr-dev-kit/ndk";
 import { publishQuote } from "../../lib/nostr";
 import { useCanSign } from "../../stores/user";
+import { useAutoResize } from "../../hooks/useAutoResize";
 import { LoginModal } from "../shared/LoginModal";
 
 interface QuoteModalProps {
@@ -19,6 +20,10 @@ export function QuoteModal({ event, authorName, authorAvatar, onClose, onPublish
   const [error, setError] = useState<string | null>(null);
   const [showLogin, setShowLogin] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  // Same range as the article comment box — prose at a similar size. Capped
+  // lower than the DM composer because this shares a modal with the quoted
+  // note preview and the publish controls.
+  const autoResize = useAutoResize(3, 10);
 
   useEffect(() => {
     textareaRef.current?.focus();
@@ -55,7 +60,10 @@ export function QuoteModal({ event, authorName, authorAvatar, onClose, onPublish
       aria-labelledby="quote-modal-title"
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
-      <div className="bg-bg border border-border w-full max-w-md mx-4 shadow-2xl">
+      {/* max-h/overflow are load-bearing: the overlay centres this panel and
+          never scrolls, so without them a grown composer pushes "Quote & post"
+          off-screen with no way to reach it. */}
+      <div className="bg-bg border border-border w-full max-w-md mx-4 shadow-2xl max-h-[85vh] overflow-y-auto">
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-border">
           <h2 id="quote-modal-title" className="text-text text-sm font-medium">Quote note</h2>
@@ -67,7 +75,7 @@ export function QuoteModal({ event, authorName, authorAvatar, onClose, onPublish
           <textarea
             ref={textareaRef}
             value={text}
-            onChange={(e) => setText(e.target.value)}
+            onChange={(e) => { setText(e.target.value); autoResize(e); }}
             onKeyDown={handleKeyDown}
             placeholder="Add your comment…"
             rows={3}
