@@ -136,7 +136,8 @@ async function pollOnce(pubkey: string) {
         debug.log(`[notif] ${newDMs.length} new DM(s) since ${since}`);
         for (const e of newDMs) {
           const name = await getProfileName(e.pubkey);
-          notifyDM(name, e.content?.slice(0, 120) || "New message").catch(() => {});
+          // Sender only — the decrypted body never leaves the DM view.
+          notifyDM(name).catch(() => {});
         }
         setDmHighWater(pubkey, Math.max(...newDMs.map((e) => e.created_at ?? since)));
       }

@@ -47,13 +47,23 @@ export async function notifyMention(authorName: string, preview: string): Promis
   });
 }
 
-export async function notifyDM(authorName: string, preview: string): Promise<void> {
+/**
+ * Deliberately title-only: no message body. Vega's whole point with DMs is that
+ * they're encrypted, and an OS notification is the one place that content would
+ * leave the app — onto a lock screen, a notification daemon's history, or a
+ * screen being shared. The notification's job is "go look", and the message is
+ * one click away.
+ *
+ * Takes no message content by design — mentions and zaps still show theirs,
+ * which is public either way.
+ */
+export async function notifyDM(authorName: string): Promise<void> {
   const settings = getNotificationSettings();
   if (!settings.dms) return;
   if (!(await ensurePermission())) return;
   sendNotification({
-    title: `DM from ${authorName}`,
-    body: preview.slice(0, 120),
+    title: "New message",
+    body: `from ${authorName}`,
   });
 }
 
