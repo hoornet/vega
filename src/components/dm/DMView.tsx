@@ -6,6 +6,7 @@ import { useUIStore } from "../../stores/ui";
 import { useNotificationsStore } from "../../stores/notifications";
 import { fetchDMConversations, fetchDMThread, sendDM, decryptDM, getNDK } from "../../lib/nostr";
 import { useProfile } from "../../hooks/useProfile";
+import { useAutoResize } from "../../hooks/useAutoResize";
 import { timeAgo, shortenPubkey, profileName } from "../../lib/utils";
 import { debug } from "../../lib/debug";
 import { parseContent } from "../../lib/parsing";
@@ -208,6 +209,9 @@ function ThreadPanel({
   const [sendError, setSendError] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  // DMs are where the longest messages get written, so allow more room to grow
+  // than the reply boxes do. The messages pane above is flex-1, so it yields.
+  const autoResize = useAutoResize(2, 14);
 
   useEffect(() => {
     setLoading(true);
@@ -232,6 +236,9 @@ function ThreadPanel({
       await sendDM(partnerPubkey, content);
       debug.log("[DM-UI] send completed, re-fetching thread");
       setText("");
+      // Clear the inline height autoResize set, or the box stays as tall as the
+      // message we just sent, now empty.
+      if (textareaRef.current) textareaRef.current.style.height = "";
       // Re-fetch thread to include the sent message
       const updated = await fetchDMThread(myPubkey, partnerPubkey);
       debug.log("[DM-UI] re-fetch got", updated.length, "messages");
@@ -287,7 +294,7 @@ function ThreadPanel({
           <textarea
             ref={textareaRef}
             value={text}
-            onChange={(e) => setText(e.target.value)}
+            onChange={(e) => { setText(e.target.value); autoResize(e); }}
             onKeyDown={handleKeyDown}
             placeholder={`Message ${name}…`}
             rows={2}
