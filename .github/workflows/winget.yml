@@ -1,0 +1,61 @@
+name: Submit to winget
+
+# Split out of release.yml deliberately. Two reasons:
+#  1. A winget hiccup used to mark the whole release run as failed even when all
+#     three platform builds succeeded and every artifact was uploaded (v0.14.3).
+#     Package submission is downstream of the release, not part of it.
+#  2. It can be re-run on its own — a rejected or superseded winget PR no longer
+#     needs a whole new release to retry.
+#
+# Trigger is workflow_run, NOT `on: release`. tauri-action publishes the release
+# using GITHUB_TOKEN, and GitHub deliberately does not fire workflow events for
+# actions taken by that token, so `on: release: published` would never run.
+on:
+  workflow_run:
+    workflows: ["Release"]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to submit, without the leading v (e.g. 0.14.3)'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  winget:
+    runs-on: windows-latest
+    # On the automatic path, only submit for a release that actually succeeded.
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      github.event.workflow_run.conclusion == 'success'
+    env:
+      WINGET_TOKEN: ${{ secrets.WINGET_TOKEN }}
+      # workflow_run: head_branch is the tag that triggered Release (e.g. v0.14.3).
+      # Passed through env rather than interpolated into the script body.
+      RAW_VERSION: ${{ inputs.version || github.event.workflow_run.head_branch }}
+    steps:
+      - name: Submit version update to winget-pkgs
+        if: env.WINGET_TOKEN != ''
+        shell: pwsh
+        run: |
+          $version = $env:RAW_VERSION.TrimStart('v')
+          if ($version -notmatch '^\d+\.\d+\.\d+$') {
+            throw "Refusing to submit: '$($env:RAW_VERSION)' is not a version tag."
+          }
+          $url = "https://github.com/hoornet/vega/releases/download/v$version/Vega_${version}_x64-setup.exe"
+
+          # Pull wingetcreate from its actual release, NOT https://aka.ms/wingetcreate:
+          # that short link is dead and 302s to bing.com, so Invoke-WebRequest happily
+          # saved an HTML page as wingetcreate.exe and Windows reported the resulting
+          # binary as "corrupted and unreadable". Broke the v0.14.3 run.
+          Invoke-WebRequest -Uri https://github.com/microsoft/winget-create/releases/latest/download/wingetcreate.exe -OutFile wingetcreate.exe
+          # Fail loudly with the real reason if that ever stops being an executable.
+          $magic = Get-Content .\wingetcreate.exe -AsByteStream -TotalCount 2
+          if ($magic[0] -ne 0x4D -or $magic[1] -ne 0x5A) {
+            throw "Downloaded wingetcreate.exe is not a PE executable (no MZ header) — the download URL is probably broken."
+          }
+
+          .\wingetcreate.exe update Hoornet.Vega --version $version --urls $url --submit --token $env:WINGET_TOKEN

@@ -317,26 +317,6 @@ jobs:
           includeUpdaterJson: true
           args: ${{ matrix.args }}
 
-  winget:
-    needs: release
-    runs-on: windows-latest
-    env:
-      WINGET_TOKEN: ${{ secrets.WINGET_TOKEN }}
-    steps:
-      - name: Submit version update to winget-pkgs
-        if: env.WINGET_TOKEN != ''
-        shell: pwsh
-        run: |
-          $version = $env:GITHUB_REF_NAME.TrimStart('v')
-          $url = "https://github.com/hoornet/vega/releases/download/v$version/Vega_${version}_x64-setup.exe"
-          # Pull wingetcreate from its actual release, NOT https://aka.ms/wingetcreate:
-          # that short link is dead and 302s to bing.com, so Invoke-WebRequest happily
-          # saved an HTML page as wingetcreate.exe and Windows reported the resulting
-          # binary as "corrupted and unreadable". Broke the v0.14.3 run.
-          Invoke-WebRequest -Uri https://github.com/microsoft/winget-create/releases/latest/download/wingetcreate.exe -OutFile wingetcreate.exe
-          # Fail loudly with the real reason if that ever stops being an executable.
-          $magic = Get-Content .\wingetcreate.exe -AsByteStream -TotalCount 2
-          if ($magic[0] -ne 0x4D -or $magic[1] -ne 0x5A) {
-            throw "Downloaded wingetcreate.exe is not a PE executable (no MZ header) — the download URL is probably broken."
-          }
-          .\wingetcreate.exe update Hoornet.Vega --version $version --urls $url --submit --token $env:WINGET_TOKEN
+# The winget submission lives in .github/workflows/winget.yml, triggered by this
+# workflow completing. Keeping it out of here means a package-submission problem
+# can never again mark a release red when all three builds actually succeeded.
