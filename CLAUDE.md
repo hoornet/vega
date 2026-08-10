@@ -50,6 +50,8 @@ Prerequisites: Node.js 20+, Rust stable, `@tauri-apps/cli`
 
 **`package-lock.json` is a version file.** CI runs `npm ci`, which *fails* on a package.json/lockfile mismatch — `npm install` used to reconcile it silently. Forgetting it breaks the build on all three platforms.
 
+**The point of no return is `git push --tags`, not the release notes.** CI builds and publishes the binaries the moment the tag lands, so any behaviour change decided after that is not in the release, however early the notes still feel. Once a version's artifacts and its `latest.json` entry are public, **supersede with a patch release — never move the tag**: users who already updated would be running different code under the same version number, which is unrecoverable. Cost of superseding is one CI run. This was learned the hard way between v0.15.0 and v0.15.1.
+
 CI triggers on the tag and builds all three platforms (Ubuntu, Windows, macOS ARM). All jobs must complete for `latest.json` to be assembled. The winget submission is a **separate** workflow (`winget.yml`) so a package-submission failure can't mark a good release red.
 
 ## Distribution channel integrity
