@@ -1,5 +1,5 @@
 import { NDKEvent, NDKFilter, NDKKind, NDKRelaySet, nip19 } from "@nostr-dev-kit/ndk";
-import { getNDK, getStoredRelayUrls, fetchWithTimeout, withTimeout, FEED_TIMEOUT, THREAD_TIMEOUT, SINGLE_TIMEOUT } from "./core";
+import { getNDK, getStoredRelayUrls, fetchWithTimeout, withTimeout, isOutboxRelaysEnabled, FEED_TIMEOUT, THREAD_TIMEOUT, SINGLE_TIMEOUT } from "./core";
 import { fetchUserRelayList } from "./relays";
 
 export async function fetchGlobalFeed(limit: number = 50, until?: number): Promise<NDKEvent[]> {
@@ -45,6 +45,11 @@ export async function fetchUserNotes(pubkey: string, limit = 30): Promise<NDKEve
 export async function fetchUserNotesNIP65(pubkey: string, limit = 30): Promise<NDKEvent[]> {
   const instance = getNDK();
   const filter: NDKFilter = { kinds: [NDKKind.Text, 1068 as NDKKind], authors: [pubkey], limit };
+  // With outbox off, reaching an author's own write relays is exactly the
+  // behaviour the user opted out of — and NDKRelaySet.fromRelayUrls would slip
+  // past relayConnectionFilter, since it connects its relay objects directly
+  // rather than through the pool. See issue #35.
+  if (!isOutboxRelaysEnabled()) return fetchUserNotes(pubkey, limit);
   try {
     const relayList = await withTimeout(fetchUserRelayList(pubkey), SINGLE_TIMEOUT, { read: [], write: [] });
     if (relayList.write.length > 0) {

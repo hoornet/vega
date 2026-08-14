@@ -165,7 +165,7 @@ Vega is shipped through channels that carry our name: the AUR, winget, GitHub re
 - OS keychain integration — nsec persists across restarts via `keyring` crate
 - SQLite note + profile cache
 - Direct messages (NIP-04 + NIP-17 gift wrap)
-- NIP-65 outbox model
+- NIP-65 outbox model — **off by default** since v0.15.2; Settings → "Relay reach" opts in (see the outbox rule below)
 - Image lightbox (click to expand, arrow key navigation)
 - Bookmark list (NIP-51 kind 10003) with sidebar nav, **Notes/Articles tabs**, article `a` tag support, **read/unread tracking**
 - Follow suggestions / discovery (follows-of-follows algorithm)
@@ -206,11 +206,22 @@ Vega is shipped through channels that carry our name: the AUR, winget, GitHub re
 - **New follower badges** — recently gained followers marked with "new" badge, sorted to top of follows list
 - **Batch bookmark fetch** — fetches bookmarked notes with `{ ids: [...] }` filter; debounced kind 10003 publishes prevent race conditions
 - **Resilient relay pool** — resetNDK preserves outbox-discovered relay URLs (fixes relay pool dropping to 3)
+- **Relay reach toggle** (v0.15.2) — Settings switch for NIP-65 outbox; off by default, so Vega connects only to your configured relays
 
 **Not yet implemented:**
 - NIP-96 file storage
 - Custom feeds / lists
 - Safe Blossom URL auto-detection (temporarily disabled in v0.12.8 after OOM regression — needs HEAD `Content-Type` validation or known-server whitelist before reintroduction)
+
+## Relay reach & NDK's outbox model
+
+The relay list is a promise to the user: if they delete every public relay, Vega must not phone home to anyone else's. Two NDK behaviours break that promise, and neither is obvious from the option names.
+
+- **NDK enables the outbox model unless you pass a literal `enableOutboxModel: false`.** The check is `if (!(opts.enableOutboxModel === false))` — omitting the option, or omitting `outboxRelayUrls`, leaves outbox fully **on**. `core.ts` claimed for years that omitting `outboxRelayUrls` disabled it; it never did. With outbox on, a follow feed resolves every author to their NIP-65 write relays and connects to all of them — **29 relays observed against a configured list of one** (issue #35). This is also the mechanism CLAUDE.md blamed for the "pool balloons 7 → 40+, firehose into `startLiveFeed()` → OOM" crashes, which means that fix was never in effect either. `nwc.ts` always got this right; copy that instance's options, not the old feed ones.
+- **Removing a relay from `pool.relays` does not stop NDK using it.** `calculateRelaySetsFromFilter` falls back to `ndk.explicitRelayUrls` for any filter it can't scope to authors and re-adds those URLs to the pool, so a deleted relay returns on the next subscription and only stays gone after a restart. `addRelay`/`removeRelay` must keep `explicitRelayUrls` in sync.
+- **Never assign `ndk.explicitRelayUrls = [...]`.** The setter also runs `pool.relayUrls = urls`, which clears the pool and reconstructs every `NDKRelay` — silently dropping the embedded strfry relay, which lives in the pool but deliberately never in the stored list. Mutate the array in place, as NDK's own `addExplicitRelay` does.
+- `relayConnectionFilter` is the enforcement point: NDK consults it in `NDKPool.addRelay` **and** in the OutboxTracker, where it prunes each author's discovered read/write relays. It does *not* gate `NDKRelaySet.fromRelayUrls`, which connects its relay objects directly — that's why NIP-46 bunker login still works, and why `fetchUserNotesNIP65` needed a separate explicit gate.
+- Verify this one **in the running app, on the Following tab.** Global sends no `authors` filter, so it exercises none of the outbox machinery and looks fixed no matter what. The first attempt at #35 passed its unit tests and was still completely wrong on Following.
 
 ## App identifier & data migration (v0.14.0)
 

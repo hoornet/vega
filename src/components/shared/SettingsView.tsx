@@ -9,7 +9,7 @@ import { useWoTStore } from "../../stores/wot";
 import { themes } from "../../lib/themes";
 import { useMuteStore } from "../../stores/mute";
 import { useBookmarkStore } from "../../stores/bookmark";
-import { getStoredRelayUrls } from "../../lib/nostr";
+import { getStoredRelayUrls, isOutboxRelaysEnabled, setOutboxRelaysEnabled, resetNDK } from "../../lib/nostr";
 import { useProfile } from "../../hooks/useProfile";
 import { profileName } from "../../lib/utils";
 import { refreshProxySettingsCache, type ProxySettings } from "../../lib/proxy";
@@ -656,6 +656,55 @@ function formatBytes(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
+function RelayReachSection() {
+  const [enabled, setEnabled] = useState(isOutboxRelaysEnabled);
+  const [restarting, setRestarting] = useState(false);
+
+  const toggle = async () => {
+    const next = !enabled;
+    setEnabled(next);
+    setOutboxRelaysEnabled(next);
+    // enableOutboxModel is read once in the NDK constructor, so the change only
+    // takes effect on a fresh instance.
+    setRestarting(true);
+    try {
+      await resetNDK();
+    } finally {
+      setRestarting(false);
+    }
+  };
+
+  return (
+    <section>
+      <h2 className="text-text text-[11px] font-medium uppercase tracking-widest mb-2 text-text-dim">
+        Relay reach
+      </h2>
+      <label className="flex items-center gap-3 cursor-pointer group">
+        <button
+          onClick={toggle}
+          disabled={restarting}
+          className={`w-9 h-5 rounded-full transition-colors relative shrink-0 disabled:opacity-40 ${
+            enabled ? "bg-accent" : "bg-border"
+          }`}
+        >
+          <span
+            className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-bg transition-transform ${
+              enabled ? "translate-x-4" : "translate-x-0"
+            }`}
+          />
+        </button>
+        <span className="text-text text-[12px]">Use authors' relays (NIP-65)</span>
+      </label>
+      <p className="text-text-dim text-[10px] mt-1.5 ml-12">
+        {enabled
+          ? "Vega may connect to relays your follows publish to, beyond your own list. Better reach, many more connections."
+          : "Vega connects only to the relays you have configured. Some notes from people you follow may not load."}
+        {restarting && " Reconnecting…"}
+      </p>
+    </section>
+  );
+}
+
 function ExperimentalSection() {
   const [enabled, setEnabled] = useState(isLocalRelayEnabled);
   const [port, setPort] = useState<number | null>(null);
@@ -735,6 +784,7 @@ export function SettingsView() {
         <WalletSection />
         <NotificationSection />
         <ProxySection />
+        <RelayReachSection />
         <ExperimentalSection />
         <ExportSection />
         <IdentitySection />

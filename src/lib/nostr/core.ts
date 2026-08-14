@@ -1,4 +1,4 @@
-import NDK, { NDKEvent, NDKFilter, NDKRelay, NDKRelaySet, NDKSubscriptionCacheUsage } from "@nostr-dev-kit/ndk";
+import NDK, { NDKEvent, NDKFilter, NDKRelay, NDKRelaySet, NDKSubscriptionCacheUsage, tryNormalizeRelayUrl } from "@nostr-dev-kit/ndk";
 import { debug } from "../debug";
 
 // ─── Fetch timeout helper ───────────────────────────────────────────
@@ -155,6 +155,59 @@ export function getStoredRelayUrls(): string[] {
 
 export function saveRelayUrls(urls: string[]) {
   localStorage.setItem(RELAY_STORAGE_KEY, JSON.stringify(urls.map(normalizeRelayUrl)));
+  _allowedRelays = null;
+}
+
+/**
+ * "Use authors' relays (NIP-65 outbox)". Off by default: a user who curates
+ * their relay list means it, and silently connecting to dozens of other
+ * people's relays is the surprising behaviour. See issue #35.
+ */
+const OUTBOX_ENABLED_KEY = "wrystr_use_author_relays";
+
+export function isOutboxRelaysEnabled(): boolean {
+  return localStorage.getItem(OUTBOX_ENABLED_KEY) === "true";
+}
+
+export function setOutboxRelaysEnabled(enabled: boolean): void {
+  localStorage.setItem(OUTBOX_ENABLED_KEY, enabled ? "true" : "false");
+}
+
+/** Cached so the connection filter doesn't re-parse localStorage per relay per author. */
+let _allowedRelays: Set<string> | null = null;
+
+/**
+ * Gate for every relay NDK wants to connect to.
+ *
+ * NDK calls this in two places that matter: `NDKPool.addRelay`, and — crucially —
+ * the OutboxTracker, where it prunes the read/write relays discovered from each
+ * author's NIP-65 list. That second one is what stops a follow feed from
+ * expanding into every relay your follows happen to write to (29, in the report
+ * on issue #35) while your own list holds exactly one.
+ */
+export function isRelayAllowed(url: string): boolean {
+  if (isOutboxRelaysEnabled()) return true;
+  const normalized = normalizeRelayUrl(url);
+  // The embedded strfry relay is deliberately never in the stored list.
+  if (/^ws:\/\/(127\.0\.0\.1|localhost):/.test(normalized)) return true;
+  if (!_allowedRelays) {
+    _allowedRelays = new Set(getStoredRelayUrls().map(normalizeRelayUrl));
+  }
+  return _allowedRelays.has(normalized);
+}
+
+/**
+ * Shared NDK options. `enableOutboxModel` MUST be passed explicitly: NDK treats
+ * anything other than a literal `false` as enabled (`if (!(opts.enableOutboxModel
+ * === false))`), so simply omitting `outboxRelayUrls` — which is what this code
+ * used to do — left the outbox model fully switched on.
+ */
+function ndkOptions() {
+  return {
+    explicitRelayUrls: getStoredRelayUrls(),
+    enableOutboxModel: isOutboxRelaysEnabled(),
+    relayConnectionFilter: isRelayAllowed,
+  };
 }
 
 let ndk: NDK | null = null;
@@ -162,13 +215,11 @@ let ndkCreatedAt: number | null = null;
 
 export function getNDK(): NDK {
   if (!ndk) {
-    ndk = new NDK({
-      explicitRelayUrls: getStoredRelayUrls(),
-      // outboxRelayUrls intentionally omitted — enabling NDK's outbox model causes
-      // it to discover and connect to every event author's preferred relays, ballooning
-      // the relay pool from 7 to 40+ and flooding startLiveFeed() with a firehose of
-      // events from all those relays simultaneously → OOM crash.
-    });
+    // Outbox discovery connects to every event author's preferred relays, ballooning
+    // the relay pool from 7 to 40+ and flooding startLiveFeed() with a firehose of
+    // events from all those relays simultaneously → OOM crash. Disabling it takes an
+    // explicit `enableOutboxModel: false`; see ndkOptions().
+    ndk = new NDK(ndkOptions());
     ndkCreatedAt = Date.now();
   }
   return ndk;
@@ -199,10 +250,7 @@ export async function resetNDK(): Promise<void> {
   }
 
   // Create fresh instance with only the stored relay URLs
-  ndk = new NDK({
-    explicitRelayUrls: storedUrls,
-    // outboxRelayUrls intentionally omitted — see getNDK() comment
-  });
+  ndk = new NDK({ ...ndkOptions(), explicitRelayUrls: storedUrls });
   ndkCreatedAt = Date.now();
 
   // Restore signer so user stays logged in
@@ -227,6 +275,36 @@ export async function resetNDK(): Promise<void> {
   debug.log(`[Vega] Fresh connection: ${connected}/${relays.length} relays connected`);
 }
 
+/**
+ * Add/remove a URL in NDK's own `explicitRelayUrls` array.
+ *
+ * Removing a relay from `pool.relays` is NOT enough to stop using it. NDK falls
+ * back to `explicitRelayUrls` whenever it builds a relay set for a filter it
+ * can't scope to specific authors (`calculateRelaySetsFromFilter`), and re-adds
+ * those URLs to the pool — so a deleted relay comes back on the very next
+ * subscription and only stays gone after a restart, when the fresh NDK instance
+ * is constructed from the stored list. That was issue #35.
+ *
+ * The array is mutated in place on purpose. Assigning `instance.explicitRelayUrls`
+ * runs a setter that also does `pool.relayUrls = urls`, which CLEARS the pool and
+ * rebuilds every NDKRelay from scratch — that would drop the embedded local relay,
+ * which is deliberately in the pool but never in the stored relay list
+ * (see `localRelay.ts`).
+ */
+function syncExplicitRelayUrl(instance: NDK, url: string, present: boolean): void {
+  const list = instance.explicitRelayUrls;
+  if (!Array.isArray(list)) return;
+
+  // NDK stores its own normalized form (trailing slash); ours is stripped.
+  const ndkUrl = tryNormalizeRelayUrl(url);
+  const variants = new Set([url, normalizeRelayUrl(url), ...(ndkUrl ? [ndkUrl] : [])]);
+
+  for (let i = list.length - 1; i >= 0; i--) {
+    if (variants.has(list[i])) list.splice(i, 1);
+  }
+  if (present) list.push(ndkUrl ?? url);
+}
+
 export function addRelay(url: string): void {
   const normalized = normalizeRelayUrl(url);
   const instance = getNDK();
@@ -234,6 +312,9 @@ export function addRelay(url: string): void {
   if (!urls.includes(normalized)) {
     saveRelayUrls([...urls, normalized]);
   }
+  // Without this the relay lives in the pool but is invisible to NDK's relay-set
+  // calculation, so nothing actually subscribes to it until the next restart.
+  syncExplicitRelayUrl(instance, normalized, true);
   // Check both with and without trailing slash since NDK may use either
   if (!instance.pool?.relays.has(normalized) && !instance.pool?.relays.has(normalized + "/")) {
     const relay = new NDKRelay(normalized, undefined, instance);
@@ -252,6 +333,7 @@ export function removeRelay(url: string): void {
       instance.pool?.relays.delete(v);
     }
   }
+  syncExplicitRelayUrl(instance, url, false);
   saveRelayUrls(getStoredRelayUrls().filter((u) => u !== url));
 }
 
