@@ -6,14 +6,6 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Vega is a cross-platform Nostr desktop client built with Tauri 2.0 (Rust) + React + TypeScript. It connects to Nostr relays via NDK (Nostr Dev Kit) and aims for Telegram Desktop-quality UX. Long-form content (NIP-23) is a first-class, distinguishing feature — not an afterthought.
 
-## AgentDocs
-
-When the user shares an AgentDocs URL, fetch the raw content using:
-```
-curl https://agentdocs.exe.xyz/api/shared/<token>/raw
-```
-The `<token>` is the hash at the end of the shared URL. This returns the document as plain text/markdown with embedded image references.
-
 ## Commands
 
 ```bash
