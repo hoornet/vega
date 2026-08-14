@@ -342,13 +342,13 @@ export function RelaysView() {
         )}
 
         {/* Suggested Relays */}
-        {loggedIn && <SuggestedRelays />}
+        {loggedIn && <SuggestedRelays onAdded={checkAll} />}
       </div>
     </div>
   );
 }
 
-function SuggestedRelays() {
+function SuggestedRelays({ onAdded }: { onAdded: () => void }) {
   const { follows } = useUserStore();
   const [suggestions, setSuggestions] = useState<{ url: string; count: number }[]>([]);
   const [loading, setLoading] = useState(false);
@@ -368,6 +368,9 @@ function SuggestedRelays() {
   const handleAdd = (url: string) => {
     addRelay(url);
     setSuggestions((prev) => prev.filter((s) => s.url !== url));
+    // The table above renders from the parent's health-check results, so without
+    // this the relay is added but stays invisible until the next re-check.
+    onAdded();
   };
 
   return (
