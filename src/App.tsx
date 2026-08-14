@@ -5,6 +5,7 @@ import { Feed } from "./components/feed/Feed";
 import { OnboardingFlow } from "./components/onboarding/OnboardingFlow";
 import { PodcastPlayerBar } from "./components/podcast/PodcastPlayerBar";
 import { ToastContainer } from "./components/shared/ToastContainer";
+import { ReleaseNoticeBanner } from "./components/shared/ReleaseNoticeBanner";
 
 // Lazy-loaded views — only fetched when navigated to
 const SearchView = lazy(() => import("./components/search/SearchView").then(m => ({ default: m.SearchView })));
@@ -191,6 +192,7 @@ function App() {
   return (
     <div className="flex flex-col h-screen w-screen bg-bg">
       <UpdateBanner />
+      <ReleaseNoticeBanner />
       <ReadOnlyBanner />
       <div className="flex flex-1 min-h-0">
       <Sidebar />
