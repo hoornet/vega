@@ -6,6 +6,7 @@ import { OnboardingFlow } from "./components/onboarding/OnboardingFlow";
 import { PodcastPlayerBar } from "./components/podcast/PodcastPlayerBar";
 import { ToastContainer } from "./components/shared/ToastContainer";
 import { ReleaseNoticeBanner } from "./components/shared/ReleaseNoticeBanner";
+import { isBrowseOnly } from "./lib/browseOnly";
 
 // Lazy-loaded views — only fetched when navigated to
 const SearchView = lazy(() => import("./components/search/SearchView").then(m => ({ default: m.SearchView })));
@@ -142,8 +143,10 @@ function App() {
   const fontSize = useUIStore((s) => s.fontSize);
   const easyReadFont = useUIStore((s) => s.easyReadFont);
   const themeId = useUIStore((s) => s.themeId);
+  // A pubkey is no longer the only proof onboarding is done — a user who chose
+  // "look around first" has no identity and must not be walled again (#34).
   const [onboardingDone, setOnboardingDone] = useState(
-    () => !!localStorage.getItem("wrystr_pubkey")
+    () => !!localStorage.getItem("wrystr_pubkey") || isBrowseOnly()
   );
 
   useKeyboardShortcuts();
@@ -161,6 +164,14 @@ function App() {
     const theme = getTheme(themeId);
     if (theme) applyTheme(theme);
   }, [themeId]);
+
+  // Land signed-out browsers on Trending. feedTab is not persisted, so it would
+  // otherwise reset to Global — the firehose — on every launch (#34).
+  useEffect(() => {
+    if (isBrowseOnly() && !localStorage.getItem("wrystr_pubkey")) {
+      useUIStore.getState().setFeedTab("trending");
+    }
+  }, []);
 
   // Apply easy-read font class on <html>
   useEffect(() => {

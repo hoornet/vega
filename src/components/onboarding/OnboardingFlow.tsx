@@ -1,6 +1,8 @@
 import { useState, useEffect } from "react";
 import { NDKPrivateKeySigner } from "@nostr-dev-kit/ndk";
 import { useUserStore } from "../../stores/user";
+import { useUIStore } from "../../stores/ui";
+import { setBrowseOnly } from "../../lib/browseOnly";
 
 type Step = "welcome" | "create" | "backup" | "interests" | "login";
 
@@ -137,7 +139,7 @@ function InterestsStep({ onComplete }: { onComplete: () => void }) {
 
 // ─── Step: Welcome ───────────────────────────────────────────────────────────
 
-function WelcomeStep({ onCreateNew, onHaveKey }: { onCreateNew: () => void; onHaveKey: () => void }) {
+function WelcomeStep({ onCreateNew, onHaveKey, onBrowse }: { onCreateNew: () => void; onHaveKey: () => void; onBrowse: () => void }) {
   return (
     <Shell>
       <Heading>Welcome to Vega.</Heading>
@@ -163,7 +165,18 @@ function WelcomeStep({ onCreateNew, onHaveKey }: { onCreateNew: () => void; onHa
         >
           I already have a key
         </button>
+        {/* Deliberately quieter than the two above: creating or restoring an
+            identity stays the main path, this is the escape hatch. */}
+        <button
+          onClick={onBrowse}
+          className="w-full py-1.5 text-[12px] text-text-dim hover:text-text-muted transition-colors"
+        >
+          Look around first
+        </button>
       </div>
+      <p className="text-text-dim text-[11px] mt-2 text-center">
+        You can read Nostr without an identity. You'll need one to post, reply, or follow.
+      </p>
     </Shell>
   );
 }
@@ -416,6 +429,7 @@ function LoginStep({ onBack, onComplete }: { onBack: () => void; onComplete: () 
 
 export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
   const [step, setStep] = useState<Step>("welcome");
+  const setFeedTab = useUIStore((s) => s.setFeedTab);
   const [generatedSigner, setGeneratedSigner] = useState<NDKPrivateKeySigner | null>(null);
 
   if (step === "welcome") {
@@ -423,6 +437,14 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
       <WelcomeStep
         onCreateNew={() => setStep("create")}
         onHaveKey={() => setStep("login")}
+        onBrowse={() => {
+          setBrowseOnly(true);
+          // Following is empty without follows, and Global is a spam-adjacent
+          // firehose — neither is a fair first impression for someone who just
+          // wanted to look. Trending is the closest thing to a curated view.
+          setFeedTab("trending");
+          onComplete();
+        }}
       />
     );
   }
