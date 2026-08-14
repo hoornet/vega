@@ -34,7 +34,7 @@ Prerequisites: Node.js 20+, Rust stable, `@tauri-apps/cli`
 3. Commit: `git commit -m "Bump to vX.Y.Z — <summary>"`
 4. Tag: `git tag vX.Y.Z`
 5. Push: `git push origin main vX.Y.Z`
-6. Update AUR: in `/home/hoornet/projects/vega-aur/`, bump `pkgver=X.Y.Z` in `PKGBUILD`, then:
+6. Update AUR: in your local `vega-aur` checkout (the script defaults to `~/projects/vega-aur`), bump `pkgver=X.Y.Z` in `PKGBUILD`, then:
    ```bash
    makepkg --printsrcinfo > .SRCINFO
    git add PKGBUILD .SRCINFO && git commit -m "Bump to vX.Y.Z" && git push

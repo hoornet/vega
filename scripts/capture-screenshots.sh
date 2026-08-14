@@ -84,7 +84,8 @@ sidebar_click() {
 # ── Main ───────────────────────────────────────────────────────────────────
 
 echo "Starting Vega..."
-WEBKIT_DISABLE_DMABUF_RENDERER=1 npm --prefix /home/hoornet/projects/vega run tauri dev &>/tmp/vega-screenshot-run.log &
+REPO_ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
+WEBKIT_DISABLE_DMABUF_RENDERER=1 npm --prefix "$REPO_ROOT" run tauri dev &>/tmp/vega-screenshot-run.log &
 VEGA_PID=$!
 
 wait_for_window
