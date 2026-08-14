@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+#
+# Versioned hook. Enable with:  git config core.hooksPath .githooks
+#
+# Keep this thin — the logic lives in scripts/ so it can also be run by hand.
+
+set -uo pipefail
+
+REPO_ROOT=$(git rev-parse --show-toplevel)
+
+if [ -x "$REPO_ROOT/scripts/check-no-leaks.sh" ]; then
+  "$REPO_ROOT/scripts/check-no-leaks.sh" || exit 1
+fi
+
+exit 0

@@ -2,7 +2,15 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-**This file is published.** It ships in the public repo and in every release tag, so write it as public copy. Internal hostnames, private instances, IPs, tokens, and anything else that only makes sense inside the homelab belong in `private_docs/` (gitignored) or in the global `~/.claude/CLAUDE.md` — never here. Removing such a thing later does not unpublish it: an internal host sat in this file from 2026-03-25 to 2026-08-14 and remains in the git history and in every tag cut during that window.
+**This file is published.** It ships in the public repo and in every release tag, so write it as public copy. Internal hostnames, private instances, IPs, tokens, and anything else that only makes sense on a private server belong in `private_docs/` (gitignored) or in the global `~/.claude/CLAUDE.md` — never here. Removing such a thing later does not unpublish it: an internal host sat in this file from 2026-03-25 to 2026-08-14 and remains in the git history and in every tag cut during that window.
+
+**Enable the pre-commit hook on every clone** — `core.hooksPath` is local config and does not travel with the repo:
+
+```bash
+git config core.hooksPath .githooks
+```
+
+It runs `scripts/check-no-leaks.sh` over the *added lines* of staged changes, blocking credentials, hardcoded home directories, public IPs, known-private hostnames, and files that should never be tracked. `scripts/check-no-leaks.sh --all` audits every tracked file. Bypass with `git commit --no-verify` — and if you had to, widen the exclusion in the script so the next person isn't trained to ignore it.
 
 ## What This Is
 
