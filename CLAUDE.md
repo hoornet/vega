@@ -2,6 +2,8 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+**This file is published.** It ships in the public repo and in every release tag, so write it as public copy. Internal hostnames, private instances, IPs, tokens, and anything else that only makes sense inside the homelab belong in `private_docs/` (gitignored) or in the global `~/.claude/CLAUDE.md` — never here. Removing such a thing later does not unpublish it: an internal host sat in this file from 2026-03-25 to 2026-08-14 and remains in the git history and in every tag cut during that window.
+
 ## What This Is
 
 Vega is a cross-platform Nostr desktop client built with Tauri 2.0 (Rust) + React + TypeScript. It connects to Nostr relays via NDK (Nostr Dev Kit) and aims for Telegram Desktop-quality UX. Long-form content (NIP-23) is a first-class, distinguishing feature — not an afterthought.
