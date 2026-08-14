@@ -159,14 +159,20 @@ export function saveRelayUrls(urls: string[]) {
 }
 
 /**
- * "Use authors' relays (NIP-65 outbox)". Off by default: a user who curates
- * their relay list means it, and silently connecting to dozens of other
- * people's relays is the surprising behaviour. See issue #35.
+ * "Use authors' relays (NIP-65 outbox)".
+ *
+ * **On by default**, and deliberately so. Outbox was silently enabled for the
+ * entire history of the app — the code believed omitting `outboxRelayUrls`
+ * disabled it, and it never did (see the outbox section in CLAUDE.md). So every
+ * release users are happy with shipped *with* this behaviour: switching it off
+ * would be the untested change, not the safe one. Users who want Vega confined
+ * to their own relay list turn it off; everyone else keeps the reach they have.
+ * See issue #35.
  */
 const OUTBOX_ENABLED_KEY = "wrystr_use_author_relays";
 
 export function isOutboxRelaysEnabled(): boolean {
-  return localStorage.getItem(OUTBOX_ENABLED_KEY) === "true";
+  return localStorage.getItem(OUTBOX_ENABLED_KEY) !== "false";
 }
 
 export function setOutboxRelaysEnabled(enabled: boolean): void {

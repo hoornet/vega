@@ -1,7 +1,16 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import { compareVersions, pendingNotices, markVersionSeen, RELEASE_NOTICES } from "./releaseNotices";
+import {
+  compareVersions, selectNotices, pendingNotices, markVersionSeen,
+  RELEASE_NOTICES, type ReleaseNotice,
+} from "./releaseNotices";
 
 const LAST_SEEN_KEY = "wrystr_last_seen_version";
+
+/** Fixtures, so the rules stay under test while RELEASE_NOTICES is empty. */
+const NOTICES: ReleaseNotice[] = [
+  { version: "0.15.2", title: "A", body: "a" },
+  { version: "0.16.0", title: "B", body: "b" },
+];
 
 describe("compareVersions", () => {
   it("orders by numeric part, not string", () => {
@@ -17,42 +26,61 @@ describe("compareVersions", () => {
   });
 });
 
-describe("pendingNotices", () => {
-  beforeEach(() => localStorage.removeItem(LAST_SEEN_KEY));
-
+describe("selectNotices", () => {
   it("shows nothing on a fresh install", () => {
     // No stored version: there is no old behaviour this user was surprised by.
-    expect(pendingNotices("0.15.2")).toEqual([]);
+    expect(selectNotices(NOTICES, null, "0.16.0")).toEqual([]);
   });
 
   it("shows a notice when upgrading through the version that introduced it", () => {
-    markVersionSeen("0.15.1");
-    const notices = pendingNotices("0.15.2");
-    expect(notices.map((n) => n.version)).toContain("0.15.2");
+    expect(selectNotices(NOTICES, "0.15.1", "0.15.2").map((n) => n.version)).toEqual(["0.15.2"]);
   });
 
   it("shows nothing when the version is unchanged", () => {
-    markVersionSeen("0.15.2");
-    expect(pendingNotices("0.15.2")).toEqual([]);
+    expect(selectNotices(NOTICES, "0.15.2", "0.15.2")).toEqual([]);
   });
 
-  it("does not repeat a notice on later upgrades", () => {
-    markVersionSeen("0.15.2");
-    expect(pendingNotices("0.16.0")).toEqual([]);
+  it("does not repeat a notice already seen", () => {
+    expect(selectNotices(NOTICES, "0.15.2", "0.15.2")).toEqual([]);
   });
 
-  it("still shows a skipped notice when several versions are jumped at once", () => {
-    // 0.15.1 -> 0.16.0 must not silently swallow the 0.15.2 notice.
-    markVersionSeen("0.15.1");
-    expect(pendingNotices("0.16.0").map((n) => n.version)).toContain("0.15.2");
+  it("does not swallow notices when several versions are jumped at once", () => {
+    // Matters for AUR and winget users, who routinely skip releases.
+    expect(selectNotices(NOTICES, "0.15.1", "0.16.0").map((n) => n.version))
+      .toEqual(["0.15.2", "0.16.0"]);
+  });
+
+  it("does not show notices from versions newer than the running build", () => {
+    expect(selectNotices(NOTICES, "0.15.1", "0.15.2").map((n) => n.version)).toEqual(["0.15.2"]);
   });
 
   it("shows nothing on a downgrade", () => {
-    markVersionSeen("0.16.0");
-    expect(pendingNotices("0.15.2")).toEqual([]);
+    expect(selectNotices(NOTICES, "0.16.0", "0.15.2")).toEqual([]);
   });
 
-  it("keeps every notice pointed at a real view", () => {
+  it("returns notices oldest-first", () => {
+    const reversed = [...NOTICES].reverse();
+    expect(selectNotices(reversed, "0.15.1", "0.16.0").map((n) => n.version))
+      .toEqual(["0.15.2", "0.16.0"]);
+  });
+});
+
+describe("pendingNotices", () => {
+  beforeEach(() => localStorage.removeItem(LAST_SEEN_KEY));
+
+  it("reads the stored last-seen version", () => {
+    markVersionSeen("0.15.1");
+    expect(() => pendingNotices("0.15.2")).not.toThrow();
+  });
+
+  it("shows nothing on a fresh install regardless of registry contents", () => {
+    expect(pendingNotices("9.9.9")).toEqual([]);
+  });
+});
+
+describe("RELEASE_NOTICES registry", () => {
+  it("has well-formed entries", () => {
+    // Empty is the normal state — a release with nothing to say here is expected.
     for (const notice of RELEASE_NOTICES) {
       expect(notice.version).toMatch(/^\d+\.\d+\.\d+$/);
       expect(notice.title.length).toBeGreaterThan(0);

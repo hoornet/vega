@@ -165,7 +165,7 @@ Vega is shipped through channels that carry our name: the AUR, winget, GitHub re
 - OS keychain integration — nsec persists across restarts via `keyring` crate
 - SQLite note + profile cache
 - Direct messages (NIP-04 + NIP-17 gift wrap)
-- NIP-65 outbox model — **off by default** since v0.15.2; Settings → "Relay reach" opts in (see the outbox rule below)
+- NIP-65 outbox model — **on by default**; opt out via the "Relay reach" toggle in Relays or Settings (see the outbox section below)
 - Image lightbox (click to expand, arrow key navigation)
 - Bookmark list (NIP-51 kind 10003) with sidebar nav, **Notes/Articles tabs**, article `a` tag support, **read/unread tracking**
 - Follow suggestions / discovery (follows-of-follows algorithm)
@@ -206,7 +206,7 @@ Vega is shipped through channels that carry our name: the AUR, winget, GitHub re
 - **New follower badges** — recently gained followers marked with "new" badge, sorted to top of follows list
 - **Batch bookmark fetch** — fetches bookmarked notes with `{ ids: [...] }` filter; debounced kind 10003 publishes prevent race conditions
 - **Resilient relay pool** — resetNDK preserves outbox-discovered relay URLs (fixes relay pool dropping to 3)
-- **Relay reach toggle** (v0.15.2) — Settings switch for NIP-65 outbox; off by default, so Vega connects only to your configured relays
+- **Relay reach toggle** (v0.15.2) — switch for NIP-65 outbox, in both the Relays view and Settings; on by default, turn it off to confine Vega to your configured relays
 
 **Not yet implemented:**
 - NIP-96 file storage
@@ -222,6 +222,8 @@ The relay list is a promise to the user: if they delete every public relay, Vega
 - **Never assign `ndk.explicitRelayUrls = [...]`.** The setter also runs `pool.relayUrls = urls`, which clears the pool and reconstructs every `NDKRelay` — silently dropping the embedded strfry relay, which lives in the pool but deliberately never in the stored list. Mutate the array in place, as NDK's own `addExplicitRelay` does.
 - `relayConnectionFilter` is the enforcement point: NDK consults it in `NDKPool.addRelay` **and** in the OutboxTracker, where it prunes each author's discovered read/write relays. It does *not* gate `NDKRelaySet.fromRelayUrls`, which connects its relay objects directly — that's why NIP-46 bunker login still works, and why `fetchUserNotesNIP65` needed a separate explicit gate.
 - Verify this one **in the running app, on the Following tab.** Global sends no `authors` filter, so it exercises none of the outbox machinery and looks fixed no matter what. The first attempt at #35 passed its unit tests and was still completely wrong on Following.
+
+**Why outbox stayed on by default**, despite being what #35 reported: it had been silently enabled for the app's entire history, so every release users were happy with shipped *with* it. Switching it off would have been the untested change, not the conservative one — and the OOM crashes it was blamed for turned out to be the Blossom regex, fixed in v0.12.8, since outbox was never actually off during any of that. Users who want Vega confined to their own list opt out; everyone else keeps the reach they already had. The toggle is surfaced in the Relays view as well as Settings, because someone who wants it is already on that screen.
 
 ## App identifier & data migration (v0.14.0)
 

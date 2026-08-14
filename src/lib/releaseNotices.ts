@@ -30,16 +30,18 @@ export type ReleaseNotice = {
   action?: { label: string; view: View };
 };
 
-export const RELEASE_NOTICES: ReleaseNotice[] = [
-  {
-    version: "0.15.2",
-    title: "Vega now connects only to your relays",
-    body:
-      "Previously it could also connect to relays used by people you follow, even if you had configured only one. " +
-      "If your feed looks quieter than before, you can turn that behaviour back on with the new switch under Settings → Relay reach.",
-    action: { label: "Open settings", view: "settings" },
-  },
-];
+/**
+ * Empty on purpose.
+ *
+ * v0.15.2 nearly shipped an entry here for the NIP-65 outbox change, until that
+ * change was made opt-out rather than opt-in — at which point nothing about
+ * existing behaviour changed, and a notice claiming otherwise would have spent
+ * the credibility this mechanism runs on. "You can now restrict Vega to your own
+ * relays" is a new feature, and new features belong in the changelog.
+ *
+ * A release with nothing to say here is the normal case, not a gap to fill.
+ */
+export const RELEASE_NOTICES: ReleaseNotice[] = [];
 
 const LAST_SEEN_KEY = "wrystr_last_seen_version";
 
@@ -67,10 +69,22 @@ export function pendingNotices(currentVersion: string): ReleaseNotice[] {
   try {
     lastSeen = localStorage.getItem(LAST_SEEN_KEY);
   } catch { /* ignore */ }
+  return selectNotices(RELEASE_NOTICES, lastSeen, currentVersion);
+}
+
+/**
+ * The selection rule, split out from storage so it stays under test even when
+ * RELEASE_NOTICES is empty — which is the normal state between behaviour changes.
+ */
+export function selectNotices(
+  notices: ReleaseNotice[],
+  lastSeen: string | null,
+  currentVersion: string,
+): ReleaseNotice[] {
   if (!lastSeen) return [];
-  return RELEASE_NOTICES.filter(
-    (n) => compareVersions(lastSeen, n.version) < 0 && compareVersions(n.version, currentVersion) <= 0,
-  ).sort((a, b) => compareVersions(a.version, b.version));
+  return notices
+    .filter((n) => compareVersions(lastSeen, n.version) < 0 && compareVersions(n.version, currentVersion) <= 0)
+    .sort((a, b) => compareVersions(a.version, b.version));
 }
 
 /**

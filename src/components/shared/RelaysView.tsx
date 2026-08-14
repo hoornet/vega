@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { getNDK, getStoredRelayUrls, addRelay, removeRelay, publishRelayList, fetchRelayRecommendations, normalizeRelayUrl } from "../../lib/nostr";
+import { getNDK, getStoredRelayUrls, addRelay, removeRelay, publishRelayList, fetchRelayRecommendations, normalizeRelayUrl, isOutboxRelaysEnabled, setOutboxRelaysEnabled, resetNDK } from "../../lib/nostr";
 import { useRelayHealthStore } from "../../stores/relayHealth";
 import { useUserStore, useCanSign } from "../../stores/user";
 import type { RelayHealthResult } from "../../lib/nostr/relayHealth";
@@ -341,9 +341,58 @@ export function RelaysView() {
           </div>
         )}
 
+        {/* Relay reach — surfaced here, not only in Settings: someone who wants
+            Vega confined to their own relays is already on this screen. */}
+        <RelayReachToggle />
+
         {/* Suggested Relays */}
         {loggedIn && <SuggestedRelays onAdded={checkAll} />}
       </div>
+    </div>
+  );
+}
+
+function RelayReachToggle() {
+  const [enabled, setEnabled] = useState(isOutboxRelaysEnabled);
+  const [applying, setApplying] = useState(false);
+
+  const toggle = async () => {
+    const next = !enabled;
+    setEnabled(next);
+    setOutboxRelaysEnabled(next);
+    // enableOutboxModel is read once in the NDK constructor.
+    setApplying(true);
+    try {
+      await resetNDK();
+    } finally {
+      setApplying(false);
+    }
+  };
+
+  return (
+    <div className="mt-6 pt-4 border-t border-border">
+      <label className="flex items-center gap-3 cursor-pointer">
+        <button
+          onClick={toggle}
+          disabled={applying}
+          className={`w-9 h-5 rounded-full transition-colors relative shrink-0 disabled:opacity-40 ${
+            enabled ? "bg-accent" : "bg-border"
+          }`}
+        >
+          <span
+            className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-bg transition-transform ${
+              enabled ? "translate-x-4" : "translate-x-0"
+            }`}
+          />
+        </button>
+        <span className="text-text text-[12px]">Also use relays that people you follow publish to</span>
+      </label>
+      <p className="text-text-dim text-[10px] mt-1.5 ml-12">
+        {enabled
+          ? "Better reach, but Vega connects to many relays beyond the ones listed above."
+          : "Vega connects only to the relays listed above. Some notes from people you follow may not load."}
+        {applying && " Reconnecting…"}
+      </p>
     </div>
   );
 }

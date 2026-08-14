@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterEach } from "vitest";
+import { describe, it, expect, beforeAll, beforeEach, afterEach } from "vitest";
 import { NDKRelay } from "@nostr-dev-kit/ndk";
 import {
   getNDK, addRelay, removeRelay, getStoredRelayUrls, RELAY_STORAGE_KEY,
@@ -76,10 +76,15 @@ describe("relay configuration (issue #35)", () => {
 });
 
 describe("relayConnectionFilter (issue #35 — outbox expansion)", () => {
+  // Most of these test the opted-out path, so don't depend on test ordering for it.
+  beforeEach(() => setOutboxRelaysEnabled(false));
   afterEach(() => setOutboxRelaysEnabled(false));
 
-  it("defaults to outbox off", () => {
+  it("defaults to outbox ON — it was silently on for the app's whole history", () => {
     localStorage.removeItem("wrystr_use_author_relays");
+    expect(isOutboxRelaysEnabled()).toBe(true);
+    // Everything below tests the opted-out path.
+    setOutboxRelaysEnabled(false);
     expect(isOutboxRelaysEnabled()).toBe(false);
   });
 
