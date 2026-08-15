@@ -203,6 +203,29 @@ export function isRelayAllowed(url: string): boolean {
 }
 
 /**
+ * The stored relay list in NDK's own normalized form (trailing slash).
+ *
+ * NDK's temporary-relay pruner is an **exact string match**:
+ *
+ *     if (this.ndk.explicitRelayUrls?.includes(relay.url)) return;
+ *     this.removeRelay(relay.url);
+ *
+ * `relay.url` always carries a trailing slash, because `NDKRelay` normalizes it.
+ * But NDK's *constructor* assigns `opts.explicitRelayUrls` verbatim — only the
+ * setter normalizes — so handing it our stripped form made every relay configured
+ * at startup read to the pruner as disposable. Relays added later survived, since
+ * `syncExplicitRelayUrl` pushes `tryNormalizeRelayUrl`. Normalizing at this one
+ * boundary makes both paths agree.
+ *
+ * Storage keeps the stripped form (`saveRelayUrls`); only the handoff to NDK
+ * converts. Don't "fix" this by assigning `ndk.explicitRelayUrls` — that setter
+ * clears the pool. See `syncExplicitRelayUrl`.
+ */
+function ndkExplicitRelayUrls(): string[] {
+  return getStoredRelayUrls().map((u) => tryNormalizeRelayUrl(u) ?? u);
+}
+
+/**
  * Shared NDK options. `enableOutboxModel` MUST be passed explicitly: NDK treats
  * anything other than a literal `false` as enabled (`if (!(opts.enableOutboxModel
  * === false))`), so simply omitting `outboxRelayUrls` — which is what this code
@@ -210,7 +233,7 @@ export function isRelayAllowed(url: string): boolean {
  */
 function ndkOptions() {
   return {
-    explicitRelayUrls: getStoredRelayUrls(),
+    explicitRelayUrls: ndkExplicitRelayUrls(),
     enableOutboxModel: isOutboxRelaysEnabled(),
     relayConnectionFilter: isRelayAllowed,
   };
@@ -246,7 +269,7 @@ export async function resetNDK(): Promise<void> {
 
   // Only preserve the stored relay URLs — do NOT preserve outbox-discovered relays.
   // Outbox-discovered relays are the source of the relay pool explosion (7 → 40+).
-  const storedUrls = getStoredRelayUrls();
+  const storedUrls = ndkExplicitRelayUrls();
 
   // Disconnect all relays on old instance
   if (oldInstance?.pool?.relays) {
