@@ -28,7 +28,7 @@
     "highlight.js": "^11.11.1",
     "lucide-react": "1.16.0",
     "marked": "^17.0.4",
-    "marked-highlight": "^2.2.3",
+    "marked-highlight": "^2.2.4",
     "react": "^19.1.0",
     "react-dom": "^19.2.8",
     "react-qr-code": "^2.0.18",
