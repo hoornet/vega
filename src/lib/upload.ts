@@ -17,7 +17,12 @@ const UPLOAD_SERVICES: UploadService[] = [
  * Create a NIP-98 HTTP Auth event (kind 27235) for a given URL and method.
  * Returns a base64-encoded signed event for the Authorization header.
  */
-async function createNip98AuthHeader(url: string, method: string, body?: Uint8Array): Promise<string> {
+// `Uint8Array<ArrayBuffer>` rather than a bare `Uint8Array` throughout this file:
+// since TS 5.7 the bare form means `Uint8Array<ArrayBufferLike>`, and ArrayBufferLike
+// admits SharedArrayBuffer, which `BufferSource` and `BodyInit` reject. TypeScript 7
+// enforces that. Every buffer here is built with `new Uint8Array(...)` and is never
+// shared-backed, so naming the concrete buffer type is a correction, not a cast.
+async function createNip98AuthHeader(url: string, method: string, body?: Uint8Array<ArrayBuffer>): Promise<string> {
   const ndk = getNDK();
   if (!ndk.signer) throw new Error("Not logged in — cannot sign NIP-98 auth");
 
@@ -61,7 +66,7 @@ export async function uploadImage(file: File): Promise<string> {
  * WebKitGTK on Linux/Wayland can't serialize FormData with Blob objects
  * through Tauri's HTTP plugin, so we construct the raw bytes ourselves.
  */
-function buildMultipart(fieldName: string, data: Uint8Array, fileName: string, mimeType: string): { body: Uint8Array; contentType: string } {
+function buildMultipart(fieldName: string, data: Uint8Array<ArrayBuffer>, fileName: string, mimeType: string): { body: Uint8Array<ArrayBuffer>; contentType: string } {
   const boundary = "----VegaUpload" + Math.random().toString(36).slice(2);
   const encoder = new TextEncoder();
 
@@ -83,7 +88,7 @@ function buildMultipart(fieldName: string, data: Uint8Array, fileName: string, m
 /**
  * Upload raw bytes with NIP-98 auth. Tries nostr.build first, then fallbacks.
  */
-export async function uploadBytes(bytes: Uint8Array, fileName: string, mimeType: string): Promise<string> {
+export async function uploadBytes(bytes: Uint8Array<ArrayBuffer>, fileName: string, mimeType: string): Promise<string> {
   const errors: string[] = [];
 
   for (const service of UPLOAD_SERVICES) {
