@@ -77,6 +77,13 @@ export function fetchWithTimeout(
           cacheUsage: NDKSubscriptionCacheUsage.ONLY_RELAY,
           groupable: false,
           closeOnEose: true,
+          // Only bites on authors-scoped filters, where NDK resolves each author
+          // to their NIP-65 write relays and opens a connection to every one.
+          // The default of 2 measured at ~18-21 relays for a single follow list
+          // (issue #36) — connections opened and torn down for one fetch. The
+          // cost of 1 is redundancy per author, softened by NDK also querying
+          // the user's own connected relays regardless of this goal.
+          relayGoalPerAuthor: 1,
         },
         relaySet,
       );
@@ -226,15 +233,29 @@ function ndkExplicitRelayUrls(): string[] {
 }
 
 /**
- * Shared NDK options. `enableOutboxModel` MUST be passed explicitly: NDK treats
- * anything other than a literal `false` as enabled (`if (!(opts.enableOutboxModel
- * === false))`), so simply omitting `outboxRelayUrls` — which is what this code
- * used to do — left the outbox model fully switched on.
+ * Shared NDK options. Both NIP-65 knobs MUST be passed explicitly — each one
+ * defaults to on, and each was silently on for the app's entire history.
+ *
+ * - `enableOutboxModel`: NDK treats anything other than a literal `false` as
+ *   enabled (`if (!(opts.enableOutboxModel === false))`), so simply omitting
+ *   `outboxRelayUrls` — which is what this code used to do — left the outbox
+ *   model fully switched on.
+ * - `autoConnectUserRelays`: on login, `setActiveUser` → `getUserRelayList`
+ *   reads the signed-in user's *published* kind-10002 list and adds every relay
+ *   in it with a plain `pool.addRelay()` — **no prune timer, so they stay for
+ *   the life of the instance**. That is a third way relays enter the pool, and
+ *   it is why the pool settles above the configured count (issue #36).
+ *
+ * Both are tied to the same "Relay reach" switch, because to a user they are
+ * one promise: reach beyond my list, or don't. `relayConnectionFilter` already
+ * blocks the second path when reach is off — this makes the intent explicit
+ * rather than relying on the filter to catch it.
  */
 function ndkOptions() {
   return {
     explicitRelayUrls: ndkExplicitRelayUrls(),
     enableOutboxModel: isOutboxRelaysEnabled(),
+    autoConnectUserRelays: isOutboxRelaysEnabled(),
     relayConnectionFilter: isRelayAllowed,
   };
 }
