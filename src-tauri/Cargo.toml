@@ -31,7 +31,7 @@ tauri-plugin-process = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 keyring = { version = "3", features = ["apple-native", "windows-native", "sync-secret-service", "crypto-rust"] }
-rusqlite = { version = "0.32", features = ["bundled"] }
+rusqlite = { version = "0.40", features = ["bundled"] }
 tauri-plugin-http = { version = "2.5.7", features = ["socks"] }
 tauri-plugin-dialog = "2.7.0"
 tauri-plugin-fs = "2.5.0"
