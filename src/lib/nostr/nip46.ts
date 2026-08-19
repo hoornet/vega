@@ -1,4 +1,4 @@
-import type { NDKNip46Signer, NDKRpcResponse } from "@nostr-dev-kit/ndk";
+import type { NDKNip46Signer, NDKRpcResponse, NDKUser } from "@nostr-dev-kit/ndk";
 import { debug } from "../debug";
 
 // Scratch slot for the NIP-46 *client* key of an in-flight bunker login. This is
@@ -10,6 +10,33 @@ import { debug } from "../debug";
 export const NIP46_PENDING_CLIENT_KEY = "wrystr_nip46_pending_client_key";
 
 const HEX_PRIVATE_KEY = /^[0-9a-f]{64}$/i;
+
+// rpc objects already carrying the secret-echo hook, so re-hooking is a no-op.
+const patchedRpcs = new WeakSet<object>();
+
+/**
+ * A bunker that is offline, unreachable, or simply never answers leaves
+ * `blockUntilReady()` pending forever — it neither resolves nor rejects. Login
+ * has always raced it against a timeout; restore and account-switch did not,
+ * so an unreachable bunker hung the switch with no error and no way back.
+ */
+export const NIP46_CONNECT_TIMEOUT_MS = 15000;
+
+export function connectWithTimeout(
+  signer: NDKNip46Signer,
+  timeoutMs = NIP46_CONNECT_TIMEOUT_MS,
+): Promise<NDKUser> {
+  let timer: ReturnType<typeof setTimeout>;
+  return Promise.race([
+    signer.blockUntilReady(),
+    new Promise<never>((_, reject) => {
+      timer = setTimeout(
+        () => reject(new Error(`Remote signer didn't respond within ${Math.round(timeoutMs / 1000)} seconds. Check your connection.`)),
+        timeoutMs,
+      );
+    }),
+  ]).finally(() => clearTimeout(timer)) as Promise<NDKUser>;
+}
 
 export function pendingClientKeyFor(bunkerUri: string): string | undefined {
   try {
@@ -41,11 +68,21 @@ export function forgetPendingClientKey(): void {
  * Hooks `rpc.parseEvent`, which decrypts every inbound NIP-46 message and runs
  * before the response is dispatched to the waiting request handler.
  * See https://github.com/hoornet/vega/issues/17.
+ *
+ * **Every path that produces a signer must call this, not just fresh login.**
+ * `toPayload()` persists the bunker:// secret and NDK re-sends it with `connect`
+ * on *every* `blockUntilReady()`, so a restored session hits the same echo on
+ * each reconnect. Hooking only the login path left restart broken while login
+ * looked fine — https://github.com/hoornet/vega/issues/47.
  */
 export function acceptSecretEchoAsAck(signer: NDKNip46Signer): void {
   const secret = signer.secret;
   const rpc = signer.rpc;
   if (!secret || typeof rpc?.parseEvent !== "function") return;
+  // Restore and switch can both reach the same cached signer; wrapping twice
+  // would work but stacks a closure per call for the life of the session.
+  if (patchedRpcs.has(rpc)) return;
+  patchedRpcs.add(rpc);
 
   const parseEvent = rpc.parseEvent.bind(rpc);
   rpc.parseEvent = async (event) => {

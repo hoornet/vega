@@ -3,10 +3,12 @@ import { NDKPrivateKeySigner, NDKNip46Signer } from "@nostr-dev-kit/ndk";
 import { getNDK, publishContactList } from "../lib/nostr";
 import {
   acceptSecretEchoAsAck,
+  connectWithTimeout,
   forgetPendingClientKey,
   pendingClientKeyFor,
   rememberPendingClientKey,
 } from "../lib/nostr/nip46";
+import { useToastStore } from "./toast";
 import { nip19 } from "@nostr-dev-kit/ndk";
 import { invoke } from "@tauri-apps/api/core";
 import { useMuteStore } from "./mute";
@@ -34,6 +36,16 @@ export interface SavedAccount {
 // not on every switch, eliminating the "read-only after switch" class of bugs.
 const _signerCache = new Map<string, NDKPrivateKeySigner>();
 const _nip46SignerCache = new Map<string, NDKNip46Signer>();
+
+/**
+ * NDK rejects a failed NIP-46 `connect` with the raw `error` field, which is
+ * `undefined` whenever the bunker replied without one — so an unguarded message
+ * reads "undefined" to the user.
+ */
+function nip46RestoreError(err: unknown): string {
+  const reason = err instanceof Error ? err.message : typeof err === "string" ? err : "";
+  return `Remote signer didn't reconnect${reason ? `: ${reason}` : ""} — you're read-only until it does.`;
+}
 
 function loadSavedAccounts(): SavedAccount[] {
   try {
@@ -211,13 +223,7 @@ export const useUserStore = create<UserState>((set, get) => ({
       rememberPendingClientKey(uri, signer.localSigner.privateKey);
       acceptSecretEchoAsAck(signer);
 
-      // Wait for signer with 15s timeout
-      const user = await Promise.race([
-        signer.blockUntilReady(),
-        new Promise<never>((_, reject) =>
-          setTimeout(() => reject(new Error("Remote signer didn't respond within 15 seconds. Check your connection.")), 15000)
-        ),
-      ]);
+      const user = await connectWithTimeout(signer);
 
       ndk.signer = signer;
       const pubkey = user.pubkey;
@@ -294,6 +300,10 @@ export const useUserStore = create<UserState>((set, get) => ({
       if (acct.loginType !== "remote-signer" || !acct.signerPayload || _nip46SignerCache.has(acct.pubkey)) continue;
       try {
         const signer = await NDKNip46Signer.fromPayload(acct.signerPayload, getNDK());
+        // fromPayload restores the bunker:// secret, so the reconnect below
+        // re-sends it and bunkers that echo it back need the same normalization
+        // fresh login gets. Without this, restart is permanently read-only (#47).
+        acceptSecretEchoAsAck(signer);
         _nip46SignerCache.set(acct.pubkey, signer);
       } catch (err) {
         debug.warn(`Failed to restore NIP-46 session for ${acct.npub}:`, err);
@@ -314,7 +324,7 @@ export const useUserStore = create<UserState>((set, get) => ({
       const cachedSigner = _nip46SignerCache.get(savedPubkey);
       if (cachedSigner) {
         try {
-          await cachedSigner.blockUntilReady();
+          await connectWithTimeout(cachedSigner);
           getNDK().signer = cachedSigner;
           const npub = nip19.npubEncode(savedPubkey);
           set({ pubkey: savedPubkey, npub, loggedIn: true, loginError: null });
@@ -329,7 +339,13 @@ export const useUserStore = create<UserState>((set, get) => ({
         usePodcastStore.getState().setActiveAccount(savedPubkey);
         usePodcastStore.getState().hydrateSubscriptions(savedPubkey);
         } catch (err) {
+          // Stay on the account but read-only rather than silently looking
+          // logged out — and say why, so the user isn't left guessing at a
+          // sidebar that quietly dropped half its items (#47).
           debug.warn("Failed to restore NIP-46 session:", err);
+          const npub = nip19.npubEncode(savedPubkey);
+          set({ pubkey: savedPubkey, npub, loggedIn: false, loginError: nip46RestoreError(err) });
+          useToastStore.getState().addToast(nip46RestoreError(err), "warning", 8000);
         }
       }
       return;
@@ -364,7 +380,7 @@ export const useUserStore = create<UserState>((set, get) => ({
     const cachedNip46 = _nip46SignerCache.get(pubkey);
     if (cachedNip46) {
       try {
-        await cachedNip46.blockUntilReady();
+        await connectWithTimeout(cachedNip46);
         getNDK().signer = cachedNip46;
         const account = get().accounts.find((a) => a.pubkey === pubkey);
         const npub = account?.npub ?? nip19.npubEncode(pubkey);
@@ -424,13 +440,31 @@ export const useUserStore = create<UserState>((set, get) => ({
         // Deliberately read-only (npub) account — correct behavior
         await get().loginWithPubkey(pubkey);
       } else {
-        // nsec account whose keychain entry was lost — update state to reflect
-        // the target account (logged out) so the UI shows the correct account
-        // with a login prompt, rather than staying stuck on the previous account.
+        // Either an nsec account whose keychain entry was lost, or a
+        // remote-signer account whose bunker didn't answer. Update state to
+        // reflect the target account (logged out) so the UI shows the correct
+        // account with a login prompt, rather than staying stuck on the previous.
+        //
+        // Preserve the account's real login type: hardcoding "nsec" here sent
+        // the *next* startup down the nsec branch, which has no bunker signer to
+        // restore, so a single failed reconnect made the account permanently
+        // read-only until it was re-added from a new bunker:// URI (#47).
+        const loginType = account?.loginType ?? "nsec";
         const npub = account?.npub ?? nip19.npubEncode(pubkey);
-        set({ pubkey, npub, loggedIn: false, loginError: null, profile: null, follows: [] });
+        const failedReconnect = loginType === "remote-signer";
+        set({
+          pubkey,
+          npub,
+          loggedIn: false,
+          loginError: failedReconnect ? nip46RestoreError(null) : null,
+          profile: null,
+          follows: [],
+        });
         localStorage.setItem("wrystr_pubkey", pubkey);
-        localStorage.setItem("wrystr_login_type", "nsec");
+        localStorage.setItem("wrystr_login_type", loginType);
+        if (failedReconnect) {
+          useToastStore.getState().addToast(nip46RestoreError(null), "warning", 8000);
+        }
         usePodcastStore.getState().setActiveAccount(pubkey);
       }
     }

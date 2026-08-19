@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import type { NDKNip46Signer } from "@nostr-dev-kit/ndk";
 import {
+  connectWithTimeout,
   acceptSecretEchoAsAck,
   forgetPendingClientKey,
   pendingClientKeyFor,
@@ -85,5 +86,48 @@ describe("pending client key", () => {
   it("ignores a stored key that is not a 32-byte hex key", () => {
     rememberPendingClientKey("bunker://abc?secret=s1", "nope");
     expect(pendingClientKeyFor("bunker://abc?secret=s1")).toBeUndefined();
+  });
+});
+
+describe("acceptSecretEchoAsAck idempotency", () => {
+  it("does not stack a second wrapper when restore and switch both hook the same rpc", async () => {
+    const signer = fakeSigner("s3cret", { id: "1", result: "s3cret" });
+    acceptSecretEchoAsAck(signer);
+    const afterFirst = signer.rpc.parseEvent;
+
+    acceptSecretEchoAsAck(signer);
+    expect(signer.rpc.parseEvent).toBe(afterFirst);
+
+    // ...and the single wrapper still does its job.
+    const parsed = await signer.rpc.parseEvent(anyEvent);
+    expect((parsed as { result: string }).result).toBe("ack");
+  });
+});
+
+describe("connectWithTimeout", () => {
+  function signerThatConnects(result: unknown, delayMs = 0) {
+    return {
+      blockUntilReady: () => new Promise((resolve) => setTimeout(() => resolve(result), delayMs)),
+    } as unknown as NDKNip46Signer;
+  }
+
+  it("resolves with the user when the bunker answers", async () => {
+    const user = { pubkey: "ab".repeat(32) };
+    await expect(connectWithTimeout(signerThatConnects(user))).resolves.toBe(user);
+  });
+
+  it("rejects once the bunker stays silent past the deadline", async () => {
+    // A bunker that is offline leaves blockUntilReady pending forever — neither
+    // resolving nor rejecting. Restore and switch used to await that directly,
+    // hanging the account switch with no error (#47).
+    const silent = { blockUntilReady: () => new Promise(() => {}) } as unknown as NDKNip46Signer;
+    await expect(connectWithTimeout(silent, 20)).rejects.toThrow(/didn't respond/);
+  });
+
+  it("surfaces the bunker's own rejection rather than masking it as a timeout", async () => {
+    const refused = {
+      blockUntilReady: () => Promise.reject(new Error("Unknown client")),
+    } as unknown as NDKNip46Signer;
+    await expect(connectWithTimeout(refused, 5000)).rejects.toThrow("Unknown client");
   });
 });
