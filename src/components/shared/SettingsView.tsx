@@ -10,6 +10,7 @@ import { themes } from "../../lib/themes";
 import { useMuteStore } from "../../stores/mute";
 import { useBookmarkStore } from "../../stores/bookmark";
 import { getStoredRelayUrls, isOutboxRelaysEnabled, setOutboxRelaysEnabled, resetNDK } from "../../lib/nostr";
+import { isDiagLogEnabled, setDiagLogEnabled, getDiagLogPath } from "../../lib/feedDiagnostics";
 import { useProfile } from "../../hooks/useProfile";
 import { profileName } from "../../lib/utils";
 import { refreshProxySettingsCache, type ProxySettings } from "../../lib/proxy";
@@ -770,6 +771,52 @@ function ExperimentalSection() {
   );
 }
 
+function DiagnosticsSection() {
+  const [enabled, setEnabledState] = useState(isDiagLogEnabled());
+  const [logPath, setLogPath] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (enabled) getDiagLogPath().then(setLogPath);
+  }, [enabled]);
+
+  const toggle = () => {
+    const next = !enabled;
+    setEnabledState(next);
+    setDiagLogEnabled(next);
+  };
+
+  return (
+    <section>
+      <h2 className="text-text text-[11px] font-medium uppercase tracking-widest mb-2 text-text-dim">
+        Diagnostics
+      </h2>
+      <label className="flex items-center gap-3 cursor-pointer group">
+        <button
+          onClick={toggle}
+          className={`w-9 h-5 rounded-full transition-colors relative shrink-0 ${
+            enabled ? "bg-accent" : "bg-border"
+          }`}
+        >
+          <span
+            className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-bg transition-transform ${
+              enabled ? "translate-x-4" : "translate-x-0"
+            }`}
+          />
+        </button>
+        <span className="text-text text-[12px]">Write diagnostics log</span>
+      </label>
+      <p className="text-text-dim text-[10px] mt-1.5 ml-12">
+        {enabled
+          ? "Recording relay and memory samples twice a second. Turn this off when you're done — it's only useful while reproducing a problem."
+          : "Off. Turn on only if asked to, while reproducing a bug — then send the file with your report."}
+      </p>
+      {enabled && logPath && (
+        <p className="text-text-dim text-[10px] mt-1 ml-12 font-mono break-all">{logPath}</p>
+      )}
+    </section>
+  );
+}
+
 export function SettingsView() {
   return (
     <div className="h-full flex flex-col">
@@ -786,6 +833,7 @@ export function SettingsView() {
         <ProxySection />
         <RelayReachSection />
         <ExperimentalSection />
+        <DiagnosticsSection />
         <ExportSection />
         <IdentitySection />
         <MuteSection />

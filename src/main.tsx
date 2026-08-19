@@ -33,9 +33,15 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | 
   }
 }
 
-// Start disk diagnostics immediately — before any async work — so data
-// reaches ~/vega-diag.log even if the app crashes in the first few seconds.
-import("./lib/feedDiagnostics").then(({ startDiagFileFlusher }) => startDiagFileFlusher());
+// Start disk diagnostics immediately — before any async work — so data reaches
+// ~/vega-diag.log even if the app crashes in the first few seconds. No-ops
+// unless the user switched the log on; also clears up after the builds that
+// wrote it unconditionally.
+import("./lib/feedDiagnostics").then(({ startDiagFileFlusher, cleanupLegacyDiagLog, cleanupLegacyDiagMirror }) => {
+  startDiagFileFlusher();
+  cleanupLegacyDiagMirror();
+  cleanupLegacyDiagLog();
+});
 
 // Restore session — pubkey (read-only) or nsec via OS keychain
 useUserStore.getState().restoreSession();

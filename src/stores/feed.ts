@@ -119,7 +119,7 @@ export const useFeedStore = create<FeedState>((set, get) => ({
         details: `Initial connection complete`,
       });
       startRelaySnapshots();
-      startDiagFileFlusher(); // writes ~/vega-diag.log every 500ms — survives crashes
+      startDiagFileFlusher(); // opt-in; no-op unless the user turned the log on
 
       // Monitor relay connectivity — check every 5s, reconnect if needed.
       // Always call getNDK() fresh — instance may be replaced by resetNDK().
