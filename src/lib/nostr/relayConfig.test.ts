@@ -94,6 +94,14 @@ describe("relayConnectionFilter (issue #35 — outbox expansion)", () => {
     expect(typeof getNDK().relayConnectionFilter).toBe("function");
   });
 
+  it("installs the NIP-42 auth policy on the NDK instance", () => {
+    // Same failure mode as the filter above, and the most likely way a NIP-42
+    // feature silently no-ops: the policy exists and is never consulted.
+    // NDK resolves `ndkRelay.authPolicy ?? ndk.relayAuthDefaultPolicy`, so the
+    // instance-level field is the one that must be set.
+    expect(typeof getNDK().relayAuthDefaultPolicy).toBe("function");
+  });
+
   it("rejects a relay that is not in the configured list", () => {
     localStorage.setItem(RELAY_STORAGE_KEY, JSON.stringify([PRIVATE_RELAY]));
     expect(isRelayAllowed(PRIVATE_RELAY)).toBe(true);

@@ -1,6 +1,131 @@
 import type NDK from "@nostr-dev-kit/ndk";
 import type { NDKRelay } from "@nostr-dev-kit/ndk";
+import { NDKRelayStatus } from "@nostr-dev-kit/ndk";
 import { debug } from "../debug";
+
+/**
+ * How far Vega will prove who you are.
+ *
+ * NIP-42 AUTH is not a neutral handshake: you sign a kind 22242 with your
+ * identity key, so every relay you answer learns who you are and can link that
+ * to everything you subsequently ask for. Answering every challenge would
+ * quietly break the promise the relay list makes — the same promise the Relay
+ * reach switch exists to keep. See issue #48.
+ */
+export type RelayAuthScope = "configured" | "any";
+
+const RELAY_AUTH_SCOPE_KEY = "wrystr_relay_auth_scope";
+
+/**
+ * Defaults to `"configured"`, and **fails closed** — anything other than the
+ * literal `"any"`, including a corrupt value, keeps Vega on your own relays.
+ *
+ * Deliberately the opposite polarity to Relay reach's default-on
+ * `!== "false"`: that switch preserved behaviour the app had shipped with for
+ * its entire history, so leaving it on was the tested choice. NIP-42 has no
+ * incumbent behaviour at all, so the default is a free choice and goes to the
+ * private side.
+ */
+export function getRelayAuthScope(): RelayAuthScope {
+  return localStorage.getItem(RELAY_AUTH_SCOPE_KEY) === "any" ? "any" : "configured";
+}
+
+export function setRelayAuthScope(scope: RelayAuthScope): void {
+  localStorage.setItem(RELAY_AUTH_SCOPE_KEY, scope);
+}
+
+/**
+ * Whether we will identify ourselves to this relay.
+ *
+ * `configured` holds the stored relay list in **stripped** form; `relayUrl`
+ * usually arrives as `NDKRelay.url`, which always carries a trailing slash.
+ * The strip below is that boundary, and it is the whole reason this is a pure
+ * function with its own tests — comparing the two forms directly is the bug
+ * class that made every configured relay read as disposable in v0.15.3.
+ *
+ * `isLocal` is passed in rather than imported so this module stays a leaf and
+ * cannot form a cycle with core.ts.
+ */
+export function shouldAuthenticate(
+  relayUrl: string,
+  scope: RelayAuthScope,
+  configured: Set<string>,
+  isLocal: boolean,
+): boolean {
+  // The embedded strfry relay is ours and deliberately never in the stored
+  // list, so a plain list check would refuse it. It has no auth configured
+  // today; this is here so it keeps working the day it does.
+  if (isLocal) return true;
+  if (scope === "any") return true;
+  return configured.has(relayUrl.replace(/\/+$/, ""));
+}
+
+/**
+ * Authenticated means `status === AUTHENTICATED`, never the `authed` event.
+ *
+ * NDK emits `authed` twice. The first is premature: `onAuthRequested` calls
+ * `authenticate()` fire-and-forget and then runs `_status = CONNECTED` and
+ * `emit("authed")` synchronously — before the 22242 has been signed, let alone
+ * acknowledged. The real one follows from the `.then()`, with status 8.
+ *
+ * The gap is invisible with a local nsec (sub-millisecond) and seconds wide
+ * with a NIP-46 bunker, so anything keyed on the event alone works on the
+ * developer's machine and fails for the person who reported the bug.
+ */
+export function isRelayAuthenticated(relay: NDKRelay): boolean {
+  return relay.status === NDKRelayStatus.AUTHENTICATED;
+}
+
+/** Relays that challenged us while out of scope, or before we had a signer. */
+const _declined = new Set<string>();
+const _noSigner = new Set<string>();
+
+export function recordDeclined(url: string): void { _declined.add(url); }
+export function recordNoSigner(url: string): void { _noSigner.add(url); }
+
+export function getPendingAuthRelays(): { declined: string[]; noSigner: string[] } {
+  return { declined: [..._declined], noSigner: [..._noSigner] };
+}
+
+export function clearPendingAuthRelay(url: string): void {
+  _declined.delete(url);
+  _noSigner.delete(url);
+}
+
+/**
+ * Force a fresh AUTH challenge by bouncing the connection.
+ *
+ * There is no way to ask a relay to re-challenge, and NDK will not re-run the
+ * policy on its own: a declined relay is left at `AUTHENTICATING`, which trips
+ * the re-entrancy guard in `onAuthRequested` for the life of the connection.
+ * Reconnecting is the only lever, and it is also the honest one when the user
+ * has just *narrowed* their scope — you cannot untell a relay who you are, but
+ * you can stop using a session you no longer consent to.
+ */
+export function rechallengeRelays(instance: NDK, urls: string[]): void {
+  if (urls.length === 0) return;
+  const wanted = new Set(urls.map((u) => u.replace(/\/+$/, "")));
+
+  for (const relay of instance.pool?.relays?.values() ?? []) {
+    if (!wanted.has(relay.url.replace(/\/+$/, ""))) continue;
+    clearPendingAuthRelay(relay.url);
+    try {
+      relay.disconnect();
+      void relay.connect().catch(() => { /* reconnect is best-effort */ });
+    } catch (err) {
+      debug.warn(`[Vega] Failed to re-challenge ${relay.url}:`, err);
+    }
+  }
+}
+
+/** Every relay currently holding an authenticated session. */
+export function authenticatedRelayUrls(instance: NDK): string[] {
+  const urls: string[] = [];
+  for (const relay of instance.pool?.relays?.values() ?? []) {
+    if (isRelayAuthenticated(relay)) urls.push(relay.url);
+  }
+  return urls;
+}
 
 /**
  * `NDKRelaySubscriptionStatus.RUNNING`. The enum is type-only in NDK's bundle —

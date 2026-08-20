@@ -1,5 +1,13 @@
 import { useEffect, useState } from "react";
 import { getNDK, getStoredRelayUrls, addRelay, removeRelay, publishRelayList, fetchRelayRecommendations, normalizeRelayUrl, isOutboxRelaysEnabled, setOutboxRelaysEnabled, resetNDK } from "../../lib/nostr";
+import {
+  authenticatedRelayUrls,
+  getPendingAuthRelays,
+  getRelayAuthScope,
+  rechallengeRelays,
+  setRelayAuthScope,
+  type RelayAuthScope,
+} from "../../lib/nostr/relayAuth";
 import { useRelayHealthStore } from "../../stores/relayHealth";
 import { useUserStore, useCanSign } from "../../stores/user";
 import type { RelayHealthResult } from "../../lib/nostr/relayHealth";
@@ -345,9 +353,63 @@ export function RelaysView() {
             Vega confined to their own relays is already on this screen. */}
         <RelayReachToggle />
 
+        {/* Relay authentication — same reasoning as Relay reach: someone who
+            cares which relays learn their identity is already on this screen. */}
+        <RelayAuthToggle />
+
         {/* Suggested Relays */}
         {loggedIn && <SuggestedRelays onAdded={checkAll} />}
       </div>
+    </div>
+  );
+}
+
+/** NIP-42. The Settings copy is the technical phrasing; here it points at the list above. */
+function RelayAuthToggle() {
+  const [scope, setScope] = useState<RelayAuthScope>(getRelayAuthScope);
+
+  const choose = (next: RelayAuthScope) => {
+    if (next === scope) return;
+    setScope(next);
+    setRelayAuthScope(next);
+    const instance = getNDK();
+    if (next === "configured") {
+      rechallengeRelays(instance, authenticatedRelayUrls(instance));
+    } else {
+      rechallengeRelays(instance, getPendingAuthRelays().declined);
+    }
+  };
+
+  const options: { value: RelayAuthScope; label: string }[] = [
+    { value: "configured", label: "Only the relays above" },
+    { value: "any", label: "Any relay that asks" },
+  ];
+
+  return (
+    <div className="mt-6 pt-4 border-t border-border">
+      <h3 className="text-text text-[11px] font-medium uppercase tracking-widest text-text-dim">
+        Prove who you are to
+      </h3>
+      <div className="flex flex-wrap items-center gap-2 mt-2">
+        {options.map((opt) => (
+          <button
+            key={opt.value}
+            onClick={() => choose(opt.value)}
+            className={`px-3 py-1.5 text-[11px] border transition-colors ${
+              scope === opt.value
+                ? "border-accent text-accent"
+                : "border-border text-text-muted hover:text-text hover:border-accent/40"
+            }`}
+          >
+            {opt.label}
+          </button>
+        ))}
+      </div>
+      <p className="text-text-dim text-[10px] mt-1.5">
+        {scope === "configured"
+          ? "Some relays hide private messages until you identify yourself. Vega will only do that for the relays listed above."
+          : "Any relay that asks will learn your identity, including relays Vega reached on its own."}
+      </p>
     </div>
   );
 }

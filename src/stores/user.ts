@@ -8,8 +8,21 @@ import {
   pendingClientKeyFor,
   rememberPendingClientKey,
 } from "../lib/nostr/nip46";
+import { authenticatedRelayUrls, rechallengeRelays } from "../lib/nostr/relayAuth";
 import { useToastStore } from "./toast";
 import { nip19 } from "@nostr-dev-kit/ndk";
+
+/**
+ * Bounce every relay currently holding an authenticated session.
+ *
+ * There is no "un-AUTH" in NIP-42 — the only way to stop a relay treating this
+ * connection as the previous identity is to drop the connection. Called on any
+ * change of who we are.
+ */
+function dropAuthenticatedSessions(): void {
+  const instance = getNDK();
+  rechallengeRelays(instance, authenticatedRelayUrls(instance));
+}
 import { invoke } from "@tauri-apps/api/core";
 import { useMuteStore } from "./mute";
 import { useLightningStore } from "./lightning";
@@ -266,6 +279,8 @@ export const useUserStore = create<UserState>((set, get) => ({
     stopNotificationPoller();
     const ndk = getNDK();
     ndk.signer = undefined;
+    // See switchAccount: an authenticated relay session outlives the signer.
+    dropAuthenticatedSessions();
     // Don't delete the keychain entry — keep the account available for instant switch-back.
     localStorage.removeItem("wrystr_pubkey");
     localStorage.removeItem("wrystr_login_type");
@@ -375,6 +390,12 @@ export const useUserStore = create<UserState>((set, get) => ({
   switchAccount: async (pubkey: string) => {
     // Clear signer immediately — no window where old account could sign
     getNDK().signer = undefined;
+    // Clearing the signer is not enough once NIP-42 is in play. AUTH binds an
+    // identity to the *connection*, not to a signature we are about to make, so
+    // a relay that authenticated us as the previous account keeps serving this
+    // one under that identity — invisibly, and on a relay with
+    // `restrictReadToInvolvedPubkey` the new account's inbox just reads empty.
+    dropAuthenticatedSessions();
 
     // Fast path: NIP-46 cached signer
     const cachedNip46 = _nip46SignerCache.get(pubkey);

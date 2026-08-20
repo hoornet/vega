@@ -1,8 +1,37 @@
-import { NDKEvent, NDKKind, giftWrap, giftUnwrap } from "@nostr-dev-kit/ndk";
-import { getNDK, fetchWithTimeout, FEED_TIMEOUT } from "./core";
+import { NDKEvent, NDKKind, NDKRelay, giftWrap, giftUnwrap } from "@nostr-dev-kit/ndk";
+import {
+  getNDK,
+  fetchWithTimeout,
+  getStoredRelayUrls,
+  isLocalRelayUrl,
+  stopSubscription,
+  FEED_TIMEOUT,
+} from "./core";
+import { getRelayAuthScope, shouldAuthenticate } from "./relayAuth";
+import { useToastStore } from "../../stores/toast";
 import { debug } from "../debug";
 
-/** Fetch gift wraps via subscribe (fetchEvents doesn't reliably return kind 1059). */
+/**
+ * Extra grace once a relay has told us it wants AUTH first.
+ *
+ * Sized for a NIP-46 bunker, where signing the kind 22242 is a full round-trip
+ * to a remote signer rather than a local key operation.
+ */
+const RELAY_AUTH_GRACE = 12000;
+
+/** Relays we have already explained ourselves about, so the toast fires once per session. */
+const _authNoticeShown = new Set<string>();
+
+/**
+ * Fetch gift wraps via subscribe (fetchEvents doesn't reliably return kind 1059).
+ *
+ * Kind 1059 is exactly the kind a relay is most likely to gate behind NIP-42 —
+ * gift wraps are addressed to you, so `restrictReadToInvolvedPubkey` needs to
+ * know who is asking. Before issue #48 this function could not tell the
+ * difference between "your inbox is empty" and "the relay refused to answer
+ * until you identified yourself": it resolved on a bare timer with no `closed`
+ * handler, and both cases produced `[]` after 8 seconds.
+ */
 async function fetchGiftWraps(myPubkey: string, limit: number, timeoutMs: number): Promise<NDKEvent[]> {
   const instance = getNDK();
   const events: NDKEvent[] = [];
@@ -11,11 +40,70 @@ async function fetchGiftWraps(myPubkey: string, limit: number, timeoutMs: number
     { closeOnEose: true, groupable: false },
   );
   sub.on("event", (e: NDKEvent) => events.push(e));
+
   await new Promise<void>((resolve) => {
-    sub.on("eose", () => resolve());
-    setTimeout(() => resolve(), timeoutMs);
+    let settled = false;
+    let extended = false;
+    let timer: ReturnType<typeof setTimeout>;
+
+    const finish = () => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      resolve();
+    };
+
+    sub.on("eose", finish);
+
+    // NDK never inspects CLOSED reasons on the subscription path, so this is
+    // the only place the refusal becomes visible to us.
+    sub.on("closed", (relay: NDKRelay, reason: string) => {
+      if (settled || !/^auth-required/i.test(reason ?? "")) return;
+
+      const scope = getRelayAuthScope();
+      const willAuth = shouldAuthenticate(
+        relay.url, scope, new Set(getStoredRelayUrls()), isLocalRelayUrl(relay.url),
+      );
+
+      if (!willAuth) {
+        // A decline that costs the user something — an empty Messages view they
+        // would otherwise have no explanation for. Host in the message so the
+        // toast store's dedup distinguishes relays.
+        if (!_authNoticeShown.has(relay.url)) {
+          _authNoticeShown.add(relay.url);
+          const host = hostOf(relay.url);
+          useToastStore.getState().addToast(
+            `${host} wants to know who you are before showing your messages. Add it to your relays, or allow any relay in Settings → Relay authentication.`,
+            "warning",
+            8000,
+          );
+        }
+        return;
+      }
+
+      // We will authenticate, so give the handshake room to finish. NDK
+      // re-issues the REQ itself once the relay reaches AUTHENTICATED —
+      // `execute()` re-registers `once("authed")` whenever status < 8 — so we
+      // only need to still be listening when the events arrive.
+      if (extended) return;
+      extended = true;
+      debug.log(`[Vega] ${relay.url} requires AUTH — waiting for the handshake`);
+      clearTimeout(timer);
+      timer = setTimeout(finish, RELAY_AUTH_GRACE);
+    });
+
+    timer = setTimeout(finish, timeoutMs);
   });
+
+  // Never a bare sub.stop(): this subscription is RUNNING and, on an
+  // auth-required relay, has never EOSEd — precisely the case where NDK skips
+  // both the CLOSE frame and its listener cleanup.
+  stopSubscription(sub, instance);
   return events;
+}
+
+function hostOf(url: string): string {
+  try { return new URL(url).host; } catch { return url; }
 }
 
 async function unwrapGiftWraps(events: NDKEvent[]): Promise<NDKEvent[]> {

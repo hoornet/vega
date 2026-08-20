@@ -1,6 +1,11 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import type { NDKRelay } from "@nostr-dev-kit/ndk";
-import { pruneOrphanRelaySubscriptions } from "./relayAuth";
+import {
+  getRelayAuthScope,
+  setRelayAuthScope,
+  shouldAuthenticate,
+  pruneOrphanRelaySubscriptions,
+} from "./relayAuth";
 import { isLocalRelayUrl } from "./core";
 
 /** NDKRelaySubscriptionStatus, which NDK does not export at runtime. */
@@ -114,5 +119,63 @@ describe("isLocalRelayUrl", () => {
   it("does not match a remote host that merely mentions localhost", () => {
     expect(isLocalRelayUrl("wss://localhost.example.com/")).toBe(false);
     expect(isLocalRelayUrl("wss://127.0.0.1.example.com/")).toBe(false);
+  });
+});
+
+describe("getRelayAuthScope", () => {
+  beforeEach(() => localStorage.clear());
+
+  it("defaults to configured-only on a clean install", () => {
+    expect(getRelayAuthScope()).toBe("configured");
+  });
+
+  it("round-trips both values", () => {
+    setRelayAuthScope("any");
+    expect(getRelayAuthScope()).toBe("any");
+    setRelayAuthScope("configured");
+    expect(getRelayAuthScope()).toBe("configured");
+  });
+
+  it("fails closed on a corrupt value", () => {
+    // Opposite polarity to Relay reach's default-on `!== "false"`: anything but
+    // the literal "any" keeps the user's identity on their own relays.
+    localStorage.setItem("wrystr_relay_auth_scope", "yes");
+    expect(getRelayAuthScope()).toBe("configured");
+    localStorage.setItem("wrystr_relay_auth_scope", "");
+    expect(getRelayAuthScope()).toBe("configured");
+  });
+});
+
+describe("shouldAuthenticate", () => {
+  const CONFIGURED = new Set(["wss://relay.damus.io", "wss://private.example.invalid"]);
+
+  it("authenticates to a relay in the stored list", () => {
+    expect(shouldAuthenticate("wss://relay.damus.io", "configured", CONFIGURED, false)).toBe(true);
+  });
+
+  it("matches NDK's trailing-slash form against the stripped stored form", () => {
+    // NDKRelay.url ALWAYS carries a trailing slash; storage never does. This
+    // assertion deliberately does not normalize the expectation side — a
+    // helper that strips both is what hid the pruner bug in v0.15.3.
+    expect(shouldAuthenticate("wss://relay.damus.io/", "configured", CONFIGURED, false)).toBe(true);
+    expect(shouldAuthenticate("wss://private.example.invalid/", "configured", CONFIGURED, false)).toBe(true);
+  });
+
+  it("declines a relay the user never added", () => {
+    expect(shouldAuthenticate("wss://nostr.wine/", "configured", CONFIGURED, false)).toBe(false);
+  });
+
+  it("authenticates to anything when the scope is any", () => {
+    expect(shouldAuthenticate("wss://nostr.wine/", "any", CONFIGURED, false)).toBe(true);
+    expect(shouldAuthenticate("wss://nostr.wine/", "any", new Set(), false)).toBe(true);
+  });
+
+  it("always authenticates to the embedded relay, which is never in the list", () => {
+    expect(shouldAuthenticate("ws://127.0.0.1:4869/", "configured", CONFIGURED, true)).toBe(true);
+    expect(shouldAuthenticate("ws://127.0.0.1:4869/", "configured", new Set(), true)).toBe(true);
+  });
+
+  it("declines everything when the stored list is empty and scope is configured", () => {
+    expect(shouldAuthenticate("wss://relay.damus.io/", "configured", new Set(), false)).toBe(false);
   });
 });

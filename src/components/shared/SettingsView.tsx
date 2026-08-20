@@ -9,7 +9,15 @@ import { useWoTStore } from "../../stores/wot";
 import { themes } from "../../lib/themes";
 import { useMuteStore } from "../../stores/mute";
 import { useBookmarkStore } from "../../stores/bookmark";
-import { getStoredRelayUrls, isOutboxRelaysEnabled, setOutboxRelaysEnabled, resetNDK } from "../../lib/nostr";
+import { getNDK, getStoredRelayUrls, isOutboxRelaysEnabled, setOutboxRelaysEnabled, resetNDK } from "../../lib/nostr";
+import {
+  authenticatedRelayUrls,
+  getPendingAuthRelays,
+  getRelayAuthScope,
+  rechallengeRelays,
+  setRelayAuthScope,
+  type RelayAuthScope,
+} from "../../lib/nostr/relayAuth";
 import { isDiagLogEnabled, setDiagLogEnabled, getDiagLogPath } from "../../lib/feedDiagnostics";
 import { useProfile } from "../../hooks/useProfile";
 import { profileName } from "../../lib/utils";
@@ -621,6 +629,64 @@ function FontSizeSection() {
   );
 }
 
+/**
+ * Which relays Vega will prove your identity to (NIP-42). Issue #48.
+ *
+ * No resetNDK() here, unlike Relay reach: the auth policy reads this setting on
+ * every challenge, so it is live. Narrowing the scope does bounce relays that
+ * are already authenticated — you cannot untell a relay who you are, but you
+ * should not keep using a session you have just withdrawn consent for.
+ */
+function RelayAuthSection() {
+  const [scope, setScope] = useState<RelayAuthScope>(getRelayAuthScope);
+
+  const choose = (next: RelayAuthScope) => {
+    if (next === scope) return;
+    setScope(next);
+    setRelayAuthScope(next);
+    const instance = getNDK();
+    if (next === "configured") {
+      rechallengeRelays(instance, authenticatedRelayUrls(instance));
+    } else {
+      // Relays we previously turned away get another chance without a restart.
+      rechallengeRelays(instance, getPendingAuthRelays().declined);
+    }
+  };
+
+  const options: { value: RelayAuthScope; label: string }[] = [
+    { value: "configured", label: "My relays only" },
+    { value: "any", label: "Any relay that asks" },
+  ];
+
+  return (
+    <section>
+      <h2 className="text-text text-[11px] font-medium uppercase tracking-widest mb-2 text-text-dim">
+        Relay authentication
+      </h2>
+      <div className="flex flex-wrap items-center gap-2">
+        {options.map((opt) => (
+          <button
+            key={opt.value}
+            onClick={() => choose(opt.value)}
+            className={`px-3 py-1.5 text-[11px] border transition-colors ${
+              scope === opt.value
+                ? "border-accent text-accent"
+                : "border-border text-text-muted hover:text-text hover:border-accent/40"
+            }`}
+          >
+            {opt.label}
+          </button>
+        ))}
+      </div>
+      <p className="text-text-dim text-[10px] mt-2 px-1">
+        {scope === "configured"
+          ? "Vega proves who you are only to relays you added yourself. Some relays hide your private messages until you do."
+          : "Vega proves who you are to any relay that asks. That relay then knows your identity and can link it to everything you request."}
+      </p>
+    </section>
+  );
+}
+
 function EasyReadFontSection() {
   const { easyReadFont, setEasyReadFont } = useUIStore();
 
@@ -832,6 +898,7 @@ export function SettingsView() {
         <NotificationSection />
         <ProxySection />
         <RelayReachSection />
+        <RelayAuthSection />
         <ExperimentalSection />
         <DiagnosticsSection />
         <ExportSection />

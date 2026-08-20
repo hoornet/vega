@@ -1,6 +1,16 @@
 import NDK, { NDKEvent, NDKFilter, NDKRelay, NDKRelaySet, NDKSubscription, NDKSubscriptionCacheUsage, tryNormalizeRelayUrl } from "@nostr-dev-kit/ndk";
 import { debug } from "../debug";
-import { pruneOrphanRelaySubscriptionsInPool } from "./relayAuth";
+import {
+  clearPendingAuthRelay,
+  getPendingAuthRelays,
+  getRelayAuthScope,
+  pruneOrphanRelaySubscriptions,
+  pruneOrphanRelaySubscriptionsInPool,
+  recordDeclined,
+  recordNoSigner,
+  rechallengeRelays,
+  shouldAuthenticate,
+} from "./relayAuth";
 
 // ─── Fetch timeout helper ───────────────────────────────────────────
 
@@ -232,10 +242,71 @@ export function isRelayAllowed(url: string): boolean {
   const normalized = normalizeRelayUrl(url);
   // The embedded strfry relay is deliberately never in the stored list.
   if (isLocalRelayUrl(normalized)) return true;
+  return allowedRelaySet().has(normalized);
+}
+
+/** The stored relay list as a normalized Set, memoized. Invalidated by saveRelayUrls. */
+function allowedRelaySet(): Set<string> {
   if (!_allowedRelays) {
     _allowedRelays = new Set(getStoredRelayUrls().map(normalizeRelayUrl));
   }
-  return _allowedRelays.has(normalized);
+  return _allowedRelays;
+}
+
+/**
+ * Answer a relay's NIP-42 AUTH challenge — or decline it.
+ *
+ * Returns `true`/`false` and never a signed event, which is not a style choice.
+ * On `true` NDK builds and signs the kind 22242 itself with `ndk.signer` read
+ * at signing time, sets the relay to AUTHENTICATED, and retries publishes that
+ * were blocked awaiting auth. The `NDKEvent` branch does none of those, and
+ * `NDKRelayAuthPolicies.signIn` — the obvious thing to reach for — caches
+ * `signer ??= ndk?.signer` into a closure it never clears, so after an account
+ * switch it would authenticate as the *previous* identity. We do not use it.
+ *
+ * One stable module-level function, so the scope is read per challenge. That is
+ * what makes the setting live without a reconnect, and it sidesteps the fact
+ * that reassigning `ndk.relayAuthDefaultPolicy` would not reach relays created
+ * by `getUserRelayList` or `NDKRelaySet.fromRelayUrls`, which capture the value
+ * into `relay.authPolicy` at construction.
+ *
+ * MUST only ever be installed as `ndk.relayAuthDefaultPolicy`, never assigned
+ * to `relay.authPolicy`: NIP-46's RPC pool sets its own policy per relay using
+ * the ephemeral client key, and overwriting that would authenticate to bunker
+ * relays as the user's main identity.
+ *
+ * Worth noting the asymmetry with `relayConnectionFilter`: `fromRelayUrls`
+ * bypasses that filter but *does* propagate this policy, so a temporary relay
+ * that slipped past Relay reach still gets scope-checked here.
+ */
+export async function relayAuthPolicy(relay: NDKRelay): Promise<boolean> {
+  const instance = getNDK();
+
+  // Declining is the right answer with no signer, not deferral. Returning true
+  // parks `ndk.once("signer:ready", authenticate)` holding a challenge that
+  // will have expired by the time it fires — and it fires as whatever identity
+  // logs in next, which is not necessarily the one the challenge was issued to.
+  // We re-challenge explicitly on signer:ready instead.
+  if (!instance.signer) {
+    recordNoSigner(relay.url);
+    debug.log(`[Vega] AUTH challenge from ${relay.url} declined: not signed in yet`);
+    return false;
+  }
+
+  const scope = getRelayAuthScope();
+  if (!shouldAuthenticate(relay.url, scope, allowedRelaySet(), isLocalRelayUrl(relay.url))) {
+    recordDeclined(relay.url);
+    debug.log(`[Vega] AUTH challenge from ${relay.url} declined: not in your relay list`);
+    return false;
+  }
+
+  // Last hook before the ghosts discharge: tseep emits synchronously, so NDK's
+  // premature `emit("authed")` lands the instant this resolves.
+  pruneOrphanRelaySubscriptions(relay);
+
+  clearPendingAuthRelay(relay.url);
+  debug.log(`[Vega] Authenticating to ${relay.url}`);
+  return true;
 }
 
 /**
@@ -286,6 +357,9 @@ function ndkOptions() {
     enableOutboxModel: isOutboxRelaysEnabled(),
     autoConnectUserRelays: isOutboxRelaysEnabled(),
     relayConnectionFilter: isRelayAllowed,
+    // Scope is read per challenge inside the policy, so this needs no reset
+    // when the setting changes — see relayAuthPolicy.
+    relayAuthDefaultPolicy: relayAuthPolicy,
   };
 }
 
@@ -300,8 +374,24 @@ export function getNDK(): NDK {
     // explicit `enableOutboxModel: false`; see ndkOptions().
     ndk = new NDK(ndkOptions());
     ndkCreatedAt = Date.now();
+    attachAuthListeners(ndk);
   }
   return ndk;
+}
+
+/**
+ * Re-challenge relays that asked who we were before we could answer.
+ *
+ * The policy declines when there is no signer yet — deferring instead would
+ * park NDK's `signer:ready` handler on a challenge that has since expired, and
+ * fire it as whichever identity logged in next. Bouncing the connection asks
+ * the relay for a fresh challenge, which is the only way to get one.
+ */
+function attachAuthListeners(instance: NDK): void {
+  instance.on("signer:ready", () => {
+    const { noSigner } = getPendingAuthRelays();
+    if (noSigner.length > 0) rechallengeRelays(instance, noSigner);
+  });
 }
 
 export function getNDKUptimeMs(): number | null {
@@ -331,6 +421,7 @@ export async function resetNDK(): Promise<void> {
   // Create fresh instance with only the stored relay URLs
   ndk = new NDK({ ...ndkOptions(), explicitRelayUrls: storedUrls });
   ndkCreatedAt = Date.now();
+  attachAuthListeners(ndk);
 
   // Restore signer so user stays logged in
   if (oldSigner) {
