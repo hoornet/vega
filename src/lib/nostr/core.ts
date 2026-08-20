@@ -1,9 +1,13 @@
 import NDK, { NDKEvent, NDKFilter, NDKRelay, NDKRelaySet, NDKSubscription, NDKSubscriptionCacheUsage, tryNormalizeRelayUrl } from "@nostr-dev-kit/ndk";
 import { debug } from "../debug";
+import { useToastStore } from "../../stores/toast";
 import {
   clearPendingAuthRelay,
+  describeAuthFailure,
   getPendingAuthRelays,
   getRelayAuthScope,
+  looksLikeSignerRefusal,
+  watchRelayAuthFailures,
   pruneOrphanRelaySubscriptions,
   pruneOrphanRelaySubscriptionsInPool,
   recordDeclined,
@@ -392,6 +396,35 @@ function attachAuthListeners(instance: NDK): void {
     const { noSigner } = getPendingAuthRelays();
     if (noSigner.length > 0) rechallengeRelays(instance, noSigner);
   });
+
+  // A failed AUTH is otherwise completely silent: NDK swallows it into an event
+  // nobody listens to, the relay simply never authenticates, and the user gets
+  // an empty Messages view with no way to learn why. The most likely cause is
+  // also the most fixable one — a remote signer that has not been granted
+  // permission to sign kind 22242. Bunker46's default permission set covers
+  // kinds 0, 1, 3, 4 and 7 and nothing else, so this is the *default* outcome
+  // for a fresh bunker connection, not an edge case.
+  watchRelayAuthFailures(instance, (relay, err) => {
+    if (_authFailureNotified.has(relay.url)) return;
+    _authFailureNotified.add(relay.url);
+
+    const detail = describeAuthFailure(err);
+    const host = relayHost(relay.url);
+    debug.warn(`[Vega] AUTH to ${relay.url} failed:`, err);
+
+    const message = looksLikeSignerRefusal(detail)
+      ? `Your signer refused to identify you to ${host}${detail ? ` (${detail})` : ""}. Remote signers often need permission for kind 22242 — check for a pending approval.`
+      : `Couldn't identify you to ${host}${detail ? `: ${detail}` : ""}. Messages from that relay may not load.`;
+
+    useToastStore.getState().addToast(message, "warning", 9000);
+  });
+}
+
+/** One notice per relay per session — a reconnect loop must not become a toast loop. */
+const _authFailureNotified = new Set<string>();
+
+function relayHost(url: string): string {
+  try { return new URL(url).host; } catch { return url; }
 }
 
 export function getNDKUptimeMs(): number | null {

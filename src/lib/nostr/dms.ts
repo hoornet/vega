@@ -106,10 +106,14 @@ function hostOf(url: string): string {
   try { return new URL(url).host; } catch { return url; }
 }
 
+/** One notice per session: a failing signer fails on every poll, not just once. */
+let _unwrapFailureNotified = false;
+
 async function unwrapGiftWraps(events: NDKEvent[]): Promise<NDKEvent[]> {
   const instance = getNDK();
   if (!instance.signer) return [];
   const rumors: NDKEvent[] = [];
+  let failures = 0;
   for (const wrap of events) {
     try {
       const rumor = await giftUnwrap(wrap, undefined, instance.signer);
@@ -117,9 +121,30 @@ async function unwrapGiftWraps(events: NDKEvent[]): Promise<NDKEvent[]> {
         rumors.push(rumor);
       }
     } catch (err) {
+      failures++;
       debug.warn(`[DM] unwrap failed for event ${wrap.id?.slice(0, 8)}:`, err);
     }
   }
+
+  // One wrap failing is ordinary — a malformed or foreign event. *Every* wrap
+  // failing is a broken signer, and until now it was invisible: the warning
+  // above is compiled out of production builds, so the user just saw an empty
+  // Messages view.
+  //
+  // The usual cause is a remote signer without decrypt permission. NIP-17 gift
+  // wraps are NIP-44, and Bunker46's default permission set deliberately grants
+  // no nip04/nip44 decrypt at all ("so a fresh connection can never act as a
+  // blanket decryption oracle"), so a default bunker connection cannot read DMs
+  // until the user grants it.
+  if (failures > 0 && rumors.length === 0 && !_unwrapFailureNotified) {
+    _unwrapFailureNotified = true;
+    useToastStore.getState().addToast(
+      `Couldn't decrypt ${failures} message${failures === 1 ? "" : "s"}. If you sign in with a remote signer, it may need permission to decrypt (nip44).`,
+      "warning",
+      9000,
+    );
+  }
+
   return rumors;
 }
 

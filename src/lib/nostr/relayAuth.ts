@@ -118,6 +118,60 @@ export function rechallengeRelays(instance: NDK, urls: string[]): void {
   }
 }
 
+const _watchedForFailure = new WeakSet<NDKRelay>();
+
+/**
+ * Attach a handler to every relay's `auth:failed`, now and as relays join.
+ *
+ * Must be per relay: NDK re-emits `relay:auth` and `relay:authed` on the pool
+ * but **not** `auth:failed`, so a pool-level listener sees every success and no
+ * failure — which is the wrong half.
+ *
+ * Idempotent per relay object, so it is safe to call from more than one pool
+ * event; relays can be in the pool before they start connecting.
+ */
+export function watchRelayAuthFailures(
+  instance: NDK,
+  onFailure: (relay: NDKRelay, err: unknown) => void,
+): void {
+  const attach = (relay: NDKRelay) => {
+    if (!relay || _watchedForFailure.has(relay)) return;
+    _watchedForFailure.add(relay);
+    relay.on("auth:failed", (err: unknown) => onFailure(relay, err));
+  };
+
+  for (const relay of instance.pool?.relays?.values() ?? []) attach(relay);
+  instance.pool?.on("relay:connecting", attach);
+  instance.pool?.on("relay:connect", attach);
+}
+
+/**
+ * Turn whatever `auth:failed` carried into something worth showing a user.
+ *
+ * The payload is not reliably an Error: signing rejections surface the signer's
+ * own message, a relay's `OK false` surfaces its reason string, and NDK's
+ * `signIn` policy rejects with the *event*. Remote signers produce the most
+ * useful text of the three — Bunker46 answers an ungranted kind with
+ * "Permission denied for sign_event kind:22242", which names the exact problem.
+ */
+export function describeAuthFailure(err: unknown): string {
+  if (!err) return "";
+  if (typeof err === "string") return err;
+  if (err instanceof Error) return err.message;
+  const message = (err as { message?: unknown }).message;
+  return typeof message === "string" ? message : "";
+}
+
+/**
+ * Does this failure look like a signer refusing, rather than a relay refusing?
+ *
+ * Worth distinguishing: a permission problem is fixable by the user in their
+ * signer, and they will not think to look there on their own.
+ */
+export function looksLikeSignerRefusal(detail: string): boolean {
+  return /permission|denied|not allowed|unauthoriz/i.test(detail);
+}
+
 /** Every relay currently holding an authenticated session. */
 export function authenticatedRelayUrls(instance: NDK): string[] {
   const urls: string[] = [];

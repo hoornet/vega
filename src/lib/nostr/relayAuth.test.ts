@@ -1,6 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import type { NDKRelay } from "@nostr-dev-kit/ndk";
 import {
+  describeAuthFailure,
+  looksLikeSignerRefusal,
+  watchRelayAuthFailures,
   getRelayAuthScope,
   setRelayAuthScope,
   shouldAuthenticate,
@@ -177,5 +180,107 @@ describe("shouldAuthenticate", () => {
 
   it("declines everything when the stored list is empty and scope is configured", () => {
     expect(shouldAuthenticate("wss://relay.damus.io/", "configured", new Set(), false)).toBe(false);
+  });
+});
+
+describe("describeAuthFailure", () => {
+  // The payload is not reliably an Error: signing rejections carry the signer's
+  // message, relay OK-false carries a reason string, and NDK's own signIn policy
+  // rejects with the event object.
+  it("reads a plain string", () => {
+    expect(describeAuthFailure("auth-required: identify yourself")).toBe("auth-required: identify yourself");
+  });
+
+  it("reads an Error", () => {
+    expect(describeAuthFailure(new Error("Permission denied for sign_event kind:22242")))
+      .toBe("Permission denied for sign_event kind:22242");
+  });
+
+  it("reads a bare object carrying a message", () => {
+    expect(describeAuthFailure({ message: "restricted" })).toBe("restricted");
+  });
+
+  it("returns empty rather than [object Object] for anything else", () => {
+    expect(describeAuthFailure(undefined)).toBe("");
+    expect(describeAuthFailure(null)).toBe("");
+    expect(describeAuthFailure({ kind: 22242 })).toBe("");
+  });
+});
+
+describe("looksLikeSignerRefusal", () => {
+  it("recognises the message Bunker46 sends for an ungranted kind", () => {
+    // Its default permission set is kinds 0/1/3/4/7 — 22242 is not among them,
+    // so this is what a fresh bunker connection actually returns.
+    expect(looksLikeSignerRefusal("Permission denied for sign_event kind:22242")).toBe(true);
+  });
+
+  it("recognises other refusal phrasings", () => {
+    expect(looksLikeSignerRefusal("not allowed")).toBe(true);
+    expect(looksLikeSignerRefusal("unauthorized")).toBe(true);
+  });
+
+  it("does not claim a relay-side failure is the signer's fault", () => {
+    expect(looksLikeSignerRefusal("relay closed the connection")).toBe(false);
+    expect(looksLikeSignerRefusal("")).toBe(false);
+  });
+});
+
+describe("watchRelayAuthFailures", () => {
+  function fakeRelayWithEvents(url: string) {
+    const handlers: Record<string, ((...a: unknown[]) => void)[]> = {};
+    return {
+      url,
+      on(ev: string, cb: (...a: unknown[]) => void) { (handlers[ev] ??= []).push(cb); },
+      emit(ev: string, ...args: unknown[]) { for (const cb of handlers[ev] ?? []) cb(...args); },
+      handlers,
+    };
+  }
+
+  function fakeInstance(relays: ReturnType<typeof fakeRelayWithEvents>[]) {
+    const poolHandlers: Record<string, ((...a: unknown[]) => void)[]> = {};
+    return {
+      pool: {
+        relays: new Map(relays.map((r) => [r.url, r])),
+        on(ev: string, cb: (...a: unknown[]) => void) { (poolHandlers[ev] ??= []).push(cb); },
+        emit(ev: string, ...args: unknown[]) { for (const cb of poolHandlers[ev] ?? []) cb(...args); },
+      },
+    };
+  }
+
+  it("reports a failure on a relay already in the pool", () => {
+    const relay = fakeRelayWithEvents("wss://a.invalid/");
+    const instance = fakeInstance([relay]);
+    const onFailure = vi.fn();
+
+    watchRelayAuthFailures(instance as never, onFailure);
+    relay.emit("auth:failed", new Error("Permission denied for sign_event kind:22242"));
+
+    expect(onFailure).toHaveBeenCalledTimes(1);
+    expect(onFailure.mock.calls[0][0]).toBe(relay);
+  });
+
+  it("reports a failure on a relay that joins later", () => {
+    const instance = fakeInstance([]);
+    const onFailure = vi.fn();
+    watchRelayAuthFailures(instance as never, onFailure);
+
+    const late = fakeRelayWithEvents("wss://late.invalid/");
+    instance.pool.emit("relay:connect", late);
+    late.emit("auth:failed", "nope");
+
+    expect(onFailure).toHaveBeenCalledTimes(1);
+  });
+
+  it("attaches once even when a relay fires both pool events", () => {
+    // Relays can sit in the pool before connecting, so attach runs from more
+    // than one event — double-attaching would double every notice.
+    const instance = fakeInstance([]);
+    watchRelayAuthFailures(instance as never, vi.fn());
+
+    const relay = fakeRelayWithEvents("wss://twice.invalid/");
+    instance.pool.emit("relay:connecting", relay);
+    instance.pool.emit("relay:connect", relay);
+
+    expect(relay.handlers["auth:failed"]?.length ?? 0).toBe(1);
   });
 });
