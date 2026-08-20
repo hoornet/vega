@@ -32,7 +32,7 @@ const _authNoticeShown = new Set<string>();
  * until you identified yourself": it resolved on a bare timer with no `closed`
  * handler, and both cases produced `[]` after 8 seconds.
  */
-async function fetchGiftWraps(myPubkey: string, limit: number, timeoutMs: number): Promise<NDKEvent[]> {
+export async function fetchGiftWraps(myPubkey: string, limit: number, timeoutMs: number): Promise<NDKEvent[]> {
   const instance = getNDK();
   const events: NDKEvent[] = [];
   const sub = instance.subscribe(
