@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { getNDK, getStoredRelayUrls, normalizeRelayUrl } from "../lib/nostr";
+import { getNDK, getStoredRelayUrls, isLocalRelayUrl, normalizeRelayUrl } from "../lib/nostr";
 
 /**
  * Where a relay in the pool came from. The pool is not the user's relay list:
@@ -36,7 +36,7 @@ interface RelayStatus {
 
 export function classifyRelay(url: string, configured: Set<string>): RelayOrigin {
   const normalized = normalizeRelayUrl(url);
-  if (/^ws:\/\/(127\.0\.0\.1|localhost):/.test(normalized)) return "local";
+  if (isLocalRelayUrl(normalized)) return "local";
   return configured.has(normalized) ? "configured" : "discovered";
 }
 

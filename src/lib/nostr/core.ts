@@ -1,5 +1,6 @@
-import NDK, { NDKEvent, NDKFilter, NDKRelay, NDKRelaySet, NDKSubscriptionCacheUsage, tryNormalizeRelayUrl } from "@nostr-dev-kit/ndk";
+import NDK, { NDKEvent, NDKFilter, NDKRelay, NDKRelaySet, NDKSubscription, NDKSubscriptionCacheUsage, tryNormalizeRelayUrl } from "@nostr-dev-kit/ndk";
 import { debug } from "../debug";
+import { pruneOrphanRelaySubscriptionsInPool } from "./relayAuth";
 
 // ─── Fetch timeout helper ───────────────────────────────────────────
 
@@ -12,6 +13,19 @@ export function withTimeout<T>(promise: Promise<T>, ms: number, fallback: T): Pr
       resolve(fallback);
     }, ms)),
   ]);
+}
+
+/**
+ * Stop a subscription, then sweep the orphan NDK leaves behind.
+ *
+ * `sub.stop()` on a RUNNING subscription that never EOSEd returns early without
+ * sending CLOSE and without running `cleanup()`, stranding an `authed` listener
+ * that later re-REQs with an empty filter set. See the long note on
+ * `pruneOrphanRelaySubscriptions`. Prefer this over `sub.stop()` everywhere.
+ */
+export function stopSubscription(sub: NDKSubscription, instance: NDK): void {
+  try { sub.stop(); } catch { /* ignore */ }
+  try { pruneOrphanRelaySubscriptionsInPool(instance); } catch { /* ignore */ }
 }
 
 export const FEED_TIMEOUT = 8000;    // 8s for feed fetches
@@ -43,8 +57,11 @@ function _runNextFetch() {
  * NDK subscription internally that we cannot cancel if the timeout fires first.
  * Abandoned subscriptions keep receiving relay data forever, leaking memory.
  *
- * This implementation uses subscribe() directly so we can call sub.stop() on
- * both EOSE and timeout — guaranteeing no zombie subscriptions.
+ * This implementation uses subscribe() directly so we can stop the subscription
+ * on both EOSE and timeout. Note that `sub.stop()` alone does NOT guarantee
+ * that: on a RUNNING subscription that never EOSEd — which is exactly what a
+ * relay answering `CLOSED auth-required:` produces — NDK skips both the CLOSE
+ * frame and its listener cleanup. Use `stopSubscription()`, never a bare stop.
  *
  * Concurrency is capped at MAX_CONCURRENT_FETCHES. Excess calls queue and
  * start as slots free up.
@@ -66,7 +83,7 @@ export function fetchWithTimeout(
         settled = true;
         _activeFetchCount--;
         clearTimeout(timer);
-        try { sub.stop(); } catch { /* ignore */ }
+        stopSubscription(sub, instance);
         resolve(events);
         _runNextFetch();
       };
@@ -127,6 +144,18 @@ export const OUTBOX_RELAYS = [
 /** Normalize relay URL: lowercase host, strip trailing slash, deduplicate. */
 export function normalizeRelayUrl(url: string): string {
   return url.replace(/\/+$/, "");
+}
+
+/**
+ * The embedded strfry relay, which lives in the pool but deliberately never in
+ * the stored relay list.
+ *
+ * Tolerates either URL form — callers pass `NDKRelay.url` (trailing slash) as
+ * often as stored URLs (stripped), and the port is assigned at runtime by the
+ * Rust side, so it cannot be matched as a constant.
+ */
+export function isLocalRelayUrl(url: string): boolean {
+  return /^ws:\/\/(127\.0\.0\.1|localhost):/.test(normalizeRelayUrl(url));
 }
 
 const VEGA_RELAY = "wss://relay2.veganostr.com";
@@ -202,7 +231,7 @@ export function isRelayAllowed(url: string): boolean {
   if (isOutboxRelaysEnabled()) return true;
   const normalized = normalizeRelayUrl(url);
   // The embedded strfry relay is deliberately never in the stored list.
-  if (/^ws:\/\/(127\.0\.0\.1|localhost):/.test(normalized)) return true;
+  if (isLocalRelayUrl(normalized)) return true;
   if (!_allowedRelays) {
     _allowedRelays = new Set(getStoredRelayUrls().map(normalizeRelayUrl));
   }
