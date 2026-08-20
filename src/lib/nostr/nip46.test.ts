@@ -6,6 +6,7 @@ import {
   forgetPendingClientKey,
   pendingClientKeyFor,
   rememberPendingClientKey,
+  explainBunkerConnectError,
 } from "./nip46";
 
 /**
@@ -129,5 +130,35 @@ describe("connectWithTimeout", () => {
       blockUntilReady: () => Promise.reject(new Error("Unknown client")),
     } as unknown as NDKNip46Signer;
     await expect(connectWithTimeout(refused, 5000)).rejects.toThrow("Unknown client");
+  });
+});
+
+describe("explainBunkerConnectError", () => {
+  it("explains 'Unknown client' instead of passing it through", () => {
+    // Measured against a real Bunker46: this single message covers a spent
+    // secret, an expired one, and a signer restart that dropped the in-memory
+    // pending-secret map. We hit all three in one afternoon of testing.
+    const msg = explainBunkerConnectError(new Error("Unknown client"));
+    expect(msg).toMatch(/single-use|no longer valid/i);
+    expect(msg).toMatch(/generate a fresh/i);
+    expect(msg).not.toBe("Unknown client");
+  });
+
+  it("keeps the timeout message, which already says the useful thing", () => {
+    const original = "Remote signer didn't respond within 15 seconds. Check your connection.";
+    expect(explainBunkerConnectError(new Error(original))).toBe(original);
+  });
+
+  it("names the signer when it refused on permissions", () => {
+    const msg = explainBunkerConnectError(new Error("Permission denied for sign_event kind:22242"));
+    expect(msg).toMatch(/your signer refused/i);
+    expect(msg).toContain("kind:22242");
+  });
+
+  it("never renders 'undefined' when the bunker replied without an error", () => {
+    // NDK rejects with the raw `error` field, which is undefined on a bunker
+    // reply that carried none — the original #17 symptom.
+    expect(explainBunkerConnectError(undefined)).not.toMatch(/undefined/);
+    expect(explainBunkerConnectError(undefined)).toMatch(/rejected the connection/i);
   });
 });

@@ -4,6 +4,7 @@ import { getNDK, publishContactList } from "../lib/nostr";
 import {
   acceptSecretEchoAsAck,
   connectWithTimeout,
+  explainBunkerConnectError,
   forgetPendingClientKey,
   pendingClientKeyFor,
   rememberPendingClientKey,
@@ -11,6 +12,16 @@ import {
 import { authenticatedRelayUrls, rechallengeRelays } from "../lib/nostr/relayAuth";
 import { useToastStore } from "./toast";
 import { nip19 } from "@nostr-dev-kit/ndk";
+import { invoke } from "@tauri-apps/api/core";
+import { useMuteStore } from "./mute";
+import { useLightningStore } from "./lightning";
+import { useUIStore } from "./ui";
+import { useNotificationsStore } from "./notifications";
+import { useFeedStore } from "./feed";
+import { usePodcastStore } from "./podcast";
+import { startNotificationPoller, stopNotificationPoller } from "../lib/notificationPoller";
+import { dbLoadProfile } from "../lib/db";
+import { debug } from "../lib/debug";
 
 /**
  * Bounce every relay currently holding an authenticated session.
@@ -23,16 +34,6 @@ function dropAuthenticatedSessions(): void {
   const instance = getNDK();
   rechallengeRelays(instance, authenticatedRelayUrls(instance));
 }
-import { invoke } from "@tauri-apps/api/core";
-import { useMuteStore } from "./mute";
-import { useLightningStore } from "./lightning";
-import { useUIStore } from "./ui";
-import { useNotificationsStore } from "./notifications";
-import { useFeedStore } from "./feed";
-import { usePodcastStore } from "./podcast";
-import { startNotificationPoller, stopNotificationPoller } from "../lib/notificationPoller";
-import { dbLoadProfile } from "../lib/db";
-import { debug } from "../lib/debug";
 
 export interface SavedAccount {
   pubkey: string;
@@ -269,9 +270,11 @@ export const useUserStore = create<UserState>((set, get) => ({
       useFeedStore.getState().loadFeed();
     } catch (err) {
       // NDK rejects the connect promise with the raw `error` field, which is
-      // undefined whenever the bunker replied without one — don't print "undefined".
-      const reason = err instanceof Error ? err.message : typeof err === "string" ? err : "";
-      set({ loginError: `Remote signer login failed: ${reason || "the signer rejected the connection"}` });
+      // undefined whenever the bunker replied without one — don't print
+      // "undefined", and don't pass the bunker's own wording straight through
+      // when we can say something the user can act on. See
+      // explainBunkerConnectError.
+      set({ loginError: explainBunkerConnectError(err) });
     }
   },
 

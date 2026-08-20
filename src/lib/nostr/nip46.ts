@@ -38,6 +38,38 @@ export function connectWithTimeout(
   ]).finally(() => clearTimeout(timer)) as Promise<NDKUser>;
 }
 
+/**
+ * Turn a bunker's connect rejection into something a user can act on.
+ *
+ * "Unknown client" is the one that matters, because it has at least three
+ * entirely innocent causes and the raw message suggests none of them. Measured
+ * against Bunker46 on 2026-08-20:
+ *
+ * - the secret is **single-use** — `consumePendingSecret` deletes it on read,
+ *   so pasting the same link a second time (another device, or a fresh install)
+ *   always fails
+ * - it **expires after 10 minutes**
+ * - pending secrets live in an in-memory `Map`, so they **do not survive a
+ *   restart of the signer**
+ *
+ * All three present identically. We hit every one of them in a single afternoon
+ * of testing, which is a fair indication of how often users will.
+ */
+export function explainBunkerConnectError(err: unknown): string {
+  const raw = err instanceof Error ? err.message : typeof err === "string" ? err : "";
+
+  if (/unknown client/i.test(raw)) {
+    return "This bunker link is no longer valid. These links are usually single-use and expire after a few minutes, and they stop working if the signer restarts. Generate a fresh bunker:// link in your signer and paste it again.";
+  }
+  if (/didn't respond|did not respond|timed out|timeout/i.test(raw)) {
+    return raw;
+  }
+  if (/permission|denied|not allowed|unauthoriz/i.test(raw)) {
+    return `Your signer refused the connection: ${raw}`;
+  }
+  return `Remote signer login failed: ${raw || "the signer rejected the connection"}`;
+}
+
 export function pendingClientKeyFor(bunkerUri: string): string | undefined {
   try {
     const saved = JSON.parse(localStorage.getItem(NIP46_PENDING_CLIENT_KEY) ?? "null");
