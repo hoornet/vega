@@ -41,8 +41,22 @@ function makeSub() {
 let currentSub: ReturnType<typeof makeSub>;
 let subscribeImpl: (...args: unknown[]) => unknown;
 
-const MY_RELAY = { url: "wss://mine.example.invalid/" };
-const STRANGER = { url: "wss://stranger.example.invalid/" };
+/** Enough of NDKRelay for the auth wait: an emitter and a mutable status. */
+function fakeRelay(url: string) {
+  const handlers: Record<string, Handler[]> = {};
+  return {
+    url,
+    status: 5, // CONNECTED
+    on(ev: string, cb: Handler) { (handlers[ev] ??= []).push(cb); },
+    off(ev: string, cb: Handler) { handlers[ev] = (handlers[ev] ?? []).filter((h) => h !== cb); },
+    emit(ev: string, ...args: unknown[]) { for (const cb of [...(handlers[ev] ?? [])]) cb(...args); },
+    listenerCount(ev: string) { return (handlers[ev] ?? []).length; },
+  };
+}
+
+const AUTHENTICATED = 8;
+let MY_RELAY: ReturnType<typeof fakeRelay>;
+const STRANGER = fakeRelay("wss://stranger.example.invalid/");
 
 beforeEach(() => {
   vi.useFakeTimers();
@@ -51,6 +65,7 @@ beforeEach(() => {
   stopSubscription.mockClear();
   currentSub = makeSub();
   subscribeImpl = () => currentSub;
+  MY_RELAY = fakeRelay("wss://mine.example.invalid/");
 });
 
 afterEach(() => vi.useRealTimers());
@@ -98,11 +113,66 @@ describe("fetchGiftWraps", () => {
     expect(addToast).not.toHaveBeenCalled();
   });
 
-  it("gives up on the extended deadline too, rather than hanging", async () => {
+  it("ignores the premature authed emit and waits for the relay's real state", async () => {
+    // NDK emits `authed` twice: once synchronously before the event has even
+    // been signed (status still CONNECTED), and once for real after the relay
+    // acknowledges. Measured [5, 5, 8, 8] against a live relay. Acting on the
+    // first is invisible with a local key and broken with a remote signer,
+    // which is the only configuration this whole feature exists for.
     const promise = fetchGiftWraps("abcd", 20, 8000);
     currentSub.emit("closed", MY_RELAY, "auth-required: identify yourself");
-    await vi.advanceTimersByTimeAsync(8000 + 12000);
+
+    let settled = false;
+    void promise.then(() => { settled = true; });
+
+    MY_RELAY.emit("authed"); // premature: status is still CONNECTED
+    await vi.advanceTimersByTimeAsync(7000);
+    await Promise.resolve();
+    expect(settled).toBe(false);
+
+    MY_RELAY.status = AUTHENTICATED;
+    MY_RELAY.emit("authed"); // the real one
+    currentSub.emit("event", { id: "wrap-after-auth" });
+    currentSub.emit("eose");
+
+    await expect(promise).resolves.toEqual([{ id: "wrap-after-auth" }]);
+  });
+
+  it("stops waiting a bounded time after the relay authenticates", async () => {
+    const promise = fetchGiftWraps("abcd", 20, 8000);
+    currentSub.emit("closed", MY_RELAY, "auth-required: identify yourself");
+
+    MY_RELAY.status = AUTHENTICATED;
+    MY_RELAY.emit("authed");
+
+    // NDK re-issues the request itself; if nothing comes back we must not hang
+    // on for the full handshake cap.
+    await vi.advanceTimersByTimeAsync(6000);
     await expect(promise).resolves.toEqual([]);
+  });
+
+  it("gives up at the handshake cap when the relay never authenticates", async () => {
+    const promise = fetchGiftWraps("abcd", 20, 8000);
+    currentSub.emit("closed", MY_RELAY, "auth-required: identify yourself");
+
+    let settled = false;
+    void promise.then(() => { settled = true; });
+    await vi.advanceTimersByTimeAsync(20000);
+    await Promise.resolve();
+    expect(settled).toBe(false); // a flat 12s grace used to have given up here
+
+    await vi.advanceTimersByTimeAsync(10000);
+    await expect(promise).resolves.toEqual([]);
+  });
+
+  it("detaches its authed listener so a stalled handshake leaks nothing", async () => {
+    const promise = fetchGiftWraps("abcd", 20, 8000);
+    currentSub.emit("closed", MY_RELAY, "auth-required: identify yourself");
+    expect(MY_RELAY.listenerCount("authed")).toBe(1);
+
+    await vi.advanceTimersByTimeAsync(30000);
+    await promise;
+    expect(MY_RELAY.listenerCount("authed")).toBe(0);
   });
 
   it("explains the empty inbox when scope says we will not identify ourselves", async () => {

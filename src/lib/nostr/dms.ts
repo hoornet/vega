@@ -7,17 +7,25 @@ import {
   stopSubscription,
   FEED_TIMEOUT,
 } from "./core";
-import { getRelayAuthScope, shouldAuthenticate } from "./relayAuth";
+import { getRelayAuthScope, isRelayAuthenticated, shouldAuthenticate } from "./relayAuth";
 import { useToastStore } from "../../stores/toast";
 import { debug } from "../debug";
 
 /**
- * Extra grace once a relay has told us it wants AUTH first.
+ * Absolute cap on waiting for an AUTH handshake to complete.
  *
- * Sized for a NIP-46 bunker, where signing the kind 22242 is a full round-trip
- * to a remote signer rather than a local key operation.
+ * Only an upper bound, not the expected wait: we finish as soon as the relay
+ * actually reports itself authenticated. Generous because the handshake can be
+ * several round-trips to a remote signer, over whatever network the user's
+ * signer sits behind.
  */
-const RELAY_AUTH_GRACE = 12000;
+const AUTH_HANDSHAKE_MAX = 30000;
+
+/**
+ * Time allowed after the relay authenticates for NDK to re-issue the REQ and
+ * the events to come back.
+ */
+const POST_AUTH_GRACE = 6000;
 
 /** Relays we have already explained ourselves about, so the toast fires once per session. */
 const _authNoticeShown = new Set<string>();
@@ -45,11 +53,13 @@ export async function fetchGiftWraps(myPubkey: string, limit: number, timeoutMs:
     let settled = false;
     let extended = false;
     let timer: ReturnType<typeof setTimeout>;
+    let detachAuthWatch: (() => void) | undefined;
 
     const finish = () => {
       if (settled) return;
       settled = true;
       clearTimeout(timer);
+      detachAuthWatch?.();
       resolve();
     };
 
@@ -81,15 +91,42 @@ export async function fetchGiftWraps(myPubkey: string, limit: number, timeoutMs:
         return;
       }
 
-      // We will authenticate, so give the handshake room to finish. NDK
-      // re-issues the REQ itself once the relay reaches AUTHENTICATED —
-      // `execute()` re-registers `once("authed")` whenever status < 8 — so we
-      // only need to still be listening when the events arrive.
+      // We will authenticate, so wait for the handshake rather than the clock.
+      //
+      // A flat timer was the first attempt and it is not good enough: the wait
+      // is however long the user's signer takes, which for a remote signer
+      // behind a VPN is unknowable from here. Watch the relay's own state
+      // instead, and only fall back to a timer as an upper bound.
+      //
+      // The `authed` event alone is not the signal — NDK emits it once
+      // prematurely, before the event has even been signed, and again for
+      // real. `isRelayAuthenticated` checks status, so the early one is
+      // ignored. Once it is genuinely authenticated NDK re-issues the REQ on
+      // its own; we just have to still be listening when the events land.
       if (extended) return;
       extended = true;
       debug.log(`[Vega] ${relay.url} requires AUTH — waiting for the handshake`);
+
+      const onAuthed = () => {
+        if (settled || !isRelayAuthenticated(relay)) return;
+        detachAuthWatch?.();
+        debug.log(`[Vega] ${relay.url} authenticated — waiting for the re-issued request`);
+        clearTimeout(timer);
+        timer = setTimeout(finish, POST_AUTH_GRACE);
+      };
+
+      relay.on("authed", onAuthed);
+      detachAuthWatch = () => {
+        detachAuthWatch = undefined;
+        try { relay.off("authed", onAuthed); } catch { /* emitter may be gone */ }
+      };
+
       clearTimeout(timer);
-      timer = setTimeout(finish, RELAY_AUTH_GRACE);
+      timer = setTimeout(finish, AUTH_HANDSHAKE_MAX);
+
+      // The relay may already have authenticated between the CLOSED frame and
+      // this handler running, in which case no further `authed` is coming.
+      onAuthed();
     });
 
     timer = setTimeout(finish, timeoutMs);
