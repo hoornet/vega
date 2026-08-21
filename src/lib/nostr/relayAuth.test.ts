@@ -1,6 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import type { NDKRelay } from "@nostr-dev-kit/ndk";
 import {
+  authAttemptInFlight,
+  beginAuthAttempt,
   describeAuthFailure,
   looksLikeSignerRefusal,
   watchRelayAuthFailures,
@@ -282,5 +284,84 @@ describe("watchRelayAuthFailures", () => {
     instance.pool.emit("relay:connect", relay);
 
     expect(relay.handlers["auth:failed"]?.length ?? 0).toBe(1);
+  });
+});
+
+describe("beginAuthAttempt", () => {
+  function authRelay(url: string) {
+    const handlers: Record<string, ((...a: unknown[]) => void)[]> = {};
+    return {
+      url,
+      status: 5, // CONNECTED
+      on(ev: string, cb: (...a: unknown[]) => void) { (handlers[ev] ??= []).push(cb); },
+      off(ev: string, cb: (...a: unknown[]) => void) { handlers[ev] = (handlers[ev] ?? []).filter((h) => h !== cb); },
+      emit(ev: string, ...a: unknown[]) { for (const cb of [...(handlers[ev] ?? [])]) cb(...a); },
+      listenerCount(ev: string) { return (handlers[ev] ?? []).length; },
+    };
+  }
+
+  it("admits the first attempt and refuses a concurrent one", () => {
+    // The second challenge arrives while the first signature is still in
+    // flight. Signing again is what cost three bunker approvals per handshake.
+    const relay = authRelay("wss://a.invalid/");
+    expect(beginAuthAttempt(relay as never)).toBe(true);
+    expect(beginAuthAttempt(relay as never)).toBe(false);
+    expect(beginAuthAttempt(relay as never)).toBe(false);
+  });
+
+  it("releases once the relay is genuinely authenticated", () => {
+    const relay = authRelay("wss://b.invalid/");
+    expect(beginAuthAttempt(relay as never)).toBe(true);
+
+    relay.status = 8; // AUTHENTICATED
+    relay.emit("authed");
+
+    expect(authAttemptInFlight(relay.url)).toBe(false);
+    expect(relay.listenerCount("authed")).toBe(0);
+  });
+
+  it("stays claimed through the premature authed emit", () => {
+    // NDK emits `authed` before signing, with status still CONNECTED. Releasing
+    // on that would reopen the door mid-handshake and reinstate the storm.
+    const relay = authRelay("wss://c.invalid/");
+    beginAuthAttempt(relay as never);
+
+    relay.emit("authed"); // status still 5
+    expect(authAttemptInFlight(relay.url)).toBe(true);
+    expect(beginAuthAttempt(relay as never)).toBe(false);
+  });
+
+  it("releases when the signer refuses, so a later attempt can run", () => {
+    const relay = authRelay("wss://d.invalid/");
+    beginAuthAttempt(relay as never);
+
+    relay.emit("auth:failed", new Error("Permission denied for sign_event kind:22242"));
+
+    expect(authAttemptInFlight(relay.url)).toBe(false);
+    expect(beginAuthAttempt(relay as never)).toBe(true);
+  });
+
+  it("releases on the TTL when the signer never answers at all", () => {
+    // The backstop. Without it a signer that hangs would block every future
+    // challenge on that relay for the life of the process.
+    vi.useFakeTimers();
+    try {
+      const relay = authRelay("wss://e.invalid/");
+      expect(beginAuthAttempt(relay as never, 5000)).toBe(true);
+      vi.advanceTimersByTime(4999);
+      expect(authAttemptInFlight(relay.url)).toBe(true);
+      vi.advanceTimersByTime(2);
+      expect(authAttemptInFlight(relay.url)).toBe(false);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("tracks relays independently", () => {
+    const a = authRelay("wss://f.invalid/");
+    const b = authRelay("wss://g.invalid/");
+    expect(beginAuthAttempt(a as never)).toBe(true);
+    expect(beginAuthAttempt(b as never)).toBe(true);
+    expect(beginAuthAttempt(a as never)).toBe(false);
   });
 });

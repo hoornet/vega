@@ -92,6 +92,7 @@ describe.skipIf(!AUTH_RELAY)("NIP-42 AUTH against a live relay", () => {
     }
   }, 40000);
 
+
   it("declines a relay that is not in the stored list", async () => {
     const { getRelayAuthScope, shouldAuthenticate } = await import("./relayAuth");
     // Same decision the policy makes, against the live stored list.

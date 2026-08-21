@@ -2,6 +2,7 @@ import NDK, { NDKEvent, NDKFilter, NDKRelay, NDKRelaySet, NDKSubscription, NDKSu
 import { debug } from "../debug";
 import { useToastStore } from "../../stores/toast";
 import {
+  beginAuthAttempt,
   clearPendingAuthRelay,
   describeAuthFailure,
   getPendingAuthRelays,
@@ -301,6 +302,16 @@ export async function relayAuthPolicy(relay: NDKRelay): Promise<boolean> {
   if (!shouldAuthenticate(relay.url, scope, allowedRelaySet(), isLocalRelayUrl(relay.url))) {
     recordDeclined(relay.url);
     debug.log(`[Vega] AUTH challenge from ${relay.url} declined: not in your relay list`);
+    return false;
+  }
+
+  // One signature per handshake. NDK re-challenges while the first signature is
+  // still in flight, and every extra challenge is another round-trip to the
+  // user's signer — three per relay against a real bunker, each one an approval
+  // request they have to look at. See beginAuthAttempt for why declining here
+  // cannot wedge the relay.
+  if (!beginAuthAttempt(relay)) {
+    debug.log(`[Vega] AUTH to ${relay.url} already in flight — not signing again`);
     return false;
   }
 

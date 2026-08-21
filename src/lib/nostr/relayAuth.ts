@@ -118,6 +118,64 @@ export function rechallengeRelays(instance: NDK, urls: string[]): void {
   }
 }
 
+/**
+ * Relays with an AUTH attempt already in flight.
+ *
+ * Without this, one handshake costs several signatures. While the signature is
+ * in flight NDK re-executes the subscription the relay closed with
+ * `auth-required:`, which draws a fresh challenge, which re-enters the policy —
+ * because `onAuthRequested` sets `_status = CONNECTED` and emits `authed`
+ * *before* the event is signed, reopening its own re-entrancy guard early.
+ * Measured against a real Bunker46: 28 policy calls and 3 signatures for a
+ * single handshake, versus 2 with a local key. The reporter on #48 saw it as
+ * his signer asking for the same approval three times.
+ *
+ * Declining a re-entrant challenge is safe, and the reason is worth stating
+ * because it is not obvious: returning `false` leaves `_status` at
+ * `AUTHENTICATING`, which would normally wedge that relay for the life of the
+ * connection. It doesn't here, because we only decline while a real
+ * `authenticate()` is in flight, and that call moves the status itself — to
+ * `AUTHENTICATED` on success, or back to `AUTH_REQUESTED` on failure. The TTL
+ * is the backstop for a signer that never answers at all.
+ */
+const _authInFlight = new Map<string, ReturnType<typeof setTimeout>>();
+
+/** Upper bound on how long an unanswered handshake blocks retries. */
+const AUTH_INFLIGHT_TTL = 30000;
+
+/**
+ * Claim the AUTH attempt for this relay. Returns false if one is already
+ * running, in which case the caller must decline rather than sign again.
+ */
+export function beginAuthAttempt(relay: NDKRelay, ttlMs = AUTH_INFLIGHT_TTL): boolean {
+  if (_authInFlight.has(relay.url)) return false;
+
+  _authInFlight.set(relay.url, setTimeout(() => endAuthAttempt(relay.url), ttlMs));
+
+  const done = () => {
+    relay.off("authed", onAuthed);
+    relay.off("auth:failed", done);
+    endAuthAttempt(relay.url);
+  };
+  // Status, not the event: `authed` fires once prematurely, before signing.
+  const onAuthed = () => { if (isRelayAuthenticated(relay)) done(); };
+
+  relay.on("authed", onAuthed);
+  relay.on("auth:failed", done);
+  return true;
+}
+
+export function endAuthAttempt(url: string): void {
+  const timer = _authInFlight.get(url);
+  if (timer) clearTimeout(timer);
+  _authInFlight.delete(url);
+}
+
+/** Test seam. */
+export function authAttemptInFlight(url: string): boolean {
+  return _authInFlight.has(url);
+}
+
 const _watchedForFailure = new WeakSet<NDKRelay>();
 
 /**
