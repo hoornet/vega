@@ -44,6 +44,22 @@ export async function fetchNip11(relayUrl: string): Promise<RelayNip11Info | nul
  * sending a REQ for a single event, and timing how long until the first
  * EOSE or EVENT response. Falls back to just measuring connect time.
  */
+/**
+ * Is this frame a NIP-42 challenge rather than a reply to our query?
+ *
+ * Deliberately tolerant of a non-string payload and of malformed JSON: a health
+ * check must never throw on whatever a relay happens to send.
+ */
+export function isAuthChallenge(data: unknown): boolean {
+  if (typeof data !== "string") return false;
+  try {
+    const frame = JSON.parse(data);
+    return Array.isArray(frame) && frame[0] === "AUTH";
+  } catch {
+    return false;
+  }
+}
+
 export async function measureLatency(relayUrl: string): Promise<{ latencyMs: number; connected: boolean }> {
   return new Promise((resolve) => {
     const start = performance.now();
@@ -74,7 +90,14 @@ export async function measureLatency(relayUrl: string): Promise<{ latencyMs: num
       }
     };
 
-    ws.onmessage = () => {
+    ws.onmessage = (ev) => {
+      // A relay with eager NIP-42 sends its AUTH challenge before answering
+      // anything, so the first frame is not a response to our REQ. Timing
+      // against it reported flattering latency for precisely the relays that
+      // are hardest to use, and called a relay "online" on the strength of a
+      // challenge alone. Keep waiting for a real reply. See #54.
+      if (isAuthChallenge(ev.data)) return;
+
       clearTimeout(timeout);
       const elapsed = Math.round(performance.now() - start);
       try { ws.close(); } catch { /* ignore */ }

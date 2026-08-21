@@ -37,7 +37,17 @@ export async function payKeysendViaNWC(
 ): Promise<string> {
   const { walletPubkey, relayUrl, secret } = parseNwcUri(nwcUri);
 
-  const ndk = new NDK({ explicitRelayUrls: [relayUrl], enableOutboxModel: false });
+  const ndk = new NDK({
+    explicitRelayUrls: [relayUrl],
+    enableOutboxModel: false,
+    // A wallet relay that requires NIP-42 would otherwise never connect,
+    // the same way the main pool could not before #48. Unconditional true
+    // is right *here* and nowhere else: this instance signs as the wallet
+    // connection secret, not the user's identity key, so the privacy
+    // reasoning behind the "My relays only" scope does not apply — the key
+    // is already scoped to this one wallet. See #54.
+    relayAuthDefaultPolicy: async () => true,
+  });
   const signer = new NDKPrivateKeySigner(secret);
   ndk.signer = signer;
   await ndk.connect();
@@ -111,7 +121,17 @@ export async function payKeysendViaNWC(
 export async function payInvoiceViaNWC(nwcUri: string, bolt11: string): Promise<string> {
   const { walletPubkey, relayUrl, secret } = parseNwcUri(nwcUri);
 
-  const ndk = new NDK({ explicitRelayUrls: [relayUrl], enableOutboxModel: false });
+  const ndk = new NDK({
+    explicitRelayUrls: [relayUrl],
+    enableOutboxModel: false,
+    // A wallet relay that requires NIP-42 would otherwise never connect,
+    // the same way the main pool could not before #48. Unconditional true
+    // is right *here* and nowhere else: this instance signs as the wallet
+    // connection secret, not the user's identity key, so the privacy
+    // reasoning behind the "My relays only" scope does not apply — the key
+    // is already scoped to this one wallet. See #54.
+    relayAuthDefaultPolicy: async () => true,
+  });
   const signer = new NDKPrivateKeySigner(secret);
   ndk.signer = signer;
   await ndk.connect();

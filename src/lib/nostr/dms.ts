@@ -27,6 +27,13 @@ const AUTH_HANDSHAKE_MAX = 30000;
  */
 const POST_AUTH_GRACE = 6000;
 
+/**
+ * Per-relay publish timeout for DMs, replacing NDK's 2500ms default.
+ *
+ * Sized so an AUTH handshake with a remote signer can complete first. See #53.
+ */
+const DM_PUBLISH_TIMEOUT = 15000;
+
 /** Relays we have already explained ourselves about, so the toast fires once per session. */
 const _authNoticeShown = new Set<string>();
 
@@ -282,9 +289,16 @@ export async function sendDM(recipientPubkey: string, content: string): Promise<
     giftWrap(rumor, myUser, instance.signer),
   ]);
 
+  // NDK's per-relay publish timeout defaults to 2500ms, which is shorter than
+  // an AUTH handshake on an auth-required relay: the publish is held until the
+  // relay authenticates, and on a remote signer that is several round-trips.
+  // NDK does eventually land the event — an `OK false` reading `auth-required`
+  // is re-queued and resent by `retryPendingAuthPublishes` — but by then the
+  // caller's promise has already rejected, so the UI reported a send failure
+  // for a message that went out moments later. See #53.
   const [recipientResult, selfResult] = await Promise.all([
-    wrappedForRecipient.publish(),
-    wrappedForSelf.publish(),
+    wrappedForRecipient.publish(undefined, DM_PUBLISH_TIMEOUT),
+    wrappedForSelf.publish(undefined, DM_PUBLISH_TIMEOUT),
   ]);
   debug.log(`[DM] sendDM published: toRecipient=${recipientResult?.size ?? 0} relays, toSelf=${selfResult?.size ?? 0} relays`);
 }
