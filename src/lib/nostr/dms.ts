@@ -152,22 +152,45 @@ function hostOf(url: string): string {
 
 /** One notice per session: a failing signer fails on every poll, not just once. */
 let _unwrapFailureNotified = false;
+let _unexpectedKindNotified = false;
 
-async function unwrapGiftWraps(events: NDKEvent[]): Promise<NDKEvent[]> {
+export async function unwrapGiftWraps(events: NDKEvent[]): Promise<NDKEvent[]> {
   const instance = getNDK();
   if (!instance.signer) return [];
   const rumors: NDKEvent[] = [];
   let failures = 0;
+  const unexpectedKinds = new Set<number>();
   for (const wrap of events) {
     try {
       const rumor = await giftUnwrap(wrap, undefined, instance.signer);
-      if (rumor && rumor.kind === NDKKind.PrivateDirectMessage) {
+      if (!rumor) continue;
+      if (rumor.kind === NDKKind.PrivateDirectMessage) {
         rumors.push(rumor);
+      } else {
+        // Opened fine, but it isn't a NIP-17 chat message. Silently dropping
+        // this was the last way a gift wrap could vanish without explanation:
+        // the fetch worked, AUTH worked, decryption worked, and Messages still
+        // showed nothing. Anything that wraps a different kind — a bot, a
+        // client sending gift-wrapped kind 4 — landed here invisibly.
+        unexpectedKinds.add(rumor.kind ?? -1);
+        debug.warn(`[DM] gift wrap ${wrap.id?.slice(0, 8)} contained kind ${rumor.kind}, not ${NDKKind.PrivateDirectMessage}`);
       }
     } catch (err) {
       failures++;
       debug.warn(`[DM] unwrap failed for event ${wrap.id?.slice(0, 8)}:`, err);
     }
+  }
+
+  // Name the kind. Whoever sent it can then fix it, and it tells us whether
+  // Vega should learn to read it.
+  if (rumors.length === 0 && unexpectedKinds.size > 0 && !_unexpectedKindNotified) {
+    _unexpectedKindNotified = true;
+    const kinds = [...unexpectedKinds].sort((a, b) => a - b).join(", ");
+    useToastStore.getState().addToast(
+      `Received private messages Vega can't read yet — they contain kind ${kinds}, and Vega reads NIP-17 chat messages (kind ${NDKKind.PrivateDirectMessage}).`,
+      "warning",
+      9000,
+    );
   }
 
   // One wrap failing is ordinary — a malformed or foreign event. *Every* wrap
