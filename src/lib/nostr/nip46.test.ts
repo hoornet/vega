@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, vi } from "vitest";
 import type { NDKNip46Signer } from "@nostr-dev-kit/ndk";
 import {
   connectWithTimeout,
@@ -160,5 +160,76 @@ describe("explainBunkerConnectError", () => {
     // reply that carried none — the original #17 symptom.
     expect(explainBunkerConnectError(undefined)).not.toMatch(/undefined/);
     expect(explainBunkerConnectError(undefined)).toMatch(/rejected the connection/i);
+  });
+});
+
+describe("connectWithTimeout retries", () => {
+  /** A signer whose blockUntilReady resolves, rejects, or hangs, per call. */
+  function scriptedSigner(script: Array<"hang" | "ok" | Error>) {
+    let call = 0;
+    const calls = () => call;
+    const signer = {
+      blockUntilReady: () => {
+        const step = script[call++];
+        if (step === "hang") return new Promise(() => {});
+        if (step === "ok") return Promise.resolve({ pubkey: "aa".repeat(32) });
+        return Promise.reject(step);
+      },
+    } as unknown as NDKNip46Signer;
+    return { signer, calls };
+  }
+
+  it("re-sends the request when the first attempt goes unanswered", async () => {
+    // The signer's subscription drops and re-subscribes periodically; a request
+    // published into that window is never seen. The second one usually is.
+    vi.useFakeTimers();
+    try {
+      const { signer, calls } = scriptedSigner(["hang", "ok"]);
+      const promise = connectWithTimeout(signer, 1000, 2);
+      await vi.advanceTimersByTimeAsync(1100);
+      await expect(promise).resolves.toMatchObject({ pubkey: "aa".repeat(32) });
+      expect(calls()).toBe(2);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("gives up after the configured number of attempts", async () => {
+    vi.useFakeTimers();
+    try {
+      const { signer, calls } = scriptedSigner(["hang", "hang"]);
+      const promise = connectWithTimeout(signer, 1000, 2);
+      const settled = promise.catch((e: unknown) => e);
+      await vi.advanceTimersByTimeAsync(2200);
+      const err = await settled;
+      expect(err).toBeInstanceOf(Error);
+      expect((err as Error).message).toMatch(/didn't respond/);
+      expect(calls()).toBe(2);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("does not retry a signer that actually answered no", async () => {
+    // An expired link or a refused permission fails identically the second
+    // time. Retrying it would only double the wait before telling the user
+    // something they can act on.
+    const { signer, calls } = scriptedSigner([new Error("Unknown client")]);
+    await expect(connectWithTimeout(signer, 1000, 2)).rejects.toThrow("Unknown client");
+    expect(calls()).toBe(1);
+  });
+
+  it("still honours a single-attempt caller", async () => {
+    vi.useFakeTimers();
+    try {
+      const { signer, calls } = scriptedSigner(["hang", "ok"]);
+      const promise = connectWithTimeout(signer, 1000, 1);
+      const settled = promise.catch((e) => e);
+      await vi.advanceTimersByTimeAsync(1100);
+      await settled;
+      expect(calls()).toBe(1);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

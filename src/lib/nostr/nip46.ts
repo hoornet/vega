@@ -22,20 +22,62 @@ const patchedRpcs = new WeakSet<object>();
  */
 export const NIP46_CONNECT_TIMEOUT_MS = 15000;
 
-export function connectWithTimeout(
-  signer: NDKNip46Signer,
-  timeoutMs = NIP46_CONNECT_TIMEOUT_MS,
-): Promise<NDKUser> {
+/** How many times to send the `connect` request before giving up. See #51. */
+export const NIP46_CONNECT_ATTEMPTS = 2;
+
+/** Marks our own timeout, so a retry can tell it apart from the signer saying no. */
+const TIMED_OUT = Symbol("nip46-timeout");
+
+function connectOnce(signer: NDKNip46Signer, timeoutMs: number): Promise<NDKUser> {
   let timer: ReturnType<typeof setTimeout>;
   return Promise.race([
     signer.blockUntilReady(),
     new Promise<never>((_, reject) => {
-      timer = setTimeout(
-        () => reject(new Error(`Remote signer didn't respond within ${Math.round(timeoutMs / 1000)} seconds. Check your connection.`)),
-        timeoutMs,
-      );
+      timer = setTimeout(() => {
+        const err = new Error(
+          `Remote signer didn't respond within ${Math.round(timeoutMs / 1000)} seconds. Check your connection.`,
+        );
+        (err as Error & { [TIMED_OUT]?: boolean })[TIMED_OUT] = true;
+        reject(err);
+      }, timeoutMs);
     }),
   ]).finally(() => clearTimeout(timer)) as Promise<NDKUser>;
+}
+
+/**
+ * Connect to a remote signer, re-sending the request once if it goes unanswered.
+ *
+ * A `connect` request can be missed through nobody's fault: the signer's own
+ * subscription to its relay drops and re-subscribes periodically, and anything
+ * published into that window is simply never seen. Observed against a
+ * self-hosted Bunker46 re-subscribing every 60 seconds — the same login hung
+ * once and succeeded moments later with no code change in between. See #51.
+ *
+ * `blockUntilReady()` ends in a fresh `sendRequest(..., "connect", ...)` on
+ * every call, so a second attempt genuinely re-sends rather than waiting on the
+ * first. `startListening()` is guarded internally, so the subscription is not
+ * duplicated.
+ *
+ * Only a timeout is retried. An explicit rejection — an expired link, a refused
+ * permission — will fail exactly the same way the second time, and retrying it
+ * would double the wait before telling the user something they could act on.
+ */
+export function connectWithTimeout(
+  signer: NDKNip46Signer,
+  timeoutMs = NIP46_CONNECT_TIMEOUT_MS,
+  attempts = NIP46_CONNECT_ATTEMPTS,
+): Promise<NDKUser> {
+  const attempt = async (n: number): Promise<NDKUser> => {
+    try {
+      return await connectOnce(signer, timeoutMs);
+    } catch (err) {
+      const timedOut = !!(err as Error & { [TIMED_OUT]?: boolean })?.[TIMED_OUT];
+      if (!timedOut || n >= attempts) throw err;
+      debug.warn(`[NIP-46] connect attempt ${n} timed out — re-sending`);
+      return attempt(n + 1);
+    }
+  };
+  return attempt(1);
 }
 
 /**
