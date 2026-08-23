@@ -87,3 +87,62 @@ describe("unwrapGiftWraps", () => {
     expect(addToast.mock.calls[0][0]).toMatch(/couldn't decrypt/i);
   });
 });
+
+describe("unwrap concurrency", () => {
+  /** Tracks how many unwraps are in flight at once. */
+  function trackingUnwrap(delayMs = 5) {
+    let inFlight = 0;
+    let peak = 0;
+    giftUnwrap.mockImplementation(async () => {
+      inFlight++;
+      peak = Math.max(peak, inFlight);
+      await new Promise((r) => setTimeout(r, delayMs));
+      inFlight--;
+      return { kind: 14 };
+    });
+    return { peak: () => peak };
+  }
+
+  it("overlaps unwraps instead of doing them one at a time", async () => {
+    // Each wrap costs two decrypts, and on a remote signer those are RPC
+    // round-trips. Sequentially that is minutes for a full inbox. See #61.
+    const { peak } = trackingUnwrap();
+    await unwrapGiftWraps(Array.from({ length: 40 }, (_, i) => wrap(`w${i}`)));
+    expect(peak()).toBeGreaterThan(1);
+  });
+
+  it("keeps the number in flight bounded", async () => {
+    // Not Promise.all over the lot: a thousand concurrent requests at
+    // someone's bunker is its own denial of service, and some rate-limit.
+    const { peak } = trackingUnwrap();
+    await unwrapGiftWraps(Array.from({ length: 200 }, (_, i) => wrap(`w${i}`)));
+    expect(peak()).toBeLessThanOrEqual(8);
+  });
+
+  it("preserves message order across batch boundaries", async () => {
+    let n = 0;
+    giftUnwrap.mockImplementation(async () => {
+      const seq = n++;
+      // Later items finish sooner, so anything relying on completion order
+      // rather than input order will scramble.
+      await new Promise((r) => setTimeout(r, Math.max(0, 20 - seq)));
+      return { kind: 14, content: `msg-${seq}` };
+    });
+
+    const out = await unwrapGiftWraps(Array.from({ length: 20 }, (_, i) => wrap(`w${i}`)));
+    expect(out.map((r) => (r as unknown as { content: string }).content))
+      .toEqual(Array.from({ length: 20 }, (_, i) => `msg-${i}`));
+  });
+
+  it("still counts failures when they happen alongside successes in a batch", async () => {
+    let n = 0;
+    giftUnwrap.mockImplementation(async () => {
+      if (n++ % 2 === 0) throw new Error("nope");
+      return { kind: 14 };
+    });
+    const out = await unwrapGiftWraps(Array.from({ length: 10 }, (_, i) => wrap(`w${i}`)));
+    expect(out).toHaveLength(5);
+    // Some came through, so no notice — the batch shape must not change that.
+    expect(addToast).not.toHaveBeenCalled();
+  });
+});

@@ -34,6 +34,15 @@ const POST_AUTH_GRACE = 6000;
  */
 const DM_PUBLISH_TIMEOUT = 15000;
 
+/**
+ * How many gift wraps to unwrap at once.
+ *
+ * Each one costs two decrypt calls, which on a remote signer are two RPC
+ * round-trips. Overlapping them is the whole win; the cap exists so we don't
+ * point a thousand concurrent requests at someone's bunker. See #61.
+ */
+const UNWRAP_CONCURRENCY = 8;
+
 /** Relays we have already explained ourselves about, so the toast fires once per session. */
 const _authNoticeShown = new Set<string>();
 
@@ -160,9 +169,35 @@ export async function unwrapGiftWraps(events: NDKEvent[]): Promise<NDKEvent[]> {
   const rumors: NDKEvent[] = [];
   let failures = 0;
   const unexpectedKinds = new Set<number>();
-  for (const wrap of events) {
-    try {
-      const rumor = await giftUnwrap(wrap, undefined, instance.signer);
+
+  // Unwrap in bounded batches rather than one at a time.
+  //
+  // `giftUnwrap` decrypts twice per wrap — once for the wrapper, once for the
+  // seal — and with a remote signer each of those is an RPC round-trip. Done
+  // sequentially at a measured ~130ms per trip, 500 wraps is over two minutes.
+  // With a local key the same work is in-process and free, which is why this
+  // never showed up in development and why the person who reported it was
+  // running a bunker. See #61.
+  //
+  // Bounded rather than all at once: a thousand concurrent requests at
+  // someone's signer is its own denial of service, and some will rate-limit.
+  for (let i = 0; i < events.length; i += UNWRAP_CONCURRENCY) {
+    const batch = events.slice(i, i + UNWRAP_CONCURRENCY);
+    const settled = await Promise.all(
+      batch.map(async (wrap) => {
+        const id = wrap.id?.slice(0, 8);
+        try {
+          return { id, rumor: await giftUnwrap(wrap, undefined, instance.signer) };
+        } catch (err) {
+          debug.warn(`[DM] unwrap failed for event ${id}:`, err);
+          return { id, failed: true as const };
+        }
+      }),
+    );
+
+    for (const result of settled) {
+      if ("failed" in result) { failures++; continue; }
+      const rumor = result.rumor;
       if (!rumor) continue;
       if (rumor.kind === NDKKind.PrivateDirectMessage) {
         rumors.push(rumor);
@@ -173,11 +208,8 @@ export async function unwrapGiftWraps(events: NDKEvent[]): Promise<NDKEvent[]> {
         // showed nothing. Anything that wraps a different kind — a bot, a
         // client sending gift-wrapped kind 4 — landed here invisibly.
         unexpectedKinds.add(rumor.kind ?? -1);
-        debug.warn(`[DM] gift wrap ${wrap.id?.slice(0, 8)} contained kind ${rumor.kind}, not ${NDKKind.PrivateDirectMessage}`);
+        debug.warn(`[DM] gift wrap ${result.id} contained kind ${rumor.kind}, not ${NDKKind.PrivateDirectMessage}`);
       }
-    } catch (err) {
-      failures++;
-      debug.warn(`[DM] unwrap failed for event ${wrap.id?.slice(0, 8)}:`, err);
     }
   }
 
