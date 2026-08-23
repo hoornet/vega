@@ -181,10 +181,37 @@ export function Feed() {
     if (focusedNoteIndex >= 0) virtualizer.scrollToIndex(focusedNoteIndex, { align: "center" });
   }, [focusedNoteIndex, virtualizer]);
 
+  const virtualItems = virtualizer.getVirtualItems();
+
+  // Tab switches start at the top.
+  //
+  // One scroll container serves all three tabs, so without this the offset
+  // carries over — and the same offset means wildly different things per tab
+  // (the bottom of Global is weeks of history, the bottom of Trending is
+  // hours). See #62.
+  //
+  // Restoring the previous reading position was tried and abandoned. Anchoring
+  // to a note id rather than a pixel offset handles the list mutating, but not
+  // the real problem: row heights are measured, then change when images finish
+  // loading, and `scrollToIndex` derives its offset from the sum of preceding
+  // heights. The target moves while you are travelling to it, so you land near
+  // the note rather than on it — confirmed in the running app, consistently
+  // short of the mark.
+  //
+  // Holding the anchor steady would take a scroll-anchoring loop correcting the
+  // offset as heights settle. That is real machinery in the exact measurement
+  // path that has already shipped overlapping cards, gaps and upward-scroll
+  // flicker. Not worth a fourth for a convenience.
+  const prevTab = useRef(tab);
+  useEffect(() => {
+    if (prevTab.current === tab) return;
+    prevTab.current = tab;
+    scrollRef.current?.scrollTo({ top: 0 });
+  }, [tab]);
+
   // Infinite scroll (Global tab only): when the user nears the bottom of the
   // virtualized list, load the next page of older notes. loadOlderNotes
   // self-guards against concurrent calls and end-of-feed.
-  const virtualItems = virtualizer.getVirtualItems();
   useEffect(() => {
     if (tab !== "global") return;
     const last = virtualItems[virtualItems.length - 1];
