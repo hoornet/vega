@@ -15,6 +15,10 @@ depends=(
     'gst-plugins-good'
     'gst-libav'
 )
+optdepends=(
+    'gnome-keyring: persistent key storage (any Secret Service provider works)'
+    'kwallet: Secret Service provider on KDE'
+)
 makedepends=(
     'rust'
     'cargo'

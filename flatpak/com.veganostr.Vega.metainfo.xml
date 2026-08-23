@@ -71,6 +71,41 @@
   </branding>
 
   <releases>
+    <release version="0.15.5" date="2026-08-22">
+      <description>
+        <p>Adds relay authentication (NIP-42) with a privacy scope setting, so relays that gate messages behind authentication now work.</p>
+      </description>
+    </release>
+    <release version="0.15.4" date="2026-08-20">
+      <description>
+        <p>Remote-signer sessions reconnect reliably after a restart, and the diagnostics log is now opt-in and capped.</p>
+      </description>
+    </release>
+    <release version="0.15.3" date="2026-08-15">
+      <description>
+        <p>Browse without signing in, a clearer relay indicator, and fewer relay connections per refresh.</p>
+      </description>
+    </release>
+    <release version="0.15.2" date="2026-08-14">
+      <description>
+        <p>Relay list changes apply immediately, and a new Relay reach switch confines Vega to your configured relays.</p>
+      </description>
+    </release>
+    <release version="0.15.1" date="2026-08-10">
+      <description>
+        <p>Desktop notifications for incoming direct messages, naming the sender only — never the message content.</p>
+      </description>
+    </release>
+    <release version="0.14.3" date="2026-08-10">
+      <description>
+        <p>Remote signer login works with spec-compliant bunkers, proxy DNS leaks fixed, and the release pipeline hardened.</p>
+      </description>
+    </release>
+    <release version="0.14.2" date="2026-07-18">
+      <description>
+        <p>Linux keys now persist via the system secret service, including inside sandboxed installs.</p>
+      </description>
+    </release>
     <release version="0.14.1" date="2026-07-15">
       <description>
         <p>Fixes a crash in the Support view and adds an optional network proxy (HTTP/SOCKS5), including Tor.</p>

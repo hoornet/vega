@@ -153,7 +153,7 @@ Vega is shipped through channels that carry our name: the AUR, winget, GitHub re
 - **Article reader** — markdown rendering, reading time, bookmark, like, zap
 - **Article search** — NIP-50 + hashtag search for kind 30023 articles
 - **Article cards** — reusable component with title, summary, author, cover thumbnail, reading time, tags
-- **NIP-98 HTTP Auth** for image uploads with fallback services (nostr.build, void.cat, nostrimg.com)
+- **NIP-98 HTTP Auth** for image uploads with fallback services (nostr.build, files.sovbit.host, nostrimg.com — see `src/lib/upload.ts` for the current list)
 - Zaps: NWC wallet connect (NIP-47) + NIP-57 via NDKZapper
 - **Advanced search** — query parser with modifiers: `by:author`, `mentions:npub`, `kind:N`, `is:article`, `has:image`, `since:date`, `until:date`, `#hashtag`, `"phrase"`, boolean `OR`; NIP-05 resolution; client-side content filters; search help panel
 - Search: NIP-50 full-text, hashtag (#t filter), people, articles, **npub/nprofile direct navigation**

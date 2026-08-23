@@ -1,6 +1,64 @@
 # Changelog
 
-> Note: entries for v0.12.10 through v0.13.1 live in the [GitHub Releases](https://github.com/hoornet/vega/releases) notes; this file resumes at v0.13.2.
+> Note: entries for v0.12.10 through v0.13.1 live in the [GitHub Releases](https://github.com/hoornet/vega/releases) notes; this file resumes at v0.13.2. The release notes on GitHub are the richer record — this file is the summary.
+
+## Unreleased
+
+### Added
+- **NIP-17 DM relay lists (kind 10050) are honoured (#49).** Fetching your messages now also asks your own published DM relays, and sending a DM publishes each gift wrap to its owner's DM relays (the recipient's for their copy, yours for the self-copy) — always merged with your configured relays. Gated on **Relay reach**; with it off, Vega stays on your configured relays as before. Your own published DM relays count as "my relays" for the relay-authentication scope, since a dedicated DM inbox relay is exactly the relay that requires NIP-42 before serving messages.
+
+### Fixed
+- **Messages open faster on remote signers (#61).** Gift wraps are decrypted in bounded batches instead of one at a time, and a message decrypted once is not decrypted again in the same session (in memory only — decrypted content is never written to disk).
+- **Feeds no longer end early on one empty relay answer (#63)**, and switching feed tabs starts at the top (#62).
+
+## v0.15.5 — NIP-42 relay authentication (2026-08-22)
+
+### Added
+- **Relay authentication (NIP-42).** Some relays won't serve your gift-wrapped DMs until the client proves who you are; Vega previously had no NIP-42 support, so on those relays Messages sat empty with no explanation. Vega now answers authentication challenges — governed by a new **Relay authentication** setting (Relays view and Settings), because signing an AUTH event tells the relay who you are: **My relays only** (default) or **Any relay that asks**. When Vega declines a challenge, it now says so instead of leaving an empty screen.
+
+## v0.15.4 — Bunker restore & diagnostics log (2026-08-20)
+
+### Fixed
+- **Remote signer (bunker) sessions no longer go read-only after a restart (#47).** The v0.14.3 connect fix applied only to fresh logins; a restored session re-sends the same connect secret and hit the same failure, and a failed reconnect also rewrote the account's login type, making it permanent. Reconnect now works, keeps the login type on failure, times out instead of hanging, and reports failures.
+- **The unbounded diagnostics log is gone.** Since v0.13.0 Vega appended to `~/vega-diag.log` with no cap. Disk logging is now opt-in (Settings → Diagnostics), capped at 5 MB with rotation, and the old file is cleaned up once (only when it carries Vega's own marker).
+
+### Changed
+- Dependency updates (rusqlite 0.40, marked 18, sha2 0.11); SECURITY.md, CONTRIBUTING.md and CODE_OF_CONDUCT.md added.
+
+## v0.15.3 — Browse without signing in (2026-08-15)
+
+### Added
+- **Look around first.** The welcome screen no longer requires a key — browse Trending read-only and sign in when you want to post (#34).
+
+### Changed
+- **The relay badge counts *your* relays**, with a separate `+N` for anything beyond them (built-in relay, NIP-65 reach). No `+N` with Relay reach off means Vega is staying inside your list (#36).
+- **Relay reach now governs every path that adds relays**, including the NDK behaviour that connected to your *published* relay list on login. Follow-feed refreshes also open fewer connections (one relay per followed author instead of two).
+
+## v0.15.2 — Relay list fixes & Relay reach (2026-08-14)
+
+### Fixed
+- **Relay list changes apply immediately (#35).** Removed relays used to return on the next refresh until restart; added relays weren't subscribed to until restart.
+
+### Added
+- **Relay reach switch** (Relays view + Settings). Vega's NIP-65 outbox model — connecting to the relays the people you follow publish to — stays on by default, but can now be turned off to confine Vega to your configured relays.
+
+## v0.15.1 — DM notifications done right (2026-08-10)
+
+### Added
+- **Desktop notifications for incoming DMs** (NIP-04 and NIP-17), on by default, toggleable in Settings → Notifications. The notification names the sender and nothing else — no message content ever reaches the OS notification system. Nothing is announced retroactively and no decrypted content is stored.
+- **Growing composers.** The message and quote composers grow as you type instead of being fixed two- and three-line boxes; tidier Messages sidebar with a "New message" link.
+
+### Note
+- Supersedes v0.15.0 (published an hour earlier), which included a preview of the message text in the notification — the wrong default for an encrypted-messaging client. v0.15.0 remains published only so its update entry keeps working.
+
+## v0.14.3 — Bunker login & proxy DNS (2026-08-10)
+
+### Fixed
+- **Remote signer (NIP-46) login works with spec-compliant bunkers (#17).** NIP-46 allows a signer to answer `connect` with the URI's secret instead of `ack`; Vega accepted only `ack`, so those logins failed as "undefined". Also reported upstream (nostr-dev-kit/ndk#399). Reported and verified by @DalShooth against a real Bunker46.
+- **Proxy DNS leaks on Vega's own requests (#11).** Update checks, uploads and lookups now resolve hostnames through the SOCKS5 proxy; relay WebSockets (in the webview) may still resolve locally — noted in Settings.
+
+### Changed
+- **Supply-chain hardening:** release builds install from the exact reviewed lockfile with scripts disabled, all GitHub Actions pinned to commit SHAs, dependency monitoring extended to Rust and the build pipeline; the embedded relay's signature verification is now pinned by tests.
 
 ## v0.14.2 — Reliable key storage on Linux (2026-07-18)
 

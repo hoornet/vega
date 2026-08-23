@@ -1,17 +1,5 @@
 # Vega
 
-> ## ⚠️ v0.14.0 changes Vega's app identifier — please read before upgrading
->
-> Vega's internal app identifier changes from `com.hoornet.vega` to **`com.veganostr.Vega`** in v0.14.0. Sorry for the disruption — here is exactly what it means and why it has to happen now.
->
-> **Your data is migrated for you.** On first launch, v0.14.0 moves your existing data across automatically: cached notes and profiles, the embedded relay's database, and your themes, drafts, podcast subscriptions and article read-state. Your keys live in the OS keychain, which is not tied to the identifier, so **you stay logged in.** If a folder already exists at the new location, Vega leaves it alone rather than overwriting anything.
->
-> **Windows users — one manual step.** Because the identifier changed, Windows treats v0.14.0 as a *new* application, so it installs **alongside** v0.13.2 instead of replacing it. Your data is still carried over. Once v0.14.0 is running, uninstall the old **Vega** entry from Add/Remove Programs. This is a one-time step — future updates upgrade in place as normal.
->
-> **Why this is necessary, and why now.** A reverse-DNS app identifier is supposed to sit on a domain its owner controls. `com.hoornet.vega` does not — it was a placeholder from Vega's earliest days, and it blocks publishing Vega on **Flathub**, which rejects app IDs on domains you cannot prove you own. Flathub is how most Linux users discover and install software, and there is currently almost no Nostr client there at all. Making the identifier `com.veganostr.Vega` also gives Vega one consistent identity across Flathub, winget and the native installers.
->
-> The identifier keys every per-app directory, so changing it is inherently disruptive — and it only gets worse the longer it waits. Vega's install base is still small, so this is the cheapest this change will ever be. Doing it now means it never has to be done to a larger group of people later.
-
 A cross-platform desktop Nostr client built with Tauri 2.0 + React + TypeScript. Polished UI, deep Lightning integration, and first-class support for long-form writing.
 
 **Website:** [veganostr.com](https://veganostr.com) · **Download:** [Releases](https://github.com/hoornet/vega/releases) · **AUR:** `vega-nostr-git`
@@ -33,6 +21,8 @@ Grab the latest release from the [Releases page](https://github.com/hoornet/vega
 
 **Windows note:** The installer is not yet code-signed. Windows SmartScreen will show an "Unknown publisher" warning — click "More info → Run anyway" to install.
 
+**Upgrading from v0.13.x or earlier?** v0.14.0 changed the app identifier to `com.veganostr.Vega`. Your data is migrated automatically and your keys are unaffected. On **Windows**, the new version installs alongside the old one — once it's running, uninstall the old "Vega" entry from Add/Remove Programs (one-time step). On **Linux**, v0.14.2 moved key storage to the system secret service (gnome-keyring / KWallet), so you'll sign in once more after upgrading.
+
 **Linux note:** Video and audio playback requires GStreamer codec packages. The AUR package installs these automatically. For `.deb`/`.rpm` installs, you may need:
 ```bash
 # Arch / Manjaro
@@ -47,18 +37,16 @@ sudo dnf install gstreamer1-plugins-base gstreamer1-plugins-good gstreamer1-liba
 
 ### Verifying signatures
 
-Release updater artifacts (`.tar.gz`, `.nsis.zip`, `.app.tar.gz`) include `.sig` files signed with minisign. To verify:
+Every release artifact except the macOS `.dmg` — the Linux `.deb`/`.rpm`, the Windows `.exe`/`.msi`, and the macOS `.app.tar.gz` — ships with a minisign `.sig` file, the same signatures the auto-updater checks. To verify a download:
 
 ```bash
 # Save the public key
 echo "untrusted comment: minisign public key: F9D2C39297592652
 RWRSJlmXksPS+cSpOrnmUpmJSebrbT1gxNeS33X/S7fxBAb/SdvWewNm" > vega.pub
 
-# Verify an artifact
-minisign -Vm Vega_0.13.2_amd64.deb -p vega.pub
+# Verify an artifact (any file with a matching .sig)
+minisign -Vm Vega_X.Y.Z_amd64.deb -p vega.pub
 ```
-
-**Note:** The macOS `.dmg` is not yet signed. Linux `.deb`/`.rpm` and Windows `.exe`/`.msi` ship with minisign `.sig` files — the same signatures used by the auto-updater.
 
 ## Features
 
@@ -93,19 +81,20 @@ minisign -Vm Vega_0.13.2_amd64.deb -p vega.pub
 - **Emoji reactions** — reaction picker with common emojis on note cards; emoji insertion in compose and reply boxes via categorized emoji picker
 - **Keyword muting** — word/phrase mute list with client-side filtering across all views
 - **Web of Trust filter** — hide notes, reactions, and zaps from people outside your social graph (people you follow + follows-of-follows), powered by Vertex DVM trust scoring; toggleable in Settings
-- **Direct Messages** (NIP-04 + NIP-17 gift wrap) — conversation list, thread view, per-message decryption; unread badge in sidebar
-- **Notifications** — background poller (60s) for mentions, zaps, new followers; each type independently toggleable; OS push notifications; 🔔 in sidebar with unread badge
+- **Direct Messages** (NIP-04 + NIP-17 gift wrap) — conversation list, thread view, per-message decryption; unread badge in sidebar; honours published DM relay lists (kind 10050), so messages reach a dedicated DM relay even when it isn't in your main list
+- **Notifications** — background poller (60s) for mentions, zaps, new followers, and incoming messages; each type independently toggleable; OS push notifications (DM notifications name the sender only — never the message content); 🔔 in sidebar with unread badge
 - **New follower badges** — recently gained followers marked with a "new" badge and sorted to the top of your follows list
 
 **Relay & network**
-- **Relay status badge** — compact "8/12 relays" indicator in feed header with color coding (green/yellow/red by connection ratio); hover shows per-relay connection status
+- **Relay status badge** — compact "3/3 relays · +2" indicator in feed header with color coding; counts *your* relays, with a separate `+N` for extra reach (built-in relay, NIP-65 discovery); hover shows per-relay connection status grouped by origin
 - **Toast notifications** — transient status messages for relay events: "Connection lost — reconnecting", "Back online", "Relays reconnected"
 - **Relay health checker** — NIP-11 info fetch, WebSocket latency probing, online/slow/offline classification; expandable cards show all supported NIPs, software, description; per-relay remove button; "Remove dead" strips offline relays; "Publish list" publishes NIP-65 relay list; auto-checks on mount
 - **Relay recommendations** — discover relays based on your follows' NIP-65 relay lists; shows follow count, one-click "Add"
 - **Embedded Nostr relay** — built-in strfry relay with catch-up sync on startup; your notes are always available locally even when remote relays are slow or offline
 - **Vega public relay** — `wss://relay2.veganostr.com` included by default; custom Go relay with NIP-45/50/77, ensuring data availability when other relays are flaky or down
-- Relay management: add/remove relays, all in one consolidated Relays view
-- **NIP-65 outbox model** — reads user relay lists (kind 10002) so you see notes from people who publish to their own relays; publish your own relay list to Nostr
+- Relay management: add/remove relays, all in one consolidated Relays view; changes apply immediately, no restart needed
+- **NIP-65 outbox model with a Relay reach switch** — reads user relay lists (kind 10002) so you see notes from people who publish to their own relays; publish your own relay list to Nostr. On by default; turn **Relay reach** off (Relays view or Settings) to confine Vega strictly to your configured relays
+- **Relay authentication (NIP-42) with a privacy scope** — answers relay AUTH challenges so auth-gated relays serve your messages; because authenticating tells a relay who you are, you choose the scope: **My relays only** (default) or **Any relay that asks**. Declined challenges are surfaced instead of showing an empty screen
 
 **Podcasts & Value 4 Value**
 - **Built-in podcast player** — search and play podcasts via Fountain.fm integration with Podcast Index enrichment
@@ -172,7 +161,7 @@ minisign -Vm Vega_0.13.2_amd64.deb -p vega.pub
 | [NIP-05](https://github.com/nostr-protocol/nips/blob/master/05.md) | DNS-based verification | Full (display + live verify in editor) |
 | [NIP-10](https://github.com/nostr-protocol/nips/blob/master/10.md) | Reply threading | Full (nested trees, root+reply markers) |
 | [NIP-11](https://github.com/nostr-protocol/nips/blob/master/11.md) | Relay information | Full (health checker) |
-| [NIP-17](https://github.com/nostr-protocol/nips/blob/master/17.md) | Private direct messages (gift wrap) | Full |
+| [NIP-17](https://github.com/nostr-protocol/nips/blob/master/17.md) | Private direct messages (gift wrap) | Full (incl. DM relay lists, kind 10050) |
 | [NIP-18](https://github.com/nostr-protocol/nips/blob/master/18.md) | Reposts | Full |
 | [NIP-19](https://github.com/nostr-protocol/nips/blob/master/19.md) | bech32-encoded entities | Full (npub, nsec, note, nevent, nprofile, naddr) |
 | [NIP-21](https://github.com/nostr-protocol/nips/blob/master/21.md) | `nostr:` URI scheme | Full |
@@ -180,6 +169,7 @@ minisign -Vm Vega_0.13.2_amd64.deb -p vega.pub
 | [NIP-25](https://github.com/nostr-protocol/nips/blob/master/25.md) | Reactions | Full (emoji reactions) |
 | [NIP-27](https://github.com/nostr-protocol/nips/blob/master/27.md) | Text note references | Full |
 | [NIP-32](https://github.com/nostr-protocol/nips/blob/master/32.md) | Labeling | Partial (language filter via script tags) |
+| [NIP-42](https://github.com/nostr-protocol/nips/blob/master/42.md) | Relay authentication | Full (with privacy scope setting) |
 | [NIP-46](https://github.com/nostr-protocol/nips/blob/master/46.md) | Nostr Connect (remote signer) | Full (bunker:// login) |
 | [NIP-47](https://github.com/nostr-protocol/nips/blob/master/47.md) | Wallet Connect (NWC) | Full |
 | [NIP-50](https://github.com/nostr-protocol/nips/blob/master/50.md) | Search | Full (notes, articles, people) |

@@ -19,7 +19,7 @@ full NIP coverage, performance that feels native.
 | Layer | Technology |
 |---|---|
 | Desktop shell | Tauri 2.0 (Rust backend) |
-| Frontend | React 19 + TypeScript (Vite 7) |
+| Frontend | React 19 + TypeScript (Vite 8 / Rolldown) |
 | Nostr protocol | NDK (Nostr Dev Kit) |
 | Lightning | Nostr Wallet Connect (NIP-47) |
 | Styling | Tailwind CSS 4 |

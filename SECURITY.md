@@ -31,7 +31,7 @@ Published versions are never re-tagged — a bad release is superseded by a high
 - Private key handling — key generation, the OS keychain integration, nsec import/export
 - The bundled relay (`src-tauri/src/relay/`), including event validation and signature verification
 - The auto-updater and release signing
-- Relay privacy — anything causing Vega to contact a relay the user did not configure while **Relay reach** is off
+- Relay privacy — anything causing Vega to contact a relay the user did not configure while **Relay reach** is off, or to answer a NIP-42 AUTH challenge outside the scope the **Relay authentication** setting allows
 - NIP-46 remote signing
 - Rendering of untrusted content from relays (articles, notes, profile fields)
 - The Tauri IPC surface and Rust commands

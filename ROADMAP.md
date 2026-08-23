@@ -1,5 +1,7 @@
 # Vega — Roadmap
 
+> The "already shipped" history below ends at v0.12.x. For everything since — the UI polish sprint, the identifier move, Flathub prep, NIP-42 relay authentication, NIP-17 DM relays — see [CHANGELOG.md](./CHANGELOG.md) and the [GitHub release notes](https://github.com/hoornet/vega/releases).
+
 ---
 
 ## Vision: more than a Nostr client
