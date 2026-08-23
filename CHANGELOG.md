@@ -2,7 +2,7 @@
 
 > Note: entries for v0.12.10 through v0.13.1 live in the [GitHub Releases](https://github.com/hoornet/vega/releases) notes; this file resumes at v0.13.2. The release notes on GitHub are the richer record — this file is the summary.
 
-## Unreleased
+## v0.15.6 — DMs reach your DM relays (2026-08-23)
 
 ### Added
 - **NIP-17 DM relay lists (kind 10050) are honoured (#49).** Fetching your messages now also asks your own published DM relays, and sending a DM publishes each gift wrap to its owner's DM relays (the recipient's for their copy, yours for the self-copy) — always merged with your configured relays. Gated on **Relay reach**; with it off, Vega stays on your configured relays as before. Your own published DM relays count as "my relays" for the relay-authentication scope, since a dedicated DM inbox relay is exactly the relay that requires NIP-42 before serving messages.
