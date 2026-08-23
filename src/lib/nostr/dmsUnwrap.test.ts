@@ -26,13 +26,16 @@ vi.mock("../../stores/toast", () => ({
   useToastStore: { getState: () => ({ addToast }) },
 }));
 
-import { unwrapGiftWraps } from "./dms";
+import { unwrapGiftWraps, clearDecryptedDMCache } from "./dms";
 
 const wrap = (id: string) => ({ id }) as never;
 
 beforeEach(() => {
   addToast.mockClear();
   giftUnwrap.mockReset();
+  // Module-level and deliberately long-lived in production; every test must
+  // start from empty or it inherits the previous one's decrypted messages.
+  clearDecryptedDMCache();
 });
 
 describe("unwrapGiftWraps", () => {
@@ -144,5 +147,57 @@ describe("unwrap concurrency", () => {
     expect(out).toHaveLength(5);
     // Some came through, so no notice — the batch shape must not change that.
     expect(addToast).not.toHaveBeenCalled();
+  });
+});
+
+describe("decrypted message cache", () => {
+  it("does not decrypt the same wrap twice", async () => {
+    // The second visit to Messages re-fetches the same wraps. With a remote
+    // signer, re-opening them costs two RPC round-trips each for no new
+    // information. See #61.
+    giftUnwrap.mockResolvedValue({ kind: 14, content: "hi" });
+    const wraps = [wrap("a"), wrap("b"), wrap("c")];
+
+    const first = await unwrapGiftWraps(wraps);
+    expect(giftUnwrap).toHaveBeenCalledTimes(3);
+
+    const second = await unwrapGiftWraps(wraps);
+    expect(giftUnwrap).toHaveBeenCalledTimes(3); // unchanged
+    expect(second).toEqual(first);
+  });
+
+  it("still opens wraps it has not seen before", async () => {
+    giftUnwrap.mockResolvedValue({ kind: 14 });
+    await unwrapGiftWraps([wrap("a")]);
+    giftUnwrap.mockClear();
+
+    const out = await unwrapGiftWraps([wrap("a"), wrap("b")]);
+    expect(giftUnwrap).toHaveBeenCalledTimes(1); // only the new one
+    expect(out).toHaveLength(2);
+  });
+
+  it("does not cache a failure, so granting permission and retrying works", async () => {
+    // A decrypt failure is usually a missing signer permission. Caching it
+    // would make the retry-after-granting look broken.
+    giftUnwrap.mockRejectedValueOnce(new Error("no permission"));
+    await unwrapGiftWraps([wrap("a")]);
+
+    giftUnwrap.mockResolvedValue({ kind: 14, content: "now readable" });
+    const out = await unwrapGiftWraps([wrap("a")]);
+    expect(out).toHaveLength(1);
+  });
+
+  it("forgets everything when the identity changes", async () => {
+    // Keyed by wrap id, which says nothing about whose messages they are.
+    // Without this, switching accounts would show the previous account's
+    // decrypted messages to the new one.
+    giftUnwrap.mockResolvedValue({ kind: 14, content: "account A" });
+    await unwrapGiftWraps([wrap("a")]);
+
+    clearDecryptedDMCache();
+    giftUnwrap.mockClear();
+
+    await unwrapGiftWraps([wrap("a")]);
+    expect(giftUnwrap).toHaveBeenCalledTimes(1); // decrypted again, as the new identity
   });
 });

@@ -43,6 +43,39 @@ const DM_PUBLISH_TIMEOUT = 15000;
  */
 const UNWRAP_CONCURRENCY = 8;
 
+/**
+ * Rumors we have already opened this run, keyed by gift-wrap id.
+ *
+ * Opening Messages re-fetches and re-decrypts everything from scratch, so the
+ * second visit costs exactly as much as the first — and with a remote signer
+ * that is two RPC round-trips per message. A wrap's contents cannot change, so
+ * decrypting one twice is pure waste.
+ *
+ * **Memory only, never disk.** These are decrypted private messages; keeping
+ * them in a process that ends when the app closes is a materially different
+ * proposition from writing them into `vega.db` alongside the public note cache.
+ * Persisting them may still be worth doing, but it is a decision with its own
+ * consequences and it should be made deliberately rather than inherited from a
+ * performance fix. See #61.
+ */
+const _rumorCache = new Map<string, NDKEvent>();
+
+/** Bounds the cache so a long session with a busy inbox cannot grow unbounded. */
+const RUMOR_CACHE_MAX = 2000;
+
+/**
+ * Forget every decrypted message.
+ *
+ * Must be called whenever the signed-in identity changes. The cache is keyed by
+ * wrap id, which says nothing about *whose* messages they are — so without
+ * this, switching accounts would serve the previous account's decrypted
+ * messages to the new one. Same class of mistake as leaving a relay
+ * authenticated as the previous identity.
+ */
+export function clearDecryptedDMCache(): void {
+  _rumorCache.clear();
+}
+
 /** Relays we have already explained ourselves about, so the toast fires once per session. */
 const _authNoticeShown = new Set<string>();
 
@@ -181,15 +214,27 @@ export async function unwrapGiftWraps(events: NDKEvent[]): Promise<NDKEvent[]> {
   //
   // Bounded rather than all at once: a thousand concurrent requests at
   // someone's signer is its own denial of service, and some will rate-limit.
-  for (let i = 0; i < events.length; i += UNWRAP_CONCURRENCY) {
-    const batch = events.slice(i, i + UNWRAP_CONCURRENCY);
+  // Anything opened earlier this run is free; only the rest costs round-trips.
+  const pending: NDKEvent[] = [];
+  for (const wrap of events) {
+    const cached = wrap.id ? _rumorCache.get(wrap.id) : undefined;
+    if (cached) rumors.push(cached);
+    else pending.push(wrap);
+  }
+  if (pending.length < events.length) {
+    debug.log(`[DM] ${events.length - pending.length}/${events.length} gift wraps already decrypted this session`);
+  }
+
+  for (let i = 0; i < pending.length; i += UNWRAP_CONCURRENCY) {
+    const batch = pending.slice(i, i + UNWRAP_CONCURRENCY);
     const settled = await Promise.all(
       batch.map(async (wrap) => {
-        const id = wrap.id?.slice(0, 8);
+        // Full id for the cache key; truncated only for logging.
+        const id = wrap.id;
         try {
           return { id, rumor: await giftUnwrap(wrap, undefined, instance.signer) };
         } catch (err) {
-          debug.warn(`[DM] unwrap failed for event ${id}:`, err);
+          debug.warn(`[DM] unwrap failed for event ${id?.slice(0, 8)}:`, err);
           return { id, failed: true as const };
         }
       }),
@@ -201,6 +246,12 @@ export async function unwrapGiftWraps(events: NDKEvent[]): Promise<NDKEvent[]> {
       if (!rumor) continue;
       if (rumor.kind === NDKKind.PrivateDirectMessage) {
         rumors.push(rumor);
+        // Only successes are cached. A failure is usually a missing signer
+        // permission, which the user can grant and retry — caching that would
+        // make the retry look broken.
+        if (result.id && _rumorCache.size < RUMOR_CACHE_MAX) {
+          _rumorCache.set(result.id, rumor);
+        }
       } else {
         // Opened fine, but it isn't a NIP-17 chat message. Silently dropping
         // this was the last way a gift wrap could vanish without explanation:
@@ -208,7 +259,7 @@ export async function unwrapGiftWraps(events: NDKEvent[]): Promise<NDKEvent[]> {
         // showed nothing. Anything that wraps a different kind — a bot, a
         // client sending gift-wrapped kind 4 — landed here invisibly.
         unexpectedKinds.add(rumor.kind ?? -1);
-        debug.warn(`[DM] gift wrap ${result.id} contained kind ${rumor.kind}, not ${NDKKind.PrivateDirectMessage}`);
+        debug.warn(`[DM] gift wrap ${result.id?.slice(0, 8)} contained kind ${rumor.kind}, not ${NDKKind.PrivateDirectMessage}`);
       }
     }
   }

@@ -10,6 +10,7 @@ import {
   rememberPendingClientKey,
 } from "../lib/nostr/nip46";
 import { authenticatedRelayUrls, rechallengeRelays } from "../lib/nostr/relayAuth";
+import { clearDecryptedDMCache } from "../lib/nostr/dms";
 import { useToastStore } from "./toast";
 import { nip19 } from "@nostr-dev-kit/ndk";
 import { invoke } from "@tauri-apps/api/core";
@@ -33,6 +34,10 @@ import { debug } from "../lib/debug";
 function dropAuthenticatedSessions(): void {
   const instance = getNDK();
   rechallengeRelays(instance, authenticatedRelayUrls(instance));
+  // Decrypted messages are cached by gift-wrap id, which says nothing about
+  // whose messages they are — so they must not outlive the identity that could
+  // read them. See #61.
+  clearDecryptedDMCache();
 }
 
 export interface SavedAccount {
