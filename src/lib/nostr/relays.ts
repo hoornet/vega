@@ -19,6 +19,41 @@ export async function fetchUserRelayList(pubkey: string): Promise<UserRelayList>
   return { read, write };
 }
 
+/**
+ * Bound on how many relays we honour from one kind 10050.
+ *
+ * NIP-17 expects "one to three" DM relays; anyone we message controls their own
+ * list, so an unbounded read would let a hostile 10050 point a DM send at
+ * dozens of relays of their choosing. Four keeps a margin over the spec's
+ * expectation without handing out that lever.
+ */
+const MAX_DM_RELAYS = 4;
+
+/**
+ * A user's published NIP-17 DM relay list (kind 10050), newest event wins.
+ *
+ * Tag shape differs from 10002: `["relay", url]`, no read/write markers.
+ * Returns [] when none is published — the caller falls back to the pool, which
+ * is the pre-#49 behaviour.
+ */
+export async function fetchUserDMRelayList(pubkey: string): Promise<string[]> {
+  const instance = getNDK();
+  const filter: NDKFilter = { kinds: [10050 as NDKKind], authors: [pubkey], limit: 1 };
+  const events = await fetchWithTimeout(instance, filter, SINGLE_TIMEOUT);
+  if (events.size === 0) return [];
+  const event = Array.from(events).sort((a, b) => (b.created_at ?? 0) - (a.created_at ?? 0))[0];
+  const urls = new Set<string>();
+  for (const tag of event.tags) {
+    if (tag[0] !== "relay" || !tag[1]) continue;
+    // Only websocket URLs: these strings come off the wire and go straight into
+    // relay connections.
+    if (!/^wss?:\/\//i.test(tag[1])) continue;
+    urls.add(tag[1]);
+    if (urls.size >= MAX_DM_RELAYS) break;
+  }
+  return Array.from(urls);
+}
+
 export async function publishRelayList(relayUrls: string[]): Promise<void> {
   const instance = getNDK();
   if (!instance.signer) throw new Error("Not logged in");

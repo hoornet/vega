@@ -1,13 +1,23 @@
-import { NDKEvent, NDKKind, NDKRelay, giftWrap, giftUnwrap } from "@nostr-dev-kit/ndk";
+import NDK, { NDKEvent, NDKKind, NDKRelay, NDKRelaySet, giftWrap, giftUnwrap } from "@nostr-dev-kit/ndk";
 import {
   getNDK,
   fetchWithTimeout,
   getStoredRelayUrls,
   isLocalRelayUrl,
+  isOutboxRelaysEnabled,
   stopSubscription,
+  withTimeout,
   FEED_TIMEOUT,
+  SINGLE_TIMEOUT,
 } from "./core";
-import { getRelayAuthScope, isRelayAuthenticated, shouldAuthenticate } from "./relayAuth";
+import { fetchUserDMRelayList } from "./relays";
+import {
+  getOwnDMRelayUrls,
+  getRelayAuthScope,
+  isRelayAuthenticated,
+  setOwnDMRelayUrls,
+  shouldAuthenticate,
+} from "./relayAuth";
 import { useToastStore } from "../../stores/toast";
 import { debug } from "../debug";
 
@@ -79,6 +89,82 @@ export function clearDecryptedDMCache(): void {
 /** Relays we have already explained ourselves about, so the toast fires once per session. */
 const _authNoticeShown = new Set<string>();
 
+// ─── NIP-17 DM relay lists (kind 10050) ─────────────────────────────
+
+/**
+ * How long a fetched 10050 list is trusted before re-asking the relays.
+ *
+ * The notification poller calls into DMs every 60 seconds; without a cache that
+ * is a relay round-trip per poll for a list that changes roughly never.
+ */
+const DM_RELAY_LIST_TTL = 10 * 60 * 1000;
+
+/**
+ * Published DM relay lists by pubkey. Public data, so it is identity-independent
+ * and deliberately survives account switches — unlike the rumor cache above.
+ * Empty results are cached too: "no 10050 published" is the common case, and
+ * re-asking every poll would be the exact cost the cache exists to avoid.
+ */
+const _dmRelayLists = new Map<string, { urls: string[]; fetchedAt: number }>();
+
+/** Test seam. */
+export function clearDMRelayListCache(): void {
+  _dmRelayLists.clear();
+}
+
+/**
+ * A user's DM relays, from cache or the network. Returns [] when Relay reach is
+ * off without touching the network: with reach off we will not connect beyond
+ * the configured list anyway, so the answer could change nothing.
+ */
+async function resolveDMRelays(pubkey: string): Promise<string[]> {
+  if (!isOutboxRelaysEnabled()) return [];
+  const cached = _dmRelayLists.get(pubkey);
+  if (cached && Date.now() - cached.fetchedAt < DM_RELAY_LIST_TTL) return cached.urls;
+  const urls = await withTimeout(fetchUserDMRelayList(pubkey), SINGLE_TIMEOUT, []);
+  _dmRelayLists.set(pubkey, { urls, fetchedAt: Date.now() });
+  return urls;
+}
+
+/**
+ * Same, for the signed-in user — additionally records the list in the AUTH
+ * scope registry, so "My relays only" covers the user's own DM inbox relay.
+ * A dedicated DM relay is exactly the relay that will demand NIP-42 before
+ * serving kind 1059, and exactly the relay a privacy-minded user keeps out of
+ * their configured list; without this the feature is dead on arrival for the
+ * person it exists for. See issue #49.
+ */
+async function resolveOwnDMRelays(myPubkey: string): Promise<string[]> {
+  const urls = await resolveDMRelays(myPubkey);
+  // Unconditional, so a deleted 10050 narrows the scope again instead of the
+  // old list lingering until the next account switch. A transient fetch
+  // failure narrows it too, which errs in the private direction.
+  setOwnDMRelayUrls(urls);
+  return urls;
+}
+
+/**
+ * The relay set for a DM operation: the given DM relays plus the configured
+ * list, or undefined — meaning "use the pool, as before #49" — when reach is
+ * off or no 10050 is published.
+ *
+ * Merged rather than DM-relays-only for the same reason `fetchUserNotesNIP65`
+ * merges: every release so far delivered DMs via the pool, so pool relays are
+ * where existing conversations live, and narrowing to a possibly-unreachable
+ * 10050 list would turn a routing improvement into a delivery regression.
+ *
+ * `NDKRelaySet.fromRelayUrls` bypasses `relayConnectionFilter` — it constructs
+ * relay objects directly rather than through the pool — which is why this MUST
+ * stay behind the `isOutboxRelaysEnabled()` gate (already enforced in
+ * `resolveDMRelays`, kept here as defence in depth). It does propagate
+ * `relayAuthDefaultPolicy`, so the NIP-42 scope check still applies.
+ */
+function dmRelaySet(dmRelays: string[], instance: NDK): NDKRelaySet | undefined {
+  if (!isOutboxRelaysEnabled() || dmRelays.length === 0) return undefined;
+  const merged = Array.from(new Set([...dmRelays, ...getStoredRelayUrls()]));
+  return NDKRelaySet.fromRelayUrls(merged, instance);
+}
+
 /**
  * Fetch gift wraps via subscribe (fetchEvents doesn't reliably return kind 1059).
  *
@@ -92,9 +178,21 @@ const _authNoticeShown = new Set<string>();
 export async function fetchGiftWraps(myPubkey: string, limit: number, timeoutMs: number): Promise<NDKEvent[]> {
   const instance = getNDK();
   const events: NDKEvent[] = [];
+  // Ask the user's own published DM relays (kind 10050) as well as the pool.
+  // Undefined relay set = the pool alone, the pre-#49 behaviour — which is
+  // also what Relay reach off pins us to. The gate is checked here as well as
+  // inside resolveDMRelays so the reach-off path never awaits: subscribing in
+  // the same tick keeps event handlers attached before anything can fire.
+  let relaySet: NDKRelaySet | undefined;
+  if (isOutboxRelaysEnabled()) {
+    const ownDMRelays = await resolveOwnDMRelays(myPubkey);
+    relaySet = dmRelaySet(ownDMRelays, instance);
+    if (relaySet) debug.log(`[DM] fetching gift wraps via DM relays: ${ownDMRelays.join(", ")}`);
+  }
   const sub = instance.subscribe(
     { kinds: [1059 as NDKKind], "#p": [myPubkey], limit },
     { closeOnEose: true, groupable: false },
+    relaySet,
   );
   sub.on("event", (e: NDKEvent) => events.push(e));
 
@@ -120,8 +218,14 @@ export async function fetchGiftWraps(myPubkey: string, limit: number, timeoutMs:
       if (settled || !/^auth-required/i.test(reason ?? "")) return;
 
       const scope = getRelayAuthScope();
+      // Own published DM relays count as "my relays" — mirror the merged set
+      // relayAuthPolicy uses, or this handler would toast about a relay the
+      // policy is happily authenticating to.
       const willAuth = shouldAuthenticate(
-        relay.url, scope, new Set(getStoredRelayUrls()), isLocalRelayUrl(relay.url),
+        relay.url,
+        scope,
+        new Set([...getStoredRelayUrls(), ...getOwnDMRelayUrls()]),
+        isLocalRelayUrl(relay.url),
       );
 
       if (!willAuth) {
@@ -389,11 +493,17 @@ export async function sendDM(recipientPubkey: string, content: string): Promise<
   rumor.pubkey = myUser.pubkey;
   rumor.created_at = Math.floor(Date.now() / 1000);
 
-  // Gift-wrap to recipient and self (so sent messages appear in our inbox)
-  const [wrappedForRecipient, wrappedForSelf] = await Promise.all([
+  // Gift-wrap to recipient and self (so sent messages appear in our inbox),
+  // and resolve both parties' published DM relays (kind 10050) meanwhile.
+  const [wrappedForRecipient, wrappedForSelf, recipientDMRelays, ownDMRelays] = await Promise.all([
     giftWrap(rumor, recipient, instance.signer),
     giftWrap(rumor, myUser, instance.signer),
+    resolveDMRelays(recipientPubkey),
+    resolveOwnDMRelays(myUser.pubkey),
   ]);
+  if (recipientDMRelays.length > 0) {
+    debug.log(`[DM] recipient publishes DM relays: ${recipientDMRelays.join(", ")}`);
+  }
 
   // NDK's per-relay publish timeout defaults to 2500ms, which is shorter than
   // an AUTH handshake on an auth-required relay: the publish is held until the
@@ -402,9 +512,12 @@ export async function sendDM(recipientPubkey: string, content: string): Promise<
   // is re-queued and resent by `retryPendingAuthPublishes` — but by then the
   // caller's promise has already rejected, so the UI reported a send failure
   // for a message that went out moments later. See #53.
+  //
+  // Each wrap targets its owner's DM relays merged with the configured list —
+  // undefined (the pool, as before #49) when reach is off or no 10050 exists.
   const [recipientResult, selfResult] = await Promise.all([
-    wrappedForRecipient.publish(undefined, DM_PUBLISH_TIMEOUT),
-    wrappedForSelf.publish(undefined, DM_PUBLISH_TIMEOUT),
+    wrappedForRecipient.publish(dmRelaySet(recipientDMRelays, instance), DM_PUBLISH_TIMEOUT),
+    wrappedForSelf.publish(dmRelaySet(ownDMRelays, instance), DM_PUBLISH_TIMEOUT),
   ]);
   debug.log(`[DM] sendDM published: toRecipient=${recipientResult?.size ?? 0} relays, toSelf=${selfResult?.size ?? 0} relays`);
 }

@@ -10,7 +10,7 @@ export { fetchPodcastList, publishPodcastList } from "./podcasts";
 export { fetchMuteList, publishMuteList } from "./muting";
 export { searchNotes, searchUsers, resolveNip05, advancedSearch } from "./search";
 export type { AdvancedSearchResults } from "./search";
-export { fetchUserRelayList, publishRelayList, fetchRelayRecommendations } from "./relays";
+export { fetchUserRelayList, fetchUserDMRelayList, publishRelayList, fetchRelayRecommendations } from "./relays";
 export type { UserRelayList } from "./relays";
 export { fetchTrendingCandidates, fetchTrendingHashtags } from "./trending";
 export { publishPoll, publishPollResponse, fetchPollResponses } from "./polls";

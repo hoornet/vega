@@ -9,7 +9,7 @@ import {
   pendingClientKeyFor,
   rememberPendingClientKey,
 } from "../lib/nostr/nip46";
-import { authenticatedRelayUrls, rechallengeRelays } from "../lib/nostr/relayAuth";
+import { authenticatedRelayUrls, rechallengeRelays, setOwnDMRelayUrls } from "../lib/nostr/relayAuth";
 import { clearDecryptedDMCache } from "../lib/nostr/dms";
 import { useToastStore } from "./toast";
 import { nip19 } from "@nostr-dev-kit/ndk";
@@ -38,6 +38,9 @@ function dropAuthenticatedSessions(): void {
   // whose messages they are — so they must not outlive the identity that could
   // read them. See #61.
   clearDecryptedDMCache();
+  // The previous identity's published DM relays widened the AUTH scope; the new
+  // identity must not inherit that. Repopulated on the next DM fetch. See #49.
+  setOwnDMRelayUrls([]);
 }
 
 export interface SavedAccount {

@@ -19,8 +19,11 @@ vi.mock("./core", () => ({
   fetchWithTimeout: vi.fn(async () => new Set()),
   getStoredRelayUrls: () => [],
   isLocalRelayUrl: () => false,
+  isOutboxRelaysEnabled: () => false,
   stopSubscription: vi.fn(),
+  withTimeout: async <T,>(p: Promise<T>) => p,
   FEED_TIMEOUT: 8000,
+  SINGLE_TIMEOUT: 5000,
 }));
 vi.mock("../../stores/toast", () => ({
   useToastStore: { getState: () => ({ addToast }) },

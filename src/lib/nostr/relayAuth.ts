@@ -35,6 +35,34 @@ export function setRelayAuthScope(scope: RelayAuthScope): void {
 }
 
 /**
+ * The signed-in user's *published* NIP-17 DM relays (kind 10050), stripped form.
+ *
+ * These count as "my relays" for the AUTH scope: a dedicated DM inbox relay is
+ * exactly the relay most likely to demand NIP-42 before serving kind 1059, and
+ * it is typically *not* in the configured list — keeping DM traffic off the
+ * general relays is the whole point of publishing a 10050. The user declared
+ * these relays as theirs in an event signed with their own key, so identifying
+ * ourselves to them keeps the "My relays only" promise rather than breaking it.
+ * Recipients' DM relays get no such treatment — we publish to them, but a
+ * stranger's relay never learns who we are under the default scope.
+ *
+ * Lives here rather than in dms.ts so the module stays a leaf and core.ts can
+ * read it from `relayAuthPolicy` without a cycle. Populated when dms.ts
+ * resolves the user's own 10050; MUST be cleared on any identity change, for
+ * the same reason authenticated sessions are dropped.
+ */
+const _ownDmRelays: string[] = [];
+
+export function setOwnDMRelayUrls(urls: string[]): void {
+  _ownDmRelays.length = 0;
+  for (const url of urls) _ownDmRelays.push(url.replace(/\/+$/, ""));
+}
+
+export function getOwnDMRelayUrls(): string[] {
+  return [..._ownDmRelays];
+}
+
+/**
  * Whether we will identify ourselves to this relay.
  *
  * `configured` holds the stored relay list in **stripped** form; `relayUrl`

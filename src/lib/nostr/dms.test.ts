@@ -13,19 +13,35 @@ const addToast = vi.fn();
 // Stubbed rather than real: dms.ts reaches for a signer, the DB and the relay
 // pool on every path, none of which is under test here.
 const stopSubscription = vi.fn();
+// Relay reach, flipped per test. Off by default: most of these tests predate
+// #49 and assert the pool-only path, which reach off pins us to.
+const reach = vi.hoisted(() => ({ on: false }));
+// What fetchUserDMRelayList's fetch returns — i.e. the kind 10050 on the wire.
+const fetchWithTimeout = vi.hoisted(() => vi.fn(async (..._args: unknown[]) => new Set()));
 vi.mock("./core", () => ({
   getNDK: () => ({ subscribe: (...args: unknown[]) => subscribeImpl(...args) }),
-  fetchWithTimeout: vi.fn(async () => new Set()),
+  fetchWithTimeout,
   getStoredRelayUrls: () => ["wss://mine.example.invalid"],
   isLocalRelayUrl: (url: string) => /^ws:\/\/(127\.0\.0\.1|localhost):/.test(url),
+  isOutboxRelaysEnabled: () => reach.on,
   stopSubscription: (...args: unknown[]) => stopSubscription(...args),
+  withTimeout: async <T,>(p: Promise<T>) => p,
   FEED_TIMEOUT: 8000,
+  SINGLE_TIMEOUT: 5000,
+}));
+// The real fromRelayUrls constructs NDKRelay objects and connects them — the
+// exact behaviour the unit tests must not exercise. Capture the URLs instead.
+const fromRelayUrls = vi.hoisted(() => vi.fn((urls: string[]) => ({ relayUrls: urls })));
+vi.mock("@nostr-dev-kit/ndk", async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
+  NDKRelaySet: { fromRelayUrls },
 }));
 vi.mock("../../stores/toast", () => ({
   useToastStore: { getState: () => ({ addToast }) },
 }));
 
-import { fetchGiftWraps } from "./dms";
+import { fetchGiftWraps, clearDMRelayListCache } from "./dms";
+import { setOwnDMRelayUrls } from "./relayAuth";
 
 type Handler = (...args: unknown[]) => void;
 
@@ -63,6 +79,11 @@ beforeEach(() => {
   localStorage.clear();
   addToast.mockClear();
   stopSubscription.mockClear();
+  fetchWithTimeout.mockClear();
+  fromRelayUrls.mockClear();
+  reach.on = false;
+  clearDMRelayListCache();
+  setOwnDMRelayUrls([]);
   currentSub = makeSub();
   subscribeImpl = () => currentSub;
   MY_RELAY = fakeRelay("wss://mine.example.invalid/");
@@ -232,5 +253,122 @@ describe("fetchGiftWraps", () => {
     await vi.advanceTimersByTimeAsync(8000);
     currentSub.emit("eose");
     await expect(promise).resolves.toEqual([]);
+  });
+});
+
+/**
+ * Issue #49: kind 10050 (the NIP-17 DM relay list) was ignored entirely — the
+ * gift-wrap fetch went to the pool alone, so a dedicated DM relay kept out of
+ * the configured list was never read from.
+ */
+describe("fetchGiftWraps — NIP-17 DM relay routing (#49)", () => {
+  /** A kind 10050 on the wire, as the mocked fetch hands it back. */
+  const dmRelayListEvent = (urls: string[]) =>
+    new Set([{ created_at: 100, tags: urls.map((u) => ["relay", u]) }]);
+
+  /** Run fetchGiftWraps to completion once the 10050 resolution has settled. */
+  async function fetchSettled(): Promise<unknown[]> {
+    const promise = fetchGiftWraps("abcd", 20, 8000);
+    await vi.advanceTimersByTimeAsync(0); // let the relay-list fetch resolve
+    currentSub.emit("eose");
+    return promise;
+  }
+
+  it("targets the user's published DM relays merged with the configured list", async () => {
+    reach.on = true;
+    fetchWithTimeout.mockResolvedValueOnce(dmRelayListEvent(["wss://dm.example.invalid"]));
+    let relaySetArg: unknown = "unset";
+    subscribeImpl = (...args: unknown[]) => { relaySetArg = args[2]; return currentSub; };
+
+    await fetchSettled();
+
+    // The 10050 was actually asked for…
+    expect(fetchWithTimeout.mock.calls[0]?.[1]).toMatchObject({ kinds: [10050], authors: ["abcd"] });
+    // …and the subscription got a relay set of DM relays ∪ configured relays.
+    // Merged, not DM-only: every prior release delivered DMs via the pool, so
+    // that is where existing conversations live.
+    expect(fromRelayUrls).toHaveBeenCalledTimes(1);
+    expect(fromRelayUrls.mock.calls[0][0]).toEqual(
+      ["wss://dm.example.invalid", "wss://mine.example.invalid"],
+    );
+    expect(relaySetArg).toEqual({ relayUrls: ["wss://dm.example.invalid", "wss://mine.example.invalid"] });
+  });
+
+  it("drops non-websocket entries and honours at most four relays from one 10050", async () => {
+    reach.on = true;
+    fetchWithTimeout.mockResolvedValueOnce(dmRelayListEvent([
+      "https://not-a-relay.example.invalid",
+      "wss://one.example.invalid",
+      "wss://two.example.invalid",
+      "wss://three.example.invalid",
+      "wss://four.example.invalid",
+      "wss://five.example.invalid",
+    ]));
+
+    await fetchSettled();
+
+    const merged = fromRelayUrls.mock.calls[0][0] as string[];
+    expect(merged).not.toContain("https://not-a-relay.example.invalid");
+    expect(merged).not.toContain("wss://five.example.invalid");
+    expect(merged).toContain("wss://four.example.invalid");
+  });
+
+  it("asks for the 10050 once and reuses it on later fetches", async () => {
+    reach.on = true;
+    fetchWithTimeout.mockResolvedValue(dmRelayListEvent(["wss://dm.example.invalid"]));
+
+    await fetchSettled();
+    currentSub = makeSub();
+    await fetchSettled();
+
+    // The 60s notification poller lands here every minute; without the cache
+    // that is a relay round-trip per poll for a list that changes never.
+    expect(fetchWithTimeout).toHaveBeenCalledTimes(1);
+    expect(fromRelayUrls).toHaveBeenCalledTimes(2);
+  });
+
+  it("never resolves a 10050 with Relay reach off — the pool alone, as before", async () => {
+    // reach.on stays false. NDKRelaySet.fromRelayUrls bypasses
+    // relayConnectionFilter, so reaching the DM relays here would quietly undo
+    // the opt-out — the same hazard as #35.
+    let relaySetArg: unknown = "unset";
+    subscribeImpl = (...args: unknown[]) => { relaySetArg = args[2]; return currentSub; };
+
+    const promise = fetchGiftWraps("abcd", 20, 8000);
+    currentSub.emit("eose");
+    await promise;
+
+    expect(fetchWithTimeout).not.toHaveBeenCalled();
+    expect(fromRelayUrls).not.toHaveBeenCalled();
+    expect(relaySetArg).toBeUndefined();
+  });
+
+  it("treats the user's own DM relay as in scope for AUTH", async () => {
+    // A dedicated DM inbox relay is exactly the relay that will demand NIP-42
+    // before serving kind 1059, and exactly the relay a privacy-minded user
+    // keeps out of the configured list. The user published it as theirs in a
+    // signed 10050, so the default "My relays only" scope covers it — without
+    // this, the routing above reaches the relay only to refuse its challenge.
+    reach.on = true;
+    fetchWithTimeout.mockResolvedValueOnce(dmRelayListEvent(["wss://dm.example.invalid"]));
+
+    const promise = fetchGiftWraps("abcd", 20, 8000);
+    await vi.advanceTimersByTimeAsync(0);
+    const dmRelay = fakeRelay("wss://dm.example.invalid/");
+    currentSub.emit("closed", dmRelay, "auth-required: identify yourself");
+
+    // No apology toast — we are authenticating, not declining…
+    expect(addToast).not.toHaveBeenCalled();
+
+    // …and the fetch waits for the handshake past the normal deadline.
+    await vi.advanceTimersByTimeAsync(8000);
+    let settled = false;
+    void promise.then(() => { settled = true; });
+    await Promise.resolve();
+    expect(settled).toBe(false);
+
+    currentSub.emit("event", { id: "wrap-from-dm-relay" });
+    currentSub.emit("eose");
+    await expect(promise).resolves.toEqual([{ id: "wrap-from-dm-relay" }]);
   });
 });

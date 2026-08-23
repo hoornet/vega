@@ -5,6 +5,7 @@ import {
   beginAuthAttempt,
   clearPendingAuthRelay,
   describeAuthFailure,
+  getOwnDMRelayUrls,
   getPendingAuthRelays,
   getRelayAuthScope,
   looksLikeSignerRefusal,
@@ -259,6 +260,21 @@ function allowedRelaySet(): Set<string> {
 }
 
 /**
+ * "My relays" as the AUTH scope sees them: the configured list plus the user's
+ * own *published* NIP-17 DM relays (kind 10050). The DM relays belong here
+ * because a dedicated DM inbox relay is precisely the relay that gates kind
+ * 1059 behind NIP-42 and precisely the relay a privacy-minded user keeps out
+ * of their general list — without this, issue #49's target user gets their DM
+ * relay reached and then refused. See the registry in relayAuth.ts for why a
+ * recipient's DM relays get no such treatment.
+ */
+function authScopeRelaySet(): Set<string> {
+  const dmRelays = getOwnDMRelayUrls();
+  if (dmRelays.length === 0) return allowedRelaySet();
+  return new Set([...allowedRelaySet(), ...dmRelays.map(normalizeRelayUrl)]);
+}
+
+/**
  * Answer a relay's NIP-42 AUTH challenge — or decline it.
  *
  * Returns `true`/`false` and never a signed event, which is not a style choice.
@@ -299,7 +315,7 @@ export async function relayAuthPolicy(relay: NDKRelay): Promise<boolean> {
   }
 
   const scope = getRelayAuthScope();
-  if (!shouldAuthenticate(relay.url, scope, allowedRelaySet(), isLocalRelayUrl(relay.url))) {
+  if (!shouldAuthenticate(relay.url, scope, authScopeRelaySet(), isLocalRelayUrl(relay.url))) {
     recordDeclined(relay.url);
     debug.log(`[Vega] AUTH challenge from ${relay.url} declined: not in your relay list`);
     return false;
