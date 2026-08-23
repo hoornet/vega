@@ -232,16 +232,43 @@ export const useFeedStore = create<FeedState>((set, get) => ({
     }
     set({ loadingOlder: true });
     try {
-      const oldest = notes[notes.length - 1].created_at ?? Math.floor(Date.now() / 1000);
-      const older = await diagWrapFetch("global_older", () => fetchGlobalFeed(50, oldest));
+      const oldestOf = (list: NDKEvent[]) =>
+        list[list.length - 1]?.created_at ?? Math.floor(Date.now() / 1000);
+
+      const older = await diagWrapFetch("global_older", () => fetchGlobalFeed(50, oldestOf(notes)));
       // Re-read notes after the await — a refresh may have run concurrently.
-      const current = get().notes;
-      const currentIds = new Set(current.map((n) => n.id));
-      const newOlder = older.filter((e) => !currentIds.has(e.id));
+      let current = get().notes;
+      const unseen = (candidates: NDKEvent[], have: NDKEvent[]) => {
+        const ids = new Set(have.map((n) => n.id));
+        return candidates.filter((e) => !ids.has(e.id));
+      };
+      let newOlder = unseen(older, current);
+
       if (newOlder.length === 0) {
-        // Relay returned nothing new — end of available history.
-        set({ loadingOlder: false, feedReachedEnd: true });
-        return;
+        // One empty answer is not evidence that the history has ended. A slow
+        // relay, a momentary drop, or a limit/until interaction that returns
+        // only events we already hold all produce it — and treating it as
+        // final switched infinite scroll off for the rest of the session, with
+        // only a manual Refresh to bring it back. Retry once, matching what
+        // trending, followers, profile notes and hashtag feeds already do.
+        // See #63.
+        await new Promise((r) => setTimeout(r, 3000));
+
+        // The user may have refreshed or switched away while we waited.
+        if (get().feedReachedEnd) { set({ loadingOlder: false }); return; }
+
+        current = get().notes;
+        const retried = await diagWrapFetch("global_older_retry", () =>
+          fetchGlobalFeed(50, oldestOf(current)),
+        );
+        current = get().notes;
+        newOlder = unseen(retried, current);
+
+        if (newOlder.length === 0) {
+          // Two empty answers in a row, three seconds apart. Now believe it.
+          set({ loadingOlder: false, feedReachedEnd: true });
+          return;
+        }
       }
       const merged = [...current, ...newOlder]
         .sort((a, b) => (b.created_at ?? 0) - (a.created_at ?? 0))

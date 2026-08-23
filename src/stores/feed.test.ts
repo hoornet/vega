@@ -17,7 +17,7 @@ vi.mock("../lib/db", () => ({
 }));
 
 import { useFeedStore } from "./feed";
-import { fetchTrendingCandidates, fetchBatchEngagement } from "../lib/nostr";
+import { fetchTrendingCandidates, fetchBatchEngagement, fetchGlobalFeed } from "../lib/nostr";
 
 function makeMockNote(id: string, created_at: number): NDKEvent {
   const event = { id, created_at, content: "test", kind: 1, pubkey: "pk", tags: [], sig: "", rawEvent: () => ({ id, created_at, content: "test", kind: 1, pubkey: "pk", tags: [], sig: "" }) } as unknown as NDKEvent;
@@ -130,5 +130,82 @@ describe("useFeedStore - loadTrendingFeed", () => {
 
     expect(useFeedStore.getState().trendingNotes).toHaveLength(0);
     expect(useFeedStore.getState().trendingLoading).toBe(false);
+  });
+});
+
+
+describe("loadOlderNotes: one empty answer is not the end of history", () => {
+  beforeEach(() => {
+    vi.mocked(fetchGlobalFeed).mockReset();
+    useFeedStore.setState({
+      notes: [makeMockNote("seed", 1000)],
+      loadingOlder: false,
+      feedReachedEnd: false,
+    });
+  });
+
+  it("retries once before concluding the history has ended", async () => {
+    vi.useFakeTimers();
+    try {
+      // First answer empty, second has something. Before #63 the first empty
+      // answer latched infinite scroll off for the rest of the session.
+      vi.mocked(fetchGlobalFeed)
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([makeMockNote("older", 900)]);
+
+      const done = useFeedStore.getState().loadOlderNotes();
+      await vi.advanceTimersByTimeAsync(3100);
+      await done;
+
+      expect(vi.mocked(fetchGlobalFeed)).toHaveBeenCalledTimes(2);
+      expect(useFeedStore.getState().feedReachedEnd).toBe(false);
+      expect(useFeedStore.getState().notes.map((n) => n.id)).toContain("older");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("believes two empty answers in a row", async () => {
+    vi.useFakeTimers();
+    try {
+      vi.mocked(fetchGlobalFeed).mockResolvedValue([]);
+
+      const done = useFeedStore.getState().loadOlderNotes();
+      await vi.advanceTimersByTimeAsync(3100);
+      await done;
+
+      expect(vi.mocked(fetchGlobalFeed)).toHaveBeenCalledTimes(2);
+      expect(useFeedStore.getState().feedReachedEnd).toBe(true);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("does not retry when the first answer already had something", async () => {
+    // The retry costs 3 seconds; it must only apply to the empty case.
+    vi.mocked(fetchGlobalFeed).mockResolvedValueOnce([makeMockNote("older", 900)]);
+
+    await useFeedStore.getState().loadOlderNotes();
+
+    expect(vi.mocked(fetchGlobalFeed)).toHaveBeenCalledTimes(1);
+    expect(useFeedStore.getState().feedReachedEnd).toBe(false);
+  });
+
+  it("stops if a refresh ended the feed while it was waiting to retry", async () => {
+    vi.useFakeTimers();
+    try {
+      vi.mocked(fetchGlobalFeed).mockResolvedValue([]);
+      const done = useFeedStore.getState().loadOlderNotes();
+
+      // Something else concluded the feed during the 3s wait.
+      useFeedStore.setState({ feedReachedEnd: true });
+      await vi.advanceTimersByTimeAsync(3100);
+      await done;
+
+      expect(vi.mocked(fetchGlobalFeed)).toHaveBeenCalledTimes(1); // no retry
+      expect(useFeedStore.getState().loadingOlder).toBe(false);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
