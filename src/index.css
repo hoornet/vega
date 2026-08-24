@@ -30,8 +30,11 @@
   user-select: none;
 }
 
-/* Allow text selection in note content */
-.note-content {
+/* Allow text selection in note content. The `*` reset above matches every
+   descendant directly, so the opt-in must too — opting in only the container
+   leaves any text wrapped in a child span unselectable (issue #64). */
+.note-content,
+.note-content * {
   -webkit-user-select: text;
   user-select: text;
 }

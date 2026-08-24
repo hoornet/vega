@@ -168,7 +168,7 @@ function MessageBubble({ event, myPubkey }: { event: NDKEvent; myPubkey: string 
   return (
     <div className={`flex ${isMine ? "justify-end" : "justify-start"} mb-1.5`}>
       <div
-        className={`max-w-[75%] px-3 py-2 text-[12px] leading-relaxed break-words ${
+        className={`note-content max-w-[75%] px-3 py-2 text-[12px] leading-relaxed break-words ${
           isMine
             ? "bg-accent/15 text-text"
             : "bg-bg-raised border border-border text-text"
