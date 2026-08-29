@@ -83,6 +83,10 @@ jobs:
       - name: Build frontend
         run: npm run build
 
+      # `--locked` is cargo's `npm ci`: it refuses to re-resolve, so a
+      # Cargo.toml version bump that never had `cargo check` run against it
+      # fails here in seconds instead of silently building a lockfile nobody
+      # reviewed. Cargo.lock is a version file — see CLAUDE.md's release steps.
       - name: Rust tests
         working-directory: src-tauri
-        run: cargo test
+        run: cargo test --locked
