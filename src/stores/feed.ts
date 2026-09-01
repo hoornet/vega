@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { NDKEvent, NDKFilter, NDKKind, NDKSubscription, NDKSubscriptionCacheUsage } from "@nostr-dev-kit/ndk";
-import { connectToRelays, ensureConnected, resetNDK, fetchGlobalFeed, fetchBatchEngagement, fetchTrendingCandidates, getNDK } from "../lib/nostr";
+import { connectToRelays, ensureConnected, resetNDK, fetchGlobalFeed, fetchBatchEngagement, fetchTrendingCandidates, getNDK, isLocalRelayUrl, isPoolSilent } from "../lib/nostr";
 import { seedReactionsCache } from "../hooks/useReactions";
 import { useToastStore } from "./toast";
 import { useWoTStore } from "./wot";
@@ -128,7 +128,15 @@ export const useFeedStore = create<FeedState>((set, get) => ({
       const checkConnection = () => {
         const currentNdk = getNDK();
         const relays = Array.from(currentNdk.pool?.relays?.values() ?? []);
-        const hasConnected = relays.some((r) => r.connected);
+        // Two things this must not believe. The embedded relay lives on
+        // ws://127.0.0.1 and survives any network failure, so it cannot answer
+        // for remote reachability — with it in the pool this predicate was
+        // permanently true and the whole ladder below was dead code. And
+        // `relay.connected` stays true on a half-open socket, so a fetch that
+        // nobody answers is the more honest signal. Both are issue #65.
+        const remotes = relays.filter((r) => !isLocalRelayUrl(r.url));
+        const candidates = remotes.length > 0 ? remotes : relays;
+        const hasConnected = candidates.some((r) => r.connected) && !isPoolSilent();
 
         if (hasConnected) {
           if (offlineStreak > 0) {

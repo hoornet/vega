@@ -4,7 +4,7 @@ import { openUrl } from "@tauri-apps/plugin-opener";
 import { useUserStore } from "../../stores/user";
 import { useUIStore } from "../../stores/ui";
 import { useNotificationsStore } from "../../stores/notifications";
-import { fetchDMConversations, fetchDMThread, sendDM, decryptDM, getNDK } from "../../lib/nostr";
+import { fetchDMConversations, fetchDMThread, sendDM, decryptDM, getNDK, ensureConnected, isPoolSilent } from "../../lib/nostr";
 import { useProfile } from "../../hooks/useProfile";
 import { useAutoResize } from "../../hooks/useAutoResize";
 import { timeAgo, shortenPubkey, profileName } from "../../lib/utils";
@@ -415,6 +415,13 @@ export function DMView() {
   const [conversations, setConversations] = useState<Map<string, NDKEvent[]>>(new Map());
   const [selectedPubkey, setSelectedPubkey] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  // Distinguishes "you have no messages" from "we could not reach a relay".
+  // Messages is the only major view with no SQLite cache, so it is the one
+  // place a dead pool is fully visible — and until #65 it rendered as an empty
+  // contact list with no explanation, because the only error path was
+  // `debug.error`, which is stripped from production builds.
+  const [unreachable, setUnreachable] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
   const hasSigner = !!getNDK().signer;
 
   // Handle navigation from ProfileView
@@ -426,12 +433,36 @@ export function DMView() {
   }, [pendingDMPubkey]);
 
   // Load conversations
+  //
+  // Every other view calls `ensureConnected()` before fetching; this one never
+  // did. On its own that was survivable, but combined with the pool reporting
+  // itself connected through a half-open socket it meant a network drop left
+  // Messages permanently blank until the app was restarted. See #65.
   useEffect(() => {
     if (!pubkey || !hasSigner) return;
+    let cancelled = false;
     setLoading(true);
-    fetchDMConversations(pubkey)
-      .then((events) => {
+    setUnreachable(false);
+
+    (async () => {
+      try {
+        if (!(await ensureConnected())) {
+          if (!cancelled) setUnreachable(true);
+          return;
+        }
+
+        const events = await fetchDMConversations(pubkey);
+        if (cancelled) return;
+
         const grouped = groupConversations(events, pubkey);
+        // An empty result while nothing is answering is not an empty inbox.
+        // The three fetches behind this call can all time out after the check
+        // above passed, which is precisely the reported failure.
+        if (grouped.size === 0 && isPoolSilent()) {
+          setUnreachable(true);
+          return;
+        }
+
         setConversations(grouped);
         // Auto-select first if none chosen and no pending
         if (!selectedPubkey && !pendingDMPubkey && grouped.size > 0) {
@@ -443,10 +474,16 @@ export function DMView() {
           lastAt: msgs[0]?.created_at ?? 0,
         }));
         useNotificationsStore.getState().computeDMUnread(convList);
-      })
-      .catch((err) => debug.error("Failed to fetch DM conversations:", err))
-      .finally(() => setLoading(false));
-  }, [pubkey, hasSigner]);
+      } catch (err) {
+        debug.error("Failed to fetch DM conversations:", err);
+        if (!cancelled) setUnreachable(true);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+
+    return () => { cancelled = true; };
+  }, [pubkey, hasSigner, reloadKey]);
 
   if (!loggedIn || !pubkey) {
     return (
@@ -481,7 +518,20 @@ export function DMView() {
           {loading && (
             <div className="px-3 py-6 text-text-dim text-[11px] text-center">Loading…</div>
           )}
-          {!loading && conversations.size === 0 && (
+          {!loading && unreachable && (
+            <div className="px-3 py-6 text-center">
+              <p className="text-text-dim text-[11px] mb-2">
+                Couldn't reach any relay, so your messages can't be loaded.
+              </p>
+              <button
+                onClick={() => setReloadKey((n) => n + 1)}
+                className="text-accent text-[11px] hover:underline"
+              >
+                Try again
+              </button>
+            </div>
+          )}
+          {!loading && !unreachable && conversations.size === 0 && (
             <div className="px-3 py-6 text-text-dim text-[11px] text-center">
               No messages yet.
             </div>
