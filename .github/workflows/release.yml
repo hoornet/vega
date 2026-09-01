@@ -16,12 +16,17 @@ jobs:
       fail-fast: false
       matrix:
         include:
+          # `-- --locked` forwards to cargo: build exactly the reviewed
+          # lockfile, or fail. The npm side has had this via `npm ci` for ages;
+          # the Rust side did not, so a Cargo.toml bump that never had
+          # `cargo check` run against it would silently re-resolve inside a
+          # signed release build. test.yml has carried the same flag since #71.
           - platform: ubuntu-22.04
-            args: ''
+            args: '-- --locked'
           - platform: windows-latest
-            args: ''
+            args: '-- --locked'
           - platform: macos-latest
-            args: '--target aarch64-apple-darwin'
+            args: '--target aarch64-apple-darwin -- --locked'
 
     runs-on: ${{ matrix.platform }}
 
@@ -62,7 +67,7 @@ jobs:
         run: npm ci --ignore-scripts
 
       - name: Build and release
-        uses: tauri-apps/tauri-action@84b9d35b5fc46c1e45415bdb6144030364f7ebc5 # v0
+        uses: tauri-apps/tauri-action@1deb371b0cd8bd54025b384f1cd735e725c4060f # v1.0.0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
@@ -314,7 +319,11 @@ jobs:
             ⚡ Find Vega useful? [Zap the developer](https://github.com/hoornet/vega#support) or star the repo.
           releaseDraft: false
           prerelease: false
-          includeUpdaterJson: true
+          # Renamed from `includeUpdaterJson` in v1.0.0. Unknown inputs do not
+          # error, so keeping the old name here would have left latest.json
+          # unuploaded and the auto-updater silently dead. Defaults to true in
+          # v1, and stays explicit because it is load-bearing.
+          uploadUpdaterJson: true
           args: ${{ matrix.args }}
 
 # The winget submission lives in .github/workflows/winget.yml, triggered by this
