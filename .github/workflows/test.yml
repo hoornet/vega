@@ -10,10 +10,15 @@ on:
 permissions:
   contents: read
 
-# A second push to the same branch makes the first run irrelevant.
+# A second push to the same branch makes the first run irrelevant — on a PR.
+# On main it does not: main is the release branch, and a tag is cut from
+# whatever commit is sitting there, so every commit on it needs a run of its
+# own. Merging five PRs in a row cancelled four of those runs, and because the
+# runs queue out of order the survivor was testing an *older* commit than the
+# head — main's actual head was never tested and nothing went red to say so.
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 jobs:
   # Split from the Rust job so a TypeScript error reports in ~1 minute rather
