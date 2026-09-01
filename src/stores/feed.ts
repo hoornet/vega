@@ -146,11 +146,23 @@ export const useFeedStore = create<FeedState>((set, get) => ({
           if (!get().connected) set({ connected: true });
         } else {
           offlineStreak++;
-          // Mark offline after 3 consecutive checks (15s grace)
-          if (offlineStreak >= 3 && get().connected) {
+
+          // Mark offline once, on the check that crosses the 15s grace.
+          //
+          // This used to be guarded by `get().connected`, which the very next
+          // statement falsified — so from the second tick onwards the whole
+          // block was skipped and neither the retry nor the reset below could
+          // ever run. The nuclear reset has never fired. That went unnoticed
+          // while relays closed cleanly, because NDK reconnects those by
+          // itself; a half-open socket has no such self-healing, which is the
+          // #65 case this ladder now has to carry.
+          if (offlineStreak === 3) {
             set({ connected: false });
             logDiag({ ts: new Date().toISOString(), action: "connection_lost", details: `No relays connected after ${offlineStreak} checks` });
             useToastStore.getState().addToast("Connection lost \u2014 reconnecting\u2026", "warning");
+          }
+
+          if (offlineStreak >= 3) {
             // Nuclear reset after 6 consecutive failures (30s)
             if (offlineStreak >= 6) {
               offlineStreak = 0;

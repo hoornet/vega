@@ -102,6 +102,17 @@ describe.skipIf(!ready)("relay liveness after a silent network drop (#65)", () =
     expect(silent, "repeated unanswered fetches mark the pool silent").toBe(true);
     expect(ensured, "so ensureConnected() reports unreachable instead of true").toBe(false);
 
+    // ── Thaw: the pool must find its own way back ────────────────────────
+    //
+    // Everything that could clear the silent streak is gated behind
+    // ensureConnected, so if it only ever reported `false` the DM view's "Try
+    // again" would be a button that can never succeed. It re-tests instead.
     process.kill(RELAY_PID, "SIGCONT");
+    await sleep(1000);
+
+    const recovered = await ensureConnected();
+    console.log(`[#65] after thaw: ensureConnected()=${recovered} isPoolSilent()=${isPoolSilent()}`);
+    expect(recovered, "a re-test lets the pool recover without a restart").toBe(true);
+    expect(isPoolSilent(), "an answered fetch clears the streak").toBe(false);
   }, 60000);
 });

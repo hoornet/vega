@@ -88,6 +88,17 @@ let _silentFetchStreak = 0;
 const SILENT_FETCH_LIMIT = 3;
 
 /**
+ * Timeout for the single fetch that re-tests a pool already judged silent.
+ *
+ * Short on purpose: it runs on the path a user is actively waiting on — the
+ * "Try again" button — and a pool that is genuinely back answers immediately.
+ */
+const SILENT_RECHECK_TIMEOUT = 3000;
+
+/** In-flight recheck, so concurrent callers share one probe rather than N. */
+let _silentRecheck: Promise<boolean> | null = null;
+
+/**
  * True when repeated fetches have gone unanswered, whatever the sockets claim.
  *
  * Read by `ensureConnected` and by the feed store's connection monitor, which
@@ -689,10 +700,22 @@ export async function ensureConnected(): Promise<boolean> {
     // Sockets claim to be up while nothing answers: half-open. `connect()`
     // cannot help, because NDK skips relays it believes are already connected,
     // and disconnecting on suspicion is exactly what death-spiralled in
-    // 2e03c6c. Report the truth so callers can say so, and leave recovery to
-    // the connection monitor, which escalates to resetNDK on its own clock.
-    debug.warn("[Vega] Relays report connected but nothing is answering — reporting unreachable");
-    return false;
+    // 2e03c6c.
+    //
+    // Verify rather than assert. Nothing else on this path can clear the
+    // streak: every caller that would issue a fetch is gated behind *this*
+    // function, so reporting `false` and stopping would make the DM view's
+    // "Try again" a button that can never succeed and leave the notification
+    // poller permanently convinced. One cheap fetch is the way back — and it
+    // feeds the same signal, so an answered recheck clears the streak as a
+    // side effect and the next caller gets a plain `true`.
+    debug.warn("[Vega] Relays report connected but nothing is answering — re-testing");
+    _silentRecheck ??= fetchWithTimeout(instance, { kinds: [1], limit: 1 }, SILENT_RECHECK_TIMEOUT)
+      .then(() => !isPoolSilent())
+      .finally(() => { _silentRecheck = null; });
+    const recovered = await _silentRecheck;
+    debug.log(`[Vega] Silent-pool recheck: ${recovered ? "relays answering again" : "still unreachable"}`);
+    return recovered;
   }
 
   debug.warn(`[Vega] No relays connected (${relays.length} in pool) — attempting reconnect`);
