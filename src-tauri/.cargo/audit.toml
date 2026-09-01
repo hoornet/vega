@@ -1,0 +1,11 @@
+# Advisories accepted with a written reason. An entry without one is an entry
+# nobody will ever dare remove, so the reason is the point of the file.
+[advisories]
+ignore = [
+  # quick-xml quadratic attribute scan / unbounded namespace allocation.
+  # Reached only build-time via `plist`, and for XML *writing* via
+  # `tauri-winrt-notification` — neither parses untrusted input. Revisit if
+  # either dependency starts reading XML off the network.
+  "RUSTSEC-2026-0194",
+  "RUSTSEC-2026-0195",
+]

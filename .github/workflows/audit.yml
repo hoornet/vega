@@ -1,0 +1,55 @@
+# Scheduled, never a pull-request gate.
+#
+# As a required check this would go red the moment anyone publishes an advisory
+# against a transitive crate we do not control, blocking an unrelated PR at an
+# arbitrary hour — which trains everyone to wave it through, the exact failure
+# the leak-hook rule warns about. Weekly, opening an issue, it says the same
+# thing without ever standing between a change and main.
+name: Audit
+
+on:
+  schedule:
+    - cron: '17 6 * * 1' # Mondays, 06:17 UTC
+  workflow_dispatch:
+
+# Needs issues:write to file what it finds; it never touches contents.
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
+jobs:
+  cargo-audit:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@4360b52568e2003a75bf9bc1d59f33a8e3fc893c # stable
+
+      # --locked so the audit tool itself is built from its reviewed lockfile.
+      - name: Install cargo-audit
+        run: cargo install cargo-audit --locked
+
+      # Accepted advisories live in src-tauri/.cargo/audit.toml, each with a
+      # written reason. Everything outside that set is new by definition.
+      - name: Audit
+        id: audit
+        working-directory: src-tauri
+        run: cargo audit 2>&1 | tee "$RUNNER_TEMP/audit.txt"; exit ${PIPESTATUS[0]}
+
+      # Deliberately `gh` rather than a create-issue action: every action here
+      # is SHA-pinned and reviewed, and the security tooling is the last place
+      # to add a third-party dependency for convenience.
+      - name: Report
+        if: failure()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh issue create \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "cargo audit: new advisory ($(date -u +%Y-%m-%d))" \
+            --body-file "$RUNNER_TEMP/audit.txt"
