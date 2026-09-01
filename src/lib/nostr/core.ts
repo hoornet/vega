@@ -53,6 +53,79 @@ let _activeFetchCount = 0;
 /** Number of in-flight fetchWithTimeout calls (subscriptions currently open). */
 export function getActiveFetchCount(): number { return _activeFetchCount; }
 
+/**
+ * Consecutive fetches that hit their timeout without a single relay answering.
+ *
+ * `relay.connected` cannot detect a half-open socket. A KVM switch, a suspended
+ * laptop or an interface handover takes the network away without the peer ever
+ * sending FIN or RST, so the socket stays ESTABLISHED, NDK has no heartbeat to
+ * notice (it only measures connect/disconnect *flapping*), and the flag reads
+ * `true` forever. Everything downstream that asks "are we connected?" then gets
+ * a confident yes while nothing whatsoever is reachable — measured in
+ * `connectionLiveness.live.test.ts`: 1 event before the freeze, 0 after, with
+ * `relay.connected === true` throughout. Issue #65.
+ *
+ * A completed fetch is the one signal that cannot be faked: an EOSE means a
+ * relay really did answer us. So reachability is inferred from fetch outcomes
+ * rather than from socket state.
+ *
+ * Deliberately *not* an active probe. The previous attempt at this problem
+ * (2e03c6c) probed relays and force-disconnected them when the probe timed out,
+ * which killed healthy-but-slow relays and death-spiralled against resetNDK.
+ * Nothing here disconnects anything; it only reports, and lets the connection
+ * monitor in the feed store own recovery.
+ */
+let _silentFetchStreak = 0;
+
+/**
+ * How many consecutive unanswered fetches before the pool is called silent.
+ *
+ * A relay that is reachable sends EOSE even when it has nothing to give, so one
+ * timeout with zero events already means nobody answered. Three in a row — at
+ * FEED_TIMEOUT each — is roughly the cost of a single Messages open, which
+ * issues exactly three parallel fetches.
+ */
+const SILENT_FETCH_LIMIT = 3;
+
+/**
+ * Timeout for the single fetch that re-tests a pool already judged silent.
+ *
+ * Short on purpose: it runs on the path a user is actively waiting on — the
+ * "Try again" button — and a pool that is genuinely back answers immediately.
+ */
+const SILENT_RECHECK_TIMEOUT = 3000;
+
+/** In-flight recheck, so concurrent callers share one probe rather than N. */
+let _silentRecheck: Promise<boolean> | null = null;
+
+/**
+ * True when repeated fetches have gone unanswered, whatever the sockets claim.
+ *
+ * Read by `ensureConnected` and by the feed store's connection monitor, which
+ * owns the escalation ladder (toast → connect → resetNDK).
+ */
+export function isPoolSilent(): boolean {
+  return _silentFetchStreak >= SILENT_FETCH_LIMIT;
+}
+
+/** A relay answered us, so the pool is demonstrably reachable. */
+function noteRelayAnswered(): void {
+  _silentFetchStreak = 0;
+}
+
+/** Nobody answered within the timeout. */
+function noteFetchUnanswered(): void {
+  _silentFetchStreak++;
+  if (_silentFetchStreak === SILENT_FETCH_LIMIT) {
+    debug.warn(`[Vega] ${SILENT_FETCH_LIMIT} fetches unanswered — treating the pool as silent despite relay.connected`);
+  }
+}
+
+/** Fresh pool, fresh verdict — used after connect and after a reset. */
+function clearSilentFetchStreak(): void {
+  _silentFetchStreak = 0;
+}
+
 // Hard cap on concurrent NDK subscriptions.
 // Without this, rendering 200 cached notes triggers 400+ simultaneous subscriptions
 // (useReplyCount + useZapCount per note), each receiving events from 7+ relays → OOM.
@@ -94,12 +167,16 @@ export function fetchWithTimeout(
       let settled = false;
       _activeFetchCount++;
 
-      const finish = () => {
+      const finish = (answered: boolean) => {
         if (settled) return;
         settled = true;
         _activeFetchCount--;
         clearTimeout(timer);
         stopSubscription(sub, instance);
+        // An EOSE, or any event at all, proves a relay is really talking to us.
+        // Only a timeout that collected nothing counts against reachability.
+        if (answered || events.size > 0) noteRelayAnswered();
+        else noteFetchUnanswered();
         resolve(events);
         _runNextFetch();
       };
@@ -124,11 +201,11 @@ export function fetchWithTimeout(
       sub.on("event", (event: NDKEvent) => {
         if (!settled) events.add(event);
       });
-      sub.on("eose", finish);
+      sub.on("eose", () => finish(true));
 
       const timer = setTimeout(() => {
         debug.warn(`[Vega] Fetch timed out after ${timeoutMs}ms (collected ${events.size} events, queue: ${_fetchQueue.length})`);
-        finish();
+        finish(false);
       }, timeoutMs);
     };
 
@@ -488,7 +565,9 @@ export async function resetNDK(): Promise<void> {
     ndk.signer = oldSigner;
   }
 
-  // Connect fresh
+  // Connect fresh. The streak belongs to the pool that earned it; carrying it
+  // across a reset would leave the new instance born silent.
+  clearSilentFetchStreak();
   debug.log("[Vega] NDK instance reset — connecting fresh relays");
   await ndk.connect();
   await waitForConnectedRelay(ndk, 5000);
@@ -603,10 +682,40 @@ export async function connectToRelays(): Promise<void> {
 export async function ensureConnected(): Promise<boolean> {
   const instance = getNDK();
   const relays = Array.from(instance.pool?.relays?.values() ?? []);
-  const connectedCount = relays.filter((r) => r.connected).length;
+  // The embedded strfry relay is on ws://127.0.0.1 and stays connected through
+  // any network failure, so it can never speak for remote reachability. Letting
+  // it into this count made `some(connected)` permanently true for everyone who
+  // enabled it, which silently disarms every recovery path below. Fall back to
+  // the full list when it is the only relay there is, so a local-only setup
+  // isn't declared offline forever. Issue #65.
+  const remotes = relays.filter((r) => !isLocalRelayUrl(r.url));
+  const candidates = remotes.length > 0 ? remotes : relays;
+  const connectedCount = candidates.filter((r) => r.connected).length;
+
+  if (connectedCount > 0 && !isPoolSilent()) {
+    return true; // Trust relay.connected — don't probe or disconnect
+  }
 
   if (connectedCount > 0) {
-    return true; // Trust relay.connected — don't probe or disconnect
+    // Sockets claim to be up while nothing answers: half-open. `connect()`
+    // cannot help, because NDK skips relays it believes are already connected,
+    // and disconnecting on suspicion is exactly what death-spiralled in
+    // 2e03c6c.
+    //
+    // Verify rather than assert. Nothing else on this path can clear the
+    // streak: every caller that would issue a fetch is gated behind *this*
+    // function, so reporting `false` and stopping would make the DM view's
+    // "Try again" a button that can never succeed and leave the notification
+    // poller permanently convinced. One cheap fetch is the way back — and it
+    // feeds the same signal, so an answered recheck clears the streak as a
+    // side effect and the next caller gets a plain `true`.
+    debug.warn("[Vega] Relays report connected but nothing is answering — re-testing");
+    _silentRecheck ??= fetchWithTimeout(instance, { kinds: [1], limit: 1 }, SILENT_RECHECK_TIMEOUT)
+      .then(() => !isPoolSilent())
+      .finally(() => { _silentRecheck = null; });
+    const recovered = await _silentRecheck;
+    debug.log(`[Vega] Silent-pool recheck: ${recovered ? "relays answering again" : "still unreachable"}`);
+    return recovered;
   }
 
   debug.warn(`[Vega] No relays connected (${relays.length} in pool) — attempting reconnect`);

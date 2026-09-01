@@ -217,6 +217,7 @@ Vega is shipped through channels that carry our name: the AUR, winget, GitHub re
 - **Resilient relay pool** — resetNDK preserves outbox-discovered relay URLs (fixes relay pool dropping to 3)
 - **Relay reach toggle** (v0.15.2) — switch for NIP-65 outbox, in both the Relays view and Settings; on by default, turn it off to confine Vega to your configured relays
 - **NIP-17 DM relay routing** (#49) — kind 10050 DM relay lists are honoured: gift-wrap fetches also ask your own published DM relays, and `sendDM` publishes each wrap to its owner's DM relays (recipient's for theirs, yours for the self-copy), always merged with the configured list; gated on Relay reach, cached 10 min, capped at 4 relays per list; your own 10050 relays count as "my relays" for NIP-42 AUTH scope
+- **Relay liveness from fetch outcomes** (#65) — a network that vanishes without closing its sockets left `relay.connected` reading true forever, disarming every reconnect path; reachability is now judged by whether relays actually answer, the embedded relay no longer votes on it, the connection monitor's escalation ladder was repaired, and Messages says it couldn't reach a relay instead of showing an empty inbox. See "Relay liveness" below
 
 **Not yet implemented:**
 - NIP-96 file storage
@@ -253,6 +254,18 @@ AUTH signs a kind 22242 with your identity key, so every relay you answer learns
 - **Changing identity must drop authenticated sessions.** `switchAccount` clearing `ndk.signer` is not enough: AUTH binds identity to the *connection*, so a relay authenticated as account A keeps serving account B under A. On a relay with `restrictReadToInvolvedPubkey` that shows up as B's inbox being empty — the same symptom as #48, caused by the fix.
 - **Never call a bare `sub.stop()`.** Use `stopSubscription()`. See the orphan-subscription note below; arming AUTH is what makes that hazard live.
 - Verify with `nak serve --auth` (challenge on rejection) **and** `--eager-auth` (challenge on connect) — the orderings differ, and a test that attaches its listener after `connect()` silently observes nothing in eager mode.
+
+## Relay liveness
+
+`relay.connected` answers "did this socket ever open", not "is anything reachable". A network taken away without a FIN or RST — a KVM switch, a suspended laptop, an interface handover — leaves the socket ESTABLISHED, and NDK has no heartbeat to notice (it measures connect/disconnect *flapping*, nothing else). The flag then reads `true` for the life of the process. Issue #65: Messages stopped loading and only an app restart fixed it.
+
+- **Liveness comes from fetch outcomes, never from socket state.** An EOSE proves a relay answered; three consecutive fetches that time out having collected nothing mark the pool silent (`isPoolSilent()`). Everything that asks "are we connected?" consults that as well as the flag.
+- **Never re-add an active probe.** `2e03c6c` had one: it force-disconnected relays whose 3s probe timed out, killing healthy-but-slow relays and death-spiralling against `resetNDK`. Nothing may disconnect a relay on suspicion. Reporting is safe; disconnecting is not.
+- **The embedded relay must never answer the question.** It lives on `ws://127.0.0.1` and survives any network failure, so `some(r => r.connected)` was permanently true for anyone who enabled it — silently disarming `ensureConnected` *and* the feed store's monitor. Excluded from both, with a fallback so a pool holding only local relays still counts.
+- **A verdict that cannot be revisited is a deadlock.** Every path that could clear the silent streak is gated behind `ensureConnected`, so returning a bare `false` made the DM view's "Try again" a button that could never succeed. It re-tests with one cheap fetch, which feeds the same signal and clears the streak when the pool is genuinely back.
+- **The connection monitor's escalation was dead code from the start.** `if (offlineStreak >= 3 && get().connected)` set `connected` to `false` as its first statement, so every later tick skipped the block: the per-tick `connect()` retry and the 30s `resetNDK()` had never once fired. It went unnoticed because cleanly-closed sockets are reconnected by NDK itself — only a half-open socket needs the ladder, and that is exactly when it wasn't there.
+- **Reproduce with `SIGSTOP`, not a firewall.** Freezing the relay process holds the connection ESTABLISHED while nothing is answered — a real half-open socket, no privileges. Start it **detached** (`setsid nohup`): a supervisor that reaps stopped children turns the freeze into a clean close, which silently tests the wrong thing. `connectionLiveness.live.test.ts` asserts `relay.connected === true` mid-test for exactly that reason, and caught it.
+- Messages is where any relay outage surfaces first, because it is the only major view with no SQLite cache — everything else keeps rendering what it already had and looks healthy.
 
 ## Orphan relay subscriptions
 

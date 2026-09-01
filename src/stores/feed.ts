@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { NDKEvent, NDKFilter, NDKKind, NDKSubscription, NDKSubscriptionCacheUsage } from "@nostr-dev-kit/ndk";
-import { connectToRelays, ensureConnected, resetNDK, fetchGlobalFeed, fetchBatchEngagement, fetchTrendingCandidates, getNDK } from "../lib/nostr";
+import { connectToRelays, ensureConnected, resetNDK, fetchGlobalFeed, fetchBatchEngagement, fetchTrendingCandidates, getNDK, isLocalRelayUrl, isPoolSilent } from "../lib/nostr";
 import { seedReactionsCache } from "../hooks/useReactions";
 import { useToastStore } from "./toast";
 import { useWoTStore } from "./wot";
@@ -128,7 +128,15 @@ export const useFeedStore = create<FeedState>((set, get) => ({
       const checkConnection = () => {
         const currentNdk = getNDK();
         const relays = Array.from(currentNdk.pool?.relays?.values() ?? []);
-        const hasConnected = relays.some((r) => r.connected);
+        // Two things this must not believe. The embedded relay lives on
+        // ws://127.0.0.1 and survives any network failure, so it cannot answer
+        // for remote reachability — with it in the pool this predicate was
+        // permanently true and the whole ladder below was dead code. And
+        // `relay.connected` stays true on a half-open socket, so a fetch that
+        // nobody answers is the more honest signal. Both are issue #65.
+        const remotes = relays.filter((r) => !isLocalRelayUrl(r.url));
+        const candidates = remotes.length > 0 ? remotes : relays;
+        const hasConnected = candidates.some((r) => r.connected) && !isPoolSilent();
 
         if (hasConnected) {
           if (offlineStreak > 0) {
@@ -138,11 +146,23 @@ export const useFeedStore = create<FeedState>((set, get) => ({
           if (!get().connected) set({ connected: true });
         } else {
           offlineStreak++;
-          // Mark offline after 3 consecutive checks (15s grace)
-          if (offlineStreak >= 3 && get().connected) {
+
+          // Mark offline once, on the check that crosses the 15s grace.
+          //
+          // This used to be guarded by `get().connected`, which the very next
+          // statement falsified — so from the second tick onwards the whole
+          // block was skipped and neither the retry nor the reset below could
+          // ever run. The nuclear reset has never fired. That went unnoticed
+          // while relays closed cleanly, because NDK reconnects those by
+          // itself; a half-open socket has no such self-healing, which is the
+          // #65 case this ladder now has to carry.
+          if (offlineStreak === 3) {
             set({ connected: false });
             logDiag({ ts: new Date().toISOString(), action: "connection_lost", details: `No relays connected after ${offlineStreak} checks` });
             useToastStore.getState().addToast("Connection lost \u2014 reconnecting\u2026", "warning");
+          }
+
+          if (offlineStreak >= 3) {
             // Nuclear reset after 6 consecutive failures (30s)
             if (offlineStreak >= 6) {
               offlineStreak = 0;
