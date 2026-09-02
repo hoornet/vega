@@ -69,7 +69,7 @@ Vega is shipped through channels that carry our name: the AUR, winget, GitHub re
 - A mismatch is never "probably fine". Investigate before announcing.
 
 **Hard-won CI rules:**
-- `includeUpdaterJson: true` must be set in tauri-action — without it `latest.json` is never uploaded and the auto-updater silently does nothing
+- `uploadUpdaterJson: true` must be set in tauri-action — without it `latest.json` is never uploaded and the auto-updater silently does nothing. It was `includeUpdaterJson` before tauri-action v1.0.0; the old name is now an unknown input, which Actions accepts in silence, so writing it costs you the updater. See the v1 note below
 - `bundle.createUpdaterArtifacts: true` must be set in `tauri.conf.json` — without it `.sig` files are never generated even if the signing key is set (Tauri 2 requirement)
 - Valid `bundle.targets`: `"deb"`, `"rpm"`, `"nsis"`, `"msi"`, `"dmg"`, `"app"` — do NOT add `"updater"` (that's a plugin, not a bundle format)
 - `"app"` MUST be in `bundle.targets` or the macOS auto-updater silently breaks: the `.app.tar.gz` updater artifact (and its `.sig`) is generated from the `app` target, NOT `dmg`. With only `dmg`, the `.app` is built as a throwaway intermediate, no `.app.tar.gz` is emitted, and `latest.json` gets no `darwin-aarch64` entry. `app`/`dmg` are macOS-only and skipped on Linux/Windows builds. This was broken from before v0.12.9 through v0.12.13; fixed in v0.12.14.
