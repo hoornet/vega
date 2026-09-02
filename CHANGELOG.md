@@ -2,6 +2,19 @@
 
 > Note: entries for v0.12.10 through v0.13.1 live in the [GitHub Releases](https://github.com/hoornet/vega/releases) notes; this file resumes at v0.13.2. The release notes on GitHub are the richer record — this file is the summary.
 
+## v0.15.7 — Messages survive a network change (2026-09-01)
+
+### Fixed
+- **Messages no longer goes quiet after the network changes underneath the app (#65).** A laptop waking from sleep, a KVM switch, or wifi taking over from ethernet can take the network away without the connection ever being properly closed — so Vega kept seeing a connection that looked perfectly healthy while nothing could pass through it, and none of its reconnection logic ever triggered. Only restarting the app brought Messages back. Vega now judges whether relays are reachable by whether they actually answer, and recovers on its own within about half a minute. Messages also tells you when it can't reach a relay, with a **Try again** button, instead of showing an empty inbox that looks like you have no conversations. Thanks to **@DalShooth** for the report.
+- **Text in direct messages and notes is selectable again (#64).**
+
+### Security
+- **h2 moved off [RUSTSEC-2026-0258](https://rustsec.org/advisories/RUSTSEC-2026-0258)**, an unbounded-queue flaw in the HTTP/2 library behind Vega's network requests and auto-updater that a hostile server could use to exhaust memory. Two yanked crates (`chacha20`, `fastrand`) were replaced in the same pass.
+
+### Changed
+- Dependency updates: dompurify, zustand, lucide-react, vite, and the dev toolchain.
+- **Build integrity.** Rust builds now install exactly the reviewed lockfile and fail loudly on any mismatch — the guarantee the JavaScript side already had through `npm ci`. Every commit on the release branch now gets its own test run rather than being cancelled by the next merge, and a weekly dependency audit reports new advisories.
+
 ## v0.15.6 — DMs reach your DM relays (2026-08-23)
 
 ### Added
