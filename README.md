@@ -131,7 +131,7 @@ minisign -Vm Vega_X.Y.Z_amd64.deb -p vega.pub
 - **Easy-Read Font** — optional Atkinson Hyperlegible typeface, designed by the Braille Institute for legibility, with slightly wider letter-spacing and line-height; helps dyslexic readers and long reading sessions
 
 **Performance & UX**
-- **Resilient relay connectivity** — all relay queries have timeouts (no more infinite loading); automatic reconnection with NDK instance reset as last resort; toast notifications for connection events; feed diagnostics for debugging
+- **Resilient relay connectivity** — all relay queries have timeouts (no more infinite loading); reachability is judged by whether relays actually answer, not by whether a socket claims to be open, so Vega recovers on its own when a laptop wakes from sleep or the network changes underneath it; automatic reconnection with NDK instance reset as last resort; toast notifications for connection events; feed diagnostics for debugging
 - **Per-tab "last updated" timestamp** — relative time indicator in feed header shows how fresh each tab's data is
 - **Subscription debug panel** — `Ctrl+Shift+D` toggles a hidden panel showing NDK uptime, live subscription status, per-relay state, feed timestamps, and recent diagnostics
 - **Auto-updater** — "Update & restart" banner when a new version is available
