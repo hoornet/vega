@@ -26,7 +26,7 @@
     "@tauri-apps/plugin-updater": "^2.10.1",
     "dompurify": "^3.4.14",
     "highlight.js": "^11.12.0",
-    "lucide-react": "1.34.0",
+    "lucide-react": "1.39.0",
     "marked": "^18.0.10",
     "marked-highlight": "^2.2.4",
     "react": "^19.1.0",
