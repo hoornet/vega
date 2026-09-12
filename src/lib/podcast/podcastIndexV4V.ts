@@ -1,27 +1,6 @@
 import { fetchWithProxy as fetch } from "../proxy";
+import { API_BASE, apiHeaders } from "./podcastIndexAuth";
 import type { PodcastEpisode, V4VRecipient } from "../../types/podcast";
-
-const API_KEY = "VKWWTGY25NVCKYJWHSNY";
-const API_SECRET = "ves3#2YKqSvp7ZdRSuRhSgdnCLtFP4tEbzFGxAtW";
-const API_BASE = "https://api.podcastindex.org/api/1.0";
-
-async function sha1(message: string): Promise<string> {
-  const encoder = new TextEncoder();
-  const data = encoder.encode(message);
-  const hashBuffer = await crypto.subtle.digest("SHA-1", data);
-  return Array.from(new Uint8Array(hashBuffer)).map((b) => b.toString(16).padStart(2, "0")).join("");
-}
-
-async function apiHeaders(): Promise<Record<string, string>> {
-  const apiHeaderTime = Math.floor(Date.now() / 1000).toString();
-  const hash = await sha1(API_KEY + API_SECRET + apiHeaderTime);
-  return {
-    "X-Auth-Key": API_KEY,
-    "X-Auth-Date": apiHeaderTime,
-    "Authorization": hash,
-    "User-Agent": "Vega/1.0",
-  };
-}
 
 function extractV4V(value: Record<string, unknown> | undefined): V4VRecipient[] {
   if (!value) return [];
