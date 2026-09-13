@@ -71,6 +71,16 @@
   </branding>
 
   <releases>
+    <release version="0.15.7" date="2026-09-01">
+      <description>
+        <p>Messages no longer go quiet after a network change, and text in notes and direct messages can be selected and copied again.</p>
+      </description>
+    </release>
+    <release version="0.15.6" date="2026-08-23">
+      <description>
+        <p>Direct messages now follow published DM relay lists, so messages waiting on a dedicated inbox relay are found, and Messages opens faster with a remote signer.</p>
+      </description>
+    </release>
     <release version="0.15.5" date="2026-08-22">
       <description>
         <p>Adds relay authentication (NIP-42) with a privacy scope setting, so relays that gate messages behind authentication now work.</p>

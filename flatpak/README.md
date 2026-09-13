@@ -55,14 +55,36 @@ flatpak run com.veganostr.Vega
    `shared-modules` submodule at the repo top level.
 3. Open a PR against `new-pr`; a reviewer comments `bot, build` to test-build.
 
-## Open items before submission
+## Status
 
-- **Screenshots**: `metainfo.xml` references three PNGs under
-  `flatpak/screenshots/`. Add real screenshots there and pin the manifest's git
-  source to a tag/commit that contains them (metainfo screenshot URLs should use a
-  tag/commit ref, not a branch).
-- **`ffmpeg-full` `version:`** must match GNOME 50's freedesktop base — verify at
-  first `bot, build`.
-- **Keyring in the sandbox**: the `keyring` crate uses the Secret Service over D-Bus
-  (`--talk-name=org.freedesktop.secrets`). Verify nsec survives a sandboxed restart;
-  if not, the `oo7` crate's file backend is the known fallback.
+Submitted to Flathub pinned to **v0.15.7**. Resolved along the way, so nobody
+re-investigates them:
+
+- **Screenshots** — four real PNGs under `screenshots/`, referenced from
+  `metainfo.xml` by **commit SHA** (`ba57143`), not a branch, per Flathub guidance.
+  `.gitignore` has blanket `screenshots/` and `*.png` rules, so the negations
+  `!flatpak/screenshots/` are load-bearing — don't drop them.
+- **Codecs** — GNOME 50 uses `org.freedesktop.Platform.codecs-extra`
+  (version `25.08-extra`). **Not `ffmpeg-full`**, which only exists on the 24.08
+  runtime and is the old-runtime pattern. The manifest currently omits codec
+  extensions; adding them for AAC/MP3/H.264 podcast playback is a follow-up.
+- **Keyring in the sandbox** — fixed in v0.14.2, and the cause was not the sandbox.
+  The `keyring` crate had been configured with `linux-native`, which is the Linux
+  *kernel* keyring, not the Secret Service. A kernel session keyring is tied to the
+  login session, so every Flatpak launch got a fresh one and the nsec was lost.
+  Switched to `sync-secret-service` + `crypto-rust`. Verified: log in, fully quit
+  via the tray, relaunch, still logged in. This was a native win too — the kernel
+  keyring did not reliably survive reboots either.
+  The `oo7`/Secret-Portal path is a dead end on Hyprland: xdg-desktop-portal there
+  does not expose `org.freedesktop.portal.Secret`.
+
+## Runtime version gotchas (cost real time)
+
+- **GNOME 50 = freedesktop base 25.08, not 24.08.** Install the SDK extensions as
+  `//25.08`. `flatpak remote-ls` can show stale branch lists — confirm a specific
+  branch with `flatpak remote-info flathub <ref>//25.08`.
+- The sandboxed `org.flatpak.Builder` may fail to resolve SDK-extension versions,
+  requesting `rust-stable//50` (the runtime version) instead of `//25.08`. Having
+  the correct-branch extensions already installed is what fixes it.
+- `--install-deps-from=flathub` fails when flathub is a *system* remote: the builder
+  looks for a user one. Install the deps beforehand and omit the flag.
