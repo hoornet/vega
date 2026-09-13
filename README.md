@@ -2,7 +2,7 @@
 
 A cross-platform desktop Nostr client built with Tauri 2.0 + React + TypeScript. Polished UI, deep Lightning integration, and first-class support for long-form writing.
 
-**Website:** [veganostr.com](https://veganostr.com) · **Download:** [Releases](https://github.com/hoornet/vega/releases) · **AUR:** `vega-nostr-git`
+**Website:** [veganostr.com](https://veganostr.com) · **Download:** [Releases](https://github.com/hoornet/vega/releases) · **AUR:** `vega-nostr`
 
 > Named after Jurij Vega (1754–1802), a Slovenian mathematician who made knowledge accessible through his pioneering logarithm tables — just as Vega makes writing accessible on Nostr.
 
@@ -15,7 +15,7 @@ Grab the latest release from the [Releases page](https://github.com/hoornet/vega
 | Ubuntu / Debian / Mint | `.deb` | `sudo dpkg -i vega_*.deb` |
 | Fedora | `.rpm` | `sudo rpm -i vega-*.rpm` |
 | openSUSE | `.rpm` | `sudo zypper install vega-*.rpm` |
-| Arch / Manjaro | AUR | `yay -S vega-nostr-git` |
+| Arch / Manjaro | AUR | `yay -S vega-nostr` |
 | Windows | `.exe` installer | run the installer |
 | macOS (Apple Silicon) | `aarch64.dmg` | open and drag to Applications |
 
@@ -23,7 +23,9 @@ Grab the latest release from the [Releases page](https://github.com/hoornet/vega
 
 **Upgrading from v0.13.x or earlier?** v0.14.0 changed the app identifier to `com.veganostr.Vega`. Your data is migrated automatically and your keys are unaffected. On **Windows**, the new version installs alongside the old one — once it's running, uninstall the old "Vega" entry from Add/Remove Programs (one-time step). On **Linux**, v0.14.2 moved key storage to the system secret service (gnome-keyring / KWallet), so you'll sign in once more after upgrading.
 
-**Linux note:** Video and audio playback requires GStreamer codec packages. The AUR package installs these automatically. For `.deb`/`.rpm` installs, you may need:
+**Arch note:** `vega-nostr` builds the latest released tag — that's the one you want. `vega-nostr-git` also exists and builds the development branch, so it ships unreleased work; install it only if that's what you're after.
+
+**Linux note:** Video and audio playback requires GStreamer codec packages. The AUR packages install these automatically. For `.deb`/`.rpm` installs, you may need:
 ```bash
 # Arch / Manjaro
 sudo pacman -S gst-plugins-base gst-plugins-good gst-libav

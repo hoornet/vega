@@ -31,7 +31,12 @@ Prerequisites: Node.js 20+, Rust stable, `@tauri-apps/cli`
 
 **Order matters — do not tag before bumping versions.**
 
-0. **Verify we are not shipping someone else's payload** — run `scripts/verify-aur-package.sh`. It must print `AUR package is clean.` (exit 0) before you tag. See "Distribution channel integrity" below for why this is step zero and not an afterthought.
+0. **Verify we are not shipping someone else's payload** — run the AUR check for **both** packages. Each must print `AUR package is clean.` (exit 0) before you tag:
+   ```bash
+   scripts/verify-aur-package.sh                                              # vega-nostr-git
+   AUR_PKG=vega-nostr scripts/verify-aur-package.sh ~/projects/vega-nostr-aur # vega-nostr
+   ```
+   See "Distribution channel integrity" below for why this is step zero and not an afterthought.
 1. Bump version to `X.Y.Z` in all **five** files (they must stay in sync):
    - `src-tauri/tauri.conf.json` → `"version": "X.Y.Z"`
    - `package.json` → `"version": "X.Y.Z"`
@@ -42,13 +47,16 @@ Prerequisites: Node.js 20+, Rust stable, `@tauri-apps/cli`
 3. Commit: `git commit -m "Bump to vX.Y.Z — <summary>"`
 4. Tag: `git tag vX.Y.Z`
 5. Push: `git push origin main vX.Y.Z`
-6. Update AUR: in your local `vega-aur` checkout (the script defaults to `~/projects/vega-aur`), bump `pkgver=X.Y.Z` in `PKGBUILD`, then:
+6. Update AUR — **two packages now**. In each checkout, bump `pkgver=X.Y.Z` in `PKGBUILD`, then:
    ```bash
    makepkg --printsrcinfo > .SRCINFO
    git add PKGBUILD .SRCINFO && git commit -m "Bump to vX.Y.Z" && git push
    ```
-   Not urgent, and safe to do late: `vega-nostr-git` is a VCS package that builds the default branch, so Arch users get the new version from the pushed tag whether or not `pkgver` has been bumped. The bump is display metadata. AUR git writes are also gated independently of the website — the site can be HTTP 200 while pushes report "The AUR is down due to maintenance".
-7. Re-run `scripts/verify-aur-package.sh` after the AUR push, so the check also covers what you just published.
+   - `~/projects/vega-nostr-aur` → **`vega-nostr`**. **This one is urgent and load-bearing.** It builds `#tag=v$pkgver`, so until `pkgver` is bumped and pushed, Arch users are still installing the *previous* release. This is the package the README points at.
+   - `~/projects/vega-aur` → **`vega-nostr-git`**. Not urgent, safe to do late: it is a VCS package that builds the default branch, so its users already have the new code from the pushed tag whether or not `pkgver` moved. The bump is display metadata.
+
+   Keep the two `build()` blocks identical — same `npm ci --ignore-scripts`, same `-- --locked`. Only the `source` ref differs. AUR git writes are gated independently of the website: the site can be HTTP 200 while pushes report "The AUR is down due to maintenance".
+7. Re-run both AUR checks from step 0 after the pushes, so they also cover what you just published.
 
 **`package-lock.json` is a version file.** CI runs `npm ci`, which *fails* on a package.json/lockfile mismatch — `npm install` used to reconcile it silently. Forgetting it breaks the build on all three platforms.
 
