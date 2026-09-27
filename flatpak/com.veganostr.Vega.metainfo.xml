@@ -71,6 +71,11 @@
   </branding>
 
   <releases>
+    <release version="0.15.8" date="2026-09-27">
+      <description>
+        <p>A security update to the TLS library behind Vega's network requests and auto-updater, plus dependency updates.</p>
+      </description>
+    </release>
     <release version="0.15.7" date="2026-09-01">
       <description>
         <p>Messages no longer go quiet after a network change, and text in notes and direct messages can be selected and copied again.</p>

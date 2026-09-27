@@ -2,6 +2,17 @@
 
 > Note: entries for v0.12.10 through v0.13.1 live in the [GitHub Releases](https://github.com/hoornet/vega/releases) notes; this file resumes at v0.13.2. The release notes on GitHub are the richer record — this file is the summary.
 
+## v0.15.8 — TLS security update and a stable Arch package (2026-09-27)
+
+### Security
+- **rustls moved off [RUSTSEC-2026-0285](https://rustsec.org/advisories/RUSTSEC-2026-0285)**, where TLS 1.3 handshake messages were accepted across encryption-level boundaries. rustls is the TLS library under Vega's network requests and its auto-updater's downloads. Updated to 0.23.45.
+
+### Changed
+- **Arch Linux: install `vega-nostr`.** Until now the only AUR package was `vega-nostr-git`, which builds the development branch and so ships unreleased work. The new `vega-nostr` builds the latest release tag and is what the README now recommends; `vega-nostr-git` stays for anyone who wants the development branch. Both now build the way the official releases do: from the exact reviewed lockfiles, without running package install scripts.
+- Dependency updates: React 19.3, the Tauri updater and HTTP plugins, dompurify, marked, lucide-react, and the dev toolchain (vitest 5).
+- **Build integrity.** This is the first release built with Rust's `--locked` in the release pipeline, and CI now fails when Tauri's Rust and JavaScript packages drift out of step — a mismatch that would otherwise only surface as a failed release.
+- Development now needs Node.js 22.22+ or 24.15+ (the test tooling requires it); building alone still works on Node 20.19+.
+
 ## v0.15.7 — Messages survive a network change (2026-09-01)
 
 ### Fixed
