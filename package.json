@@ -27,7 +27,7 @@
     "dompurify": "^3.4.15",
     "highlight.js": "^11.12.0",
     "lucide-react": "1.46.0",
-    "marked": "^18.0.11",
+    "marked": "^18.0.14",
     "marked-highlight": "^2.2.4",
     "react": "^19.1.0",
     "react-dom": "^19.3.0",
