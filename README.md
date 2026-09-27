@@ -195,7 +195,7 @@ minisign -Vm Vega_X.Y.Z_amd64.deb -p vega.pub
 ## Development
 
 ```bash
-# Prerequisites: Node.js 20+, Rust stable, @tauri-apps/cli
+# Prerequisites: Node.js 22.22+ or 24.15+ (24 LTS recommended), Rust stable, @tauri-apps/cli
 npm install
 npm run tauri dev       # full app with hot reload
 npm run dev             # browser only (no Tauri window)

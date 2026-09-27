@@ -14,7 +14,7 @@ It runs `scripts/check-no-leaks.sh` over the added lines of staged changes, bloc
 
 ## Setup
 
-Prerequisites: Node.js 20+, Rust stable, `@tauri-apps/cli`.
+Prerequisites: Node.js 22.22+ or 24.15+ (24 LTS recommended), Rust stable, `@tauri-apps/cli`. The test suite (vitest 5, jsdom) is what needs the newer Node; older versions fail there first.
 
 ```bash
 npm install

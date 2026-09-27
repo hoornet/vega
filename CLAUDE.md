@@ -25,7 +25,9 @@ npm run build           # TypeScript compile + Vite build
 npm run tauri build     # Production binary
 ```
 
-Prerequisites: Node.js 20+, Rust stable, `@tauri-apps/cli`
+Prerequisites: Node.js 22.22+ or 24.15+ (24 LTS recommended), Rust stable, `@tauri-apps/cli`.
+
+The floor comes from the test stack, not the build: vitest 5 needs Node 22.12+, and jsdom's dependencies now declare `^22.22.2 || ^24.15.0 || >=26.0.0`. `vite build` alone still accepts `^20.19.0`, which is why the Flatpak manifest's `node20` SDK extension still builds — but Node 20 reached end of life in April 2026, so move that manifest to `node24` when you next touch it. The old "Node.js 20+" line was stale from the vitest 5 bump (#88) until #99 made a reviewer notice.
 
 ## Releasing a New Version
 
