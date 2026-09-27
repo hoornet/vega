@@ -24,6 +24,16 @@ jobs:
   # Split from the Rust job so a TypeScript error reports in ~1 minute rather
   # than waiting on the WebKitGTK toolchain to install.
   javascript:
+    # Deliberately unpinned: this job needs only Node (from setup-node), no
+    # system libraries, so following ubuntu-latest costs nothing. GitHub moves
+    # that label to Ubuntu 26.04 between 2026-10-19 and 2026-11-19
+    # (actions/runner-images#14748). Every job that builds a Linux *binary* —
+    # the rust job below, release.yml, audit.yml — pins ubuntu-22.04 instead,
+    # because the build host's glibc is the oldest glibc the binary runs on.
+    # 22.04 is not affected by that migration, but expect it to be retired
+    # around April 2027 when its standard support ends, as 20.04 was in April
+    # 2025. Moving those jobs forward raises Vega's minimum glibc, so decide it
+    # deliberately rather than when the runner disappears.
     runs-on: ubuntu-latest
     steps:
       # Actions are pinned to commit SHAs, not tags — a tag is mutable. Same
@@ -35,6 +45,15 @@ jobs:
         with:
           node-version: 'lts/*'
           cache: 'npm'
+
+      # `tauri build` refuses to run when a Tauri Rust crate and its npm package
+      # differ in major.minor — and nothing else in this workflow runs the Tauri
+      # CLI, so such a mismatch used to pass CI and fail release.yml on every
+      # platform. It happened on 2026-09-27 (#97/#98, fixed by #101). Reads the
+      # two lockfiles only, so it runs first and fails in seconds. Not
+      # `tauri info`: that prints the same error but exits 0.
+      - name: Tauri Rust/npm versions agree
+        run: node scripts/check-tauri-versions.mjs
 
       # `npm ci --ignore-scripts`, matching release.yml: ci installs the
       # lockfile exactly, and --ignore-scripts blocks postinstall.
