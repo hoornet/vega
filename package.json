@@ -39,7 +39,6 @@
     "@tauri-apps/cli": "^2",
     "@testing-library/jest-dom": "^7.0.1",
     "@testing-library/react": "^16.3.3",
-    "@types/marked": "^5.0.2",
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^6.1.1",
