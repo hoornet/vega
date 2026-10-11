@@ -87,7 +87,7 @@ function FollowRow({
 
 export function FollowsView() {
   const { followsTab, setFollowsTab } = useUIStore();
-  const { pubkey, follows, followsStatus } = useUserStore();
+  const { pubkey, follows, followsStatus, fetchFollows } = useUserStore();
   const { newFollowerPubkeys, clearNewFollowers } = useNotificationsStore();
 
   const [followers, setFollowers] = useState<string[]>([]);
@@ -214,13 +214,23 @@ export function FollowsView() {
         {followsTab === "following" && (
           <>
             {follows.length === 0 && (
-              <p className="px-4 py-8 text-text-dim text-[12px] text-center">
-                {followsStatus === "loaded"
-                  ? "Not following anyone yet."
-                  : followsStatus === "unknown"
-                    ? "Couldn't load the list of people you follow. Your relays didn't answer in time; nothing has been changed."
-                    : "Loading the people you follow…"}
-              </p>
+              <div className="px-4 py-8 text-center">
+                <p className="text-text-dim text-[12px]">
+                  {followsStatus === "loaded"
+                    ? "Not following anyone yet."
+                    : followsStatus === "unknown"
+                      ? "Couldn't load the list of people you follow. Your relays didn't answer in time; nothing has been changed."
+                      : "Loading the people you follow…"}
+                </p>
+                {followsStatus === "unknown" && (
+                  <button
+                    onClick={() => void fetchFollows()}
+                    className="mt-3 px-3 py-1.5 text-[12px] border border-border text-text hover:border-accent/60 hover:text-accent transition-colors"
+                  >
+                    Try again
+                  </button>
+                )}
+              </div>
             )}
             {follows.map((pk) => (
               <FollowRow key={pk} pubkey={pk} followsYou={followersSet.has(pk)} />
