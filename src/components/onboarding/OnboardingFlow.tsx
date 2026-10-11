@@ -267,9 +267,10 @@ function BackupStep({ signer, onComplete }: { signer: NDKPrivateKeySigner; onCom
     <Shell step={1} totalSteps={3}>
       <Heading>Save your secret key.</Heading>
       <Body>
-        Your <strong className="text-text">secret key</strong> is the only way to recover your
-        account. Save it in a password manager, notes app, or write it down. Vega never
-        stores it — if you lose it, your account is gone.
+        Your <strong className="text-text">secret key</strong> is your password, and nobody can
+        reset it — not us, not anyone. Vega keeps it in this computer's keychain so you stay
+        signed in, but if this computer is lost or wiped and you have no copy, the account is
+        gone for good. Save a copy in a password manager now.
       </Body>
 
       <div className="border border-danger/40 mb-2">
@@ -327,8 +328,8 @@ function BackupStep({ signer, onComplete }: { signer: NDKPrivateKeySigner; onCom
       >
         I'll back up my key later
       </button>
-      <p className="text-warning text-[10px] text-center mt-1 opacity-70">
-        You can reveal your key any time in Settings → Identity.
+      <p className="text-text-muted text-[11px] text-center mt-1">
+        You can also copy it later from Settings → Identity, on this computer only.
       </p>
     </Shell>
   );
@@ -390,6 +391,11 @@ function LoginStep({ onBack, onComplete }: { onBack: () => void; onComplete: () 
         value={value}
         onChange={(e) => setValue(e.target.value)}
         onKeyDown={handleKeyDown}
+        // A secret key is a password: never on screen in clear text. The in-app
+        // login modal already masked it; this screen did not.
+        type={mode === "nsec" ? "password" : "text"}
+        autoComplete="off"
+        spellCheck={false}
         placeholder={mode === "nsec" ? "nsec1…" : mode === "npub" ? "npub1…" : "bunker://…"}
         aria-label={mode === "nsec" ? "Secret key" : mode === "npub" ? "Public key" : "Bunker URI"}
         autoFocus
@@ -397,6 +403,9 @@ function LoginStep({ onBack, onComplete }: { onBack: () => void; onComplete: () 
         style={{ WebkitUserSelect: "text", userSelect: "text" } as React.CSSProperties}
       />
 
+      {mode === "nsec" && (
+        <p className="text-text-dim text-[11px] mb-4">Stored in this computer's keychain. Never sent to any server.</p>
+      )}
       {mode === "npub" && (
         <p className="text-text-dim text-[11px] mb-4">Read-only mode — you can browse but not post, react, or zap.</p>
       )}

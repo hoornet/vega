@@ -3,6 +3,7 @@ import { useLightningStore, ZapTargetSpec } from "../../stores/lightning";
 import { useUIStore } from "../../stores/ui";
 import { useCanSign } from "../../stores/user";
 import { LoginModal } from "../shared/LoginModal";
+import { useEscapeToClose } from "../../hooks/useEscapeToClose";
 
 const AMOUNT_PRESETS = [21, 100, 500, 1000, 5000];
 
@@ -15,6 +16,7 @@ interface ZapModalProps {
 }
 
 export function ZapModal({ target, recipientName, onClose }: ZapModalProps) {
+  useEscapeToClose(onClose);
   const canSign = useCanSign();
   const { nwcUri, zap } = useLightningStore();
   const { setView } = useUIStore();

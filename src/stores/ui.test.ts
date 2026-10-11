@@ -28,6 +28,19 @@ describe("useUIStore", () => {
     expect(localStorage.getItem("wrystr_hide_rss_articles")).toBe("true");
   });
 
+  // Esc and Back used to jump to a thread or profile opened before the last
+  // sidebar click, because sidebar navigation left the back stack in place.
+  it("setView starts a fresh back stack", () => {
+    useUIStore.getState().openProfile("aa".repeat(32));
+    useUIStore.getState().openHashtag("nostr");
+    expect(useUIStore.getState().viewStack.length).toBe(2);
+
+    useUIStore.getState().setView("settings");
+
+    expect(useUIStore.getState().currentView).toBe("settings");
+    expect(useUIStore.getState().viewStack).toEqual([]);
+  });
+
   it("setFeedTab changes the tab", () => {
     useUIStore.getState().setFeedTab("following");
     expect(useUIStore.getState().feedTab).toBe("following");

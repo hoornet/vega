@@ -3,7 +3,7 @@ const SHORTCUTS = [
   { key: "/", desc: "Search" },
   { key: "j", desc: "Next note in feed" },
   { key: "k", desc: "Previous note in feed" },
-  { key: "Esc", desc: "Go back" },
+  { key: "Esc", desc: "Go back, or close this" },
   { key: "?", desc: "This help" },
 ];
 

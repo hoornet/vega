@@ -68,6 +68,18 @@ html.font-readable body {
   user-select: text;
 }
 
+/* Article text is selectable. As with notes (issue #64) the `*` reset above
+   matches every descendant directly, so opting in only the container leaves
+   each <p>, <li>, <h2> and <code> inside it unselectable: a reader could not
+   quote a sentence or copy a code block out of an article. */
+.prose-article *,
+.article-preview *,
+.selectable-text,
+.selectable-text * {
+  -webkit-user-select: text;
+  user-select: text;
+}
+
 /* Article preview prose styles */
 .article-preview {
   -webkit-user-select: text;
