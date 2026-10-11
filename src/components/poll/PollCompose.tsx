@@ -25,7 +25,7 @@ export function PollCompose({ options, onChange }: PollComposeProps) {
 
   return (
     <div className="border-t border-border-subtle pt-2 mt-2 space-y-1.5">
-      <div className="text-text-dim text-[10px] mb-1">Poll options</div>
+      <div className="text-text-dim text-caption mb-1">Poll options</div>
       {options.map((opt, i) => (
         <div key={i} className="flex items-center gap-1.5">
           <input
@@ -33,7 +33,7 @@ export function PollCompose({ options, onChange }: PollComposeProps) {
             value={opt}
             onChange={(e) => updateOption(i, e.target.value)}
             placeholder={`Option ${i + 1}`}
-            className="flex-1 bg-transparent border border-border-strong rounded-lg px-2 py-1 text-text text-[12px] placeholder:text-text-dim focus:outline-none focus:border-accent"
+            className="flex-1 bg-transparent border border-border-strong rounded-lg px-2 py-1 text-text text-ui placeholder:text-text-dim focus:outline-none focus:border-accent"
             maxLength={100}
           />
           {options.length > MIN_OPTIONS && (
@@ -50,7 +50,7 @@ export function PollCompose({ options, onChange }: PollComposeProps) {
       {options.length < MAX_OPTIONS && (
         <button
           onClick={addOption}
-          className="text-accent hover:text-accent-hover text-[11px] transition-colors"
+          className="text-accent hover:text-accent-hover text-ui transition-colors"
         >
           + Add option
         </button>

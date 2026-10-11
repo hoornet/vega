@@ -39,14 +39,14 @@ export function ProfileMediaGallery({ notes, loading }: { notes: NDKEvent[]; loa
   const [lightboxIdx, setLightboxIdx] = useState<number | null>(null);
 
   if (loading) {
-    return <div className="px-4 py-8 text-text-dim text-[12px] text-center">Loading media…</div>;
+    return <div className="px-4 py-8 text-text-dim text-body text-center">Loading media…</div>;
   }
 
   const items = extractMediaItems(notes);
   const imageUrls = items.filter((i) => i.type === "image").map((i) => i.url);
 
   if (items.length === 0) {
-    return <div className="px-4 py-8 text-text-dim text-[12px] text-center">No media found.</div>;
+    return <div className="px-4 py-8 text-text-dim text-body text-center">No media found.</div>;
   }
 
   const openNote = (noteId: string) => {
@@ -110,7 +110,7 @@ export function ProfileMediaGallery({ notes, loading }: { notes: NDKEvent[]; loa
             >
               <div className="text-center">
                 <span className="text-3xl text-text-dim">♪</span>
-                <p className="text-text-dim text-[10px] mt-1 px-2 truncate">{item.url.split("/").pop()}</p>
+                <p className="text-text-dim text-caption mt-1 px-2 truncate">{item.url.split("/").pop()}</p>
               </div>
             </div>
           );

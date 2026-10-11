@@ -40,7 +40,7 @@ function TopFollowerAvatar({ pubkey }: { pubkey: string }) {
           {name.charAt(0).toUpperCase()}
         </div>
       )}
-      <span className="text-[10px] text-text-dim">{name}</span>
+      <span className="text-caption text-text-dim">{name}</span>
     </button>
   );
 }
@@ -146,13 +146,13 @@ export function ProfileView() {
         <div className="flex items-center gap-3">
           <button
             onClick={editing ? () => setEditing(false) : goBack}
-            className="text-text-dim hover:text-text text-[11px] transition-colors"
+            className="text-text-dim hover:text-text text-ui transition-colors"
           >
             ← {editing ? "Cancel" : "Back"}
           </button>
-          <h1 className="text-text text-sm font-medium">{isOwn ? "Your Profile" : "Profile"}</h1>
+          <h1 className="text-text text-title font-medium">{isOwn ? "Your Profile" : "Profile"}</h1>
           {isOwn && !canSign && (
-            <span className="text-text-dim text-[10px] border border-border px-2 py-0.5 rounded-sm">
+            <span className="text-text-dim text-caption border border-border px-2 py-0.5 rounded-sm">
               read-only
             </span>
           )}
@@ -160,7 +160,7 @@ export function ProfileView() {
         {isOwn && !editing && canSign && (
           <button
             onClick={() => setEditing(true)}
-            className="text-[11px] px-3 py-1 border border-border text-text-muted hover:text-accent hover:border-accent/40 transition-colors rounded-sm"
+            className="text-ui px-3 py-1 border border-border text-text-muted hover:text-accent hover:border-accent/40 transition-colors rounded-sm"
           >
             Edit profile
           </button>
@@ -170,7 +170,7 @@ export function ProfileView() {
             {(lud16 || profile?.lud06) && (
               <button
                 onClick={() => setShowZap(true)}
-                className="text-[11px] px-3 py-1 border border-border text-zap hover:border-zap/40 hover:bg-zap/5 transition-colors rounded-sm"
+                className="text-ui px-3 py-1 border border-border text-zap hover:border-zap/40 hover:bg-zap/5 transition-colors rounded-sm"
               >
                 ⚡ Zap
               </button>
@@ -178,7 +178,7 @@ export function ProfileView() {
             <button
               onClick={handleFollowToggle}
               disabled={followPending}
-              className={`text-[11px] px-3 py-1 border transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
+              className={`text-ui px-3 py-1 border transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
                 isFollowing
                   ? "border-border text-text-muted hover:text-danger hover:border-danger/40"
                   : "border-accent/60 text-accent hover:bg-accent hover:text-accent-text"
@@ -188,7 +188,7 @@ export function ProfileView() {
             </button>
             <button
               onClick={() => isMuted ? unmute(pubkey) : mute(pubkey)}
-              className={`text-[11px] px-3 py-1 border transition-colors ${
+              className={`text-ui px-3 py-1 border transition-colors ${
                 isMuted
                   ? "border-danger/40 text-danger hover:bg-danger/5"
                   : "border-border text-text-dim hover:text-danger hover:border-danger/40"
@@ -198,7 +198,7 @@ export function ProfileView() {
             </button>
             <button
               onClick={() => openDM(pubkey)}
-              className="text-[11px] px-3 py-1 border border-border text-text-muted hover:text-accent hover:border-accent/40 transition-colors rounded-sm"
+              className="text-ui px-3 py-1 border border-border text-text-muted hover:text-accent hover:border-accent/40 transition-colors rounded-sm"
             >
               ✉ Message
             </button>
@@ -252,16 +252,16 @@ export function ProfileView() {
               </div>
 
               <div className="min-w-0 flex-1">
-                <div className="text-text font-medium text-[15px]">{name}</div>
-                {nip05 && <div className="text-text-dim text-[11px] mt-0.5">{nip05}</div>}
-                {lud16 && <div className="text-zap text-[11px] mt-0.5">⚡ {lud16}</div>}
+                <div className="text-text font-semibold text-heading">{name}</div>
+                {nip05 && <div className="text-text-dim text-caption mt-0.5">{nip05}</div>}
+                {lud16 && <div className="text-zap text-caption mt-0.5">⚡ {lud16}</div>}
                 {website && (
-                  <a href={website} target="_blank" rel="noopener noreferrer" className="text-accent text-[11px] hover:text-accent-hover mt-0.5 block">
+                  <a href={website} target="_blank" rel="noopener noreferrer" className="text-accent text-caption hover:text-accent-hover mt-0.5 block">
                     {website.replace(/^https?:\/\//, "")}
                   </a>
                 )}
                 {about && (
-                  <p className="text-text text-[12px] mt-2 leading-relaxed whitespace-pre-wrap break-words">
+                  <p className="text-text text-body mt-2 leading-relaxed whitespace-pre-wrap break-words">
                     {aboutSegments.map((seg, i) => {
                       if (seg.type === "link") return (
                         <a key={i} className="text-accent hover:text-accent-hover underline underline-offset-2 decoration-accent/40"
@@ -286,7 +286,7 @@ export function ProfileView() {
                   </p>
                 )}
                 {isOwn && !about && (
-                  <p className="text-text-dim text-[12px] mt-2 italic">No bio yet — click "edit profile" to add one.</p>
+                  <p className="text-text-dim text-body mt-2 italic">No bio yet — click "edit profile" to add one.</p>
                 )}
                 <button
                   onClick={() => {
@@ -295,7 +295,7 @@ export function ProfileView() {
                     setNpubCopied(true);
                     setTimeout(() => setNpubCopied(false), 2000);
                   }}
-                  className="text-text-dim text-[10px] font-mono mt-2 hover:text-accent transition-colors cursor-pointer"
+                  className="text-text-dim text-caption font-mono mt-2 hover:text-accent transition-colors cursor-pointer"
                   title="Copy npub to clipboard"
                 >
                   {npubCopied ? "copied!" : shortenPubkey(pubkey)}
@@ -309,7 +309,7 @@ export function ProfileView() {
               if (wotFollowers.length === 0) return null;
               return (
                 <div className="px-4 pb-3">
-                  <div className="text-[10px] text-text-dim mb-1.5">Followed by people you trust</div>
+                  <div className="text-caption text-text-dim mb-1.5">Followed by people you trust</div>
                   <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
                     {(wotExpanded ? wotFollowers : wotFollowers.slice(0, 5)).map((f) => (
                       <TopFollowerAvatar key={f.pubkey} pubkey={f.pubkey} />
@@ -317,7 +317,7 @@ export function ProfileView() {
                     {wotFollowers.length > 5 && !wotExpanded && (
                       <button
                         onClick={() => setWotExpanded(true)}
-                        className="text-[10px] text-accent hover:text-accent-hover transition-colors"
+                        className="text-caption text-accent hover:text-accent-hover transition-colors"
                       >
                         +{wotFollowers.length - 5} more
                       </button>
@@ -357,7 +357,7 @@ export function ProfileView() {
             <button
               key={t}
               onClick={() => setProfileTab(t)}
-              className={`px-4 py-2 text-[11px] border-b-2 transition-colors ${
+              className={`px-4 py-2 text-ui border-b-2 transition-colors ${
                 profileTab === t
                   ? "border-accent text-accent"
                   : "border-transparent text-text-dim hover:text-text"
@@ -370,8 +370,8 @@ export function ProfileView() {
 
         {profileTab === "notes" && (
           <>
-            {loading && <div className="px-4 py-8 text-text-dim text-[12px] text-center">Loading notes…</div>}
-            {!loading && notes.length === 0 && <div className="px-4 py-8 text-text-dim text-[12px] text-center">No notes found.</div>}
+            {loading && <div className="px-4 py-8 text-text-dim text-body text-center">Loading notes…</div>}
+            {!loading && notes.length === 0 && <div className="px-4 py-8 text-text-dim text-body text-center">No notes found.</div>}
             {notes.map((event) => (
               <NoteCard key={event.id} event={event} />
             ))}
@@ -380,8 +380,8 @@ export function ProfileView() {
 
         {profileTab === "articles" && (
           <>
-            {articlesLoading && <div className="px-4 py-8 text-text-dim text-[12px] text-center">Loading articles…</div>}
-            {!articlesLoading && articles.length === 0 && <div className="px-4 py-8 text-text-dim text-[12px] text-center">No articles found.</div>}
+            {articlesLoading && <div className="px-4 py-8 text-text-dim text-body text-center">Loading articles…</div>}
+            {!articlesLoading && articles.length === 0 && <div className="px-4 py-8 text-text-dim text-body text-center">No articles found.</div>}
             {articles.map((event) => (
               <ArticleCard key={event.id} event={event} />
             ))}

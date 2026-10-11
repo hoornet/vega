@@ -38,14 +38,14 @@ function MutedRow({ pubkey, onUnmute }: { pubkey: string; onUnmute: () => void }
   const profile = useProfile(pubkey);
   const name = profileName(profile, pubkey.slice(0, 12) + "…");
   return (
-    <div className="flex items-center gap-3 px-3 py-2 border border-border text-[12px] group rounded-lg">
+    <div className="flex items-center gap-3 px-3 py-2 border border-border text-ui group rounded-lg">
       {profile?.picture && (
         <img src={profile.picture} alt={`${name}'s avatar`} className="w-5 h-5 rounded-full object-cover shrink-0" />
       )}
       <span className="text-text truncate flex-1">{name}</span>
       <button
         onClick={onUnmute}
-        className="text-text-dim hover:text-accent text-[10px] opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
+        className="text-text-dim hover:text-accent text-caption opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
       >
         unmute
       </button>
@@ -66,7 +66,7 @@ function MuteSection() {
         <span className={`text-text-dim text-[10px] transition-transform ${expanded ? "rotate-90" : "rotate-0"}`}>
           ▶
         </span>
-        <h2 className="text-text text-[11px] font-medium uppercase tracking-widest text-text-dim group-hover:text-text transition-colors">
+        <h2 className="text-text text-micro font-medium uppercase tracking-widest text-text-dim group-hover:text-text transition-colors">
           Muted accounts ({mutedPubkeys.length})
         </h2>
       </button>
@@ -87,7 +87,7 @@ function ArticlesSection() {
 
   return (
     <section>
-      <h2 className="text-text text-[11px] font-medium uppercase tracking-widest mb-2 text-text-dim">
+      <h2 className="text-text text-micro font-medium uppercase tracking-widest mb-2 text-text-dim">
         Articles
       </h2>
       <label className="flex items-center gap-3 cursor-pointer group">
@@ -103,9 +103,9 @@ function ArticlesSection() {
             }`}
           />
         </button>
-        <span className="text-text text-[12px]">Hide RSS reposts in Latest</span>
+        <span className="text-text text-body">Hide RSS reposts in Latest</span>
       </label>
-      <p className="text-text-dim text-[10px] mt-1.5 ml-12">
+      <p className="text-text-dim text-caption mt-1.5 ml-12">
         {hideRss
           ? "Bridges that republish news sites as long-form posts are left out of the Latest tab."
           : "Bridges that republish news sites as long-form posts show in the Latest tab."}
@@ -142,20 +142,20 @@ function MutedKeywordsSection() {
 
   return (
     <section>
-      <h2 className="text-text text-[11px] font-medium uppercase tracking-widest mb-2 text-text-dim">
+      <h2 className="text-text text-micro font-medium uppercase tracking-widest mb-2 text-text-dim">
         Muted keywords {mutedKeywords.length > 0 && `(${mutedKeywords.length})`}
       </h2>
-      <p className="text-text-dim text-[11px] mb-3">
+      <p className="text-text-dim text-caption mb-3">
         Notes containing these words or phrases will be hidden from your feeds.
       </p>
       {mutedKeywords.length > 0 && (
         <div className="space-y-1 mb-3">
           {mutedKeywords.map((kw) => (
-            <div key={kw} className="flex items-center gap-3 px-3 py-2 border border-border text-[12px] group rounded-lg">
+            <div key={kw} className="flex items-center gap-3 px-3 py-2 border border-border text-ui group rounded-lg">
               <span className="text-text truncate flex-1">{kw}</span>
               <button
                 onClick={() => removeKeyword(kw)}
-                className="text-text-dim hover:text-danger text-[10px] opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
+                className="text-text-dim hover:text-danger text-caption opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
               >
                 Remove
               </button>
@@ -169,16 +169,16 @@ function MutedKeywordsSection() {
           onChange={(e) => { setInput(e.target.value); setError(null); }}
           onKeyDown={handleKeyDown}
           placeholder="Word or phrase to mute"
-          className="flex-1 bg-bg border border-border-strong px-3 py-1.5 text-text text-[12px] focus:outline-none focus:border-accent placeholder:text-text-dim rounded-lg"
+          className="flex-1 bg-bg border border-border-strong px-3 py-1.5 text-text text-ui focus:outline-none focus:border-accent placeholder:text-text-dim rounded-lg"
         />
         <button
           onClick={handleAdd}
-          className="px-3 py-1.5 text-[11px] border border-border text-text-muted hover:text-accent hover:border-accent/40 transition-colors shrink-0 rounded-sm"
+          className="px-3 py-1.5 text-ui border border-border text-text-muted hover:text-accent hover:border-accent/40 transition-colors shrink-0 rounded-sm"
         >
           Add
 </button>
       </div>
-      {error && <p className="text-danger text-[11px] mt-1">{error}</p>}
+      {error && <p className="text-danger text-caption mt-1">{error}</p>}
     </section>
   );
 }
@@ -204,10 +204,10 @@ function WoTSection() {
 
   return (
     <section>
-      <h2 className="text-text text-[11px] font-medium uppercase tracking-widest mb-2 text-text-dim">
+      <h2 className="text-text text-micro font-medium uppercase tracking-widest mb-2 text-text-dim">
         Web of Trust filter
       </h2>
-      <p className="text-text-dim text-[11px] mb-3">
+      <p className="text-text-dim text-caption mb-3">
         Hide notes, reactions, and zaps from outside your social graph
         (people you follow + people they follow).
       </p>
@@ -225,21 +225,21 @@ function WoTSection() {
             }`}
           />
         </button>
-        <span className="text-text text-[12px]">WoT feed filter</span>
+        <span className="text-text text-body">WoT feed filter</span>
       </label>
       {noFollows && (
-        <p className="text-text-dim text-[10px] mt-1.5 ml-12">Follow some people first.</p>
+        <p className="text-text-dim text-caption mt-1.5 ml-12">Follow some people first.</p>
       )}
       {enabled && !noFollows && (
         <div className="mt-2 ml-12 space-y-1">
           {loading ? (
-            <p className="text-text-dim text-[10px]">Building…</p>
+            <p className="text-text-dim text-caption">Building…</p>
           ) : wotSet.size > 0 ? (
             <div className="flex items-center gap-3">
-              <p className="text-text-dim text-[10px]">Trusted accounts: {wotSet.size}</p>
+              <p className="text-text-dim text-caption">Trusted accounts: {wotSet.size}</p>
               <button
                 onClick={handleRebuild}
-                className="text-[10px] text-text-dim hover:text-accent transition-colors"
+                className="text-caption text-text-dim hover:text-accent transition-colors"
               >
                 Rebuild
               </button>
@@ -268,8 +268,8 @@ function IdentitySection() {
   if (!loggedIn || !npub) {
     return (
       <section>
-        <h2 className="text-text text-[11px] font-medium uppercase tracking-widest mb-2 text-text-dim">Identity</h2>
-        <p className="text-text-dim text-[12px]">Not logged in.</p>
+        <h2 className="text-text text-micro font-medium uppercase tracking-widest mb-2 text-text-dim">Identity</h2>
+        <p className="text-text-dim text-body">Not logged in.</p>
       </section>
     );
   }
@@ -291,40 +291,40 @@ function IdentitySection() {
 
   return (
     <section>
-      <h2 className="text-text text-[11px] font-medium uppercase tracking-widest mb-2 text-text-dim">Identity</h2>
+      <h2 className="text-text text-micro font-medium uppercase tracking-widest mb-2 text-text-dim">Identity</h2>
       <div className="flex items-center gap-2 px-3 py-2 border border-border rounded-lg">
-        <span className="text-text font-mono text-[11px] truncate flex-1">{npub}</span>
+        <span className="text-text font-mono text-caption truncate flex-1">{npub}</span>
         <button
           onClick={handleCopy}
-          className="text-[10px] text-text-dim hover:text-accent transition-colors shrink-0"
+          className="text-caption text-text-dim hover:text-accent transition-colors shrink-0"
         >
           {copied ? "copied ✓" : "copy npub"}
         </button>
       </div>
-      <p className="text-text-dim text-[10px] mt-1 px-1">Your public key. Safe to share.</p>
+      <p className="text-text-dim text-caption mt-1 px-1">Your public key. Safe to share.</p>
 
       {nsec && (
         <>
           <div className="flex items-center gap-2 px-3 py-2 border border-danger/40 mt-3 rounded-lg">
-            <span className={`font-mono text-[11px] truncate flex-1 ${revealed ? "text-text" : "text-text-dim"}`}>
+            <span className={`font-mono text-caption truncate flex-1 ${revealed ? "text-text" : "text-text-dim"}`}>
               {revealed ? nsec : "•".repeat(48)}
             </span>
             <button
               onClick={() => setRevealed((v) => !v)}
-              className="text-[10px] text-text-dim hover:text-text transition-colors shrink-0"
+              className="text-caption text-text-dim hover:text-text transition-colors shrink-0"
             >
               {revealed ? "hide" : "reveal"}
             </button>
             {revealed && (
               <button
                 onClick={handleCopyNsec}
-                className="text-[10px] text-text-dim hover:text-danger transition-colors shrink-0"
+                className="text-caption text-text-dim hover:text-danger transition-colors shrink-0"
               >
                 {nsecCopied ? "copied ✓" : "copy"}
               </button>
             )}
           </div>
-          <p className="text-text-dim text-[10px] mt-1 px-1">
+          <p className="text-text-dim text-caption mt-1 px-1">
             Your secret key — the only way to recover this account. Never share it. Back it up somewhere safe.
           </p>
         </>
@@ -336,7 +336,7 @@ function IdentitySection() {
 function WalletSection() {
   return (
     <section>
-      <h2 className="text-text text-[11px] font-medium uppercase tracking-widest mb-2 text-text-dim">Lightning Wallet (NWC)</h2>
+      <h2 className="text-text text-micro font-medium uppercase tracking-widest mb-2 text-text-dim">Lightning Wallet (NWC)</h2>
       <NWCWizard />
     </section>
   );
@@ -383,23 +383,23 @@ function ExportSection() {
 
   return (
     <section>
-      <h2 className="text-text text-[11px] font-medium uppercase tracking-widest mb-2 text-text-dim">Export Data</h2>
-      <p className="text-text-dim text-[11px] mb-3">
+      <h2 className="text-text text-micro font-medium uppercase tracking-widest mb-2 text-text-dim">Export Data</h2>
+      <p className="text-text-dim text-caption mb-3">
         Save your bookmarks, follows, and relay list to a JSON file. Your keys, your data.
       </p>
       <div className="flex items-center gap-3">
         <button
           onClick={handleExport}
           disabled={status === "saving"}
-          className="px-3 py-1.5 text-[11px] border border-border text-text-muted hover:text-accent hover:border-accent/40 transition-colors disabled:opacity-40 disabled:cursor-not-allowed rounded-sm"
+          className="px-3 py-1.5 text-ui border border-border text-text-muted hover:text-accent hover:border-accent/40 transition-colors disabled:opacity-40 disabled:cursor-not-allowed rounded-sm"
         >
           {status === "saving" ? "Exporting…" : status === "done" ? "Exported ✓" : "Export data"}
         </button>
-        <span className="text-text-dim text-[10px]">
+        <span className="text-text-dim text-caption">
           {bookmarkedIds.length} notes · {bookmarkedArticleAddrs.length} articles · {follows.length} follows · {getStoredRelayUrls().length} relays
         </span>
       </div>
-      {errorMsg && <p className="text-danger text-[10px] mt-1">{errorMsg}</p>}
+      {errorMsg && <p className="text-danger text-caption mt-1">{errorMsg}</p>}
     </section>
   );
 }
@@ -424,10 +424,10 @@ function NotificationSection() {
 
   return (
     <section>
-      <h2 className="text-text text-[11px] font-medium uppercase tracking-widest mb-2 text-text-dim">
+      <h2 className="text-text text-micro font-medium uppercase tracking-widest mb-2 text-text-dim">
         Notifications
       </h2>
-      <p className="text-text-dim text-[11px] mb-3">
+      <p className="text-text-dim text-caption mb-3">
         OS-level push notifications. Requires system permission.
       </p>
       <div className="space-y-2">
@@ -445,7 +445,7 @@ function NotificationSection() {
                 }`}
               />
             </button>
-            <span className="text-text text-[12px]">{label}</span>
+            <span className="text-text text-body">{label}</span>
           </label>
         ))}
       </div>
@@ -527,10 +527,10 @@ function ProxySection() {
 
   return (
     <section>
-      <h2 className="text-text text-[11px] font-medium uppercase tracking-widest mb-2 text-text-dim">
+      <h2 className="text-text text-micro font-medium uppercase tracking-widest mb-2 text-text-dim">
         Network Proxy
       </h2>
-      <p className="text-text-dim text-[11px] mb-3">
+      <p className="text-text-dim text-caption mb-3">
         Route Vega's in-app network traffic through an HTTP or SOCKS5 proxy.
       </p>
       <label className="flex items-center gap-3 cursor-pointer group mb-3">
@@ -547,7 +547,7 @@ function ProxySection() {
             }`}
           />
         </button>
-        <span className="text-text text-[12px]">Use proxy for connections</span>
+        <span className="text-text text-body">Use proxy for connections</span>
       </label>
       <div className="flex gap-2 ml-12">
         <input
@@ -555,33 +555,33 @@ function ProxySection() {
           onChange={(e) => updateUrl(e.target.value)}
           placeholder="socks5://127.0.0.1:9050"
           disabled={!settings.enabled || status === "loading"}
-          className="flex-1 bg-bg border border-border-strong px-3 py-1.5 text-text text-[12px] focus:outline-none focus:border-accent placeholder:text-text-dim disabled:opacity-50 disabled:cursor-not-allowed font-mono rounded-lg"
+          className="flex-1 bg-bg border border-border-strong px-3 py-1.5 text-text text-ui focus:outline-none focus:border-accent placeholder:text-text-dim disabled:opacity-50 disabled:cursor-not-allowed font-mono rounded-lg"
         />
         <button
           onClick={saveSettings}
           disabled={status === "saving" || status === "loading" || !!validationError || !dirty}
-          className="px-3 py-1.5 text-[11px] border border-border text-text-muted hover:text-accent hover:border-accent/40 transition-colors disabled:opacity-40 disabled:cursor-not-allowed shrink-0 rounded-sm"
+          className="px-3 py-1.5 text-ui border border-border text-text-muted hover:text-accent hover:border-accent/40 transition-colors disabled:opacity-40 disabled:cursor-not-allowed shrink-0 rounded-sm"
         >
           {status === "saving" ? "Saving..." : "Save"}
         </button>
       </div>
-      <p className="text-text-dim text-[10px] mt-1.5 ml-12">
+      <p className="text-text-dim text-caption mt-1.5 ml-12">
         Applies after restart. Example: socks5://127.0.0.1:9050
       </p>
-      <p className="text-text-dim text-[10px] mt-1 ml-12 leading-relaxed">
+      <p className="text-text-dim text-caption mt-1 ml-12 leading-relaxed">
         Note: Vega's own HTTP requests (update checks, uploads, link previews) resolve
         DNS through the proxy. Relay connections run in the webview, which may still
         resolve hostnames locally — full DNS privacy for Tor is not guaranteed yet.
       </p>
       {(error || validationError) && (
-        <p className="text-danger text-[10px] mt-1 ml-12">{error ?? validationError}</p>
+        <p className="text-danger text-caption mt-1 ml-12">{error ?? validationError}</p>
       )}
       {savedNeedsRestart && (
         <div className="flex items-center gap-3 mt-2 ml-12">
-          <p className="text-accent text-[10px]">Saved. Restart Vega to apply it to all connections.</p>
+          <p className="text-accent text-caption">Saved. Restart Vega to apply it to all connections.</p>
           <button
             onClick={() => relaunch()}
-            className="px-2 py-1 text-[10px] border border-accent/40 text-accent hover:bg-bg-hover transition-colors rounded-sm"
+            className="px-2 py-1 text-caption border border-accent/40 text-accent hover:bg-bg-hover transition-colors rounded-sm"
           >
             Restart now
           </button>
@@ -596,7 +596,7 @@ function ThemeSection() {
 
   return (
     <section>
-      <h2 className="text-text text-[11px] font-medium uppercase tracking-widest mb-3 text-text-dim">
+      <h2 className="text-text text-micro font-medium uppercase tracking-widest mb-3 text-text-dim">
         Theme
       </h2>
       <div className="flex flex-wrap gap-2">
@@ -604,7 +604,7 @@ function ThemeSection() {
           <button
             key={theme.id}
             onClick={() => setTheme(theme.id)}
-            className={`flex flex-col items-center gap-1.5 p-2 border transition-colors rounded-sm w-20 ${
+            className={`flex flex-col items-center gap-1.5 p-2 border transition-colors rounded-sm min-w-20 ${
               themeId === theme.id
                 ? "border-accent bg-bg-hover"
                 : "border-border hover:border-accent/40"
@@ -616,7 +616,7 @@ function ThemeSection() {
               <div className="flex-1" style={{ background: theme.colors.accent }} />
               <div className="flex-1" style={{ background: theme.colors.text }} />
             </div>
-            <span className="text-[10px] text-text-muted truncate w-full text-center">
+            <span className="text-caption text-text-muted whitespace-nowrap text-center">
               {theme.name}
             </span>
           </button>
@@ -638,7 +638,7 @@ function FontSizeSection() {
 
   return (
     <section>
-      <h2 className="text-text text-[11px] font-medium uppercase tracking-widest mb-2 text-text-dim">
+      <h2 className="text-text text-micro font-medium uppercase tracking-widest mb-2 text-text-dim">
         Font Size
       </h2>
       <div className="flex flex-wrap items-center gap-2">
@@ -646,7 +646,7 @@ function FontSizeSection() {
           <button
             key={size}
             onClick={() => setFontSize(size)}
-            className={`px-3 py-1.5 text-[11px] border transition-colors ${
+            className={`px-3 py-1.5 text-ui border transition-colors ${
               fontSize === size
                 ? "border-accent text-accent"
                 : "border-border text-text-muted hover:text-text hover:border-accent/40"
@@ -656,7 +656,7 @@ function FontSizeSection() {
           </button>
         ))}
       </div>
-      <p className="text-text-dim text-[10px] mt-2 px-1">
+      <p className="text-text-dim text-caption mt-2 px-1">
         Adjusts the base text size across the app. Articles use their own reading font.
       </p>
     </section>
@@ -694,7 +694,7 @@ function RelayAuthSection() {
 
   return (
     <section>
-      <h2 className="text-text text-[11px] font-medium uppercase tracking-widest mb-2 text-text-dim">
+      <h2 className="text-text text-micro font-medium uppercase tracking-widest mb-2 text-text-dim">
         Relay authentication
       </h2>
       <div className="flex flex-wrap items-center gap-2">
@@ -702,7 +702,7 @@ function RelayAuthSection() {
           <button
             key={opt.value}
             onClick={() => choose(opt.value)}
-            className={`px-3 py-1.5 text-[11px] border transition-colors ${
+            className={`px-3 py-1.5 text-ui border transition-colors ${
               scope === opt.value
                 ? "border-accent text-accent"
                 : "border-border text-text-muted hover:text-text hover:border-accent/40"
@@ -712,7 +712,7 @@ function RelayAuthSection() {
           </button>
         ))}
       </div>
-      <p className="text-text-dim text-[10px] mt-2 px-1">
+      <p className="text-text-dim text-caption mt-2 px-1">
         {scope === "configured"
           ? "Vega proves who you are only to relays you added yourself. Some relays hide your private messages until you do."
           : "Vega proves who you are to any relay that asks. That relay then knows your identity and can link it to everything you request."}
@@ -726,13 +726,13 @@ function EasyReadFontSection() {
 
   return (
     <section>
-      <h2 className="text-text text-[11px] font-medium uppercase tracking-widest mb-2 text-text-dim">
+      <h2 className="text-text text-micro font-medium uppercase tracking-widest mb-2 text-text-dim">
         Easy-Read Font
       </h2>
       <div className="flex flex-wrap items-center gap-2">
         <button
           onClick={() => setEasyReadFont(!easyReadFont)}
-          className={`px-3 py-1.5 text-[11px] border transition-colors ${
+          className={`px-3 py-1.5 text-ui border transition-colors ${
             easyReadFont
               ? "border-accent text-accent"
               : "border-border text-text-muted hover:text-text hover:border-accent/40"
@@ -741,7 +741,7 @@ function EasyReadFontSection() {
           {easyReadFont ? "On" : "Off"}
         </button>
       </div>
-      <p className="text-text-dim text-[10px] mt-2 px-1">
+      <p className="text-text-dim text-caption mt-2 px-1">
         Switches the UI to Atkinson Hyperlegible — a font designed by the
         Braille Institute for legibility. Helps dyslexic readers and anyone
         reading long sessions; slightly wider letter-spacing and line-height
@@ -777,7 +777,7 @@ function RelayReachSection() {
 
   return (
     <section>
-      <h2 className="text-text text-[11px] font-medium uppercase tracking-widest mb-2 text-text-dim">
+      <h2 className="text-text text-micro font-medium uppercase tracking-widest mb-2 text-text-dim">
         Relay reach
       </h2>
       <label className="flex items-center gap-3 cursor-pointer group">
@@ -794,9 +794,9 @@ function RelayReachSection() {
             }`}
           />
         </button>
-        <span className="text-text text-[12px]">Use authors' relays (NIP-65)</span>
+        <span className="text-text text-body">Use authors' relays (NIP-65)</span>
       </label>
-      <p className="text-text-dim text-[10px] mt-1.5 ml-12">
+      <p className="text-text-dim text-caption mt-1.5 ml-12">
         {enabled
           ? "Vega may connect to relays your follows publish to, beyond your own list. Better reach, many more connections."
           : "Vega connects only to the relays you have configured. Some notes from people you follow may not load."}
@@ -833,10 +833,10 @@ function ExperimentalSection() {
 
   return (
     <section>
-      <h2 className="text-text text-[11px] font-medium uppercase tracking-widest mb-2 text-text-dim">
+      <h2 className="text-text text-micro font-medium uppercase tracking-widest mb-2 text-text-dim">
         Experimental
       </h2>
-      <p className="text-text-dim text-[11px] mb-3">
+      <p className="text-text-dim text-caption mb-3">
         Features under development. May change or be removed.
       </p>
       <label className="flex items-center gap-3 cursor-pointer group">
@@ -852,13 +852,13 @@ function ExperimentalSection() {
             }`}
           />
         </button>
-        <span className="text-text text-[12px]">Personal relay</span>
+        <span className="text-text text-body">Personal relay</span>
       </label>
-      <p className="text-text-dim text-[10px] mt-1.5 ml-12">
+      <p className="text-text-dim text-caption mt-1.5 ml-12">
         Run a local Nostr relay for offline access and faster reads.
       </p>
       {enabled && (port || stats) && (
-        <div className="text-text-dim text-[10px] mt-2 ml-12 space-y-0.5">
+        <div className="text-text-dim text-caption mt-2 ml-12 space-y-0.5">
           {port && <p>Running on port {port}</p>}
           {stats && (
             <p>
@@ -887,7 +887,7 @@ function DiagnosticsSection() {
 
   return (
     <section>
-      <h2 className="text-text text-[11px] font-medium uppercase tracking-widest mb-2 text-text-dim">
+      <h2 className="text-text text-micro font-medium uppercase tracking-widest mb-2 text-text-dim">
         Diagnostics
       </h2>
       <label className="flex items-center gap-3 cursor-pointer group">
@@ -903,15 +903,15 @@ function DiagnosticsSection() {
             }`}
           />
         </button>
-        <span className="text-text text-[12px]">Write diagnostics log</span>
+        <span className="text-text text-body">Write diagnostics log</span>
       </label>
-      <p className="text-text-dim text-[10px] mt-1.5 ml-12">
+      <p className="text-text-dim text-caption mt-1.5 ml-12">
         {enabled
           ? "Recording relay and memory samples twice a second. Turn this off when you're done — it's only useful while reproducing a problem."
           : "Off. Turn on only if asked to, while reproducing a bug — then send the file with your report."}
       </p>
       {enabled && logPath && (
-        <p className="text-text-dim text-[10px] mt-1 ml-12 font-mono break-all">{logPath}</p>
+        <p className="text-text-dim text-micro mt-1 ml-12 font-mono break-all">{logPath}</p>
       )}
     </section>
   );
@@ -921,7 +921,7 @@ export function SettingsView() {
   return (
     <div className="h-full flex flex-col">
       <header className="border-b border-border-subtle px-4 py-2.5 shrink-0">
-        <h1 className="text-text text-sm font-medium tracking-wide">Settings</h1>
+        <h1 className="text-text text-title font-medium tracking-wide">Settings</h1>
       </header>
 
       <div className="flex-1 overflow-y-auto p-4 space-y-8">

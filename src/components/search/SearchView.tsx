@@ -63,15 +63,15 @@ function UserRow({ user }: { user: ParsedUser }) {
         )}
       </button>
       <button className="min-w-0 flex-1 cursor-pointer text-left" onClick={() => navToProfile(user.pubkey)}>
-        <div className="text-text text-[13px] font-medium truncate">{displayName}</div>
-        {user.nip05 && <div className="text-text-dim text-[10px] truncate">{user.nip05}</div>}
-        {user.about && <div className="text-text-dim text-[11px] truncate mt-0.5">{user.about}</div>}
+        <div className="text-text text-body font-medium truncate">{displayName}</div>
+        {user.nip05 && <div className="text-text-dim text-caption truncate">{user.nip05}</div>}
+        {user.about && <div className="text-text-dim text-caption truncate mt-0.5">{user.about}</div>}
       </button>
       {loggedIn && !isOwn && (
         <button
           onClick={handleFollowToggle}
           disabled={pending}
-          className={`text-[11px] px-3 py-1 border transition-colors shrink-0 disabled:opacity-40 disabled:cursor-not-allowed ${
+          className={`text-ui px-3 py-1 border transition-colors shrink-0 disabled:opacity-40 disabled:cursor-not-allowed ${
             isFollowing
               ? "border-border text-text-muted hover:text-danger hover:border-danger/40"
               : "border-accent/60 text-accent hover:bg-accent hover:text-accent-text"
@@ -111,7 +111,7 @@ function SuggestionFollowButton({ pubkey }: { pubkey: string }) {
     <button
       onClick={handleClick}
       disabled={pending}
-      className={`text-[11px] px-3 py-1 border transition-colors shrink-0 disabled:opacity-40 disabled:cursor-not-allowed ${
+      className={`text-ui px-3 py-1 border transition-colors shrink-0 disabled:opacity-40 disabled:cursor-not-allowed ${
         isFollowing
           ? "border-border text-text-muted hover:text-danger hover:border-danger/40"
           : "border-accent/60 text-accent hover:bg-accent hover:text-accent-text"
@@ -289,12 +289,12 @@ export function SearchView() {
             placeholder="search… try by:name, #tag, has:image, is:article, since:2026-01-01"
             aria-label="Search Nostr"
             autoFocus
-            className="flex-1 bg-transparent text-text text-[13px] placeholder:text-text-dim focus:outline-none"
+            className="flex-1 bg-transparent text-text text-ui placeholder:text-text-dim focus:outline-none"
           />
           <button
             onClick={() => handleSearch()}
             disabled={!query.trim() || loading}
-            className="text-[11px] px-3 py-1 border border-border text-text-muted hover:text-accent hover:border-accent/40 transition-colors disabled:opacity-30 disabled:cursor-not-allowed shrink-0 rounded-sm"
+            className="text-ui px-3 py-1 border border-border text-text-muted hover:text-accent hover:border-accent/40 transition-colors disabled:opacity-30 disabled:cursor-not-allowed shrink-0 rounded-sm"
           >
             {loading ? "…" : "Search"}
           </button>
@@ -310,7 +310,7 @@ export function SearchView() {
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
-                className={`px-4 py-2 text-[11px] border-b-2 transition-colors ${
+                className={`px-4 py-2 text-ui border-b-2 transition-colors ${
                   activeTab === tab
                     ? "border-accent text-accent"
                     : "border-transparent text-text-dim hover:text-text"
@@ -326,7 +326,7 @@ export function SearchView() {
       {/* Search hint bar */}
       {searchHint && searched && (
         <div className="border-b border-border-subtle px-4 py-1.5 bg-bg-raised shrink-0">
-          <span className="text-text-dim text-[10px]">{searchHint}</span>
+          <span className="text-text-dim text-caption">{searchHint}</span>
         </div>
       )}
 
@@ -337,7 +337,7 @@ export function SearchView() {
         {loading && (
           <div className="px-4 py-12 flex flex-col items-center gap-3">
             <span className="w-5 h-5 border-2 border-accent border-t-transparent rounded-full animate-spin" />
-            <p className="text-text-dim text-[12px]">
+            <p className="text-text-dim text-body">
               Searching relays for <span className="text-text font-medium">{query}</span>
             </p>
           </div>
@@ -347,18 +347,18 @@ export function SearchView() {
         {!searched && !loading && (
           <div className="px-4 py-6 space-y-4">
             <div className="text-center space-y-2">
-              <p className="text-text-dim text-[12px]">
+              <p className="text-text-dim text-body">
                 Type a keyword, <span className="text-accent">#hashtag</span>, or use search modifiers.
               </p>
-              <p className="text-text-dim text-[11px]">
+              <p className="text-text-dim text-caption">
                 Full-text search uses dedicated search relays. Hashtag and keyword results are combined.
               </p>
             </div>
 
             {/* Search syntax help */}
             <div className="max-w-md mx-auto">
-              <h3 className="text-text-dim text-[10px] uppercase tracking-widest mb-2">Search modifiers</h3>
-              <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-[11px]">
+              <h3 className="text-text-dim text-micro uppercase tracking-widest mb-2">Search modifiers</h3>
+              <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-caption">
                 <span className="text-accent font-mono">by:user@domain</span>
                 <span className="text-text-dim">notes from NIP-05 author</span>
                 <span className="text-accent font-mono">by:npub1...</span>
@@ -378,7 +378,7 @@ export function SearchView() {
                 <span className="text-accent font-mono">A OR B</span>
                 <span className="text-text-dim">match either term</span>
               </div>
-              <p className="text-text-dim text-[10px] mt-2">
+              <p className="text-text-dim text-caption mt-2">
                 Combine freely: <span className="font-mono text-text-muted">bitcoin by:dergigi has:image since:2026-01-01</span>
               </p>
             </div>
@@ -388,9 +388,9 @@ export function SearchView() {
         {/* Trending hashtags */}
         {!searched && !loading && (trending.length > 0 || trendingLoading) && (
           <div className="border-t border-border-subtle px-4 py-4">
-            <h3 className="text-text-dim text-[10px] uppercase tracking-widest mb-2">Trending now</h3>
+            <h3 className="text-text-dim text-micro uppercase tracking-widest mb-2">Trending now</h3>
             {trendingLoading && (
-              <p className="text-text-dim text-[11px]">Loading trends…</p>
+              <p className="text-text-dim text-caption">Loading trends…</p>
             )}
             <div className="flex flex-wrap gap-2">
               {trending.map((t) => (
@@ -401,9 +401,9 @@ export function SearchView() {
                     setQuery(hashQuery);
                     handleSearch(hashQuery);
                   }}
-                  className="px-2.5 py-1 text-[11px] border border-border text-text-muted hover:text-accent hover:border-accent/40 transition-colors rounded-sm"
+                  className="px-2.5 py-1 text-ui border border-border text-text-muted hover:text-accent hover:border-accent/40 transition-colors rounded-sm"
                 >
-                  #{t.tag} <span className="text-text-dim text-[10px]">({t.count})</span>
+                  #{t.tag} <span className="text-text-dim text-caption">({t.count})</span>
                 </button>
               ))}
             </div>
@@ -414,11 +414,11 @@ export function SearchView() {
         {!searched && !loading && loggedIn && (
           <div className="border-t border-border-subtle">
             <div className="px-4 py-2.5 border-b border-border-subtle">
-              <h3 className="text-text text-[12px] font-medium">Discover people</h3>
-              <p className="text-text-dim text-[10px] mt-0.5">Based on who your follows follow</p>
+              <h3 className="text-text text-body font-medium">Discover people</h3>
+              <p className="text-text-dim text-caption mt-0.5">Based on who your follows follow</p>
             </div>
             {suggestionsLoading && (
-              <div className="px-4 py-6 text-text-dim text-[11px] text-center">Finding suggestions…</div>
+              <div className="px-4 py-6 text-text-dim text-caption text-center">Finding suggestions…</div>
             )}
             {visibleSuggestions.map((s) => s.profile && (
               <div key={s.pubkey} className="flex items-center gap-3 px-4 py-2.5 border-b border-border-subtle hover:bg-bg-hover transition-colors group/suggestion">
@@ -433,15 +433,15 @@ export function SearchView() {
                   )}
                 </button>
                 <button className="min-w-0 flex-1 cursor-pointer text-left" onClick={() => useUIStore.getState().openProfile(s.pubkey)}>
-                  <div className="text-text text-[13px] font-medium truncate">
+                  <div className="text-text text-body font-medium truncate">
                     {s.profile.displayName || s.profile.name || shortenPubkey(s.pubkey)}
                   </div>
-                  <div className="text-text-dim text-[10px]">
+                  <div className="text-text-dim text-caption">
                     {s.mutualCount} mutual follow{s.mutualCount !== 1 ? "s" : ""}
                     {s.profile.nip05 && <span className="ml-2">{s.profile.nip05}</span>}
                   </div>
                   {s.profile.about && (
-                    <div className="text-text-dim text-[11px] truncate mt-0.5">{s.profile.about}</div>
+                    <div className="text-text-dim text-caption truncate mt-0.5">{s.profile.about}</div>
                   )}
                 </button>
                 <SuggestionFollowButton pubkey={s.pubkey} />
@@ -455,7 +455,7 @@ export function SearchView() {
               </div>
             ))}
             {suggestionsLoaded && visibleSuggestions.length === 0 && (
-              <div className="px-4 py-6 text-text-dim text-[11px] text-center">
+              <div className="px-4 py-6 text-text-dim text-caption text-center">
                 Follow more people to see suggestions here.
               </div>
             )}
@@ -465,10 +465,10 @@ export function SearchView() {
         {/* Zero results */}
         {searched && totalResults === 0 && (
           <div className="px-4 py-8 text-center space-y-3">
-            <p className="text-text-dim text-[12px]">
+            <p className="text-text-dim text-body">
               No results for <span className="text-text font-medium">{query}</span>.
             </p>
-            <p className="text-text-dim text-[11px]">
+            <p className="text-text-dim text-caption">
               Try different keywords, a #hashtag, or check your relay connections.
             </p>
           </div>
@@ -477,7 +477,7 @@ export function SearchView() {
         {/* People tab — zero results hint */}
         {searched && activeTab === "people" && filteredUserResults.length === 0 && totalResults > 0 && (
           <div className="px-4 py-6 text-center">
-            <p className="text-text-dim text-[12px]">No people found for <span className="text-text">{query}</span>.</p>
+            <p className="text-text-dim text-body">No people found for <span className="text-text">{query}</span>.</p>
           </div>
         )}
 

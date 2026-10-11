@@ -25,7 +25,7 @@ function ArticleCardWithReadStatus({ event }: { event: NDKEvent }) {
       {fullAddr && (
         <button
           onClick={() => isRead ? markArticleUnread(fullAddr) : markArticleRead(fullAddr)}
-          className="absolute right-3 top-3 text-[10px] text-text-dim hover:text-accent opacity-0 group-hover:opacity-100 transition-opacity z-10"
+          className="absolute right-3 top-3 text-caption text-text-dim hover:text-accent opacity-0 group-hover:opacity-100 transition-opacity z-10"
         >
           {isRead ? "Mark unread" : "Mark read"}
         </button>
@@ -172,8 +172,8 @@ export function BookmarkView() {
       <header className="border-b border-border-subtle px-4 py-2.5 shrink-0">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <h2 className="text-text text-[13px] font-medium">Bookmarks</h2>
-            <div className="flex border border-border rounded-sm overflow-hidden text-[11px]">
+            <h2 className="text-text text-title font-medium">Bookmarks</h2>
+            <div className="flex border border-border rounded-sm overflow-hidden text-ui">
               <button
                 onClick={() => setTab("notes")}
                 className={`px-3 py-0.5 transition-colors ${tab === "notes" ? "bg-accent/10 text-accent" : "text-text-muted hover:text-text"}`}
@@ -186,12 +186,12 @@ export function BookmarkView() {
               >
                 Articles
                 {unreadArticleCount() > 0 && (
-                  <span className="ml-1 text-[9px] bg-accent/20 text-accent px-1 rounded-sm">{unreadArticleCount()}</span>
+                  <span className="ml-1 text-micro bg-accent/20 text-accent px-1 rounded-sm">{unreadArticleCount()}</span>
                 )}
               </button>
             </div>
           </div>
-          <span className="text-text-dim text-[11px]">{totalCount} saved</span>
+          <span className="text-text-dim text-caption">{totalCount} saved</span>
         </div>
       </header>
 
@@ -202,10 +202,10 @@ export function BookmarkView() {
 
         {!loading && items.length === 0 && (
           <div className="px-4 py-12 text-center space-y-2">
-            <p className="text-text-dim text-[13px]">
+            <p className="text-text-dim text-body">
               {tab === "notes" ? "No bookmarked notes." : "No bookmarked articles."}
             </p>
-            <p className="text-text-dim text-[11px]">
+            <p className="text-text-dim text-caption">
               {tab === "notes"
                 ? <>Use the <span className="text-accent">save</span> button on any note to bookmark it here.</>
                 : <>Use the <span className="text-accent">save</span> button on any article to add it to your reading list.</>

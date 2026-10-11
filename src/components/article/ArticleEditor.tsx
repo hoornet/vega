@@ -259,7 +259,7 @@ export function ArticleEditor() {
       <div className="fixed inset-0 z-50 bg-bg flex flex-col items-center">
         {/* Exit hint — fades after 2.5s */}
         <div
-          className={`absolute top-3 left-1/2 -translate-x-1/2 text-text-dim text-[10px] transition-opacity duration-700 ${
+          className={`absolute top-3 left-1/2 -translate-x-1/2 text-text-dim text-caption transition-opacity duration-700 ${
             zenHint ? "opacity-100" : "opacity-0"
           }`}
         >
@@ -271,7 +271,7 @@ export function ArticleEditor() {
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             placeholder="Title"
-            className="w-full bg-transparent text-text text-3xl font-bold placeholder:text-text-dim focus:outline-none mb-6"
+            className="w-full bg-transparent text-text text-display font-bold placeholder:text-text-dim focus:outline-none mb-6"
             style={{ fontFamily: "var(--font-reading)" }}
           />
           <textarea
@@ -280,11 +280,11 @@ export function ArticleEditor() {
             onChange={(e) => setContent(e.target.value)}
             onKeyDown={(e) => handleEditorKeyDown(e, zenTextareaRef, content, setContent)}
             placeholder="Write…"
-            className="w-full flex-1 bg-transparent text-text text-[17px] leading-relaxed placeholder:text-text-dim resize-none focus:outline-none"
+            className="w-full flex-1 bg-transparent text-text text-title leading-relaxed placeholder:text-text-dim resize-none focus:outline-none"
             style={{ fontFamily: "var(--font-reading)" }}
             autoFocus
           />
-          <div className="text-text-dim text-[10px] pt-3 text-center">
+          <div className="text-text-dim text-caption pt-3 text-center">
             {wordCount > 0 ? `${wordCount} words` : ""}
           </div>
         </div>
@@ -297,20 +297,20 @@ export function ArticleEditor() {
       {/* Header */}
       <header className="border-b border-border-subtle px-4 py-2.5 flex items-center justify-between shrink-0">
         <div className="flex items-center gap-3">
-          <button onClick={() => setActiveDraft(null)} className="text-text-dim hover:text-text text-[11px] transition-colors">
+          <button onClick={() => setActiveDraft(null)} className="text-text-dim hover:text-text text-ui transition-colors">
             ← Drafts
           </button>
-          <span className="text-text-dim text-[10px]">{wordCount > 0 ? `${wordCount} words` : "New article"}</span>
+          <span className="text-text-dim text-caption">{wordCount > 0 ? `${wordCount} words` : "New article"}</span>
           {activeDraft && !published && lastSaved && (
-            <span className="text-text-dim text-[10px]">
+            <span className="text-text-dim text-caption">
               · saved {formatSavedAgo(Date.now() - lastSaved)}
             </span>
           )}
           {published && publishedRelays > 0 && (
-            <span className="text-success text-[10px]">· published to {publishedRelays} {publishedRelays === 1 ? "relay" : "relays"}</span>
+            <span className="text-success text-caption">· published to {publishedRelays} {publishedRelays === 1 ? "relay" : "relays"}</span>
           )}
           {uploading && (
-            <span className="inline-flex items-center gap-1 text-text-dim text-[10px]">
+            <span className="inline-flex items-center gap-1 text-text-dim text-caption">
               <span className="w-3 h-3 border border-accent border-t-transparent rounded-full animate-spin" />
               uploading…
             </span>
@@ -319,7 +319,7 @@ export function ArticleEditor() {
 
         <div className="flex items-center gap-2">
           {/* Write / Preview toggle */}
-          <div className="flex border border-border text-[11px] rounded-sm overflow-hidden">
+          <div className="flex border border-border text-ui rounded-sm overflow-hidden">
             <button
               onClick={() => setMode("write")}
               className={`px-3 py-1 transition-colors ${mode === "write" ? "bg-accent/10 text-accent" : "text-text-muted hover:text-text"}`}
@@ -336,7 +336,7 @@ export function ArticleEditor() {
 
           <button
             onClick={toggleZen}
-            className="px-3 py-1 text-[11px] border border-border text-text-muted hover:text-text transition-colors rounded-sm"
+            className="px-3 py-1 text-ui border border-border text-text-muted hover:text-text transition-colors rounded-sm"
             title="Focus mode (F11)"
           >
             Zen
@@ -344,7 +344,7 @@ export function ArticleEditor() {
 
           <button
             onClick={() => setShowMeta((v) => !v)}
-            className={`px-3 py-1 text-[11px] border border-border transition-colors ${showMeta ? "text-accent border-accent/40" : "text-text-muted hover:text-text"} rounded-sm`}
+            className={`px-3 py-1 text-ui border border-border transition-colors ${showMeta ? "text-accent border-accent/40" : "text-text-muted hover:text-text"} rounded-sm`}
           >
             Meta
           </button>
@@ -353,14 +353,14 @@ export function ArticleEditor() {
             <button
               onClick={handlePublish}
               disabled={!canPublish || publishing || published}
-              className="px-4 py-1 text-[11px] bg-accent hover:bg-accent-hover text-accent-text transition-colors disabled:opacity-30 disabled:cursor-not-allowed rounded-sm"
+              className="px-4 py-1 text-ui bg-accent hover:bg-accent-hover text-accent-text transition-colors disabled:opacity-30 disabled:cursor-not-allowed rounded-sm"
             >
               {published ? "Published ✓" : publishing ? "Publishing…" : "Publish"}
             </button>
           ) : (
             <button
               onClick={() => setShowLoginModal(true)}
-              className="px-4 py-1 text-[11px] border border-accent/60 text-accent hover:bg-accent hover:text-accent-text transition-colors rounded-sm"
+              className="px-4 py-1 text-ui border border-accent/60 text-accent hover:bg-accent hover:text-accent-text transition-colors rounded-sm"
             >
               Sign in to publish
             </button>
@@ -372,42 +372,42 @@ export function ArticleEditor() {
       {showMeta && (
         <div className="border-b border-border-subtle px-6 py-3 bg-bg-raised grid grid-cols-2 gap-3 shrink-0">
           <div>
-            <label className="text-text-dim text-[10px] block mb-1">Summary</label>
+            <label className="text-text-dim text-caption block mb-1">Summary</label>
             <textarea
               value={summary}
               onChange={(e) => setSummary(e.target.value)}
               placeholder="A short description…"
               rows={2}
-              className="w-full bg-bg border border-border-strong px-2 py-1.5 text-text text-[12px] resize-none focus:outline-none focus:border-accent rounded-lg"
+              className="w-full bg-bg border border-border-strong px-2 py-1.5 text-text text-ui resize-none focus:outline-none focus:border-accent rounded-lg"
             />
           </div>
           <div className="flex flex-col gap-2">
             <div>
-              <label className="text-text-dim text-[10px] block mb-1">Cover image</label>
+              <label className="text-text-dim text-caption block mb-1">Cover image</label>
               <div className="flex gap-1">
                 <input
                   value={image}
                   onChange={(e) => setImage(e.target.value)}
                   placeholder="https://…"
-                  className="flex-1 bg-bg border border-border-strong px-2 py-1.5 text-text text-[12px] focus:outline-none focus:border-accent rounded-lg"
+                  className="flex-1 bg-bg border border-border-strong px-2 py-1.5 text-text text-ui focus:outline-none focus:border-accent rounded-lg"
                 />
                 <button
                   onClick={handleCoverImagePick}
                   disabled={uploading}
                   title="Upload cover image"
-                  className="px-2 py-1.5 text-[11px] border border-border text-text-muted hover:text-text hover:bg-bg-hover transition-colors disabled:opacity-30 rounded-sm"
+                  className="px-2 py-1.5 text-ui border border-border text-text-muted hover:text-text hover:bg-bg-hover transition-colors disabled:opacity-30 rounded-sm"
                 >
                   {uploading ? "…" : "↑"}
                 </button>
               </div>
             </div>
             <div>
-              <label className="text-text-dim text-[10px] block mb-1">Tags (comma-separated)</label>
+              <label className="text-text-dim text-caption block mb-1">Tags (comma-separated)</label>
               <input
                 value={tags}
                 onChange={(e) => setTags(e.target.value)}
                 placeholder="bitcoin, nostr, essay"
-                className="w-full bg-bg border border-border-strong px-2 py-1.5 text-text text-[12px] focus:outline-none focus:border-accent rounded-lg"
+                className="w-full bg-bg border border-border-strong px-2 py-1.5 text-text text-ui focus:outline-none focus:border-accent rounded-lg"
               />
             </div>
           </div>
@@ -415,7 +415,7 @@ export function ArticleEditor() {
       )}
 
       {error && (
-        <div className="px-6 py-2 text-danger text-[12px] bg-danger/5 border-b border-border-subtle shrink-0">
+        <div className="px-6 py-2 text-danger text-body bg-danger/5 border-b border-border-subtle shrink-0">
           {error}
         </div>
       )}
@@ -428,7 +428,7 @@ export function ArticleEditor() {
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             placeholder="Title"
-            className="w-full bg-transparent text-text text-2xl font-bold placeholder:text-text-dim focus:outline-none focus:border-b focus:border-accent"
+            className="w-full bg-transparent text-text text-display font-bold placeholder:text-text-dim focus:outline-none focus:border-b focus:border-accent"
             style={{ fontFamily: "var(--font-reading)" }}
           />
         </div>
@@ -447,7 +447,7 @@ export function ArticleEditor() {
         {/* Inline image previews (write mode only) */}
         {mode === "write" && inlineImages.length > 0 && (
           <div className="flex items-center gap-2 px-6 py-2 border-b border-border-subtle bg-bg-raised/50 overflow-x-auto shrink-0">
-            <span className="text-text-dim text-[10px] shrink-0">{inlineImages.length} {inlineImages.length === 1 ? "image" : "images"}</span>
+            <span className="text-text-dim text-caption shrink-0">{inlineImages.length} {inlineImages.length === 1 ? "image" : "images"}</span>
             {inlineImages.map((img, i) => (
               <div key={i} className="relative shrink-0 group cursor-zoom-in" onClick={() => setLightboxUrl(img.url)}>
                 <img
@@ -510,11 +510,11 @@ export function ArticleEditor() {
                 if (Array.from(e.dataTransfer.types).includes("Files")) e.preventDefault();
               }}
               placeholder="Write your article in Markdown… (paste or drop images)"
-              className="w-full h-full min-h-[400px] bg-transparent text-text text-[14px] leading-relaxed placeholder:text-text-dim resize-none focus:outline-none focus:border-b focus:border-accent font-mono"
+              className="w-full h-full min-h-[400px] bg-transparent text-text text-body leading-relaxed placeholder:text-text-dim resize-none focus:outline-none focus:border-b focus:border-accent font-mono"
             />
           ) : (
             <div
-              className="article-preview text-[14px]"
+              className="article-preview"
               dangerouslySetInnerHTML={{ __html: renderedHtml }}
             />
           )}
@@ -534,15 +534,15 @@ function DraftListView({ onNewDraft }: { onNewDraft: () => void }) {
     <div className="h-full flex flex-col">
       <header className="border-b border-border-subtle px-4 py-2.5 flex items-center justify-between shrink-0">
         <div className="flex items-center gap-3">
-          <button onClick={goBack} className="text-text-dim hover:text-text text-[11px] transition-colors">
+          <button onClick={goBack} className="text-text-dim hover:text-text text-ui transition-colors">
             ← Back
           </button>
-          <h2 className="text-text text-[13px] font-medium">Drafts</h2>
-          <span className="text-text-dim text-[11px]">{drafts.length} {drafts.length === 1 ? "draft" : "drafts"}</span>
+          <h2 className="text-text text-title font-medium">Drafts</h2>
+          <span className="text-text-dim text-caption">{drafts.length} {drafts.length === 1 ? "draft" : "drafts"}</span>
         </div>
         <button
           onClick={onNewDraft}
-          className="px-3 py-1 text-[11px] bg-accent hover:bg-accent-hover text-accent-text transition-colors rounded-sm"
+          className="px-3 py-1 text-ui bg-accent hover:bg-accent-hover text-accent-text transition-colors rounded-sm"
         >
           New draft
         </button>
@@ -551,8 +551,8 @@ function DraftListView({ onNewDraft }: { onNewDraft: () => void }) {
       <div className="flex-1 overflow-y-auto">
         {drafts.length === 0 && (
           <div className="px-4 py-12 text-center space-y-2">
-            <p className="text-text-dim text-[13px]">No drafts yet.</p>
-            <p className="text-text-dim text-[11px]">
+            <p className="text-text-dim text-body">No drafts yet.</p>
+            <p className="text-text-dim text-caption">
               Click "New draft" to start writing an article.
             </p>
           </div>
@@ -570,12 +570,12 @@ function DraftListView({ onNewDraft }: { onNewDraft: () => void }) {
               onClick={() => setActiveDraft(draft.id)}
             >
               <div className="min-w-0 flex-1">
-                <h3 className="text-text text-[13px] font-medium truncate">
+                <h3 className="text-text text-body font-medium truncate">
                   {draft.title || "Untitled"}
                 </h3>
                 <div className="flex items-center gap-2 mt-0.5">
-                  <span className="text-text-dim text-[11px]">{wordCount} words</span>
-                  <span className="text-text-dim text-[10px]">{updated}</span>
+                  <span className="text-text-dim text-caption">{wordCount} words</span>
+                  <span className="text-text-dim text-caption">{updated}</span>
                 </div>
               </div>
               <button

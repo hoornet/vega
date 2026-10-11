@@ -22,6 +22,31 @@
   --color-danger-text: #0d0e12;
   --color-warning: #f5b73d;
   --color-success: #4cc98a;
+  /* The type scale. Seven steps, each a size and a line height, used as
+     `text-micro` ... `text-display`. Before October 2026 there were 726
+     hard-coded sizes, 656 of them 12px or smaller, and the note body was 13px.
+       micro    badges, counts, uppercase section labels, kbd
+       caption  timestamps, NIP-05, helper text, tags, small buttons
+       ui       nav rows, buttons, tabs, inputs, menu items
+       body     note text, names, bios, messages, toasts, empty states, setting labels
+       title    view titles, section headings, card titles, dialog titles
+       heading  profile name, onboarding step titles
+       display  article title, onboarding welcome
+     Nothing is below 11px and no sentence is below 12px. */
+  --text-micro: 11px;
+  --text-micro--line-height: 16px;
+  --text-caption: 12px;
+  --text-caption--line-height: 18px;
+  --text-ui: 13px;
+  --text-ui--line-height: 20px;
+  --text-body: 15px;
+  --text-body--line-height: 24px;
+  --text-title: 17px;
+  --text-title--line-height: 24px;
+  --text-heading: 22px;
+  --text-heading--line-height: 28px;
+  --text-display: 28px;
+  --text-display--line-height: 34px;
   /* Tailwind's `rounded-sm` is 4px. The app used it on 108 controls that
      read as sharp rectangles; 6px softens them all at once. Roles: 6px
      (`rounded-sm`) for buttons, chips and nav rows, 8px (`rounded-lg`) for
@@ -51,7 +76,7 @@ body {
   background: var(--color-bg);
   color: var(--color-text);
   font-family: var(--font-ui);
-  font-size: 14px;
+  font-size: 15px;
   line-height: 1.6;
   margin: 0;
   overflow: hidden;
@@ -67,6 +92,17 @@ html.font-readable {
 html.font-readable body {
   letter-spacing: 0.012em;
   line-height: 1.65;
+}
+/* Each step of the type scale sets its own line height, so the taller lines
+   above no longer reach stepped text by inheritance. Raise the steps too. */
+html.font-readable {
+  --text-micro--line-height: 17px;
+  --text-caption--line-height: 19px;
+  --text-ui--line-height: 21px;
+  --text-body--line-height: 25px;
+  --text-title--line-height: 25px;
+  --text-heading--line-height: 29px;
+  --text-display--line-height: 35px;
 }
 
 /* Allow text selection in article editor */

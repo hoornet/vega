@@ -25,7 +25,7 @@ export function V4VSettings() {
       <section>
         <div className="flex items-center justify-between">
           <div className="flex items-center">
-            <span className="text-[12px] text-text font-medium">Auto-stream</span>
+            <span className="text-body text-text font-medium">Auto-stream</span>
             <InfoIcon title="When enabled, V4V streaming starts automatically for every episode that supports it. Requires per-episode cap and weekly budget to be set." />
           </div>
           <button
@@ -41,11 +41,11 @@ export function V4VSettings() {
             />
           </button>
         </div>
-        <p className="text-[10px] text-text-dim mt-1">
+        <p className="text-caption text-text-dim mt-1">
           Automatically stream sats to creators when playing V4V-enabled episodes.
         </p>
         {autoEnabled && (
-          <div className="mt-2 text-[10px] text-success flex items-center gap-1">
+          <div className="mt-2 text-caption text-success flex items-center gap-1">
             <span className="text-[8px]">&#9679;</span> Auto-streaming is active
           </div>
         )}
@@ -54,10 +54,10 @@ export function V4VSettings() {
       {/* Per-episode cap */}
       <section>
         <div className="flex items-center">
-          <label className="text-[12px] text-text font-medium">Per-episode cap</label>
+          <label className="text-body text-text font-medium">Per-episode cap</label>
           <InfoIcon title="Maximum sats to stream for a single episode. Streaming stops automatically when this limit is reached." />
         </div>
-        <p className="text-[10px] text-text-dim mt-1 mb-2">
+        <p className="text-caption text-text-dim mt-1 mb-2">
           Stop streaming after this many sats per episode.
         </p>
         <div className="flex items-center gap-2">
@@ -67,19 +67,19 @@ export function V4VSettings() {
             value={perEpisodeCap || ""}
             onChange={(e) => setPerEpisodeCap(parseInt(e.target.value) || 0)}
             placeholder="e.g. 100"
-            className="w-24 bg-bg-raised border border-border-strong rounded-lg px-2 py-1 text-[11px] text-text placeholder:text-text-dim"
+            className="w-24 bg-bg-raised border border-border-strong rounded-lg px-2 py-1 text-ui text-text placeholder:text-text-dim"
           />
-          <span className="text-[10px] text-text-dim">sats</span>
+          <span className="text-caption text-text-dim">sats</span>
         </div>
       </section>
 
       {/* Weekly budget */}
       <section>
         <div className="flex items-center">
-          <label className="text-[12px] text-text font-medium">Weekly budget</label>
+          <label className="text-body text-text font-medium">Weekly budget</label>
           <InfoIcon title="Total sats allowed across all V4V streaming in a rolling 7-day window. Auto-streaming pauses when the budget is exhausted." />
         </div>
-        <p className="text-[10px] text-text-dim mt-1 mb-2">
+        <p className="text-caption text-text-dim mt-1 mb-2">
           Total sats allowed per week across all episodes.
         </p>
         <div className="flex items-center gap-2">
@@ -89,19 +89,19 @@ export function V4VSettings() {
             value={weeklyBudget || ""}
             onChange={(e) => setWeeklyBudget(parseInt(e.target.value) || 0)}
             placeholder="e.g. 500"
-            className="w-24 bg-bg-raised border border-border-strong rounded-lg px-2 py-1 text-[11px] text-text placeholder:text-text-dim"
+            className="w-24 bg-bg-raised border border-border-strong rounded-lg px-2 py-1 text-ui text-text placeholder:text-text-dim"
           />
-          <span className="text-[10px] text-text-dim">sats / week</span>
+          <span className="text-caption text-text-dim">sats / week</span>
         </div>
       </section>
 
       {/* Default rate */}
       <section>
         <div className="flex items-center">
-          <label className="text-[12px] text-text font-medium">Default streaming rate</label>
+          <label className="text-body text-text font-medium">Default streaming rate</label>
           <InfoIcon title="How many sats per minute to stream by default. Can be overridden per session in the player bar." />
         </div>
-        <p className="text-[10px] text-text-dim mt-1 mb-2">
+        <p className="text-caption text-text-dim mt-1 mb-2">
           Sats per minute when auto-streaming.
         </p>
         <div className="flex items-center gap-1">
@@ -109,7 +109,7 @@ export function V4VSettings() {
             <button
               key={rate}
               onClick={() => setDefaultRate(rate)}
-              className={`text-[11px] px-2.5 py-1 rounded-sm transition-colors ${
+              className={`text-ui px-2.5 py-1 rounded-sm transition-colors ${
                 defaultRate === rate
                   ? "bg-accent/20 text-accent font-medium"
                   : "text-text-dim hover:text-text bg-bg-raised"
@@ -118,13 +118,13 @@ export function V4VSettings() {
               {rate}
             </button>
           ))}
-          <span className="text-[10px] text-text-dim ml-1">/min</span>
+          <span className="text-caption text-text-dim ml-1">/min</span>
         </div>
       </section>
 
       {/* Requirements notice */}
       {!autoEnabled && (perEpisodeCap <= 0 || weeklyBudget <= 0) && (
-        <div className="text-[10px] text-text-dim bg-bg-raised border border-border rounded-lg p-3">
+        <div className="text-caption text-text-dim bg-bg-raised border border-border rounded-lg p-3">
           Set both a per-episode cap and weekly budget to enable auto-streaming.
         </div>
       )}

@@ -46,12 +46,12 @@ export function MediaFeed() {
     <div className="h-full flex flex-col">
       <header className="border-b border-border-subtle px-4 py-2.5 flex flex-wrap items-center justify-between gap-y-1 shrink-0">
         <div className="flex flex-wrap items-center gap-1">
-          <h1 className="text-text text-sm font-medium mr-3">Media</h1>
+          <h1 className="text-text text-title font-medium mr-3">Media</h1>
           {(["all", "videos", "images", "audio"] as const).map((t) => (
             <button
               key={t}
               onClick={() => setTab(t)}
-              className={`px-3 py-1 text-[12px] transition-colors border-b-2 ${
+              className={`px-3 py-1 text-ui transition-colors border-b-2 ${
                 tab === t
                   ? "text-text border-accent"
                   : "text-text-muted hover:text-text border-transparent"
@@ -68,10 +68,10 @@ export function MediaFeed() {
 
         {!loading && filtered.length === 0 && (
           <div className="px-4 py-12 text-center space-y-2">
-            <p className="text-text-dim text-[13px]">
+            <p className="text-text-dim text-body">
               No {tab === "all" ? "media" : tab} found.
             </p>
-            <p className="text-text-dim text-[11px]">
+            <p className="text-text-dim text-caption">
               Try switching tabs or check back later.
             </p>
           </div>

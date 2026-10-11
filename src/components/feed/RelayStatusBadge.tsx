@@ -25,7 +25,7 @@ export function RelayStatusBadge() {
 
   return (
     <span
-      className={`relative ${colorClass} text-[11px] flex items-center gap-1 cursor-default`}
+      className={`relative ${colorClass} text-caption flex items-center gap-1 cursor-default`}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
     >
@@ -46,7 +46,7 @@ export function RelayStatusBadge() {
             if (group.length === 0) return null;
             return (
               <div key={origin} className="mb-1.5 last:mb-0">
-                <div className="text-[10px] uppercase tracking-wide text-text-dim mb-0.5">
+                <div className="text-micro uppercase tracking-wide text-text-dim mb-0.5">
                   {label}
                 </div>
                 {group.map((r) => (
@@ -56,13 +56,13 @@ export function RelayStatusBadge() {
                         r.connected ? "bg-success" : "bg-danger"
                       }`}
                     />
-                    <span className="text-[11px] text-text-dim truncate">
+                    <span className="text-caption text-text-dim truncate">
                       {shortenUrl(r.url)}
                     </span>
                   </div>
                 ))}
                 {origin === "discovered" && (
-                  <div className="text-[10px] text-text-dim mt-0.5">{hint}</div>
+                  <div className="text-caption text-text-dim mt-0.5">{hint}</div>
                 )}
               </div>
             );

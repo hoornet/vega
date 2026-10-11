@@ -70,10 +70,10 @@ function ConvRow({
       )}
       <div className="flex-1 min-w-0">
         <div className="flex items-baseline justify-between gap-1">
-          <span title={name} className="text-text text-[12px] font-medium truncate">{name}</span>
-          <span className="text-text-dim text-[10px] shrink-0">{time}</span>
+          <span title={name} className="text-text text-body font-medium truncate">{name}</span>
+          <span className="text-text-dim text-caption shrink-0">{time}</span>
         </div>
-        <div className="text-text-dim text-[11px] truncate">
+        <div className="text-text-dim text-caption truncate">
           {lastEvent.kind === NDKKind.PrivateDirectMessage ? "🔒 NIP-17" : "🔒 NIP-04"}
         </div>
       </div>
@@ -126,7 +126,7 @@ function DMText({ text }: { text: string }) {
         }
         if (seg.type === "quote") {
           return (
-            <span key={i} className="text-accent/60 text-xs cursor-pointer hover:text-accent italic">
+            <span key={i} className="text-accent/60 text-caption cursor-pointer hover:text-accent italic">
               ↩ quoted note
             </span>
           );
@@ -168,7 +168,7 @@ function MessageBubble({ event, myPubkey }: { event: NDKEvent; myPubkey: string 
   return (
     <div className={`flex ${isMine ? "justify-end" : "justify-start"} mb-1.5`}>
       <div
-        className={`note-content max-w-[75%] px-3 py-2 text-[12px] leading-relaxed break-words rounded-lg ${
+        className={`note-content max-w-[75%] px-3 py-2 text-body leading-relaxed break-words rounded-lg ${
           isMine
             ? "bg-accent/15 text-text"
             : "bg-bg-raised border border-border text-text"
@@ -181,7 +181,7 @@ function MessageBubble({ event, myPubkey }: { event: NDKEvent; myPubkey: string 
         ) : (
           <DMText text={text} />
         )}
-        <div className={`text-[10px] mt-1 ${isMine ? "text-accent/60" : "text-text-dim"}`}>
+        <div className={`text-caption mt-1 ${isMine ? "text-accent/60" : "text-text-dim"}`}>
           {time}
         </div>
       </div>
@@ -265,7 +265,7 @@ function ThreadPanel({
         )}
         <button
           onClick={() => openProfile(partnerPubkey)}
-          className="text-text text-[13px] font-medium hover:text-accent transition-colors"
+          className="text-text text-body font-medium hover:text-accent transition-colors"
         >
           {name}
         </button>
@@ -274,10 +274,10 @@ function ThreadPanel({
       {/* Messages */}
       <div className="flex-1 overflow-y-auto px-4 py-3">
         {loading && (
-          <div className="text-text-dim text-[12px] text-center py-8">Loading messages…</div>
+          <div className="text-text-dim text-body text-center py-8">Loading messages…</div>
         )}
         {!loading && messages.length === 0 && (
-          <div className="text-text-dim text-[12px] text-center py-8">
+          <div className="text-text-dim text-body text-center py-8">
             No messages yet. Say hello!
           </div>
         )}
@@ -289,7 +289,7 @@ function ThreadPanel({
 
       {/* Compose */}
       <div className="border-t border-border-subtle px-4 py-3 shrink-0">
-        {sendError && <p className="text-danger text-[11px] mb-2">{sendError}</p>}
+        {sendError && <p className="text-danger text-caption mb-2">{sendError}</p>}
         <div className="flex gap-2">
           <textarea
             ref={textareaRef}
@@ -298,18 +298,18 @@ function ThreadPanel({
             onKeyDown={handleKeyDown}
             placeholder={`Message ${name}…`}
             rows={2}
-            className="flex-1 bg-bg border border-border-strong px-3 py-2 text-text text-[12px] resize-none focus:outline-none focus:border-accent placeholder:text-text-dim rounded-lg"
+            className="flex-1 bg-bg border border-border-strong px-3 py-2 text-text text-body resize-none focus:outline-none focus:border-accent placeholder:text-text-dim rounded-lg"
             style={{ WebkitUserSelect: "text", userSelect: "text" } as React.CSSProperties}
           />
           <button
             onClick={handleSend}
             disabled={!text.trim() || sending}
-            className="px-3 self-end py-2 text-[11px] bg-accent hover:bg-accent-hover text-accent-text transition-colors disabled:opacity-30 disabled:cursor-not-allowed shrink-0 focus-visible:ring-1 focus-visible:ring-accent rounded-sm"
+            className="px-3 self-end py-2 text-ui bg-accent hover:bg-accent-hover text-accent-text transition-colors disabled:opacity-30 disabled:cursor-not-allowed shrink-0 focus-visible:ring-1 focus-visible:ring-accent rounded-sm"
           >
             {sending ? "…" : "Send"}
           </button>
         </div>
-        <p className="text-text-dim text-[10px] mt-1">Ctrl+Enter to send · gift-wrapped (NIP-17)</p>
+        <p className="text-text-dim text-caption mt-1">Ctrl+Enter to send · gift-wrapped (NIP-17)</p>
       </div>
     </div>
   );
@@ -362,7 +362,7 @@ function NewConvInput({ onStart }: { onStart: (pubkey: string) => void }) {
       <div className="px-3 py-2 border-t border-border-subtle">
         <button
           onClick={() => setOpen(true)}
-          className="w-full text-left text-text-dim hover:text-accent text-[11px] py-1 transition-colors focus-visible:ring-1 focus-visible:ring-accent"
+          className="w-full text-left text-text-dim hover:text-accent text-ui py-1 transition-colors focus-visible:ring-1 focus-visible:ring-accent"
         >
           + New message
         </button>
@@ -387,7 +387,7 @@ function NewConvInput({ onStart }: { onStart: (pubkey: string) => void }) {
           }}
           onBlur={() => { if (!input.trim()) close(); }}
           placeholder="npub1… or hex pubkey"
-          className="flex-1 min-w-0 bg-bg border border-border-strong px-2 py-1.5 text-text text-[11px] font-mono focus:outline-none focus:border-accent placeholder:text-text-dim rounded-lg"
+          className="flex-1 min-w-0 bg-bg border border-border-strong px-2 py-1.5 text-text text-ui font-mono focus:outline-none focus:border-accent placeholder:text-text-dim rounded-lg"
           style={{ WebkitUserSelect: "text", userSelect: "text" } as React.CSSProperties}
         />
         <button
@@ -396,12 +396,12 @@ function NewConvInput({ onStart }: { onStart: (pubkey: string) => void }) {
           disabled={!input.trim()}
           aria-label="Start conversation"
           title="Start conversation"
-          className="px-2 py-1.5 text-[11px] border border-border text-text-dim hover:text-accent hover:border-accent/40 transition-colors disabled:opacity-30 shrink-0 rounded-sm"
+          className="px-2 py-1.5 text-ui border border-border text-text-dim hover:text-accent hover:border-accent/40 transition-colors disabled:opacity-30 shrink-0 rounded-sm"
         >
           →
         </button>
       </div>
-      {error && <p className="text-danger text-[10px] mt-1">{error}</p>}
+      {error && <p className="text-danger text-caption mt-1">{error}</p>}
     </div>
   );
 }
@@ -487,7 +487,7 @@ export function DMView() {
 
   if (!loggedIn || !pubkey) {
     return (
-      <div className="h-full flex items-center justify-center text-text-dim text-[12px]">
+      <div className="h-full flex items-center justify-center text-text-dim text-body">
         Log in to send and receive direct messages.
       </div>
     );
@@ -496,8 +496,8 @@ export function DMView() {
   if (!hasSigner) {
     return (
       <div className="h-full flex flex-col items-center justify-center gap-2 px-8 text-center">
-        <p className="text-text-dim text-[12px]">Direct messages require a private key login.</p>
-        <p className="text-text-dim text-[11px]">Read-only (npub) accounts cannot encrypt or decrypt DMs.</p>
+        <p className="text-text-dim text-body">Direct messages require a private key login.</p>
+        <p className="text-text-dim text-caption">Read-only (npub) accounts cannot encrypt or decrypt DMs.</p>
       </div>
     );
   }
@@ -511,28 +511,28 @@ export function DMView() {
       {/* Left: conversation list */}
       <div className="w-56 border-r border-border-subtle flex flex-col shrink-0">
         <div className="border-b border-border-subtle px-3 py-2.5 shrink-0">
-          <h2 className="text-text text-[12px] font-medium">Messages</h2>
+          <h2 className="text-text text-title font-medium">Messages</h2>
         </div>
 
         <div className="flex-1 overflow-y-auto">
           {loading && (
-            <div className="px-3 py-6 text-text-dim text-[11px] text-center">Loading…</div>
+            <div className="px-3 py-6 text-text-dim text-caption text-center">Loading…</div>
           )}
           {!loading && unreachable && (
             <div className="px-3 py-6 text-center">
-              <p className="text-text-dim text-[11px] mb-2">
+              <p className="text-text-dim text-caption mb-2">
                 Couldn't reach any relay, so your messages can't be loaded.
               </p>
               <button
                 onClick={() => setReloadKey((n) => n + 1)}
-                className="text-accent text-[11px] hover:underline"
+                className="text-accent text-ui hover:underline"
               >
                 Try again
               </button>
             </div>
           )}
           {!loading && !unreachable && conversations.size === 0 && (
-            <div className="px-3 py-6 text-text-dim text-[11px] text-center">
+            <div className="px-3 py-6 text-text-dim text-caption text-center">
               No messages yet.
             </div>
           )}
@@ -558,8 +558,8 @@ export function DMView() {
               >
                 <div className="w-8 h-8 rounded-full bg-bg-raised border border-border flex items-center justify-center text-text-dim text-xs shrink-0">?</div>
                 <div className="flex-1 min-w-0">
-                  <span className="text-text text-[12px] font-medium truncate block">{shortenPubkey(partner)}</span>
-                  <span className="text-text-dim text-[11px]">New conversation</span>
+                  <span className="text-text text-body font-medium truncate block">{shortenPubkey(partner)}</span>
+                  <span className="text-text-dim text-caption">New conversation</span>
                 </div>
               </button>
             )
@@ -581,7 +581,7 @@ export function DMView() {
       {selectedPubkey ? (
         <ThreadPanel partnerPubkey={selectedPubkey} myPubkey={pubkey} />
       ) : (
-        <div className="flex-1 flex items-center justify-center text-text-dim text-[12px]">
+        <div className="flex-1 flex items-center justify-center text-text-dim text-body">
           Select a conversation or start a new one.
         </div>
       )}

@@ -68,7 +68,7 @@ export function QuoteModal({ event, authorName, authorAvatar, onClose, onPublish
       <div className="bg-bg border border-border w-full max-w-md mx-4 shadow-2xl max-h-[85vh] overflow-y-auto rounded-lg">
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-border-subtle">
-          <h2 id="quote-modal-title" className="text-text text-sm font-medium">Quote note</h2>
+          <h2 id="quote-modal-title" className="text-text text-title font-medium">Quote note</h2>
           <button onClick={onClose} aria-label="Close" className="text-text-dim hover:text-text text-lg leading-none">×</button>
         </div>
 
@@ -81,7 +81,7 @@ export function QuoteModal({ event, authorName, authorAvatar, onClose, onPublish
             onKeyDown={handleKeyDown}
             placeholder="Add your comment…"
             rows={3}
-            className="w-full bg-transparent text-text text-[13px] placeholder:text-text-dim resize-none focus:outline-none mb-3"
+            className="w-full bg-transparent text-text text-body placeholder:text-text-dim resize-none focus:outline-none mb-3"
             style={{ WebkitUserSelect: "text", userSelect: "text" } as React.CSSProperties}
           />
 
@@ -95,27 +95,27 @@ export function QuoteModal({ event, authorName, authorAvatar, onClose, onPublish
                   {authorName.charAt(0).toUpperCase()}
                 </div>
               )}
-              <span className="text-text-muted text-[11px] font-medium">{authorName}</span>
+              <span className="text-text-muted text-caption font-medium">{authorName}</span>
             </div>
-            <p className="text-text-dim text-[12px] leading-relaxed whitespace-pre-wrap break-words">{preview}</p>
+            <p className="text-text-dim text-body leading-relaxed whitespace-pre-wrap break-words">{preview}</p>
           </div>
 
-          {error && <p className="text-danger text-[11px] mt-2">{error}</p>}
+          {error && <p className="text-danger text-caption mt-2">{error}</p>}
 
           <div className="flex items-center justify-between mt-3">
-            <span className="text-text-dim text-[10px]">{canSign ? "Ctrl+Enter to post" : ""}</span>
+            <span className="text-text-dim text-caption">{canSign ? "Ctrl+Enter to post" : ""}</span>
             {canSign ? (
               <button
                 onClick={handlePublish}
                 disabled={!canPublish}
-                className="px-4 py-1.5 text-[11px] bg-accent hover:bg-accent-hover text-accent-text transition-colors disabled:opacity-30 disabled:cursor-not-allowed rounded-sm"
+                className="px-4 py-1.5 text-ui bg-accent hover:bg-accent-hover text-accent-text transition-colors disabled:opacity-30 disabled:cursor-not-allowed rounded-sm"
               >
                 {publishing ? "Posting…" : "Quote & post"}
               </button>
             ) : (
               <button
                 onClick={() => setShowLogin(true)}
-                className="px-4 py-1.5 text-[11px] border border-accent/60 text-accent hover:bg-accent hover:text-accent-text transition-colors rounded-sm"
+                className="px-4 py-1.5 text-ui border border-accent/60 text-accent hover:bg-accent hover:text-accent-text transition-colors rounded-sm"
               >
                 Sign in to post
               </button>

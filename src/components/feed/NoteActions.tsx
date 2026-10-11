@@ -35,13 +35,13 @@ const REACTION_EMOJIS = ["❤️", "🤙", "🔥", "😂", "🫡", "👀", "⚡"
 // pills come after the fixed actions, so they never move them.
 const ICON = { size: 16, strokeWidth: 1.75 } as const;
 const ACTION =
-  "h-8 min-w-8 px-2 inline-flex items-center justify-center gap-1.5 rounded-sm text-[12px] tabular-nums transition-colors " +
+  "h-8 min-w-8 px-2 inline-flex items-center justify-center gap-1.5 rounded-sm text-ui tabular-nums transition-colors " +
   "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60";
 const QUIET = "text-text-muted hover:bg-accent/10 hover:text-accent";
 const ACTIVE = "text-accent bg-accent/10";
 const MENU = "absolute z-20 bg-bg-raised border border-border rounded-lg shadow-lg py-1 overflow-hidden";
 const MENU_ITEM =
-  "w-full h-8 px-3 flex items-center gap-2 text-left text-[12px] text-text-muted hover:bg-text/8 transition-colors " +
+  "w-full h-8 px-3 flex items-center gap-2 text-left text-ui text-text-muted hover:bg-text/8 transition-colors " +
   "focus-visible:outline-none focus-visible:bg-text/8 focus-visible:text-text focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-accent/60 " +
   "disabled:opacity-50 disabled:cursor-default disabled:hover:bg-transparent";
 
@@ -345,7 +345,7 @@ export function NoteActions({ event, onReplyToggle, showReply, enabled = true }:
             disabled={reacting || myReactions.has(emoji)}
             title={myReactions.has(emoji) ? "You reacted with this" : "React with this too"}
             aria-label={`${emoji} ${count}. ${myReactions.has(emoji) ? "You reacted with this" : "React with this too"}`}
-            className={`h-7 px-2 inline-flex items-center gap-1 rounded-sm border text-[12px] tabular-nums transition-colors disabled:cursor-default ${
+            className={`h-7 px-2 inline-flex items-center gap-1 rounded-sm border text-ui tabular-nums transition-colors disabled:cursor-default ${
               myReactions.has(emoji)
                 ? "border-accent/40 bg-accent/10 text-accent"
                 : "border-border text-text-muted hover:border-accent/40 hover:bg-accent/5"
@@ -454,7 +454,7 @@ export function LoggedOutStats({ event, enabled = true }: { event: NDKEvent; ena
   const sortedGroups = reactionsData
     ? Array.from(reactionsData.groups.entries()).sort((a, b) => b[1] - a[1])
     : [];
-  const STAT = "h-8 inline-flex items-center gap-1.5 text-[12px] tabular-nums text-text-muted";
+  const STAT = "h-8 inline-flex items-center gap-1.5 text-ui tabular-nums text-text-muted";
 
   return (
     <div data-no-navigate className="mt-1 py-1 flex flex-wrap items-center gap-x-4 gap-y-1 cursor-default">

@@ -57,7 +57,7 @@ export function PodcastsView() {
     <div className="h-full flex flex-col">
       {/* Header */}
       <div className="border-b border-border-subtle px-4 py-3 shrink-0">
-        <h1 className="text-[14px] text-text font-semibold mb-3">Podcasts</h1>
+        <h1 className="text-title text-text font-semibold mb-3">Podcasts</h1>
 
         {/* Search */}
         <div className="flex gap-2 mb-3">
@@ -67,12 +67,12 @@ export function PodcastsView() {
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && handleSearch()}
             placeholder="Search podcasts…"
-            className="flex-1 bg-bg-raised border border-border-strong rounded-lg px-3 py-1.5 text-[12px] text-text placeholder:text-text-dim focus:outline-none focus:border-accent"
+            className="flex-1 bg-bg-raised border border-border-strong rounded-lg px-3 py-1.5 text-ui text-text placeholder:text-text-dim focus:outline-none focus:border-accent"
           />
           <button
             onClick={handleSearch}
             disabled={!query.trim()}
-            className="px-3 py-1.5 bg-accent/10 text-accent text-[12px] rounded-sm hover:bg-accent/20 transition-colors disabled:opacity-40"
+            className="px-3 py-1.5 bg-accent/10 text-accent text-ui rounded-sm hover:bg-accent/20 transition-colors disabled:opacity-40"
           >
             search
           </button>
@@ -84,7 +84,7 @@ export function PodcastsView() {
             <button
               key={t}
               onClick={() => handleTabChange(t)}
-              className={`text-[12px] pb-1 border-b-2 transition-colors ${
+              className={`text-ui pb-1 border-b-2 transition-colors ${
                 tab === t
                   ? "text-accent border-accent"
                   : "text-text-muted border-transparent hover:text-text"
@@ -101,8 +101,8 @@ export function PodcastsView() {
         {tab === "subscriptions" ? (
           subscriptions.length === 0 ? (
             <div className="text-center py-12">
-              <p className="text-text-dim text-[13px] mb-2">No subscriptions yet.</p>
-              <p className="text-text-dim text-[11px]">Search for a podcast or browse trending to subscribe.</p>
+              <p className="text-text-dim text-body mb-2">No subscriptions yet.</p>
+              <p className="text-text-dim text-caption">Search for a podcast or browse trending to subscribe.</p>
             </div>
           ) : (
             <div className="grid grid-cols-1 gap-2">
@@ -116,9 +116,9 @@ export function PodcastsView() {
             </div>
           )
         ) : loading ? (
-          <div className="text-text-dim text-[12px]">Loading…</div>
+          <div className="text-text-dim text-body">Loading…</div>
         ) : displayShows.length === 0 ? (
-          <div className="text-text-dim text-[12px]">
+          <div className="text-text-dim text-body">
             {tab === "search" ? "No results. Try a different search." : "No trending podcasts found."}
           </div>
         ) : (

@@ -55,12 +55,12 @@ function AuthorRow({ pubkey, publishedAt, readingTime }: { pubkey: string; publi
       <div>
         <button
           onClick={() => openProfile(pubkey)}
-          className="text-text text-[13px] font-medium hover:text-accent transition-colors block"
+          className="text-text text-body font-medium hover:text-accent transition-colors block"
         >
           {name}
         </button>
-        {date && <span className="text-text-dim text-[11px]">{date}</span>}
-        {readingTime && <span className="text-text-dim text-[11px]"> · {readingTime} min read</span>}
+        {date && <span className="text-text-dim text-caption">{date}</span>}
+        {readingTime && <span className="text-text-dim text-caption"> · {readingTime} min read</span>}
       </div>
     </div>
   );
@@ -250,14 +250,14 @@ export function ArticleView() {
     <div className="h-full flex flex-col">
       {/* Header */}
       <header className="border-b border-border-subtle px-4 py-2.5 flex items-center justify-between shrink-0">
-        <button onClick={goBack} className="text-text-dim hover:text-text text-[11px] transition-colors">
+        <button onClick={goBack} className="text-text-dim hover:text-text text-ui transition-colors">
           ← Back
         </button>
         <div className="flex items-center gap-2">
           {event && canSign && (
             <button
               onClick={handleBookmark}
-              className={`text-[11px] px-3 py-1 border transition-colors ${
+              className={`text-ui px-3 py-1 border transition-colors ${
                 bookmarked
                   ? "border-accent/40 text-accent"
                   : "border-border text-text-muted hover:text-accent hover:border-accent/40"
@@ -270,7 +270,7 @@ export function ArticleView() {
           {event && canSign && (
             <button
               onClick={() => setShowZap(true)}
-              className="text-[11px] px-3 py-1 border border-border text-zap hover:border-zap/40 hover:bg-zap/5 transition-colors rounded-sm"
+              className="text-ui px-3 py-1 border border-border text-zap hover:border-zap/40 hover:bg-zap/5 transition-colors rounded-sm"
             >
               ⚡ zap {authorName}
             </button>
@@ -279,7 +279,7 @@ export function ArticleView() {
             <button
               onClick={handleRepost}
               disabled={reposted}
-              className={`text-[11px] px-3 py-1 border transition-colors ${
+              className={`text-ui px-3 py-1 border transition-colors ${
                 reposted
                   ? "border-accent/40 text-accent"
                   : "border-border text-text-muted hover:text-accent hover:border-accent/40"
@@ -291,7 +291,7 @@ export function ArticleView() {
           {event && canSign && (
             <button
               onClick={() => setShowComment(!showComment)}
-              className={`text-[11px] px-3 py-1 border transition-colors ${
+              className={`text-ui px-3 py-1 border transition-colors ${
                 showComment
                   ? "border-accent/40 text-accent"
                   : "border-border text-text-muted hover:text-accent hover:border-accent/40"
@@ -303,7 +303,7 @@ export function ArticleView() {
           {naddr && (
             <button
               onClick={() => navigator.clipboard.writeText(`nostr:${naddr}`)}
-              className="text-[11px] px-3 py-1 border border-border text-text-muted hover:text-accent hover:border-accent/40 transition-colors rounded-sm"
+              className="text-ui px-3 py-1 border border-border text-text-muted hover:text-accent hover:border-accent/40 transition-colors rounded-sm"
               title="Copy nostr: link"
             >
               Copy link
@@ -321,15 +321,15 @@ export function ArticleView() {
             onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleComment(); } }}
             placeholder="Write a comment…"
             rows={3}
-            className="w-full bg-bg-raised border border-border-strong rounded-lg px-3 py-2 text-[12px] text-text placeholder:text-text-dim resize-none focus:outline-none focus:border-accent leading-relaxed"
+            className="w-full bg-bg-raised border border-border-strong rounded-lg px-3 py-2 text-body text-text placeholder:text-text-dim resize-none focus:outline-none focus:border-accent leading-relaxed"
             autoFocus
           />
           <div className="flex justify-between items-center mt-2">
-            <span className="text-text-dim text-[10px]">Shift+Enter for new line</span>
+            <span className="text-text-dim text-caption">Shift+Enter for new line</span>
             <button
               onClick={handleComment}
               disabled={!commentText.trim()}
-              className="px-3 py-1.5 bg-accent/10 text-accent text-[12px] rounded-sm hover:bg-accent/20 transition-colors disabled:opacity-40"
+              className="px-3 py-1.5 bg-accent/10 text-accent text-ui rounded-sm hover:bg-accent/20 transition-colors disabled:opacity-40"
             >
               Post
             </button>
@@ -349,17 +349,17 @@ export function ArticleView() {
           </div>
         )}
         {loading && (
-          <div className="px-8 py-16 text-text-dim text-[12px] text-center">Loading article…</div>
+          <div className="px-8 py-16 text-text-dim text-body text-center">Loading article…</div>
         )}
 
         {error && (
           <div className="px-8 py-16 text-center space-y-3">
-            <p className="text-danger text-[12px]">{error}</p>
+            <p className="text-danger text-body">{error}</p>
             <a
               href={`https://njump.me/${naddr}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-accent text-[11px] hover:text-accent-hover transition-colors"
+              className="text-accent text-caption hover:text-accent-hover transition-colors"
             >
               Try opening on njump.me ↗
             </a>
@@ -382,13 +382,13 @@ export function ArticleView() {
               )}
 
               {/* Title */}
-              <h1 className="selectable-text text-text text-2xl font-bold leading-tight mb-3 tracking-tight">
+              <h1 className="selectable-text text-text text-display font-bold leading-tight mb-3 tracking-tight">
                 {title || "Untitled"}
               </h1>
 
               {/* Summary */}
               {summary && (
-                <p className="selectable-text text-text-muted text-[14px] leading-relaxed mb-4 italic border-l-2 border-border pl-3">
+                <p className="selectable-text text-text-muted text-body leading-relaxed mb-4 italic border-l-2 border-border pl-3">
                   {summary}
                 </p>
               )}
@@ -400,7 +400,7 @@ export function ArticleView() {
               {articleTags.length > 0 && (
                 <div className="flex flex-wrap gap-1.5 mb-6">
                   {articleTags.map((tag) => (
-                    <span key={tag} className="px-2 py-0.5 text-[10px] border border-border text-text-dim rounded-sm">
+                    <span key={tag} className="px-2 py-0.5 text-caption border border-border text-text-dim rounded-sm">
                       #{tag}
                     </span>
                   ))}
@@ -425,7 +425,7 @@ export function ArticleView() {
 
               {/* Footer */}
               <div className="mt-10 pt-6 border-t border-border-subtle flex items-center justify-between">
-                <button onClick={goBack} className="text-text-dim hover:text-text text-[11px] transition-colors">
+                <button onClick={goBack} className="text-text-dim hover:text-text text-ui transition-colors">
                   ← Back
                 </button>
                 <div className="flex items-center gap-2">
@@ -433,7 +433,7 @@ export function ArticleView() {
                     <button
                       onClick={handleReaction}
                       disabled={reacted}
-                      className={`text-[11px] px-3 py-1.5 border transition-colors disabled:cursor-not-allowed ${
+                      className={`text-ui px-3 py-1.5 border transition-colors disabled:cursor-not-allowed ${
                         reacted
                           ? "border-accent/40 text-accent"
                           : "border-border text-text-muted hover:text-accent hover:border-accent/40"
@@ -445,7 +445,7 @@ export function ArticleView() {
                   {canSign && (
                     <button
                       onClick={handleBookmark}
-                      className={`text-[11px] px-3 py-1.5 border transition-colors ${
+                      className={`text-ui px-3 py-1.5 border transition-colors ${
                         bookmarked
                           ? "border-accent/40 text-accent"
                           : "border-border text-text-muted hover:text-accent hover:border-accent/40"
@@ -458,7 +458,7 @@ export function ArticleView() {
                     <button
                       onClick={handleRepost}
                       disabled={reposted}
-                      className={`text-[11px] px-3 py-1.5 border transition-colors ${
+                      className={`text-ui px-3 py-1.5 border transition-colors ${
                         reposted
                           ? "border-accent/40 text-accent"
                           : "border-border text-text-muted hover:text-accent hover:border-accent/40"
@@ -470,7 +470,7 @@ export function ArticleView() {
                   {canSign && (
                     <button
                       onClick={() => { setShowComment(true); scrollRef.current?.scrollTo({ top: 0, behavior: "smooth" }); }}
-                      className="text-[11px] px-3 py-1.5 border border-border text-text-muted hover:text-accent hover:border-accent/40 transition-colors rounded-sm"
+                      className="text-ui px-3 py-1.5 border border-border text-text-muted hover:text-accent hover:border-accent/40 transition-colors rounded-sm"
                     >
                       Comment
                     </button>
@@ -478,7 +478,7 @@ export function ArticleView() {
                   {canSign && (
                     <button
                       onClick={() => setShowZap(true)}
-                      className="text-[11px] px-4 py-1.5 bg-zap hover:bg-zap/90 text-zap-text transition-colors rounded-sm"
+                      className="text-ui px-4 py-1.5 bg-zap hover:bg-zap/90 text-zap-text transition-colors rounded-sm"
                     >
                       ⚡ Zap {authorName}
                     </button>
@@ -491,12 +491,12 @@ export function ArticleView() {
             {headings.length >= 2 && (
               <nav className="hidden xl:block w-44 shrink-0 py-8 pr-4">
                 <div className="sticky top-4 max-h-[calc(100vh-8rem)] overflow-y-auto">
-                  <p className="text-text-dim text-[10px] uppercase tracking-wider mb-3">Contents</p>
+                  <p className="text-text-dim text-micro uppercase tracking-wider mb-3">Contents</p>
                   {headings.map(({ id, text, level }) => (
                     <button
                       key={id}
                       onClick={() => scrollToHeading(id)}
-                      className={`block text-left w-full py-1 text-[11px] leading-snug transition-colors truncate ${
+                      className={`block text-left w-full py-1 text-ui leading-snug transition-colors truncate ${
                         level === 3 ? "pl-3" : ""
                       } ${
                         activeId === id

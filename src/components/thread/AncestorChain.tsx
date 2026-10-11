@@ -30,10 +30,10 @@ function AncestorCard({ event }: { event: NDKEvent }) {
       </div>
       <div className="min-w-0 flex-1">
         <div className="flex items-baseline gap-2 mb-0.5">
-          <span className="text-text font-medium text-[11px] truncate">{name}</span>
-          <span className="text-text-dim text-[10px] shrink-0">{time}</span>
+          <span className="text-text font-medium text-caption truncate">{name}</span>
+          <span className="text-text-dim text-caption shrink-0">{time}</span>
         </div>
-        <div className="text-text-dim text-[11px] line-clamp-2 break-words">{truncated}</div>
+        <div className="text-text-dim text-caption line-clamp-2 break-words">{truncated}</div>
       </div>
       <div className="text-text-dim text-[10px] shrink-0 mt-0.5">↑</div>
     </button>
@@ -49,7 +49,7 @@ export function AncestorChain({ ancestors }: AncestorChainProps) {
 
   return (
     <div className="bg-bg-raised/50">
-      <div className="px-4 py-1.5 text-text-dim text-[10px] border-b border-border-subtle">
+      <div className="px-4 py-1.5 text-text-dim text-caption border-b border-border-subtle">
         {ancestors.length} parent {ancestors.length === 1 ? "note" : "notes"} above
       </div>
       {ancestors.map((a) => (

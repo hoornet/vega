@@ -107,7 +107,7 @@ export function Sidebar() {
           <>
             <div className="flex flex-col">
               <span className="text-sm font-bold tracking-[0.2em] text-text select-none">VEGA</span>
-              <span className="text-text-dim text-[9px] font-mono opacity-50">v{pkg.version}</span>
+              <span className="text-text-dim text-micro font-mono opacity-50">v{pkg.version}</span>
             </div>
             <button
               onClick={toggleSidebar}
@@ -128,7 +128,7 @@ export function Sidebar() {
           <button
             onClick={() => setView("article-editor")}
             title="Write article"
-            className={`w-full text-left px-3 py-1.5 flex items-center gap-2 text-[12px] transition-colors mb-1 ${
+            className={`w-full text-left px-3 py-1.5 flex items-center gap-2 text-ui transition-colors mb-1 ${
               currentView === "article-editor"
                 ? "text-accent bg-accent/8"
                 : "text-text-muted hover:text-text hover:bg-text/8"
@@ -142,7 +142,7 @@ export function Sidebar() {
             </span>
             {!c && <span>Write Article</span>}
             {!c && draftCount > 0 && (
-              <span className="ml-auto text-[10px] bg-accent text-accent-text px-1.5 py-0.5 rounded-sm">{draftCount}</span>
+              <span className="ml-auto text-micro bg-accent text-accent-text px-1.5 py-0.5 rounded-sm">{draftCount}</span>
             )}
           </button>
         )}
@@ -154,7 +154,7 @@ export function Sidebar() {
               key={item.id}
               onClick={() => setView(item.id)}
               title={c ? item.label : undefined}
-              className={`w-full text-left px-3 py-1.5 flex items-center gap-2 text-[12px] transition-colors ${
+              className={`w-full text-left px-3 py-1.5 flex items-center gap-2 text-ui transition-colors ${
                 currentView === item.id
                   ? "text-accent bg-accent/10"
                   : "text-text-muted hover:text-text hover:bg-text/8"
@@ -168,7 +168,7 @@ export function Sidebar() {
               </span>
               {!c && <span>{item.label}</span>}
               {!c && badge > 0 && (
-                <span className="ml-auto text-[10px] bg-accent text-accent-text px-1.5 py-0.5 rounded-sm">{badge}</span>
+                <span className="ml-auto text-micro bg-accent text-accent-text px-1.5 py-0.5 rounded-sm">{badge}</span>
               )}
             </button>
           );

@@ -20,11 +20,11 @@ export function ToastContainer() {
         >
           <div className={`w-1 shrink-0 ${accentColor[toast.type]}`} />
           <div className="flex items-center justify-between gap-2 px-3 py-2 flex-1">
-            <span className="text-[12px] text-text">{toast.message}</span>
+            <span className="text-body text-text">{toast.message}</span>
             <button
               onClick={() => removeToast(toast.id)}
               aria-label="Dismiss"
-              className="text-text-dim hover:text-text transition-colors text-[12px] shrink-0"
+              className="text-text-dim hover:text-text transition-colors shrink-0"
             >
               ×
             </button>

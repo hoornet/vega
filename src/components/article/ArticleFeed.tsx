@@ -186,11 +186,11 @@ export function ArticleFeed() {
     <div className="h-full flex flex-col">
       {/* Header */}
       <header className="border-b border-border-subtle px-4 py-2.5 flex items-center justify-between shrink-0">
-        <h1 className="text-text text-sm font-medium">Articles</h1>
+        <h1 className="text-text text-title font-medium">Articles</h1>
         {canSign && (
           <button
             onClick={() => setView("article-editor")}
-            className="text-[11px] px-3 py-1 border border-accent/60 text-accent hover:bg-accent hover:text-accent-text transition-colors rounded-sm"
+            className="text-ui px-3 py-1 border border-accent/60 text-accent hover:bg-accent hover:text-accent-text transition-colors rounded-sm"
           >
             Write article
           </button>
@@ -204,7 +204,7 @@ export function ArticleFeed() {
             key={t}
             onClick={() => setTab(t)}
             disabled={t === "following" && !loggedIn}
-            className={`px-4 py-2 text-[11px] border-b-2 transition-colors ${
+            className={`px-4 py-2 text-ui border-b-2 transition-colors ${
               tab === t
                 ? "border-accent text-accent"
                 : "border-transparent text-text-dim hover:text-text"
@@ -218,12 +218,12 @@ export function ArticleFeed() {
       {/* Articles list */}
       <div className="flex-1 overflow-y-auto content-column">
         {showLoading && (
-          <div className="px-4 py-8 text-text-dim text-[12px] text-center">Loading articles…</div>
+          <div className="px-4 py-8 text-text-dim text-body text-center">Loading articles…</div>
         )}
 
         {!showLoading && visible.length === 0 && (
           <div className="px-4 py-8 text-center space-y-2">
-            <p className="text-text-dim text-[12px]">
+            <p className="text-text-dim text-body">
               {tab === "following"
                 ? "No articles from people you follow yet."
                 : articles.length > 0
@@ -231,12 +231,12 @@ export function ArticleFeed() {
                   : "No articles found on your relays."}
             </p>
             {tab === "following" && (
-              <p className="text-text-dim text-[10px]">
+              <p className="text-text-dim text-caption">
                 Try the "latest" tab to discover writers, then follow them.
               </p>
             )}
             {tab === "latest" && articles.length > 0 && (
-              <p className="text-text-dim text-[10px]">
+              <p className="text-text-dim text-caption">
                 Latest leaves out muted authors and keywords, accounts without a profile
                 {hideRssArticles ? ", and RSS reposts" : ""}. Adjust these in Settings.
               </p>

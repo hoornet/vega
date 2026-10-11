@@ -88,7 +88,7 @@ function ImageGrid({ images, onImageClick, inView }: { images: string[]; onImage
               className="absolute inset-0 bg-bg/60 flex items-center justify-center cursor-zoom-in"
               onClick={(e) => { e.stopPropagation(); onImageClick(idx); }}
             >
-              <span className="text-text text-[14px] font-semibold">+{extraCount}</span>
+              <span className="text-text text-title font-semibold">+{extraCount}</span>
             </div>
           )}
         </div>
@@ -128,9 +128,9 @@ function QuotePreview({ eventId }: { eventId: string }) {
               <img src={profile.picture} alt={`${name}'s avatar`} className="w-4 h-4 rounded-full object-cover shrink-0"
                 onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
             )}
-            <span className="text-text-muted text-[11px] font-medium truncate">{name}</span>
+            <span className="text-text-muted text-caption font-medium truncate">{name}</span>
           </div>
-          <p className="text-text-dim text-[11px] leading-relaxed break-words line-clamp-2">{preview}</p>
+          <p className="text-text-dim text-caption leading-relaxed break-words line-clamp-2">{preview}</p>
         </>
       )}
     </div>
@@ -164,7 +164,7 @@ export function NoteContent({ content, inline, mediaOnly, mediaInView = true }: 
   // --- Inline text only (no images — images go in mediaOnly to allow inView gating) ---
   if (inline) {
     return (
-      <div className="note-content text-text text-[13px] break-words whitespace-pre-wrap leading-relaxed">
+      <div className="note-content text-text text-body break-words whitespace-pre-wrap leading-relaxed">
         {renderTextSegments(segments, openHashtag, { resolveMentions: true })}
       </div>
     );
@@ -205,7 +205,7 @@ export function NoteContent({ content, inline, mediaOnly, mediaInView = true }: 
   // --- Default: full render (used in ThreadView, SearchView, etc.) ---
   return (
     <div>
-      <div className="note-content text-text text-[13px] break-words whitespace-pre-wrap leading-relaxed">
+      <div className="note-content text-text text-body break-words whitespace-pre-wrap leading-relaxed">
         {renderTextSegments(segments, openHashtag)}
       </div>
 

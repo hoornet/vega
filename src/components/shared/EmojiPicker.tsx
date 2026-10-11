@@ -30,7 +30,7 @@ export function EmojiPicker({ onSelect, onClose }: EmojiPickerProps) {
           <button
             key={g.label}
             onClick={() => setGroup(i)}
-            className={`flex-1 px-1 py-1.5 text-[9px] transition-colors ${
+            className={`flex-1 px-1 py-1.5 text-micro transition-colors ${
               group === i ? "text-accent border-b border-accent" : "text-text-dim hover:text-text"
             }`}
           >

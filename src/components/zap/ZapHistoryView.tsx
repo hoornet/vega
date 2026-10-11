@@ -107,22 +107,22 @@ function ZapRow({
       {/* Content */}
       <div className="flex-1 min-w-0">
         <div className="flex items-baseline gap-2 mb-0.5">
-          <span className="text-zap font-medium text-[13px]">
+          <span className="text-zap font-medium text-body">
             ⚡ {amount !== null ? `${amount.toLocaleString()} sats` : "? sats"}
           </span>
-          <span className="text-text-dim text-[11px]">
+          <span className="text-text-dim text-caption">
             {direction === "received" ? "from" : "to"}
           </span>
           <span
-            className={`text-text text-[12px] truncate ${pubkey ? "cursor-pointer hover:text-accent transition-colors" : ""}`}
+            className={`text-text text-body truncate ${pubkey ? "cursor-pointer hover:text-accent transition-colors" : ""}`}
             onClick={() => pubkey && openProfile(pubkey)}
           >
             {name}
           </span>
-          <span className="text-text-dim text-[11px] shrink-0 ml-auto">{timeAgo(createdAt)}</span>
+          <span className="text-text-dim text-caption shrink-0 ml-auto">{timeAgo(createdAt)}</span>
         </div>
         {comment && (
-          <p className="text-text-muted text-[12px] leading-snug">{comment}</p>
+          <p className="text-text-muted text-body leading-snug">{comment}</p>
         )}
         {noteId && (
           <button
@@ -130,11 +130,11 @@ function ZapRow({
             className="mt-1.5 w-full text-left bg-bg-raised border border-border px-3 py-2 rounded-lg hover:border-accent/40 transition-colors cursor-pointer group"
           >
             {notePreview ? (
-              <p className="text-text-muted text-[11px] leading-snug line-clamp-2 group-hover:text-text transition-colors">
+              <p className="text-text-muted text-caption leading-snug line-clamp-2 group-hover:text-text transition-colors">
                 {notePreview}
               </p>
             ) : (
-              <span className="text-text-dim text-[11px]">
+              <span className="text-text-dim text-caption">
                 {loadingNote ? "loading note…" : "view original note →"}
               </span>
             )}
@@ -178,9 +178,9 @@ export function ZapHistoryView() {
     return (
       <div className="h-full flex flex-col">
         <header className="border-b border-border-subtle px-4 py-2.5 shrink-0">
-          <h1 className="text-text text-sm font-medium">Zap History</h1>
+          <h1 className="text-text text-title font-medium">Zap History</h1>
         </header>
-        <div className="flex-1 flex items-center justify-center text-text-dim text-[12px]">
+        <div className="flex-1 flex items-center justify-center text-text-dim text-body">
           Log in to see your zap history.
         </div>
       </div>
@@ -204,12 +204,12 @@ export function ZapHistoryView() {
       {/* Header */}
       <header className="border-b border-border-subtle px-4 py-2.5 flex items-center justify-between shrink-0">
         <div className="flex items-center gap-3">
-          <button onClick={goBack} className="text-text-dim hover:text-text text-[11px] transition-colors">
+          <button onClick={goBack} className="text-text-dim hover:text-text text-ui transition-colors">
             ← back
           </button>
-          <h1 className="text-text text-sm font-medium">Zap History</h1>
+          <h1 className="text-text text-title font-medium">Zap History</h1>
         </div>
-        <div className="text-text-dim text-[11px] flex gap-4">
+        <div className="text-text-dim text-caption flex gap-4">
           <span>⚡ {totalReceived.toLocaleString()} in</span>
           <span>⚡ {totalSent.toLocaleString()} out</span>
         </div>
@@ -221,7 +221,7 @@ export function ZapHistoryView() {
           <button
             key={t}
             onClick={() => setTab(t)}
-            className={`px-4 py-2 text-[12px] transition-colors ${
+            className={`px-4 py-2 text-ui transition-colors ${
               tab === t
                 ? "text-text border-b-2 border-accent"
                 : "text-text-muted hover:text-text"
@@ -237,13 +237,13 @@ export function ZapHistoryView() {
       {/* Body */}
       <div className="flex-1 overflow-y-auto content-column">
         {loading && (
-          <div className="px-4 py-8 text-text-dim text-[12px] text-center">Loading zap history…</div>
+          <div className="px-4 py-8 text-text-dim text-body text-center">Loading zap history…</div>
         )}
         {error && (
-          <div className="px-4 py-3 text-danger text-[12px] border-b border-border-subtle">{error}</div>
+          <div className="px-4 py-3 text-danger text-body border-b border-border-subtle">{error}</div>
         )}
         {!loading && activeEvents.length === 0 && (
-          <div className="px-4 py-8 text-text-dim text-[12px] text-center">
+          <div className="px-4 py-8 text-text-dim text-body text-center">
             {tab === "received" ? "No zaps received yet." : "No zaps sent yet."}
           </div>
         )}

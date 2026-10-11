@@ -52,13 +52,13 @@ export const ArticleCard = memo(function ArticleCard({ event }: { event: NDKEven
         {/* Text content */}
         <div className="flex-1 min-w-0">
           {/* Title */}
-          <h3 className="text-text text-[15px] font-semibold leading-snug mb-1.5 line-clamp-2">
+          <h3 className="text-text text-title font-semibold leading-snug mb-1.5 line-clamp-2">
             {title || "Untitled"}
           </h3>
 
           {/* Summary */}
           {summary && (
-            <p className="text-text-muted text-[12px] leading-relaxed mb-2 line-clamp-2">
+            <p className="text-text-muted text-body leading-relaxed mb-2 line-clamp-2">
               {summary}
             </p>
           )}
@@ -83,20 +83,20 @@ export const ArticleCard = memo(function ArticleCard({ event }: { event: NDKEven
               )}
             </button>
             <button
-              className="text-text-dim text-[11px] hover:text-accent transition-colors"
+              className="text-text-dim text-ui hover:text-accent transition-colors"
               onClick={(e) => { e.stopPropagation(); openProfile(event.pubkey); }}
             >
               {authorName}
             </button>
-            {date && <span className="text-text-dim text-[10px]">{date}</span>}
-            <span className="text-text-dim text-[10px]">{readingTime} min read</span>
+            {date && <span className="text-text-dim text-caption">{date}</span>}
+            <span className="text-text-dim text-caption">{readingTime} min read</span>
           </div>
 
           {/* Tags */}
           {tags.length > 0 && (
             <div className="flex flex-wrap gap-1">
               {tags.slice(0, 5).map((tag) => (
-                <span key={tag} className="px-2 py-0.5 text-[10px] border border-border text-text-dim rounded-sm">
+                <span key={tag} className="px-2 py-0.5 text-caption border border-border text-text-dim rounded-sm">
                   #{tag}
                 </span>
               ))}

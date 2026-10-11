@@ -60,8 +60,8 @@ function RemoveAccountConfirm({ account, name, onCancel, onConfirm }: {
 
   return (
     <div role="alertdialog" aria-label={`Remove ${name} from this computer`} className="px-3 py-3 border-b border-border-subtle">
-      <p className="text-text text-[12px] font-medium mb-1.5 break-words">Remove {name} from this computer?</p>
-      <p className="text-text-muted text-[11px] leading-relaxed mb-3">
+      <p className="text-text text-body font-medium mb-1.5 break-words">Remove {name} from this computer?</p>
+      <p className="text-text-muted text-caption leading-relaxed mb-3">
         {holdsKey
           ? "This deletes the secret key stored on this computer. Without a copy of it you can never sign in to this account again."
           : account.loginType === "remote-signer"
@@ -71,21 +71,21 @@ function RemoveAccountConfirm({ account, name, onCancel, onConfirm }: {
       {holdsKey && (
         <button
           onClick={copyKey}
-          className="w-full mb-1.5 px-2 py-1.5 text-[11px] border border-border text-text hover:border-accent/50 transition-colors rounded-sm"
+          className="w-full mb-1.5 px-2 py-1.5 text-ui border border-border text-text hover:border-accent/50 transition-colors rounded-sm"
         >
           {copyState === "copied" ? "Copied. Paste it somewhere safe." : copyState === "failed" ? "Couldn't read the key. Copy it from Settings." : "Copy secret key first"}
         </button>
       )}
       <button
         onClick={onConfirm}
-        className="w-full mb-1.5 px-2 py-1.5 text-[11px] border border-danger/60 text-danger hover:bg-danger/10 transition-colors rounded-sm"
+        className="w-full mb-1.5 px-2 py-1.5 text-ui border border-danger/60 text-danger hover:bg-danger/10 transition-colors rounded-sm"
       >
         Remove account
       </button>
       <button
         autoFocus
         onClick={onCancel}
-        className="w-full px-2 py-1.5 text-[11px] text-text-muted hover:text-text transition-colors"
+        className="w-full px-2 py-1.5 text-ui text-text-muted hover:text-text transition-colors"
       >
         Cancel
       </button>
@@ -139,7 +139,7 @@ export function AccountSwitcher() {
                   className="w-full flex items-center gap-2 px-1 py-1 text-left hover:bg-text/8 transition-colors"
                 >
                   <Avatar account={a} />
-                  <span className="text-text-muted text-[11px] truncate flex-1">{displayName(a)}</span>
+                  <span className="text-text-muted text-ui truncate flex-1">{displayName(a)}</span>
                 </button>
               ))}
               <div className="border-t border-border-subtle my-1" />
@@ -147,7 +147,7 @@ export function AccountSwitcher() {
           )}
           <button
             onClick={() => setShowAddLogin(true)}
-            className="w-full px-2 py-1.5 text-[11px] border border-border text-text-muted hover:text-accent hover:border-accent/40 transition-colors rounded-sm"
+            className="w-full px-2 py-1.5 text-ui border border-border text-text-muted hover:text-accent hover:border-accent/40 transition-colors rounded-sm"
           >
             Login
           </button>
@@ -183,9 +183,9 @@ export function AccountSwitcher() {
                 onClick={() => handleSwitch(a.pubkey)}
               >
                 <Avatar account={a} />
-                <span className="text-text-muted text-[11px] truncate flex-1">{displayName(a)}</span>
+                <span className="text-text-muted text-ui truncate flex-1">{displayName(a)}</span>
                 {a.loginType === "remote-signer" && (
-                  <span className="text-[10px] text-text-dim" title="Remote signer (NIP-46)">NIP-46</span>
+                  <span className="text-caption text-text-dim" title="Remote signer (NIP-46)">NIP-46</span>
                 )}
                 <button
                   onClick={(e) => askRemove(e, a.pubkey)}
@@ -200,7 +200,7 @@ export function AccountSwitcher() {
 
             <button
               onClick={handleAddAccount}
-              className="w-full flex items-center gap-2 px-3 py-2 text-text-dim hover:text-accent hover:bg-text/8 text-[11px] transition-colors"
+              className="w-full flex items-center gap-2 px-3 py-2 text-text-dim hover:text-accent hover:bg-text/8 text-ui transition-colors"
             >
               <span className="w-6 text-center text-[12px]">+</span>
               <span>Add account</span>
@@ -211,14 +211,17 @@ export function AccountSwitcher() {
             <button
               onClick={() => { setOpen(false); logout(); }}
               title="Sign out. The account stays on this computer for quick switching."
-              className="w-full flex items-baseline justify-between gap-2 px-3 py-1.5 text-left text-text-muted hover:text-text hover:bg-text/8 text-[11px] transition-colors"
+              className="w-full px-3 py-1.5 text-left text-text-muted hover:text-text hover:bg-text/8 text-ui transition-colors"
             >
-              <span>Sign out</span>
-              <span className="text-text-dim text-[10px] truncate">keeps this account here</span>
+              {/* The hint is what tells this apart from removing the key. It
+                  has its own line: beside the label it was cut off at the
+                  sidebar's default width. */}
+              <span className="block">Sign out</span>
+              <span className="block text-text-dim text-caption">keeps this account here</span>
             </button>
             <button
               onClick={(e) => askRemove(e, pubkey)}
-              className="w-full px-3 py-1.5 text-left text-text-dim hover:text-danger hover:bg-text/8 text-[11px] transition-colors"
+              className="w-full px-3 py-1.5 text-left leading-snug text-text-dim hover:text-danger hover:bg-text/8 text-ui transition-colors"
             >
               Remove from this computer…
             </button>
@@ -233,7 +236,7 @@ export function AccountSwitcher() {
               onClick={() => openProfile(pubkey)}
             >
               <Avatar account={current} size={loggedIn ? "w-11 h-11" : "w-8 h-8"} textSize={loggedIn ? "text-[16px]" : "text-[12px]"} />
-              <span className={`font-medium truncate flex-1 ${loggedIn ? "text-[15px] text-text" : "text-[12px] text-text-muted"}`}>{displayName(current)}</span>
+              <span className={`font-medium truncate flex-1 ${loggedIn ? "text-body text-text" : "text-ui text-text-muted"}`}>{displayName(current)}</span>
             </div>
             <button
               onClick={() => { setConfirmRemove(null); setOpen((v) => !v); }}

@@ -106,20 +106,20 @@ export const NoteCard = memo(function NoteCard({ event, focused, onReplyInThread
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 mb-0.5">
             <button
-              className="text-text font-medium truncate text-[13px] cursor-pointer hover:text-accent transition-colors text-left"
+              className="text-text font-medium truncate text-body cursor-pointer hover:text-accent transition-colors text-left"
               onClick={() => openProfile(event.pubkey)}
               title={name}
             >{name}</button>
             {nip05 && (
-              <span title={nip05} className={`text-[10px] truncate max-w-40 ${verified === "valid" ? "text-success" : "text-text-dim"}`}>
+              <span title={nip05} className={`text-caption truncate max-w-40 ${verified === "valid" ? "text-success" : "text-text-dim"}`}>
                 {verified === "valid" ? "✓ " : ""}{nip05}
               </span>
             )}
-            <span className="text-text-dim text-[11px] shrink-0">{time}</span>
+            <span className="text-text-dim text-caption shrink-0">{time}</span>
           </div>
 
           {parentEventId && parentAuthorPubkey && (
-            <div className="text-text-dim text-[11px] mb-1.5 flex items-center gap-1">
+            <div className="text-text-dim text-caption mb-1.5 flex items-center gap-1">
               <button
                 onClick={async (e) => {
                   e.stopPropagation();

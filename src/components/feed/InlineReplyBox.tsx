@@ -167,7 +167,7 @@ export function InlineReplyBox({ event, name, rootEvent }: InlineReplyBoxProps) 
         onPaste={handlePaste}
         placeholder={`Reply to ${name}…`}
         rows={2}
-        className="w-full bg-transparent text-text text-[12px] placeholder:text-text-dim resize-none focus:outline-none leading-relaxed"
+        className="w-full bg-transparent text-text text-body placeholder:text-text-dim resize-none focus:outline-none leading-relaxed"
         autoFocus
       />
 
@@ -177,7 +177,7 @@ export function InlineReplyBox({ event, name, rootEvent }: InlineReplyBoxProps) 
           {attachments.map((url, i) => (
             <div key={i} className="relative group">
               {/\.(mp4|webm|mov|ogg|m4v)(\?|$)/i.test(url) ? (
-                <div className="h-12 w-16 rounded-sm border border-border bg-bg-raised flex items-center justify-center text-text-dim text-[9px]">
+                <div className="h-12 w-16 rounded-sm border border-border bg-bg-raised flex items-center justify-center text-text-dim text-micro">
                   video
                 </div>
               ) : (
@@ -201,11 +201,11 @@ export function InlineReplyBox({ event, name, rootEvent }: InlineReplyBoxProps) 
         </div>
       )}
 
-      {replyError && <p className="text-danger text-[10px] mb-1">{replyError}</p>}
-      {uploadError && <p className="text-danger text-[10px] mb-1">{uploadError}</p>}
+      {replyError && <p className="text-danger text-caption mb-1">{replyError}</p>}
+      {uploadError && <p className="text-danger text-caption mb-1">{uploadError}</p>}
       <div className="flex items-center justify-end gap-2 mt-1">
         {uploading && (
-          <span className="inline-flex items-center gap-1 text-text-dim text-[10px]">
+          <span className="inline-flex items-center gap-1 text-text-dim text-caption">
             <span className="w-3 h-3 border border-accent border-t-transparent rounded-full animate-spin" />
             uploading…
           </span>
@@ -235,11 +235,11 @@ export function InlineReplyBox({ event, name, rootEvent }: InlineReplyBoxProps) 
             />
           )}
         </div>
-        <span className="text-text-dim text-[10px]">Ctrl+Enter</span>
+        <span className="text-text-dim text-caption">Ctrl+Enter</span>
         <button
           onClick={handleReplySubmit}
           disabled={(!replyText.trim() && attachments.length === 0) || replying || uploading}
-          className="px-2 py-0.5 text-[10px] bg-accent hover:bg-accent-hover text-accent-text transition-colors disabled:opacity-30 disabled:cursor-not-allowed rounded-sm"
+          className="px-2 py-0.5 text-caption bg-accent hover:bg-accent-hover text-accent-text transition-colors disabled:opacity-30 disabled:cursor-not-allowed rounded-sm"
         >
           {replySent ? "Replied ✓" : replying ? "Posting…" : "Reply"}
         </button>

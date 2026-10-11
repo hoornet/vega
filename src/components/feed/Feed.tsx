@@ -147,9 +147,19 @@ export function Feed() {
     estimateSize: (index) => {
       const e = filteredNotes[index];
       if (!e) return 140;
-      // content column = scroll width minus card padding (32) + avatar col (48)
-      // and the column is capped at 42rem (672px) however wide the window is
-      return estimateNoteHeight(e, Math.min(scrollRef.current?.clientWidth ?? 600, 672) - 80);
+      // The content column is 42rem (672px) at most, less the scrollbar: the
+      // column's side padding is worked out from the pane's full width, and the
+      // scrollbar then comes out of what is left. Card padding (32) and the
+      // avatar column (48) come off that.
+      const el = scrollRef.current;
+      // The feed stays mounted while another view is shown, and a hidden
+      // element reports a width of 0. The list still asks for estimates then
+      // (a refetch changes the count), and an estimate for a column of minus
+      // 80px would be kept. Give a flat answer and let the real one be
+      // computed once the feed is on screen.
+      if (!el || el.clientWidth === 0) return 140;
+      const column = Math.min(el.clientWidth, 672 - (el.offsetWidth - el.clientWidth));
+      return estimateNoteHeight(e, column - 80);
     },
     overscan: 6,
     // Key measurements by note id, not list index. The feed list mutates order
@@ -224,7 +234,7 @@ export function Feed() {
           {loggedIn && (
             <button
               onClick={() => setTab("following")}
-              className={`px-3 py-1 text-[12px] transition-colors ${
+              className={`px-3 py-1 text-ui transition-colors ${
                 tab === "following"
                   ? "text-text border-b-2 border-accent"
                   : "text-text-muted hover:text-text"
@@ -235,7 +245,7 @@ export function Feed() {
           )}
           <button
             onClick={() => setTab("trending")}
-            className={`px-3 py-1 text-[12px] transition-colors ${
+            className={`px-3 py-1 text-ui transition-colors ${
               tab === "trending"
                 ? "text-text border-b-2 border-accent"
                 : "text-text-muted hover:text-text"
@@ -245,7 +255,7 @@ export function Feed() {
           </button>
           <button
             onClick={() => setTab("global")}
-            className={`px-3 py-1 text-[12px] transition-colors ${
+            className={`px-3 py-1 text-ui transition-colors ${
               tab === "global"
                 ? "text-text border-b-2 border-accent"
                 : "text-text-muted hover:text-text"
@@ -258,7 +268,7 @@ export function Feed() {
           <select
             value={feedLanguageFilter ?? ""}
             onChange={(e) => setFeedLanguageFilter(e.target.value || null)}
-            className="bg-transparent text-text-dim text-[11px] border border-border-strong px-1.5 py-0.5 focus:outline-none hover:border-text-dim transition-colors cursor-pointer rounded-lg"
+            className="bg-transparent text-text-dim text-ui border border-border-strong px-1.5 py-0.5 focus:outline-none hover:border-text-dim transition-colors cursor-pointer rounded-lg"
           >
             <option value="">all scripts</option>
             {FILTER_SCRIPTS.map((s) => (
@@ -267,7 +277,7 @@ export function Feed() {
           </select>
           <RelayStatusBadge />
           {lastUpdated[tab] && (
-            <span className="text-text-dim text-[11px]">{timeAgo(lastUpdated[tab])}</span>
+            <span className="text-text-dim text-caption">{timeAgo(lastUpdated[tab])}</span>
           )}
           <button
             onClick={() => {
@@ -275,7 +285,7 @@ export function Feed() {
               (isTrending ? () => loadTrendingFeed(true) : isFollowing ? loadFollowFeed : loadFeed)();
             }}
             disabled={isLoading}
-            className="text-text-muted hover:text-text text-[11px] px-2 py-1 border border-border hover:border-text-dim transition-colors disabled:opacity-40 rounded-sm"
+            className="text-text-muted hover:text-text text-ui px-2 py-1 border border-border hover:border-text-dim transition-colors disabled:opacity-40 rounded-sm"
           >
             {isLoading ? "Loading…" : "Refresh"}
           </button>
@@ -290,7 +300,7 @@ export function Feed() {
       {/* Error + new-notes banners — pinned above the scroll area so they never
           offset the virtualizer's coordinate space (its spacer must start at scrollTop 0) */}
       {error && !isFollowing && !isTrending && (
-        <div className="px-4 py-3 text-danger text-[12px] border-b border-border-subtle bg-danger/5 shrink-0">
+        <div className="px-4 py-3 text-danger text-body border-b border-border-subtle bg-danger/5 shrink-0">
           {error}
         </div>
       )}
@@ -298,7 +308,7 @@ export function Feed() {
       {tab === "global" && pendingNotes.length > 0 && (
         <button
           onClick={flushPendingNotes}
-          className="w-full py-2 text-[12px] text-accent border-b border-accent/20 bg-accent/5 hover:bg-accent/10 transition-colors shrink-0"
+          className="w-full py-2 text-ui text-accent border-b border-accent/20 bg-accent/5 hover:bg-accent/10 transition-colors shrink-0"
         >
           {pendingNotes.length} new {pendingNotes.length === 1 ? "note" : "notes"} — click to load
         </button>
@@ -312,7 +322,7 @@ export function Feed() {
 
         {!isLoading && filteredNotes.length === 0 && (
           <div className="px-4 py-12 text-center space-y-2">
-            <p className="text-text-dim text-[13px]">
+            <p className="text-text-dim text-body">
               {isTrending
                 ? "No trending notes right now."
                 : isFollowing && follows.length === 0
@@ -325,7 +335,7 @@ export function Feed() {
                     ? `No ${feedLanguageFilter} notes found.`
                     : "No notes to show."}
             </p>
-            <p className="text-text-dim text-[11px]">
+            <p className="text-text-dim text-caption">
               {isTrending
                 ? "Check back in a bit."
                 : isFollowing && follows.length === 0
@@ -342,7 +352,7 @@ export function Feed() {
               <div className="pt-2">
                 <button
                   onClick={() => void fetchFollows()}
-                  className="px-3 py-1.5 text-[12px] border border-border text-text hover:border-accent/60 hover:text-accent transition-colors rounded-sm"
+                  className="px-3 py-1.5 text-ui border border-border text-text hover:border-accent/60 hover:text-accent transition-colors rounded-sm"
                 >
                   Try again
                 </button>
@@ -354,13 +364,13 @@ export function Feed() {
               if (interests.length === 0) return null;
               return (
                 <div className="pt-2">
-                  <p className="text-text-dim text-[11px] mb-2">Explore your interests:</p>
+                  <p className="text-text-dim text-caption mb-2">Explore your interests:</p>
                   <div className="flex flex-wrap justify-center gap-1.5">
                     {interests.map((tag) => (
                       <button
                         key={tag}
                         onClick={() => openHashtag(tag)}
-                        className="px-2.5 py-1 text-[11px] border border-border text-text-dim hover:border-accent/40 hover:text-accent transition-colors rounded-sm"
+                        className="px-2.5 py-1 text-ui border border-border text-text-dim hover:border-accent/40 hover:text-accent transition-colors rounded-sm"
                       >
                         #{tag}
                       </button>
@@ -400,7 +410,7 @@ export function Feed() {
         )}
 
         {tab === "global" && loadingOlder && (
-          <div className="py-4 text-center text-text-dim text-[12px]">Loading older notes…</div>
+          <div className="py-4 text-center text-text-dim text-body">Loading older notes…</div>
         )}
       </div>
     </div>

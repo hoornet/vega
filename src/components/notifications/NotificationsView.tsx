@@ -28,7 +28,7 @@ export function NotificationsView() {
 
   if (!loggedIn || !pubkey) {
     return (
-      <div className="h-full flex items-center justify-center text-text-dim text-[12px]">
+      <div className="h-full flex items-center justify-center text-text-dim text-body">
         Log in to see notifications.
       </div>
     );
@@ -37,11 +37,11 @@ export function NotificationsView() {
   return (
     <div className="h-full flex flex-col">
       <header className="border-b border-border-subtle px-4 py-2.5 flex items-center justify-between shrink-0">
-        <h1 className="text-text text-sm font-medium tracking-wide">Notifications</h1>
+        <h1 className="text-text text-title font-medium tracking-wide">Notifications</h1>
         {unreadCount > 0 && (
           <button
             onClick={markAllRead}
-            className="text-[11px] text-text-dim hover:text-accent transition-colors"
+            className="text-ui text-text-dim hover:text-accent transition-colors"
           >
             Mark all read
           </button>
@@ -55,8 +55,8 @@ export function NotificationsView() {
 
         {!loading && filteredNotifications.length === 0 && (
           <div className="px-4 py-12 text-center space-y-2">
-            <p className="text-text-dim text-[13px]">No mentions yet.</p>
-            <p className="text-text-dim text-[11px]">When someone mentions you, it will appear here.</p>
+            <p className="text-text-dim text-body">No mentions yet.</p>
+            <p className="text-text-dim text-caption">When someone mentions you, it will appear here.</p>
           </div>
         )}
 
