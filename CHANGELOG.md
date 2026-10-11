@@ -2,6 +2,21 @@
 
 > Note: entries for v0.12.10 through v0.13.1 live in the [GitHub Releases](https://github.com/hoornet/vega/releases) notes; this file resumes at v0.13.2. The release notes on GitHub are the richer record — this file is the summary.
 
+## v0.15.9 — A usable Articles tab and Tauri 2.12 (2026-10-11)
+
+### Changed
+- **Articles → Latest is filtered now.** It used to show the newest long-form events from the relays with no filtering at all; on a sample of the 80 newest, 30 were spam galleries from keys with no profile and 42 were an RSS bridge reposting news sites. Latest now applies the same mute list, keyword mutes and language filter as the feed, requires the author to have a profile, and hides RSS reposts by default — with a switch under **Settings → Articles** to show them. Following is unchanged apart from the shared filters, so an RSS feed you chose to follow still shows there. Author profiles for the tab are fetched in one batch instead of one request per card.
+- **Tauri 2.12** runtime and plugins (dialog 2.8, fs 2.6, http 2.8, notification 2.5, opener 2.7, process 2.4, updater 2.13.2). The Rust and JavaScript halves moved together, which is what the version check added in v0.15.8 enforces.
+- Dependency updates: lucide-react 1.52, @tanstack/react-virtual, dompurify, and the dev toolchain (vite 8.3.3, vitest 5.0.3, jsdom 30.1.2).
+
+### Security
+- source-map-js updated to 1.2.2 for [GHSA-68fv-2mgg-jv7q](https://github.com/advisories/GHSA-68fv-2mgg-jv7q), an event-loop denial of service through crafted source-map section offsets. It is a build-time dependency of the CSS pipeline, not shipped in the app.
+
+### Maintenance
+- Dependabot now waits before proposing a version: 3 days for patches, 7 for minors, 14 for majors (7 for Actions). Security updates still arrive immediately.
+- The stub `@types/marked` package is gone; marked ships its own types.
+- Docs: the release verification rule for `latest.json` URLs now describes how the updater actually downloads (v1 of tauri-action serves binaries only to a request that asks for them).
+
 ## v0.15.8 — TLS security update and a stable Arch package (2026-09-27)
 
 ### Security
