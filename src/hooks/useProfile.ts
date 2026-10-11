@@ -56,7 +56,12 @@ export function primeProfileCache(pubkey: string, profile: NDKUserProfile | null
  * cache, then SQLite. `undefined` means neither has it.
  */
 export async function peekCachedProfile(pubkey: string): Promise<NDKUserProfile | null | undefined> {
-  if (profileCache.has(pubkey)) return profileCache.get(pubkey) as NDKUserProfile | null;
+  // A cached null means one earlier single-profile fetch came back empty or
+  // timed out; the hook stores it so cards stop retrying. For callers that
+  // decide visibility on it, that is not "known to have no profile", so it is
+  // reported as unknown and they ask the relays again in their batch.
+  const inMemory = profileCache.get(pubkey);
+  if (inMemory) return inMemory as NDKUserProfile;
   const cached = await dbLoadProfile(pubkey);
   if (!cached) return undefined;
   try {

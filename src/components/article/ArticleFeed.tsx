@@ -37,6 +37,10 @@ export function ArticleFeed() {
   const [profiles, setProfiles] = useState<Map<string, AuthorProfile | null>>(() => new Map());
   const profilesRef = useRef(profiles);
   const [resolvingProfiles, setResolvingProfiles] = useState(false);
+  // Only the newest resolver run may clear the flag: a run cancelled by a tab
+  // switch must not flip it while its successor is still fetching, and a
+  // successor with nothing to resolve must still clear it.
+  const resolveSeq = useRef(0);
 
   const mergeProfiles = useCallback((next: Map<string, AuthorProfile | null>) => {
     if (next.size === 0) return;
@@ -53,10 +57,14 @@ export function ArticleFeed() {
    */
   const resolveProfiles = useCallback(
     async (events: NDKEvent[], isCancelled: () => boolean) => {
+      const runId = ++resolveSeq.current;
       const pubkeys = Array.from(new Set(events.map((e) => e.pubkey))).filter(
         (pk) => !profilesRef.current.has(pk),
       );
-      if (pubkeys.length === 0) return;
+      if (pubkeys.length === 0) {
+        setResolvingProfiles(false);
+        return;
+      }
       setResolvingProfiles(true);
       try {
         const known = new Map<string, AuthorProfile | null>();
@@ -71,11 +79,14 @@ export function ArticleFeed() {
 
         const missing = pubkeys.filter((pk) => !known.has(pk));
         if (missing.length === 0) return;
-        let fetched = new Map<string, NDKUserProfile>();
+        let fetched: Map<string, NDKUserProfile>;
         try {
           fetched = await fetchProfiles(missing);
         } catch {
-          // Relay fetch failed: every missing author is treated as profile-less below.
+          // The whole batch failed (relays unreachable), which says nothing
+          // about any author. Leave them unknown so the next run asks again
+          // instead of recording "no profile" for the life of the view.
+          return;
         }
         if (isCancelled()) return;
         const resolved = new Map<string, AuthorProfile | null>();
@@ -86,7 +97,7 @@ export function ArticleFeed() {
         }
         mergeProfiles(resolved);
       } finally {
-        if (!isCancelled()) setResolvingProfiles(false);
+        if (resolveSeq.current === runId) setResolvingProfiles(false);
       }
     },
     [mergeProfiles],
