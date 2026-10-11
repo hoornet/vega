@@ -62,6 +62,20 @@ describe("removing an account", () => {
     expect(screen.getByText("Sign out")).toBeTruthy();
   });
 
+  it("cancels on Escape, without the key press reaching the app-wide handler", () => {
+    const appHandler = vi.fn();
+    window.addEventListener("keydown", appHandler);
+    openMenu();
+    fireEvent.click(screen.getByText("Remove from this computer…"));
+
+    fireEvent.keyDown(document, { key: "Escape" });
+    window.removeEventListener("keydown", appHandler);
+
+    expect(screen.queryByRole("alertdialog")).toBeNull();
+    expect(store.removeAccount).not.toHaveBeenCalled();
+    expect(appHandler).not.toHaveBeenCalled();
+  });
+
   it("removes only after the second, explicit click", () => {
     openMenu();
     fireEvent.click(screen.getByText("Remove from this computer…"));

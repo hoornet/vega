@@ -14,6 +14,10 @@ export function explainSecretKeyError(input: string): string {
   if (value.startsWith("bunker://")) {
     return "That is a remote signer address. Use the Remote signer tab for it.";
   }
+  if (value.startsWith("nsec1")) {
+    // The right kind of key, damaged: a character lost in copying is the usual cause.
+    return "That secret key isn't valid. Check that you copied all of it.";
+  }
   return "That doesn't look like a secret key. It starts with nsec1.";
 }
 

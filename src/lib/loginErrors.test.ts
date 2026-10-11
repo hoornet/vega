@@ -14,9 +14,14 @@ describe("explainSecretKeyError", () => {
     expect(explainSecretKeyError("bunker://abc?relay=wss://r")).toMatch(/Remote signer tab/);
   });
 
+  it("tells a damaged secret key apart from something that is not one", () => {
+    expect(explainSecretKeyError("nsec1almostright")).toBe("That secret key isn't valid. Check that you copied all of it.");
+  });
+
   it("never echoes what was typed", () => {
     // The input may be a real secret with a typo in it.
     expect(explainSecretKeyError("nsec1almostright")).not.toContain("almostright");
+    expect(explainSecretKeyError("hunter2")).not.toContain("hunter2");
   });
 });
 

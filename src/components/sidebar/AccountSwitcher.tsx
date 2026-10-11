@@ -4,6 +4,7 @@ import { useUserStore, SavedAccount } from "../../stores/user";
 import { useUIStore } from "../../stores/ui";
 import { LoginModal } from "../shared/LoginModal";
 import { shortenPubkey } from "../../lib/utils";
+import { useEscapeToClose } from "../../hooks/useEscapeToClose";
 
 function Avatar({ account, size = "w-6 h-6", textSize = "text-[10px]" }: { account: SavedAccount; size?: string; textSize?: string }) {
   const initial = (account.name || account.npub || "?").charAt(0).toUpperCase();
@@ -41,6 +42,10 @@ function RemoveAccountConfirm({ account, name, onCancel, onConfirm }: {
 }) {
   const [copyState, setCopyState] = useState<"idle" | "copied" | "failed">("idle");
   const holdsKey = account.loginType === "nsec";
+  // Escape backs out of the dangerous action, and does only that: without
+  // this it reached the app-wide handler and could navigate back while the
+  // confirmation stayed open.
+  useEscapeToClose(onCancel);
 
   const copyKey = async () => {
     try {
