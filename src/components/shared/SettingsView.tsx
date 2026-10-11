@@ -38,9 +38,9 @@ function MutedRow({ pubkey, onUnmute }: { pubkey: string; onUnmute: () => void }
   const profile = useProfile(pubkey);
   const name = profileName(profile, pubkey.slice(0, 12) + "…");
   return (
-    <div className="flex items-center gap-3 px-3 py-2 border border-border text-[12px] group">
+    <div className="flex items-center gap-3 px-3 py-2 border border-border text-[12px] group rounded-lg">
       {profile?.picture && (
-        <img src={profile.picture} alt={`${name}'s avatar`} className="w-5 h-5 rounded-sm object-cover shrink-0" />
+        <img src={profile.picture} alt={`${name}'s avatar`} className="w-5 h-5 rounded-full object-cover shrink-0" />
       )}
       <span className="text-text truncate flex-1">{name}</span>
       <button
@@ -94,7 +94,7 @@ function ArticlesSection() {
         <button
           onClick={() => setHideRss(!hideRss)}
           className={`w-9 h-5 rounded-full transition-colors relative shrink-0 ${
-            hideRss ? "bg-accent" : "bg-border"
+            hideRss ? "bg-accent" : "bg-border-strong"
           }`}
         >
           <span
@@ -151,7 +151,7 @@ function MutedKeywordsSection() {
       {mutedKeywords.length > 0 && (
         <div className="space-y-1 mb-3">
           {mutedKeywords.map((kw) => (
-            <div key={kw} className="flex items-center gap-3 px-3 py-2 border border-border text-[12px] group">
+            <div key={kw} className="flex items-center gap-3 px-3 py-2 border border-border text-[12px] group rounded-lg">
               <span className="text-text truncate flex-1">{kw}</span>
               <button
                 onClick={() => removeKeyword(kw)}
@@ -169,11 +169,11 @@ function MutedKeywordsSection() {
           onChange={(e) => { setInput(e.target.value); setError(null); }}
           onKeyDown={handleKeyDown}
           placeholder="Word or phrase to mute"
-          className="flex-1 bg-bg border border-border px-3 py-1.5 text-text text-[12px] focus:outline-none focus:border-accent/50 placeholder:text-text-dim"
+          className="flex-1 bg-bg border border-border-strong px-3 py-1.5 text-text text-[12px] focus:outline-none focus:border-accent placeholder:text-text-dim rounded-lg"
         />
         <button
           onClick={handleAdd}
-          className="px-3 py-1.5 text-[11px] border border-border text-text-muted hover:text-accent hover:border-accent/40 transition-colors shrink-0"
+          className="px-3 py-1.5 text-[11px] border border-border text-text-muted hover:text-accent hover:border-accent/40 transition-colors shrink-0 rounded-sm"
         >
           Add
 </button>
@@ -216,7 +216,7 @@ function WoTSection() {
           onClick={noFollows ? undefined : toggle}
           disabled={noFollows}
           className={`w-9 h-5 rounded-full transition-colors relative shrink-0 ${
-            enabled && !noFollows ? "bg-accent" : "bg-border"
+            enabled && !noFollows ? "bg-accent" : "bg-border-strong"
           }`}
         >
           <span
@@ -292,7 +292,7 @@ function IdentitySection() {
   return (
     <section>
       <h2 className="text-text text-[11px] font-medium uppercase tracking-widest mb-2 text-text-dim">Identity</h2>
-      <div className="flex items-center gap-2 px-3 py-2 border border-border">
+      <div className="flex items-center gap-2 px-3 py-2 border border-border rounded-lg">
         <span className="text-text font-mono text-[11px] truncate flex-1">{npub}</span>
         <button
           onClick={handleCopy}
@@ -305,7 +305,7 @@ function IdentitySection() {
 
       {nsec && (
         <>
-          <div className="flex items-center gap-2 px-3 py-2 border border-danger/40 mt-3">
+          <div className="flex items-center gap-2 px-3 py-2 border border-danger/40 mt-3 rounded-lg">
             <span className={`font-mono text-[11px] truncate flex-1 ${revealed ? "text-text" : "text-text-dim"}`}>
               {revealed ? nsec : "•".repeat(48)}
             </span>
@@ -391,7 +391,7 @@ function ExportSection() {
         <button
           onClick={handleExport}
           disabled={status === "saving"}
-          className="px-3 py-1.5 text-[11px] border border-border text-text-muted hover:text-accent hover:border-accent/40 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+          className="px-3 py-1.5 text-[11px] border border-border text-text-muted hover:text-accent hover:border-accent/40 transition-colors disabled:opacity-40 disabled:cursor-not-allowed rounded-sm"
         >
           {status === "saving" ? "Exporting…" : status === "done" ? "Exported ✓" : "Export data"}
         </button>
@@ -436,7 +436,7 @@ function NotificationSection() {
             <button
               onClick={() => toggle(key)}
               className={`w-9 h-5 rounded-full transition-colors relative shrink-0 ${
-                settings[key] ? "bg-accent" : "bg-border"
+                settings[key] ? "bg-accent" : "bg-border-strong"
               }`}
             >
               <span
@@ -538,7 +538,7 @@ function ProxySection() {
           onClick={toggle}
           disabled={status === "loading"}
           className={`w-9 h-5 rounded-full transition-colors relative shrink-0 disabled:opacity-50 ${
-            settings.enabled ? "bg-accent" : "bg-border"
+            settings.enabled ? "bg-accent" : "bg-border-strong"
           }`}
         >
           <span
@@ -555,12 +555,12 @@ function ProxySection() {
           onChange={(e) => updateUrl(e.target.value)}
           placeholder="socks5://127.0.0.1:9050"
           disabled={!settings.enabled || status === "loading"}
-          className="flex-1 bg-bg border border-border px-3 py-1.5 text-text text-[12px] focus:outline-none focus:border-accent/50 placeholder:text-text-dim disabled:opacity-50 disabled:cursor-not-allowed font-mono"
+          className="flex-1 bg-bg border border-border-strong px-3 py-1.5 text-text text-[12px] focus:outline-none focus:border-accent placeholder:text-text-dim disabled:opacity-50 disabled:cursor-not-allowed font-mono rounded-lg"
         />
         <button
           onClick={saveSettings}
           disabled={status === "saving" || status === "loading" || !!validationError || !dirty}
-          className="px-3 py-1.5 text-[11px] border border-border text-text-muted hover:text-accent hover:border-accent/40 transition-colors disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
+          className="px-3 py-1.5 text-[11px] border border-border text-text-muted hover:text-accent hover:border-accent/40 transition-colors disabled:opacity-40 disabled:cursor-not-allowed shrink-0 rounded-sm"
         >
           {status === "saving" ? "Saving..." : "Save"}
         </button>
@@ -581,7 +581,7 @@ function ProxySection() {
           <p className="text-accent text-[10px]">Saved. Restart Vega to apply it to all connections.</p>
           <button
             onClick={() => relaunch()}
-            className="px-2 py-1 text-[10px] border border-accent/40 text-accent hover:bg-bg-hover transition-colors"
+            className="px-2 py-1 text-[10px] border border-accent/40 text-accent hover:bg-bg-hover transition-colors rounded-sm"
           >
             Restart now
           </button>
@@ -650,7 +650,7 @@ function FontSizeSection() {
               fontSize === size
                 ? "border-accent text-accent"
                 : "border-border text-text-muted hover:text-text hover:border-accent/40"
-            }`}
+            } rounded-sm`}
           >
             {label}
           </button>
@@ -706,7 +706,7 @@ function RelayAuthSection() {
               scope === opt.value
                 ? "border-accent text-accent"
                 : "border-border text-text-muted hover:text-text hover:border-accent/40"
-            }`}
+            } rounded-sm`}
           >
             {opt.label}
           </button>
@@ -736,7 +736,7 @@ function EasyReadFontSection() {
             easyReadFont
               ? "border-accent text-accent"
               : "border-border text-text-muted hover:text-text hover:border-accent/40"
-          }`}
+          } rounded-sm`}
         >
           {easyReadFont ? "On" : "Off"}
         </button>
@@ -785,7 +785,7 @@ function RelayReachSection() {
           onClick={toggle}
           disabled={restarting}
           className={`w-9 h-5 rounded-full transition-colors relative shrink-0 disabled:opacity-40 ${
-            enabled ? "bg-accent" : "bg-border"
+            enabled ? "bg-accent" : "bg-border-strong"
           }`}
         >
           <span
@@ -843,7 +843,7 @@ function ExperimentalSection() {
         <button
           onClick={toggle}
           className={`w-9 h-5 rounded-full transition-colors relative shrink-0 ${
-            enabled ? "bg-accent" : "bg-border"
+            enabled ? "bg-accent" : "bg-border-strong"
           }`}
         >
           <span
@@ -894,7 +894,7 @@ function DiagnosticsSection() {
         <button
           onClick={toggle}
           className={`w-9 h-5 rounded-full transition-colors relative shrink-0 ${
-            enabled ? "bg-accent" : "bg-border"
+            enabled ? "bg-accent" : "bg-border-strong"
           }`}
         >
           <span
@@ -920,7 +920,7 @@ function DiagnosticsSection() {
 export function SettingsView() {
   return (
     <div className="h-full flex flex-col">
-      <header className="border-b border-border px-4 py-2.5 shrink-0">
+      <header className="border-b border-border-subtle px-4 py-2.5 shrink-0">
         <h1 className="text-text text-sm font-medium tracking-wide">Settings</h1>
       </header>
 

@@ -185,12 +185,12 @@ export function ArticleFeed() {
   return (
     <div className="h-full flex flex-col">
       {/* Header */}
-      <header className="border-b border-border px-4 py-2.5 flex items-center justify-between shrink-0">
+      <header className="border-b border-border-subtle px-4 py-2.5 flex items-center justify-between shrink-0">
         <h1 className="text-text text-sm font-medium">Articles</h1>
         {canSign && (
           <button
             onClick={() => setView("article-editor")}
-            className="text-[11px] px-3 py-1 border border-accent/60 text-accent hover:bg-accent hover:text-accent-text transition-colors"
+            className="text-[11px] px-3 py-1 border border-accent/60 text-accent hover:bg-accent hover:text-accent-text transition-colors rounded-sm"
           >
             Write article
           </button>
@@ -198,7 +198,7 @@ export function ArticleFeed() {
       </header>
 
       {/* Tabs */}
-      <div className="border-b border-border flex shrink-0">
+      <div className="border-b border-border-subtle flex shrink-0">
         {(["latest", "following"] as const).map((t) => (
           <button
             key={t}

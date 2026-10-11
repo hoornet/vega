@@ -88,17 +88,17 @@ function ZapRow({
   }, [noteId, noteEvent, loadingNote, openThread]);
 
   return (
-    <div className="flex items-start gap-3 px-4 py-3 border-b border-border hover:bg-bg-hover transition-colors">
+    <div className="flex items-start gap-3 px-4 py-3 border-b border-border-subtle hover:bg-bg-hover transition-colors">
       {/* Avatar */}
       <div
         className={`shrink-0 cursor-pointer ${!pubkey ? "pointer-events-none" : ""}`}
         onClick={() => pubkey && openProfile(pubkey)}
       >
         {avatar ? (
-          <img src={avatar} alt={`${name}'s avatar`} className="w-8 h-8 rounded-sm object-cover" loading="lazy"
+          <img src={avatar} alt={`${name}'s avatar`} className="w-8 h-8 rounded-full object-cover" loading="lazy"
             onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
         ) : (
-          <div className="w-8 h-8 rounded-sm bg-bg-raised border border-border flex items-center justify-center text-text-dim text-xs">
+          <div className="w-8 h-8 rounded-full bg-bg-raised border border-border flex items-center justify-center text-text-dim text-xs">
             {name.charAt(0).toUpperCase()}
           </div>
         )}
@@ -127,7 +127,7 @@ function ZapRow({
         {noteId && (
           <button
             onClick={handleNoteClick}
-            className="mt-1.5 w-full text-left bg-bg-raised border border-border px-3 py-2 rounded-sm hover:border-accent/40 transition-colors cursor-pointer group"
+            className="mt-1.5 w-full text-left bg-bg-raised border border-border px-3 py-2 rounded-lg hover:border-accent/40 transition-colors cursor-pointer group"
           >
             {notePreview ? (
               <p className="text-text-muted text-[11px] leading-snug line-clamp-2 group-hover:text-text transition-colors">
@@ -177,7 +177,7 @@ export function ZapHistoryView() {
   if (!loggedIn || !pubkey) {
     return (
       <div className="h-full flex flex-col">
-        <header className="border-b border-border px-4 py-2.5 shrink-0">
+        <header className="border-b border-border-subtle px-4 py-2.5 shrink-0">
           <h1 className="text-text text-sm font-medium">Zap History</h1>
         </header>
         <div className="flex-1 flex items-center justify-center text-text-dim text-[12px]">
@@ -202,7 +202,7 @@ export function ZapHistoryView() {
   return (
     <div className="h-full flex flex-col">
       {/* Header */}
-      <header className="border-b border-border px-4 py-2.5 flex items-center justify-between shrink-0">
+      <header className="border-b border-border-subtle px-4 py-2.5 flex items-center justify-between shrink-0">
         <div className="flex items-center gap-3">
           <button onClick={goBack} className="text-text-dim hover:text-text text-[11px] transition-colors">
             ← back
@@ -216,7 +216,7 @@ export function ZapHistoryView() {
       </header>
 
       {/* Tabs */}
-      <div className="flex border-b border-border shrink-0">
+      <div className="flex border-b border-border-subtle shrink-0">
         {(["received", "sent"] as Tab[]).map((t) => (
           <button
             key={t}
@@ -240,7 +240,7 @@ export function ZapHistoryView() {
           <div className="px-4 py-8 text-text-dim text-[12px] text-center">Loading zap history…</div>
         )}
         {error && (
-          <div className="px-4 py-3 text-danger text-[12px] border-b border-border">{error}</div>
+          <div className="px-4 py-3 text-danger text-[12px] border-b border-border-subtle">{error}</div>
         )}
         {!loading && activeEvents.length === 0 && (
           <div className="px-4 py-8 text-text-dim text-[12px] text-center">

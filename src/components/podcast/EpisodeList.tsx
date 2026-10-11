@@ -63,7 +63,7 @@ export function EpisodeList({ show, onBack }: EpisodeListProps) {
   return (
     <div className="h-full flex flex-col">
       {/* Header */}
-      <div className="border-b border-border p-4 flex items-start gap-4 shrink-0">
+      <div className="border-b border-border-subtle p-4 flex items-start gap-4 shrink-0">
         <button
           onClick={onBack}
           className="text-text-muted hover:text-accent text-[12px] mt-1 shrink-0"
@@ -109,7 +109,7 @@ export function EpisodeList({ show, onBack }: EpisodeListProps) {
               <button
                 key={ep.guid}
                 onClick={() => play(ep)}
-                className={`w-full text-left px-4 py-3 border-b border-border hover:bg-bg-hover transition-colors flex items-center gap-3 ${
+                className={`w-full text-left px-4 py-3 border-b border-border-subtle hover:bg-bg-hover transition-colors flex items-center gap-3 ${
                   isPlaying ? "bg-accent/5" : ""
                 }`}
               >

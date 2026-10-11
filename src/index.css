@@ -5,21 +5,29 @@
      applyTheme() overrides these at runtime — keep them in sync so the
      pre-theme initial paint matches and there is no colour flash. */
   --color-bg: #0d0e12;
-  --color-bg-raised: #161820;
+  --color-bg-raised: #181a23;
   --color-bg-hover: #1f222c;
-  --color-border: #2b2e3a;
-  --color-border-subtle: #1d1f29;
+  --color-border: #3d4152;
+  --color-border-subtle: #2b2e3a;
+  --color-border-strong: #60657b;
   --color-text: #e8e9ee;
-  --color-text-muted: #9a9db0;
-  --color-text-dim: #686b7d;
+  --color-text-muted: #a9acbd;
+  --color-text-dim: #878a9b;
   --color-accent: #a78bfa;
-  --color-accent-hover: #8b5cf6;
-  --color-accent-text: #ffffff;
+  --color-accent-hover: #bba6fc;
+  --color-accent-text: #14111f;
   --color-zap: #f5b73d;
   --color-zap-text: #15161a;
   --color-danger: #ef5f6b;
+  --color-danger-text: #0d0e12;
   --color-warning: #f5b73d;
   --color-success: #4cc98a;
+  /* Tailwind's `rounded-sm` is 4px. The app used it on 108 controls that
+     read as sharp rectangles; 6px softens them all at once. Roles: 6px
+     (`rounded-sm`) for buttons, chips and nav rows, 8px (`rounded-lg`) for
+     cards, fields, popovers, dialogs, toasts and media, `rounded-full` for
+     avatars, badges, pills and toggles. */
+  --radius-sm: 6px;
   --font-ui: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
   --font-mono: "JetBrains Mono", "Fira Code", "SF Mono", monospace;
   --font-reading: Georgia, "Times New Roman", "Noto Serif", serif;
@@ -111,34 +119,34 @@ html.font-readable body {
 .article-preview ol { list-style: decimal; padding-left: 1.5em; margin: 0.8em 0; }
 .article-preview li { margin: 0.3em 0; line-height: 1.7; }
 .article-preview blockquote { border-left: 3px solid var(--color-accent); padding-left: 1em; color: var(--color-text-muted); margin: 1em 0; }
-.article-preview code { font-family: var(--font-mono); background: var(--color-bg-raised); padding: 0.1em 0.4em; font-size: 0.9em; border-radius: 2px; }
-.article-preview pre { background: var(--color-bg-raised); border: 1px solid var(--color-border); padding: 1em; overflow-x: auto; margin: 1em 0; }
+.article-preview code { font-family: var(--font-mono); background: var(--color-bg-raised); padding: 0.1em 0.4em; font-size: 0.9em; border-radius: 4px; }
+.article-preview pre { background: var(--color-bg-raised); border: 1px solid var(--color-border); padding: 1em; overflow-x: auto; margin: 1em 0; border-radius: 8px; }
 .article-preview pre code { background: none; padding: 0; }
 .article-preview a { color: var(--color-accent); text-decoration: underline; text-underline-offset: 2px; }
-.article-preview hr { border: none; border-top: 1px solid var(--color-border); margin: 1.5em 0; }
+.article-preview hr { border: none; border-top: 1px solid var(--color-border-subtle); margin: 1.5em 0; }
 .article-preview strong { color: var(--color-text); font-weight: 600; }
-.article-preview img { max-width: 100%; border-radius: 2px; margin: 0.5em 0; }
+.article-preview img { max-width: 100%; border-radius: 8px; margin: 0.5em 0; }
 
 /* Article reader — slightly larger type than the editor preview */
 .prose-article { -webkit-user-select: text; user-select: text; color: var(--color-text); font-family: var(--font-reading); font-size: 17px; line-height: 1.8; }
 .prose-article h1 { font-size: 1.7em; font-weight: bold; margin: 1.4em 0 0.5em; }
-.prose-article h2 { font-size: 1.35em; font-weight: bold; margin: 1.4em 0 0.5em; border-bottom: 1px solid var(--color-border); padding-bottom: 0.3em; }
+.prose-article h2 { font-size: 1.35em; font-weight: bold; margin: 1.4em 0 0.5em; border-bottom: 1px solid var(--color-border-subtle); padding-bottom: 0.3em; }
 .prose-article h3 { font-size: 1.15em; font-weight: bold; margin: 1.2em 0 0.4em; }
 .prose-article p { margin: 0.9em 0; }
 .prose-article ul { list-style: disc; padding-left: 1.6em; margin: 0.9em 0; }
 .prose-article ol { list-style: decimal; padding-left: 1.6em; margin: 0.9em 0; }
 .prose-article li { margin: 0.35em 0; }
 .prose-article blockquote { border-left: 3px solid var(--color-accent); padding-left: 1.1em; color: var(--color-text-muted); margin: 1.2em 0; font-style: italic; }
-.prose-article code { font-family: var(--font-mono); background: var(--color-bg-raised); padding: 0.15em 0.4em; font-size: 0.88em; border-radius: 2px; }
-.prose-article pre { background: var(--color-bg-raised); border: 1px solid var(--color-border); padding: 1.1em; overflow-x: auto; margin: 1.2em 0; border-radius: 2px; }
+.prose-article code { font-family: var(--font-mono); background: var(--color-bg-raised); padding: 0.15em 0.4em; font-size: 0.88em; border-radius: 4px; }
+.prose-article pre { background: var(--color-bg-raised); border: 1px solid var(--color-border); padding: 1.1em; overflow-x: auto; margin: 1.2em 0; border-radius: 8px; }
 .prose-article pre code { background: none; padding: 0; }
 .prose-article a { color: var(--color-accent); text-decoration: underline; text-underline-offset: 3px; }
-.prose-article hr { border: none; border-top: 1px solid var(--color-border); margin: 2em 0; }
+.prose-article hr { border: none; border-top: 1px solid var(--color-border-subtle); margin: 2em 0; }
 .prose-article strong { color: var(--color-text); font-weight: 600; }
 /* WebKitGTK scroll-lock workaround: body <img> sometimes collapses to 0 height on re-decode,
    shrinking scrollHeight and clamping the scroll. A fixed aspect-ratio reserves a layout box
    that survives the collapse. object-fit: contain preserves the image's own ratio inside it. */
-.prose-article img { display: block; width: 100%; max-width: 100%; aspect-ratio: 16 / 9; object-fit: contain; background: var(--color-bg-raised); border-radius: 2px; margin: 1em 0; cursor: zoom-in; }
+.prose-article img { display: block; width: 100%; max-width: 100%; aspect-ratio: 16 / 9; object-fit: contain; background: var(--color-bg-raised); border-radius: 8px; margin: 1em 0; cursor: zoom-in; }
 
 /* View transition fade-in */
 @keyframes fade-in {

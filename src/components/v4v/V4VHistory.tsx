@@ -11,7 +11,7 @@ function HistoryRow({ entry }: { entry: V4VHistoryEntry }) {
   const totalSats = entry.satsStreamed + entry.satsBoosted;
 
   return (
-    <div className="border-b border-border">
+    <div className="border-b border-border-subtle">
       <button
         onClick={() => setExpanded(!expanded)}
         className="w-full text-left px-4 py-3 hover:bg-bg-hover transition-colors"

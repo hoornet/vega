@@ -32,11 +32,11 @@ function TopFollowerAvatar({ pubkey }: { pubkey: string }) {
         <img
           src={profile.picture}
           alt={`${name}'s avatar`}
-          className="w-5 h-5 rounded-sm object-cover bg-bg-raised"
+          className="w-5 h-5 rounded-full object-cover bg-bg-raised"
           onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
         />
       ) : (
-        <div className="w-5 h-5 rounded-sm bg-bg-raised border border-border flex items-center justify-center text-[8px] text-text-dim">
+        <div className="w-5 h-5 rounded-full bg-bg-raised border border-border flex items-center justify-center text-[8px] text-text-dim">
           {name.charAt(0).toUpperCase()}
         </div>
       )}
@@ -142,7 +142,7 @@ export function ProfileView() {
   return (
     <div className="h-full flex flex-col">
       {/* Header */}
-      <header className="border-b border-border px-4 py-2.5 flex flex-wrap items-center justify-between gap-y-1 shrink-0">
+      <header className="border-b border-border-subtle px-4 py-2.5 flex flex-wrap items-center justify-between gap-y-1 shrink-0">
         <div className="flex items-center gap-3">
           <button
             onClick={editing ? () => setEditing(false) : goBack}
@@ -152,7 +152,7 @@ export function ProfileView() {
           </button>
           <h1 className="text-text text-sm font-medium">{isOwn ? "Your Profile" : "Profile"}</h1>
           {isOwn && !canSign && (
-            <span className="text-text-dim text-[10px] border border-border px-2 py-0.5">
+            <span className="text-text-dim text-[10px] border border-border px-2 py-0.5 rounded-sm">
               read-only
             </span>
           )}
@@ -160,7 +160,7 @@ export function ProfileView() {
         {isOwn && !editing && canSign && (
           <button
             onClick={() => setEditing(true)}
-            className="text-[11px] px-3 py-1 border border-border text-text-muted hover:text-accent hover:border-accent/40 transition-colors"
+            className="text-[11px] px-3 py-1 border border-border text-text-muted hover:text-accent hover:border-accent/40 transition-colors rounded-sm"
           >
             Edit profile
           </button>
@@ -170,7 +170,7 @@ export function ProfileView() {
             {(lud16 || profile?.lud06) && (
               <button
                 onClick={() => setShowZap(true)}
-                className="text-[11px] px-3 py-1 border border-border text-zap hover:border-zap/40 hover:bg-zap/5 transition-colors"
+                className="text-[11px] px-3 py-1 border border-border text-zap hover:border-zap/40 hover:bg-zap/5 transition-colors rounded-sm"
               >
                 ⚡ Zap
               </button>
@@ -182,7 +182,7 @@ export function ProfileView() {
                 isFollowing
                   ? "border-border text-text-muted hover:text-danger hover:border-danger/40"
                   : "border-accent/60 text-accent hover:bg-accent hover:text-accent-text"
-              }`}
+              } rounded-sm`}
             >
               {followPending ? "…" : isFollowing ? "Unfollow" : "Follow"}
             </button>
@@ -192,13 +192,13 @@ export function ProfileView() {
                 isMuted
                   ? "border-danger/40 text-danger hover:bg-danger/5"
                   : "border-border text-text-dim hover:text-danger hover:border-danger/40"
-              }`}
+              } rounded-sm`}
             >
               {isMuted ? "Unmute" : "Mute"}
             </button>
             <button
               onClick={() => openDM(pubkey)}
-              className="text-[11px] px-3 py-1 border border-border text-text-muted hover:text-accent hover:border-accent/40 transition-colors"
+              className="text-[11px] px-3 py-1 border border-border text-text-muted hover:text-accent hover:border-accent/40 transition-colors rounded-sm"
             >
               ✉ Message
             </button>
@@ -214,7 +214,7 @@ export function ProfileView() {
 
         {/* Profile card */}
         {!editing && (
-          <div className="border-b border-border">
+          <div className="border-b border-border-subtle">
             {/* Banner */}
             {profile?.banner && !bannerError ? (
               <div className="relative h-44 bg-bg-raised overflow-hidden">
@@ -239,12 +239,12 @@ export function ProfileView() {
                   <img
                     src={avatar}
                     alt={`${name}'s avatar`}
-                    className="w-16 h-16 rounded-sm object-cover bg-bg-raised"
+                    className="w-16 h-16 rounded-full object-cover bg-bg-raised"
                     onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
                   />
                 ) : (
                   <div
-                    className="w-16 h-16 rounded-sm bg-bg-raised border border-border flex items-center justify-center text-text-dim text-lg"
+                    className="w-16 h-16 rounded-full bg-bg-raised border border-border flex items-center justify-center text-text-dim text-lg"
                   >
                     {name.charAt(0).toUpperCase()}
                   </div>
@@ -352,7 +352,7 @@ export function ProfileView() {
         )}
 
         {/* Notes / Articles / Media tabs */}
-        <div className="border-b border-border flex shrink-0">
+        <div className="border-b border-border-subtle flex shrink-0">
           {(["notes", "articles", "media"] as const).map((t) => (
             <button
               key={t}

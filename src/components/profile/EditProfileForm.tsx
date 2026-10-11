@@ -55,14 +55,14 @@ export function EditProfileForm({ pubkey, onSaved }: { pubkey: string; onSaved: 
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
-        className="w-full bg-bg border border-border px-3 py-1.5 text-text text-[12px] focus:outline-none focus:border-accent/50"
+        className="w-full bg-bg border border-border-strong px-3 py-1.5 text-text text-[12px] focus:outline-none focus:border-accent rounded-lg"
         style={{ WebkitUserSelect: "text", userSelect: "text" } as React.CSSProperties}
       />
     </div>
   );
 
   return (
-    <div className="px-4 py-4 border-b border-border">
+    <div className="px-4 py-4 border-b border-border-subtle">
       <div className="grid grid-cols-2 gap-3 mb-3">
         {field("Display name", displayName, setDisplayName, "Square that Circle")}
         {field("Username", name, setName, "squarethecircle")}
@@ -78,7 +78,7 @@ export function EditProfileForm({ pubkey, onSaved }: { pubkey: string; onSaved: 
           onChange={(e) => setAbout(e.target.value)}
           placeholder="Tell people about yourself…"
           rows={3}
-          className="w-full bg-bg border border-border px-3 py-1.5 text-text text-[12px] resize-none focus:outline-none focus:border-accent/50"
+          className="w-full bg-bg border border-border-strong px-3 py-1.5 text-text text-[12px] resize-none focus:outline-none focus:border-accent rounded-lg"
           style={{ WebkitUserSelect: "text", userSelect: "text" } as React.CSSProperties}
         />
       </div>
@@ -91,14 +91,14 @@ export function EditProfileForm({ pubkey, onSaved }: { pubkey: string; onSaved: 
           <button
             onClick={handleSave}
             disabled={saving || saved}
-            className="px-4 py-1.5 text-[11px] bg-accent hover:bg-accent-hover text-accent-text transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+            className="px-4 py-1.5 text-[11px] bg-accent hover:bg-accent-hover text-accent-text transition-colors disabled:opacity-30 disabled:cursor-not-allowed rounded-sm"
           >
             {saved ? "Saved ✓" : saving ? "Saving…" : "Save profile"}
           </button>
         ) : (
           <button
             onClick={() => setShowLoginModal(true)}
-            className="px-4 py-1.5 text-[11px] border border-accent/60 text-accent hover:bg-accent hover:text-accent-text transition-colors"
+            className="px-4 py-1.5 text-[11px] border border-accent/60 text-accent hover:bg-accent hover:text-accent-text transition-colors rounded-sm"
           >
             Sign in to save
           </button>

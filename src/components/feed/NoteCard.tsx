@@ -63,7 +63,7 @@ export const NoteCard = memo(function NoteCard({ event, focused, onReplyInThread
     <article
       ref={cardRef}
       data-note-id={event.id}
-      className={`border-b border-border px-4 py-3 hover:bg-bg-hover transition-colors cursor-pointer group/card${focused ? " bg-accent/10 border-l-2 border-l-accent" : ""}`}
+      className={`border-b border-border-subtle px-4 py-3 hover:bg-bg-hover transition-colors cursor-pointer group/card${focused ? " bg-accent/10 border-l-2 border-l-accent" : ""}`}
       onMouseDown={(e) => { pressAt.current = { x: e.clientX, y: e.clientY }; }}
       onClick={(e) => {
         // Which clicks count as "open this note" is decided in cardClick.ts.
@@ -89,14 +89,14 @@ export const NoteCard = memo(function NoteCard({ event, focused, onReplyInThread
               alt={`${name}'s avatar`}
               width={36}
               height={36}
-              className="w-9 h-9 rounded-md object-cover bg-bg-raised ring-1 ring-transparent hover:ring-accent/40 transition-all"
+              className="w-9 h-9 rounded-full object-cover bg-bg-raised ring-1 ring-transparent hover:ring-accent/40 transition-all"
               loading="lazy"
               onError={(e) => {
                 (e.target as HTMLImageElement).style.display = "none";
               }}
             />
           ) : (
-            <div className="w-9 h-9 rounded-md bg-bg-raised border border-border flex items-center justify-center text-text-dim text-xs hover:border-accent/40 transition-colors">
+            <div className="w-9 h-9 rounded-full bg-bg-raised border border-border flex items-center justify-center text-text-dim text-xs hover:border-accent/40 transition-colors">
               {name.charAt(0).toUpperCase()}
             </div>
           )}

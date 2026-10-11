@@ -61,10 +61,10 @@ function ConvRow({
       }`}
     >
       {profile?.picture ? (
-        <img src={profile.picture} alt={`${name}'s avatar`} className="w-8 h-8 rounded-sm object-cover shrink-0"
+        <img src={profile.picture} alt={`${name}'s avatar`} className="w-8 h-8 rounded-full object-cover shrink-0"
           onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
       ) : (
-        <div className="w-8 h-8 rounded-sm bg-bg-raised border border-border flex items-center justify-center text-text-dim text-xs shrink-0">
+        <div className="w-8 h-8 rounded-full bg-bg-raised border border-border flex items-center justify-center text-text-dim text-xs shrink-0">
           {name.charAt(0).toUpperCase()}
         </div>
       )}
@@ -108,7 +108,7 @@ function DMText({ text }: { text: string }) {
             <img
               key={i}
               src={seg.value}
-              className="max-h-48 max-w-full rounded-md mt-1.5 block"
+              className="max-h-48 max-w-full rounded-lg mt-1.5 block"
               onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
             />
           );
@@ -168,7 +168,7 @@ function MessageBubble({ event, myPubkey }: { event: NDKEvent; myPubkey: string 
   return (
     <div className={`flex ${isMine ? "justify-end" : "justify-start"} mb-1.5`}>
       <div
-        className={`note-content max-w-[75%] px-3 py-2 text-[12px] leading-relaxed break-words ${
+        className={`note-content max-w-[75%] px-3 py-2 text-[12px] leading-relaxed break-words rounded-lg ${
           isMine
             ? "bg-accent/15 text-text"
             : "bg-bg-raised border border-border text-text"
@@ -259,9 +259,9 @@ function ThreadPanel({
   return (
     <div className="flex-1 flex flex-col min-w-0">
       {/* Header */}
-      <div className="border-b border-border px-4 py-2.5 flex items-center gap-3 shrink-0">
+      <div className="border-b border-border-subtle px-4 py-2.5 flex items-center gap-3 shrink-0">
         {profile?.picture && (
-          <img src={profile.picture} alt={`${name}'s avatar`} className="w-7 h-7 rounded-sm object-cover" />
+          <img src={profile.picture} alt={`${name}'s avatar`} className="w-7 h-7 rounded-full object-cover" />
         )}
         <button
           onClick={() => openProfile(partnerPubkey)}
@@ -288,7 +288,7 @@ function ThreadPanel({
       </div>
 
       {/* Compose */}
-      <div className="border-t border-border px-4 py-3 shrink-0">
+      <div className="border-t border-border-subtle px-4 py-3 shrink-0">
         {sendError && <p className="text-danger text-[11px] mb-2">{sendError}</p>}
         <div className="flex gap-2">
           <textarea
@@ -298,13 +298,13 @@ function ThreadPanel({
             onKeyDown={handleKeyDown}
             placeholder={`Message ${name}…`}
             rows={2}
-            className="flex-1 bg-bg border border-border px-3 py-2 text-text text-[12px] resize-none focus:outline-none focus:border-accent/50 placeholder:text-text-dim"
+            className="flex-1 bg-bg border border-border-strong px-3 py-2 text-text text-[12px] resize-none focus:outline-none focus:border-accent placeholder:text-text-dim rounded-lg"
             style={{ WebkitUserSelect: "text", userSelect: "text" } as React.CSSProperties}
           />
           <button
             onClick={handleSend}
             disabled={!text.trim() || sending}
-            className="px-3 self-end py-2 text-[11px] bg-accent hover:bg-accent-hover text-accent-text transition-colors disabled:opacity-30 disabled:cursor-not-allowed shrink-0 focus-visible:ring-1 focus-visible:ring-accent"
+            className="px-3 self-end py-2 text-[11px] bg-accent hover:bg-accent-hover text-accent-text transition-colors disabled:opacity-30 disabled:cursor-not-allowed shrink-0 focus-visible:ring-1 focus-visible:ring-accent rounded-sm"
           >
             {sending ? "…" : "Send"}
           </button>
@@ -359,7 +359,7 @@ function NewConvInput({ onStart }: { onStart: (pubkey: string) => void }) {
 
   if (!open) {
     return (
-      <div className="px-3 py-2 border-t border-border">
+      <div className="px-3 py-2 border-t border-border-subtle">
         <button
           onClick={() => setOpen(true)}
           className="w-full text-left text-text-dim hover:text-accent text-[11px] py-1 transition-colors focus-visible:ring-1 focus-visible:ring-accent"
@@ -371,7 +371,7 @@ function NewConvInput({ onStart }: { onStart: (pubkey: string) => void }) {
   }
 
   return (
-    <div className="px-3 py-3 border-t border-border">
+    <div className="px-3 py-3 border-t border-border-subtle">
       {/* min-w-0 is required, not cosmetic: flex-1 leaves min-width:auto, so the
           input won't shrink below its intrinsic size=20 monospace width. Below
           roughly a 240px list column the row overflows and pushes the shrink-0
@@ -387,7 +387,7 @@ function NewConvInput({ onStart }: { onStart: (pubkey: string) => void }) {
           }}
           onBlur={() => { if (!input.trim()) close(); }}
           placeholder="npub1… or hex pubkey"
-          className="flex-1 min-w-0 bg-bg border border-border px-2 py-1.5 text-text text-[11px] font-mono focus:outline-none focus:border-accent/50 placeholder:text-text-dim"
+          className="flex-1 min-w-0 bg-bg border border-border-strong px-2 py-1.5 text-text text-[11px] font-mono focus:outline-none focus:border-accent placeholder:text-text-dim rounded-lg"
           style={{ WebkitUserSelect: "text", userSelect: "text" } as React.CSSProperties}
         />
         <button
@@ -396,7 +396,7 @@ function NewConvInput({ onStart }: { onStart: (pubkey: string) => void }) {
           disabled={!input.trim()}
           aria-label="Start conversation"
           title="Start conversation"
-          className="px-2 py-1.5 text-[11px] border border-border text-text-dim hover:text-accent hover:border-accent/40 transition-colors disabled:opacity-30 shrink-0"
+          className="px-2 py-1.5 text-[11px] border border-border text-text-dim hover:text-accent hover:border-accent/40 transition-colors disabled:opacity-30 shrink-0 rounded-sm"
         >
           →
         </button>
@@ -497,7 +497,7 @@ export function DMView() {
     return (
       <div className="h-full flex flex-col items-center justify-center gap-2 px-8 text-center">
         <p className="text-text-dim text-[12px]">Direct messages require a private key login.</p>
-        <p className="text-text-dim text-[11px] opacity-70">Read-only (npub) accounts cannot encrypt or decrypt DMs.</p>
+        <p className="text-text-dim text-[11px]">Read-only (npub) accounts cannot encrypt or decrypt DMs.</p>
       </div>
     );
   }
@@ -509,8 +509,8 @@ export function DMView() {
   return (
     <div className="h-full flex">
       {/* Left: conversation list */}
-      <div className="w-56 border-r border-border flex flex-col shrink-0">
-        <div className="border-b border-border px-3 py-2.5 shrink-0">
+      <div className="w-56 border-r border-border-subtle flex flex-col shrink-0">
+        <div className="border-b border-border-subtle px-3 py-2.5 shrink-0">
           <h2 className="text-text text-[12px] font-medium">Messages</h2>
         </div>
 
@@ -556,7 +556,7 @@ export function DMView() {
                   selectedPubkey === partner ? "bg-accent/10 border-l-2 border-accent" : "hover:bg-bg-hover border-l-2 border-transparent"
                 }`}
               >
-                <div className="w-8 h-8 rounded-sm bg-bg-raised border border-border flex items-center justify-center text-text-dim text-xs shrink-0">?</div>
+                <div className="w-8 h-8 rounded-full bg-bg-raised border border-border flex items-center justify-center text-text-dim text-xs shrink-0">?</div>
                 <div className="flex-1 min-w-0">
                   <span className="text-text text-[12px] font-medium truncate block">{shortenPubkey(partner)}</span>
                   <span className="text-text-dim text-[11px]">New conversation</span>

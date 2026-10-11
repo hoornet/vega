@@ -179,7 +179,7 @@ export function MarkdownToolbar({ textareaRef, content, setContent, setUploading
   };
 
   return (
-    <div className="flex items-center gap-0.5 border-b border-border px-2 py-1 bg-bg-raised shrink-0">
+    <div className="flex items-center gap-0.5 border-b border-border-subtle px-2 py-1 bg-bg-raised shrink-0">
       {TOOLS.map(({ action, label, title, bold, italic }) => (
         <button
           key={action}

@@ -45,7 +45,7 @@ export const ArticleCard = memo(function ArticleCard({ event }: { event: NDKEven
 
   return (
     <div
-      className="border-b border-border px-4 py-3 hover:bg-bg-hover transition-colors cursor-pointer"
+      className="border-b border-border-subtle px-4 py-3 hover:bg-bg-hover transition-colors cursor-pointer"
       onClick={() => openArticle(naddr, event)}
     >
       <div className="flex gap-3">
@@ -73,11 +73,11 @@ export const ArticleCard = memo(function ArticleCard({ event }: { event: NDKEven
                 <img
                   src={profile.picture}
                   alt={`${authorName}'s avatar`}
-                  className="w-5 h-5 rounded-md object-cover"
+                  className="w-5 h-5 rounded-full object-cover"
                   onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
                 />
               ) : (
-                <div className="w-5 h-5 rounded-md bg-bg-raised border border-border flex items-center justify-center text-text-dim text-[9px]">
+                <div className="w-5 h-5 rounded-full bg-bg-raised border border-border flex items-center justify-center text-text-dim text-[9px]">
                   {authorName.charAt(0).toUpperCase()}
                 </div>
               )}

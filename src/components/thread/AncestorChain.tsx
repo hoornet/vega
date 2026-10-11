@@ -17,13 +17,13 @@ function AncestorCard({ event }: { event: NDKEvent }) {
   return (
     <button
       onClick={() => openThread(event)}
-      className="w-full text-left px-4 py-2 border-b border-border hover:bg-bg-hover transition-colors flex gap-2.5 items-start"
+      className="w-full text-left px-4 py-2 border-b border-border-subtle hover:bg-bg-hover transition-colors flex gap-2.5 items-start"
     >
       <div className="shrink-0 mt-0.5">
         {avatar ? (
-          <img src={avatar} alt={`${name}'s avatar`} className="w-6 h-6 rounded-sm object-cover bg-bg-raised" loading="lazy" />
+          <img src={avatar} alt={`${name}'s avatar`} className="w-6 h-6 rounded-full object-cover bg-bg-raised" loading="lazy" />
         ) : (
-          <div className="w-6 h-6 rounded-sm bg-bg-raised border border-border flex items-center justify-center text-text-dim text-[9px]">
+          <div className="w-6 h-6 rounded-full bg-bg-raised border border-border flex items-center justify-center text-text-dim text-[9px]">
             {name.charAt(0).toUpperCase()}
           </div>
         )}
@@ -49,7 +49,7 @@ export function AncestorChain({ ancestors }: AncestorChainProps) {
 
   return (
     <div className="bg-bg-raised/50">
-      <div className="px-4 py-1.5 text-text-dim text-[10px] border-b border-border">
+      <div className="px-4 py-1.5 text-text-dim text-[10px] border-b border-border-subtle">
         {ancestors.length} parent {ancestors.length === 1 ? "note" : "notes"} above
       </div>
       {ancestors.map((a) => (

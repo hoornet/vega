@@ -58,9 +58,9 @@ export function ZapModal({ target, recipientName, onClose }: ZapModalProps) {
       aria-label={`Zap ${recipientName}`}
       onClick={handleBackdrop}
     >
-      <div className="bg-bg border border-border w-80 shadow-2xl">
+      <div className="bg-bg border border-border w-80 shadow-2xl rounded-lg">
         {/* Header */}
-        <div className="border-b border-border px-4 py-3 flex items-center justify-between">
+        <div className="border-b border-border-subtle px-4 py-3 flex items-center justify-between">
           <div>
             <div className="text-text text-[13px] font-medium">⚡ Zap {recipientName}</div>
             {!nwcUri && <div className="text-danger text-[10px] mt-0.5">No wallet connected</div>}
@@ -76,7 +76,7 @@ export function ZapModal({ target, recipientName, onClose }: ZapModalProps) {
             </p>
             <button
               onClick={() => setShowLogin(true)}
-              className="px-4 py-1.5 text-[11px] border border-accent/60 text-accent hover:bg-accent hover:text-accent-text transition-colors"
+              className="px-4 py-1.5 text-[11px] border border-accent/60 text-accent hover:bg-accent hover:text-accent-text transition-colors rounded-sm"
             >
               Sign in
             </button>
@@ -91,7 +91,7 @@ export function ZapModal({ target, recipientName, onClose }: ZapModalProps) {
             </p>
             <button
               onClick={() => { onClose(); setView("settings"); }}
-              className="px-4 py-1.5 text-[11px] border border-accent/60 text-accent hover:bg-accent hover:text-accent-text transition-colors"
+              className="px-4 py-1.5 text-[11px] border border-accent/60 text-accent hover:bg-accent hover:text-accent-text transition-colors rounded-sm"
             >
               Go to settings →
             </button>
@@ -113,7 +113,7 @@ export function ZapModal({ target, recipientName, onClose }: ZapModalProps) {
                       !useCustom && amountSats === amt
                         ? "border-accent bg-accent/10 text-accent"
                         : "border-border text-text-muted hover:border-accent/40 hover:text-text"
-                    }`}
+                    } rounded-sm`}
                   >
                     {amt}
                   </button>
@@ -125,8 +125,8 @@ export function ZapModal({ target, recipientName, onClose }: ZapModalProps) {
                 onFocus={() => setUseCustom(true)}
                 placeholder="custom amount…"
                 className={`w-full bg-bg border px-3 py-1.5 text-text text-[12px] focus:outline-none transition-colors ${
-                  useCustom ? "border-accent/60" : "border-border"
-                }`}
+                  useCustom ? "border-accent" : "border-border-strong"
+                } rounded-lg`}
               />
             </div>
 
@@ -138,7 +138,7 @@ export function ZapModal({ target, recipientName, onClose }: ZapModalProps) {
                 onChange={(e) => setComment(e.target.value)}
                 placeholder="Great post!"
                 maxLength={140}
-                className="w-full bg-bg border border-border px-3 py-1.5 text-text text-[12px] focus:outline-none focus:border-accent/50"
+                className="w-full bg-bg border border-border-strong px-3 py-1.5 text-text text-[12px] focus:outline-none focus:border-accent rounded-lg"
               />
             </div>
 
@@ -146,7 +146,7 @@ export function ZapModal({ target, recipientName, onClose }: ZapModalProps) {
             <button
               onClick={handleZap}
               disabled={effectiveAmount <= 0}
-              className="w-full py-2 text-[12px] font-medium bg-zap hover:bg-zap/90 text-zap-text transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+              className="w-full py-2 text-[12px] font-medium bg-zap hover:bg-zap/90 text-zap-text transition-colors disabled:opacity-30 disabled:cursor-not-allowed rounded-sm"
             >
               ⚡ Zap {effectiveAmount > 0 ? `${effectiveAmount} sats` : ""}
             </button>
@@ -176,7 +176,7 @@ export function ZapModal({ target, recipientName, onClose }: ZapModalProps) {
             <p className="text-danger text-[12px]">{errorMsg}</p>
             <button
               onClick={() => setState("idle")}
-              className="w-full py-1.5 text-[11px] border border-border text-text-muted hover:text-text transition-colors"
+              className="w-full py-1.5 text-[11px] border border-border text-text-muted hover:text-text transition-colors rounded-sm"
             >
               Try again
             </button>

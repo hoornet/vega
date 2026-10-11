@@ -92,7 +92,7 @@ function ConnectedState({ nwcUri, onDisconnect }: { nwcUri: string; onDisconnect
 
   return (
     <div>
-      <div className="flex items-center gap-2 px-3 py-2 border border-border mb-2">
+      <div className="flex items-center gap-2 px-3 py-2 border border-border mb-2 rounded-lg">
         <span className="text-zap text-[11px]">⚡</span>
         <div className="flex-1 min-w-0">
           <span className="text-text text-[12px]">{wallet.name} connected</span>
@@ -116,7 +116,7 @@ function ConnectedState({ nwcUri, onDisconnect }: { nwcUri: string; onDisconnect
 
 function WalletCard({ wallet, onSelect }: { wallet: WalletDef; onSelect: () => void }) {
   return (
-    <div className="border border-border p-3 hover:border-accent/50 hover:bg-bg-hover transition-colors">
+    <div className="border border-border p-3 hover:border-accent/50 hover:bg-bg-hover transition-colors rounded-lg">
       <div className="font-medium text-text text-[12px] mb-0.5">{wallet.name}</div>
       <div className="text-text-dim text-[10px] mb-2">{wallet.tagline}</div>
       <div className="flex gap-2">
@@ -125,7 +125,7 @@ function WalletCard({ wallet, onSelect }: { wallet: WalletDef; onSelect: () => v
             href={wallet.setupUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="text-[10px] px-2 py-1 border border-border text-text-dim hover:text-accent hover:border-accent/40 transition-colors"
+            className="text-[10px] px-2 py-1 border border-border text-text-dim hover:text-accent hover:border-accent/40 transition-colors rounded-sm"
             onClick={(e) => e.stopPropagation()}
           >
             open ↗
@@ -133,7 +133,7 @@ function WalletCard({ wallet, onSelect }: { wallet: WalletDef; onSelect: () => v
         )}
         <button
           onClick={onSelect}
-          className="text-[10px] px-2 py-1 border border-accent/60 text-accent hover:bg-accent hover:text-accent-text transition-colors"
+          className="text-[10px] px-2 py-1 border border-accent/60 text-accent hover:bg-accent hover:text-accent-text transition-colors rounded-sm"
         >
           connect →
         </button>
@@ -213,7 +213,7 @@ function PasteStep({
         placeholder="nostr+walletconnect://…"
         rows={3}
         autoFocus
-        className="w-full bg-bg border border-border px-3 py-2 text-text text-[11px] font-mono resize-none focus:outline-none focus:border-accent/50 placeholder:text-text-dim mb-1.5"
+        className="w-full bg-bg border border-border-strong px-3 py-2 text-text text-[11px] font-mono resize-none focus:outline-none focus:border-accent placeholder:text-text-dim mb-1.5 rounded-lg"
         style={{ WebkitUserSelect: "text", userSelect: "text" } as React.CSSProperties}
       />
 
@@ -231,7 +231,7 @@ function PasteStep({
       <button
         onClick={handleConnect}
         disabled={!valid}
-        className="px-4 py-1.5 text-[11px] border border-border text-text-muted hover:text-accent hover:border-accent/40 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+        className="px-4 py-1.5 text-[11px] border border-border text-text-muted hover:text-accent hover:border-accent/40 transition-colors disabled:opacity-30 disabled:cursor-not-allowed rounded-sm"
       >
         Connect wallet
       </button>

@@ -149,7 +149,7 @@ export function V4VIndicator() {
       {/* Brief nudge when V4V episode starts — once per episode per session */}
       {showNudge && (
         <div
-          className="absolute bottom-full right-0 mb-2 px-3 py-2 bg-warning/15 border border-warning/30 rounded-sm text-[10px] text-warning whitespace-nowrap z-50 animate-fade-in cursor-pointer"
+          className="absolute bottom-full right-0 mb-2 px-3 py-2 bg-warning/15 border border-warning/30 rounded-lg text-[10px] text-warning whitespace-nowrap z-50 animate-fade-in cursor-pointer"
           onClick={() => { setShowNudge(false); setOpen(true); }}
         >
           ⚡ This episode supports V4V — stream sats to the creators
@@ -157,7 +157,7 @@ export function V4VIndicator() {
       )}
 
       {open && (
-        <div className="absolute bottom-full right-0 mb-2 w-56 bg-bg border border-border rounded-sm shadow-lg p-3 z-50">
+        <div className="absolute bottom-full right-0 mb-2 w-56 bg-bg border border-border rounded-lg shadow-lg p-3 z-50">
           <div className="flex items-center justify-between mb-2">
             <div className="text-[11px] text-text font-medium">Value 4 Value</div>
             <button
@@ -188,7 +188,7 @@ export function V4VIndicator() {
                 <button
                   onClick={toggleStreaming}
                   className={`w-8 h-4 rounded-full transition-colors relative ${
-                    v4vStreaming ? "bg-accent" : "bg-border"
+                    v4vStreaming ? "bg-accent" : "bg-border-strong"
                   }`}
                 >
                   <span
@@ -201,7 +201,7 @@ export function V4VIndicator() {
 
               {/* Recipients */}
               {episode.value && episode.value.length > 0 && (
-                <div className="mb-2 border-t border-border pt-2">
+                <div className="mb-2 border-t border-border-subtle pt-2">
                   <div className="text-[9px] text-text-dim mb-1">Sats go to:</div>
                   {episode.value.map((r, i) => {
                     const totalSplit = episode.value!.reduce((s, v) => s + v.split, 0);
@@ -217,12 +217,12 @@ export function V4VIndicator() {
               )}
 
               {/* Boost */}
-              <div className="flex items-center gap-1 border-t border-border pt-2">
+              <div className="flex items-center gap-1 border-t border-border-subtle pt-2">
                 <input
                   type="number"
                   value={boostAmount}
                   onChange={(e) => setBoostAmount(e.target.value)}
-                  className="w-16 bg-bg-raised border border-border rounded-sm px-1.5 py-0.5 text-[10px] text-text"
+                  className="w-16 bg-bg-raised border border-border-strong rounded-lg px-1.5 py-0.5 text-[10px] text-text"
                   min="1"
                 />
                 <button

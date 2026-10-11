@@ -169,7 +169,7 @@ export function ThreadView() {
   return (
     <div className="h-full flex flex-col">
       {/* Header */}
-      <header className="border-b border-border px-4 py-2.5 flex items-center gap-3 shrink-0">
+      <header className="border-b border-border-subtle px-4 py-2.5 flex items-center gap-3 shrink-0">
         <button
           onClick={goBack}
           className="text-text-dim hover:text-text text-[11px] transition-colors"
@@ -186,7 +186,7 @@ export function ThreadView() {
             <span className="text-danger text-[11px]">{loadError}</span>
             <button
               onClick={() => setRetryCount((c) => c + 1)}
-              className="text-[11px] text-accent hover:text-accent-hover transition-colors px-2 py-0.5 border border-accent/30 hover:border-accent"
+              className="text-[11px] text-accent hover:text-accent-hover transition-colors px-2 py-0.5 border border-accent/30 hover:border-accent rounded-sm"
             >
               Retry
             </button>
@@ -221,7 +221,7 @@ export function ThreadView() {
 
             {/* Root reply box (inline, right below root) */}
             {showRootReply && canSign && (
-              <div className="border-b border-border border-l-2 border-l-accent/40 ml-3 px-3 py-2">
+              <div className="border-b border-border-subtle border-l-2 border-l-accent/40 ml-3 px-3 py-2">
                 <textarea
                   ref={replyRef}
                   value={replyText}
@@ -298,7 +298,7 @@ export function ThreadView() {
             <p className="text-text-dim text-[12px]">Could not load thread.</p>
             <button
               onClick={() => setRetryCount((c) => c + 1)}
-              className="text-[11px] text-accent hover:text-accent-hover transition-colors px-3 py-1 border border-accent/30 hover:border-accent"
+              className="text-[11px] text-accent hover:text-accent-hover transition-colors px-3 py-1 border border-accent/30 hover:border-accent rounded-sm"
             >
               Retry
             </button>

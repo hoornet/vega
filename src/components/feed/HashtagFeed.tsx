@@ -33,7 +33,7 @@ export function HashtagFeed() {
 
   return (
     <div className="h-full flex flex-col">
-      <header className="border-b border-border px-4 py-2.5 flex items-center gap-3 shrink-0">
+      <header className="border-b border-border-subtle px-4 py-2.5 flex items-center gap-3 shrink-0">
         <button onClick={goBack} className="text-text-dim hover:text-text text-[11px] transition-colors">
           ← back
         </button>

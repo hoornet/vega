@@ -217,7 +217,7 @@ export function Feed() {
   return (
     <div className="h-full flex flex-col">
       {/* Header */}
-      <header className="border-b border-border px-4 py-2.5 flex flex-wrap items-center justify-between gap-y-1 shrink-0">
+      <header className="border-b border-border-subtle px-4 py-2.5 flex flex-wrap items-center justify-between gap-y-1 shrink-0">
         <div className="flex items-center gap-1">
           {/* Order follows the default: the people you chose first, the open
               firehose last. */}
@@ -258,7 +258,7 @@ export function Feed() {
           <select
             value={feedLanguageFilter ?? ""}
             onChange={(e) => setFeedLanguageFilter(e.target.value || null)}
-            className="bg-transparent text-text-dim text-[11px] border border-border px-1.5 py-0.5 focus:outline-none hover:border-text-dim transition-colors cursor-pointer"
+            className="bg-transparent text-text-dim text-[11px] border border-border-strong px-1.5 py-0.5 focus:outline-none hover:border-text-dim transition-colors cursor-pointer rounded-lg"
           >
             <option value="">all scripts</option>
             {FILTER_SCRIPTS.map((s) => (
@@ -275,7 +275,7 @@ export function Feed() {
               (isTrending ? () => loadTrendingFeed(true) : isFollowing ? loadFollowFeed : loadFeed)();
             }}
             disabled={isLoading}
-            className="text-text-muted hover:text-text text-[11px] px-2 py-1 border border-border hover:border-text-dim transition-colors disabled:opacity-40"
+            className="text-text-muted hover:text-text text-[11px] px-2 py-1 border border-border hover:border-text-dim transition-colors disabled:opacity-40 rounded-sm"
           >
             {isLoading ? "Loading…" : "Refresh"}
           </button>
@@ -290,7 +290,7 @@ export function Feed() {
       {/* Error + new-notes banners — pinned above the scroll area so they never
           offset the virtualizer's coordinate space (its spacer must start at scrollTop 0) */}
       {error && !isFollowing && !isTrending && (
-        <div className="px-4 py-3 text-danger text-[12px] border-b border-border bg-danger/5 shrink-0">
+        <div className="px-4 py-3 text-danger text-[12px] border-b border-border-subtle bg-danger/5 shrink-0">
           {error}
         </div>
       )}
@@ -325,7 +325,7 @@ export function Feed() {
                     ? `No ${feedLanguageFilter} notes found.`
                     : "No notes to show."}
             </p>
-            <p className="text-text-dim text-[11px] opacity-60">
+            <p className="text-text-dim text-[11px]">
               {isTrending
                 ? "Check back in a bit."
                 : isFollowing && follows.length === 0
@@ -342,7 +342,7 @@ export function Feed() {
               <div className="pt-2">
                 <button
                   onClick={() => void fetchFollows()}
-                  className="px-3 py-1.5 text-[12px] border border-border text-text hover:border-accent/60 hover:text-accent transition-colors"
+                  className="px-3 py-1.5 text-[12px] border border-border text-text hover:border-accent/60 hover:text-accent transition-colors rounded-sm"
                 >
                   Try again
                 </button>
@@ -360,7 +360,7 @@ export function Feed() {
                       <button
                         key={tag}
                         onClick={() => openHashtag(tag)}
-                        className="px-2.5 py-1 text-[11px] border border-border text-text-dim hover:border-accent/40 hover:text-accent transition-colors"
+                        className="px-2.5 py-1 text-[11px] border border-border text-text-dim hover:border-accent/40 hover:text-accent transition-colors rounded-sm"
                       >
                         #{tag}
                       </button>

@@ -169,7 +169,7 @@ export function BookmarkView() {
 
   return (
     <div className="h-full flex flex-col">
-      <header className="border-b border-border px-4 py-2.5 shrink-0">
+      <header className="border-b border-border-subtle px-4 py-2.5 shrink-0">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <h2 className="text-text text-[13px] font-medium">Bookmarks</h2>
@@ -205,7 +205,7 @@ export function BookmarkView() {
             <p className="text-text-dim text-[13px]">
               {tab === "notes" ? "No bookmarked notes." : "No bookmarked articles."}
             </p>
-            <p className="text-text-dim text-[11px] opacity-60">
+            <p className="text-text-dim text-[11px]">
               {tab === "notes"
                 ? <>Use the <span className="text-accent">save</span> button on any note to bookmark it here.</>
                 : <>Use the <span className="text-accent">save</span> button on any article to add it to your reading list.</>

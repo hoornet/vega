@@ -14,7 +14,7 @@ export function VideoBlock({ sources, inView }: { sources: string[]; inView: boo
         // card is on screen (inView) — off-screen rows keep the empty box.
         <div
           key={i}
-          className="w-full aspect-video rounded-sm bg-bg-raised border border-border overflow-hidden"
+          className="w-full aspect-video rounded-lg bg-bg-raised border border-border overflow-hidden"
         >
           {inView && (
             <video
@@ -67,7 +67,7 @@ export function AudioBlock({ sources }: { sources: string[] }) {
                 showArtworkUrl: "",
               });
             }}
-            className="rounded-sm bg-bg-raised border border-border p-3 flex items-center gap-3 hover:bg-bg-hover transition-colors text-left w-full"
+            className="rounded-lg bg-bg-raised border border-border p-3 flex items-center gap-3 hover:bg-bg-hover transition-colors text-left w-full"
           >
             <div className="w-8 h-8 rounded-full bg-accent/10 flex items-center justify-center shrink-0">
               <svg width="10" height="12" viewBox="0 0 10 12" fill="currentColor" className="text-accent ml-0.5">
@@ -91,7 +91,7 @@ export function YouTubeCard({ seg }: { seg: ContentSegment }) {
       href={safeHttpUrl(seg.value)}
       target="_blank"
       rel="noopener noreferrer"
-      className="mt-2 flex items-center gap-3 rounded-sm bg-bg-raised border border-border p-3 hover:bg-bg-hover transition-colors cursor-pointer"
+      className="mt-2 flex items-center gap-3 rounded-lg bg-bg-raised border border-border p-3 hover:bg-bg-hover transition-colors cursor-pointer"
     >
       <img
         src={`https://img.youtube.com/vi/${seg.mediaId}/hqdefault.jpg`}
@@ -113,7 +113,7 @@ export function VimeoCard({ seg }: { seg: ContentSegment }) {
       href={safeHttpUrl(seg.value)}
       target="_blank"
       rel="noopener noreferrer"
-      className="mt-2 flex items-center gap-3 rounded-sm bg-bg-raised border border-border p-3 hover:bg-bg-hover transition-colors cursor-pointer"
+      className="mt-2 flex items-center gap-3 rounded-lg bg-bg-raised border border-border p-3 hover:bg-bg-hover transition-colors cursor-pointer"
     >
       <div className="w-10 h-10 rounded-full bg-accent/15 text-accent flex items-center justify-center shrink-0">
         <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor"><polygon points="6,3 17,10 6,17" /></svg>
@@ -132,7 +132,7 @@ export function SpotifyCard({ seg }: { seg: ContentSegment }) {
       href={safeHttpUrl(seg.value)}
       target="_blank"
       rel="noopener noreferrer"
-      className="mt-2 flex items-center gap-3 rounded-sm bg-bg-raised border border-border p-3 hover:bg-bg-hover transition-colors cursor-pointer"
+      className="mt-2 flex items-center gap-3 rounded-lg bg-bg-raised border border-border p-3 hover:bg-bg-hover transition-colors cursor-pointer"
     >
       <div className="w-10 h-10 rounded-full bg-[#1DB954]/20 flex items-center justify-center shrink-0">
         <span className="text-[#1DB954] text-lg font-bold">S</span>
@@ -151,7 +151,7 @@ export function TidalCard({ seg }: { seg: ContentSegment }) {
       href={safeHttpUrl(seg.value)}
       target="_blank"
       rel="noopener noreferrer"
-      className="mt-2 flex items-center gap-3 rounded-sm bg-bg-raised border border-border p-3 hover:bg-bg-hover transition-colors cursor-pointer"
+      className="mt-2 flex items-center gap-3 rounded-lg bg-bg-raised border border-border p-3 hover:bg-bg-hover transition-colors cursor-pointer"
     >
       <div className="w-10 h-10 rounded-full bg-accent/15 text-accent flex items-center justify-center shrink-0">
         <span className="text-lg font-bold">T</span>

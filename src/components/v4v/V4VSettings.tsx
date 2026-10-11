@@ -31,7 +31,7 @@ export function V4VSettings() {
           <button
             onClick={() => setAutoEnabled(!autoEnabled)}
             className={`w-9 h-5 rounded-full transition-colors relative ${
-              autoEnabled ? "bg-accent" : "bg-border"
+              autoEnabled ? "bg-accent" : "bg-border-strong"
             }`}
           >
             <span
@@ -67,7 +67,7 @@ export function V4VSettings() {
             value={perEpisodeCap || ""}
             onChange={(e) => setPerEpisodeCap(parseInt(e.target.value) || 0)}
             placeholder="e.g. 100"
-            className="w-24 bg-bg-raised border border-border rounded-sm px-2 py-1 text-[11px] text-text placeholder:text-text-dim/50"
+            className="w-24 bg-bg-raised border border-border-strong rounded-lg px-2 py-1 text-[11px] text-text placeholder:text-text-dim"
           />
           <span className="text-[10px] text-text-dim">sats</span>
         </div>
@@ -89,7 +89,7 @@ export function V4VSettings() {
             value={weeklyBudget || ""}
             onChange={(e) => setWeeklyBudget(parseInt(e.target.value) || 0)}
             placeholder="e.g. 500"
-            className="w-24 bg-bg-raised border border-border rounded-sm px-2 py-1 text-[11px] text-text placeholder:text-text-dim/50"
+            className="w-24 bg-bg-raised border border-border-strong rounded-lg px-2 py-1 text-[11px] text-text placeholder:text-text-dim"
           />
           <span className="text-[10px] text-text-dim">sats / week</span>
         </div>
@@ -124,7 +124,7 @@ export function V4VSettings() {
 
       {/* Requirements notice */}
       {!autoEnabled && (perEpisodeCap <= 0 || weeklyBudget <= 0) && (
-        <div className="text-[10px] text-text-dim bg-bg-raised border border-border rounded-sm p-3">
+        <div className="text-[10px] text-text-dim bg-bg-raised border border-border rounded-lg p-3">
           Set both a per-episode cap and weekly budget to enable auto-streaming.
         </div>
       )}

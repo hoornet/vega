@@ -26,7 +26,7 @@ export function FountainCard({ seg }: { seg: ContentSegment }) {
         href={safeHttpUrl(seg.value)}
         target="_blank"
         rel="noopener noreferrer"
-        className="mt-2 flex items-center gap-3 rounded-sm bg-bg-raised border border-border p-3 hover:bg-bg-hover transition-colors cursor-pointer"
+        className="mt-2 flex items-center gap-3 rounded-lg bg-bg-raised border border-border p-3 hover:bg-bg-hover transition-colors cursor-pointer"
       >
         <div className="w-10 h-10 rounded-full bg-accent/20 flex items-center justify-center shrink-0">
           <span className="text-accent text-lg font-bold">F</span>
@@ -41,7 +41,7 @@ export function FountainCard({ seg }: { seg: ContentSegment }) {
 
   if (loading) {
     return (
-      <div className="mt-2 flex items-center gap-3 rounded-sm bg-bg-raised border border-border p-3 animate-pulse">
+      <div className="mt-2 flex items-center gap-3 rounded-lg bg-bg-raised border border-border p-3 animate-pulse">
         <div className="w-10 h-10 rounded-sm bg-bg shrink-0" />
         <div className="min-w-0 flex-1">
           <div className="h-3 bg-bg rounded w-32 mb-1" />
@@ -63,7 +63,7 @@ export function FountainCard({ seg }: { seg: ContentSegment }) {
 
   return (
     <div
-      className="mt-2 flex items-center gap-3 rounded-sm bg-bg-raised border border-border p-3 hover:bg-bg-hover transition-colors cursor-pointer"
+      className="mt-2 flex items-center gap-3 rounded-lg bg-bg-raised border border-border p-3 hover:bg-bg-hover transition-colors cursor-pointer"
       onClick={handlePlay}
     >
       {episode.artworkUrl ? (

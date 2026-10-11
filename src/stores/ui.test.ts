@@ -169,3 +169,46 @@ describe("feed tab memory", () => {
   });
 });
 
+// The theme is read when the store module loads, so each case loads a fresh copy.
+describe("the theme the app starts with", () => {
+  async function startWith(stored: string | null) {
+    localStorage.clear();
+    if (stored !== null) localStorage.setItem("wrystr_theme", stored);
+    vi.resetModules();
+    const fresh = await import("./ui");
+    return { themeId: fresh.useUIStore.getState().themeId, storedAfter: localStorage.getItem("wrystr_theme") };
+  }
+
+  it("uses the stored theme", async () => {
+    expect(await startWith("reader")).toEqual({ themeId: "reader", storedAfter: "reader" });
+  });
+
+  it("uses the default when nothing is stored, and stores nothing", async () => {
+    expect(await startWith(null)).toEqual({ themeId: "midnight", storedAfter: null });
+  });
+
+  // Sepia was removed. Its users get the nearest theme, and the replacement
+  // is written back so it is their choice from then on.
+  it("moves a retired theme to its replacement and remembers that", async () => {
+    expect(await startWith("sepia")).toEqual({ themeId: "gruvbox", storedAfter: "gruvbox" });
+  });
+
+  // An id this build does not know may come from a newer build. Showing the
+  // default is right; erasing the choice is not.
+  it("shows the default for an unknown theme without overwriting the stored choice", async () => {
+    expect(await startWith("solarized")).toEqual({ themeId: "midnight", storedAfter: "solarized" });
+  });
+
+  it("still starts when the replacement cannot be written", async () => {
+    localStorage.clear();
+    localStorage.setItem("wrystr_theme", "sepia");
+    const setItem = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => { throw new Error("QuotaExceededError"); });
+    try {
+      vi.resetModules();
+      const fresh = await import("./ui");
+      expect(fresh.useUIStore.getState().themeId).toBe("gruvbox");
+    } finally {
+      setItem.mockRestore();
+    }
+  });
+});
