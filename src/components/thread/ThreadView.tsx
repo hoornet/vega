@@ -179,7 +179,7 @@ export function ThreadView() {
         <h1 className="text-text text-sm font-medium">Thread</h1>
       </header>
 
-      <div ref={scrollRef} className="flex-1 overflow-y-auto">
+      <div ref={scrollRef} className="flex-1 overflow-y-auto content-column">
         {/* Error banner */}
         {loadError && !loading && (
           <div className="px-4 py-2 bg-danger/10 border-b border-danger/20 flex items-center justify-between">

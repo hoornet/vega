@@ -63,7 +63,7 @@ export function MediaFeed() {
         </div>
       </header>
 
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto content-column">
         {loading && <SkeletonNoteList count={4} />}
 
         {!loading && filtered.length === 0 && (

@@ -331,7 +331,7 @@ export function SearchView() {
       )}
 
       {/* Results area */}
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto content-column">
 
         {/* Loading indicator */}
         {loading && (

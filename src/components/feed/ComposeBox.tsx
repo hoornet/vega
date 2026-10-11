@@ -239,8 +239,8 @@ export function ComposeBox({ onPublished, onNoteInjected }: { onPublished?: () =
   };
 
   return (
-    <div className="border-b border-border px-4 py-3">
-      <div className="flex gap-3">
+    <div className="border-b border-border">
+      <div className="content-column-block px-4 py-3 flex gap-3">
         {/* Avatar */}
         <div className="shrink-0">
           {avatar ? (

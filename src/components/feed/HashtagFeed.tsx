@@ -43,7 +43,7 @@ export function HashtagFeed() {
         )}
       </header>
 
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto content-column">
         {loading && (
           <div className="px-4 py-8 text-text-dim text-[12px] text-center">Loading notes for #{tag}…</div>
         )}

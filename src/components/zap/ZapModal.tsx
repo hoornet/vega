@@ -4,6 +4,7 @@ import { useUIStore } from "../../stores/ui";
 import { useCanSign } from "../../stores/user";
 import { LoginModal } from "../shared/LoginModal";
 import { useEscapeToClose } from "../../hooks/useEscapeToClose";
+import { BodyPortal } from "../shared/BodyPortal";
 
 const AMOUNT_PRESETS = [21, 100, 500, 1000, 5000];
 
@@ -49,6 +50,7 @@ export function ZapModal({ target, recipientName, onClose }: ZapModalProps) {
   };
 
   return (
+    <BodyPortal>
     <div
       className="fixed inset-0 bg-black/60 flex items-center justify-center z-50"
       role="dialog"
@@ -183,5 +185,6 @@ export function ZapModal({ target, recipientName, onClose }: ZapModalProps) {
       </div>
       {showLogin && <LoginModal onClose={() => setShowLogin(false)} />}
     </div>
+    </BodyPortal>
   );
 }

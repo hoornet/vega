@@ -37,7 +37,8 @@ interface UIState {
   themeId: string;
   setView: (view: View) => void;
   setFollowsTab: (tab: "followers" | "following") => void;
-  setFeedTab: (tab: FeedTab) => void;
+  /** Switch feed tab. `remember: false` is for defaults the app picks; only the user's own choice is kept across restarts. */
+  setFeedTab: (tab: FeedTab, opts?: { remember?: boolean }) => void;
   openProfile: (pubkey: string) => void;
   openThread: (note: NDKEvent, from?: View) => void;
   openSearch: (query: string) => void;
@@ -60,6 +61,25 @@ const FONT_SIZE_KEY = "wrystr_font_size";
 const EASY_READ_FONT_KEY = "wrystr_easy_read_font";
 const THEME_KEY = "wrystr_theme";
 const SCRIPT_FILTER_KEY = "wrystr_script_filter";
+const FEED_TAB_KEY = "wrystr_feed_tab";
+
+/** Has the user ever picked a feed tab themselves? */
+export function hasChosenFeedTab(): boolean {
+  const stored = localStorage.getItem(FEED_TAB_KEY);
+  return stored === "global" || stored === "following" || stored === "trending";
+}
+
+/**
+ * The tab the feed opens on. The last one the user picked, if any. Otherwise
+ * the people they chose to follow, not the unfiltered firehose every launch
+ * used to open on; signed out there is no Following, so Trending, which is
+ * also where "Look around first" has always landed.
+ */
+function initialFeedTab(): FeedTab {
+  const stored = localStorage.getItem(FEED_TAB_KEY);
+  if (stored === "global" || stored === "following" || stored === "trending") return stored;
+  return localStorage.getItem("wrystr_pubkey") ? "following" : "trending";
+}
 const HIDE_RSS_ARTICLES_KEY = "wrystr_hide_rss_articles";
 
 export const useUIStore = create<UIState>((set, _get) => ({
@@ -69,7 +89,7 @@ export const useUIStore = create<UIState>((set, _get) => ({
   selectedNote: null,
   previousView: "feed",
   viewStack: [],
-  feedTab: "global",
+  feedTab: initialFeedTab(),
   pendingSearch: null,
   pendingDMPubkey: null,
   pendingArticleNaddr: null,
@@ -87,7 +107,10 @@ export const useUIStore = create<UIState>((set, _get) => ({
   // the stack in place made Esc and Back jump to a thread or profile visited
   // before the last sidebar click.
   setView: (currentView) => set({ currentView, viewStack: [] }),
-  setFeedTab: (feedTab) => set({ feedTab }),
+  setFeedTab: (feedTab, opts) => {
+    if (opts?.remember !== false) localStorage.setItem(FEED_TAB_KEY, feedTab);
+    set({ feedTab });
+  },
   setFollowsTab: (followsTab) => set({ followsTab }),
   openProfile: (pubkey) => set((s) => {
     const stack = [...s.viewStack, { view: s.currentView, selectedNote: s.selectedNote, selectedPubkey: s.selectedPubkey }].slice(-MAX_STACK);
