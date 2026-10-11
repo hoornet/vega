@@ -71,6 +71,16 @@
   </branding>
 
   <releases>
+    <release version="0.15.10" date="2026-10-11">
+      <description>
+        <p>Protects your follow list from being overwritten when a relay answers slowly, asks before removing an account, and makes article text selectable.</p>
+      </description>
+    </release>
+    <release version="0.15.9" date="2026-10-11">
+      <description>
+        <p>Filters spam and automated reposts out of the Articles Latest tab, and updates the desktop runtime to Tauri 2.12.</p>
+      </description>
+    </release>
     <release version="0.15.8" date="2026-09-27">
       <description>
         <p>A security update to the TLS library behind Vega's network requests and auto-updater, plus dependency updates.</p>

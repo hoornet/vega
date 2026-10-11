@@ -2,6 +2,24 @@
 
 > Note: entries for v0.12.10 through v0.13.1 live in the [GitHub Releases](https://github.com/hoornet/vega/releases) notes; this file resumes at v0.13.2. The release notes on GitHub are the richer record — this file is the summary.
 
+## v0.15.10 — Your follow list and your key are safer (2026-10-11)
+
+### Fixed
+- **Following or unfollowing someone can no longer replace your follow list with a near-empty one.** When the relay holding your list answered more slowly than your other relays, Vega could read the list as empty, show "You're not following anyone yet", and then publish a list containing only the person you had just followed. Vega now asks each relay on its own, never publishes a list it did not load, keeps everything else the list contained, and remembers the list on this computer so a slow or unreachable relay cannot shrink it. When the list really cannot be loaded, the Following tab and the People view say so and offer **Try again**.
+- **Removing an account asks first.** "Remove" in the account menu deleted the account's secret key from this computer on a single click. It now explains what will be deleted, offers to copy the key first, and needs a second click. "Sign out" is unchanged and keeps the account.
+- **Article text can be selected and copied**, in the reader and in the editor's preview.
+- **Escape behaves predictably.** It closes the keyboard help without also changing the view, no longer jumps away from Settings or other sidebar screens, and now closes the zap dialog, the reaction picker, the note menu and the emoji picker.
+- A thread shows "Loading replies…" while replies load, instead of "No replies yet."
+- Publishing an article now confirms that it went out. A failed publish says your draft is safe.
+
+### Changed
+- **The key backup step tells you where the key is kept.** It used to say Vega never stores your secret key, while keeping it in your system keychain so you stay signed in. The login screen during setup now hides a pasted secret key, and login errors say what was expected.
+- **Vega warns you if it could not save your key to the system keychain**, which would otherwise sign you out on the next start with no explanation.
+- Mutiny is no longer offered in the wallet list; the service has shut down.
+
+### Security
+- Requests Vega makes through its built-in HTTP client now have every redirect checked against the allowed destinations, not only the first address. A server can no longer redirect such a request to a local or internal address.
+
 ## v0.15.9 — A usable Articles tab and Tauri 2.12 (2026-10-11)
 
 ### Changed
