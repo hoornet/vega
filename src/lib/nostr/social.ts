@@ -1,4 +1,4 @@
-import { NDKEvent, NDKFilter, NDKKind } from "@nostr-dev-kit/ndk";
+import { NDKEvent, NDKFilter, NDKKind, NDKUserProfile, profileFromEvent } from "@nostr-dev-kit/ndk";
 import { getNDK, fetchWithTimeout, FEED_TIMEOUT } from "./core";
 
 export async function publishProfile(fields: {
@@ -36,6 +36,36 @@ export async function fetchProfile(pubkey: string) {
   const user = instance.getUser({ pubkey });
   await user.fetchProfile();
   return user.profile ?? null;
+}
+
+/**
+ * Fetch kind 0 profiles for many pubkeys in one subscription per chunk, instead
+ * of one subscription per author. Newest kind 0 per pubkey wins. A pubkey
+ * missing from the result means no relay in the pool returned a profile within
+ * the timeout — usually "has none", occasionally "relays were slow".
+ */
+export async function fetchProfiles(pubkeys: string[]): Promise<Map<string, NDKUserProfile>> {
+  const instance = getNDK();
+  const unique = Array.from(new Set(pubkeys));
+  const result = new Map<string, NDKUserProfile>();
+  const newest = new Map<string, number>();
+  const CHUNK = 100;
+  for (let i = 0; i < unique.length; i += CHUNK) {
+    const authors = unique.slice(i, i + CHUNK);
+    const filter: NDKFilter = { kinds: [NDKKind.Metadata], authors };
+    const events = await fetchWithTimeout(instance, filter, FEED_TIMEOUT);
+    for (const ev of events) {
+      const ts = ev.created_at ?? 0;
+      if ((newest.get(ev.pubkey) ?? -1) >= ts) continue;
+      try {
+        result.set(ev.pubkey, profileFromEvent(ev));
+        newest.set(ev.pubkey, ts);
+      } catch {
+        // malformed kind 0 content — treat as no profile
+      }
+    }
+  }
+  return result;
 }
 
 export async function fetchFollowSuggestions(myFollows: string[]): Promise<{ pubkey: string; mutualCount: number }[]> {

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { detectScript, getEventLanguageTag } from "./language";
+import { detectScript, getEventLanguageTag, matchesScriptFilter } from "./language";
 
 describe("detectScript", () => {
   it("detects Latin script", () => {
@@ -72,5 +72,22 @@ describe("getEventLanguageTag", () => {
 
   it("returns null for empty tags", () => {
     expect(getEventLanguageTag([])).toBeNull();
+  });
+});
+
+describe("matchesScriptFilter", () => {
+  it("passes everything when no filter is set", () => {
+    expect(matchesScriptFilter([], "Привет", null)).toBe(true);
+  });
+
+  it("lets a known NIP-32 language tag decide", () => {
+    expect(matchesScriptFilter([["l", "en", "ISO-639-1"]], "Привет", "Latin")).toBe(true);
+    expect(matchesScriptFilter([["l", "ru", "ISO-639-1"]], "Hello", "Latin")).toBe(false);
+  });
+
+  it("falls back to script detection for untagged text and for tags it does not map", () => {
+    expect(matchesScriptFilter([], "Hello world", "Latin")).toBe(true);
+    expect(matchesScriptFilter([], "Привет мир", "Latin")).toBe(false);
+    expect(matchesScriptFilter([["l", "xx", "ISO-639-1"]], "Привет мир", "Latin")).toBe(false);
   });
 });

@@ -7,7 +7,7 @@ import { useUIStore } from "../../stores/ui";
 import { useWoTStore } from "../../stores/wot";
 import { fetchFollowFeed, getNDK, ensureConnected } from "../../lib/nostr";
 import { diagWrapFetch, logDiag } from "../../lib/feedDiagnostics";
-import { detectScript, getEventLanguageTag, FILTER_SCRIPTS } from "../../lib/language";
+import { matchesScriptFilter, FILTER_SCRIPTS } from "../../lib/language";
 import { estimateNoteHeight } from "../../lib/feedEstimate";
 import { NoteCard } from "./NoteCard";
 import { ArticleCard } from "../article/ArticleCard";
@@ -115,29 +115,7 @@ export function Feed() {
     // Filter out notes that look like base64 blobs or relay protocol messages
     if (c.length > 500 && /^[A-Za-z0-9+/=]{50,}$/.test(c.slice(0, 100))) return false;
     if (c.startsWith("nlogpost:") || c.startsWith("T1772")) return false;
-    // Language/script filter
-    if (feedLanguageFilter) {
-      const langTag = getEventLanguageTag(event.tags);
-      if (langTag) {
-        // Map ISO-639-1 codes to script names for comparison
-        const langToScript: Record<string, string> = {
-          en: "Latin", es: "Latin", fr: "Latin", de: "Latin", pt: "Latin", it: "Latin", nl: "Latin", pl: "Latin", sv: "Latin", da: "Latin", no: "Latin", fi: "Latin", ro: "Latin", tr: "Latin", cs: "Latin", hr: "Latin", hu: "Latin",
-          zh: "CJK", ja: "CJK",
-          ko: "Korean",
-          ru: "Cyrillic", uk: "Cyrillic", bg: "Cyrillic", sr: "Cyrillic",
-          ar: "Arabic", fa: "Arabic", ur: "Arabic",
-          hi: "Devanagari", mr: "Devanagari", ne: "Devanagari",
-          th: "Thai",
-          he: "Hebrew",
-          el: "Greek",
-        };
-        const script = langToScript[langTag];
-        if (script && script !== feedLanguageFilter) return false;
-      } else {
-        const script = detectScript(c);
-        if (script !== feedLanguageFilter) return false;
-      }
-    }
+    if (!matchesScriptFilter(event.tags, c, feedLanguageFilter)) return false;
     return true;
   });
 

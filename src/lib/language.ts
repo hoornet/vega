@@ -69,3 +69,32 @@ export const FILTER_SCRIPTS = [
   "Hebrew",
   "Greek",
 ] as const;
+
+// ISO-639-1 codes mapped to the script a NIP-32 language tag implies, so a
+// tagged event is judged by its declared language, not by sampling characters.
+export const LANGUAGE_TAG_TO_SCRIPT: Record<string, string> = {
+  en: "Latin", es: "Latin", fr: "Latin", de: "Latin", pt: "Latin", it: "Latin", nl: "Latin", pl: "Latin", sv: "Latin", da: "Latin", no: "Latin", fi: "Latin", ro: "Latin", tr: "Latin", cs: "Latin", hr: "Latin", hu: "Latin", sl: "Latin",
+  zh: "CJK", ja: "CJK",
+  ko: "Korean",
+  ru: "Cyrillic", uk: "Cyrillic", bg: "Cyrillic", sr: "Cyrillic",
+  ar: "Arabic", fa: "Arabic", ur: "Arabic",
+  hi: "Devanagari", mr: "Devanagari", ne: "Devanagari",
+  th: "Thai",
+  he: "Hebrew",
+  el: "Greek",
+};
+
+/**
+ * Does an event pass the script filter? No filter passes everything. A NIP-32
+ * language tag decides when it is a language we map; otherwise the dominant
+ * script of `text` decides, including for tags we don't know.
+ */
+export function matchesScriptFilter(tags: string[][], text: string, filter: string | null): boolean {
+  if (!filter) return true;
+  const langTag = getEventLanguageTag(tags);
+  if (langTag) {
+    const script = LANGUAGE_TAG_TO_SCRIPT[langTag];
+    if (script) return script === filter;
+  }
+  return detectScript(text) === filter;
+}

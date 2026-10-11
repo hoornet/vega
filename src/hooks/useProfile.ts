@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import type { NDKUserProfile } from "@nostr-dev-kit/ndk";
 import { fetchProfile } from "../lib/nostr";
 import { dbLoadProfile, dbSaveProfile } from "../lib/db";
 
@@ -35,6 +36,39 @@ function pruneProfileCache() {
 export function invalidateProfileCache(pubkey: string) {
   profileCache.delete(pubkey);
   pendingRequests.delete(pubkey);
+}
+
+/**
+ * Seed the in-memory cache (and SQLite) with a profile fetched elsewhere in
+ * bulk, so cards rendered afterwards don't refetch it one subscription at a
+ * time. Only real profiles are primed: a null here would stop the hook from
+ * ever asking a relay for that pubkey.
+ */
+export function primeProfileCache(pubkey: string, profile: NDKUserProfile | null | undefined): void {
+  if (!profile) return;
+  profileCache.set(pubkey, profile);
+  pruneProfileCache();
+  dbSaveProfile(pubkey, JSON.stringify(profile));
+}
+
+/**
+ * What we already know about a profile without touching a relay: the memory
+ * cache, then SQLite. `undefined` means neither has it.
+ */
+export async function peekCachedProfile(pubkey: string): Promise<NDKUserProfile | null | undefined> {
+  // A cached null means one earlier single-profile fetch came back empty or
+  // timed out; the hook stores it so cards stop retrying. For callers that
+  // decide visibility on it, that is not "known to have no profile", so it is
+  // reported as unknown and they ask the relays again in their batch.
+  const inMemory = profileCache.get(pubkey);
+  if (inMemory) return inMemory as NDKUserProfile;
+  const cached = await dbLoadProfile(pubkey);
+  if (!cached) return undefined;
+  try {
+    return JSON.parse(cached) as NDKUserProfile;
+  } catch {
+    return undefined;
+  }
 }
 
 export function useProfile(pubkey: string) {
