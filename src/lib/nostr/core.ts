@@ -217,6 +217,62 @@ export function fetchWithTimeout(
   });
 }
 
+/**
+ * Ask ONE relay and report whether it finished answering.
+ *
+ * `fetchWithTimeout` cannot tell you that, and for some questions it is the
+ * whole point. A multi-relay subscription ends on NDK's own quorum rule
+ * (`NDKSubscription.eoseReceived`): once at least two relays and half of the
+ * connected ones have sent EOSE it waits only `1000ms x (1 - fraction)` for the
+ * rest — 250ms after three of four — then declares EOSE, and `closeOnEose`
+ * stops the subscription. Whatever the slowest relay holds is dropped without a
+ * trace. That is fine for a feed and wrong for a single replaceable event that
+ * may live on exactly one relay: measured on 2026-10-11, a contact list held
+ * only by the slowest of four relays failed to load in 15 of 15 attempts, each
+ * returning "nothing" in a steady ~427ms.
+ *
+ * With a relay set of one there is no quorum to cut short: EOSE means this
+ * relay is done, a timeout means it never said. Callers fan this out over the
+ * relays they care about and decide what silence means.
+ *
+ * Deliberately outside the `fetchWithTimeout` queue (a handful of short
+ * single-relay subscriptions) and deliberately silent on a timeout: one slow
+ * relay is not evidence that the pool is unreachable, so only an answer feeds
+ * the liveness signal.
+ */
+export function fetchFromRelay(
+  instance: NDK,
+  relay: NDKRelay,
+  filter: NDKFilter,
+  timeoutMs: number,
+): Promise<{ events: NDKEvent[]; answered: boolean }> {
+  return new Promise((resolve) => {
+    const events: NDKEvent[] = [];
+    let settled = false;
+
+    const finish = (answered: boolean) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      stopSubscription(sub, instance);
+      if (answered) noteRelayAnswered();
+      resolve({ events, answered });
+    };
+
+    const sub = instance.subscribe(
+      filter,
+      { cacheUsage: NDKSubscriptionCacheUsage.ONLY_RELAY, groupable: false, closeOnEose: true },
+      new NDKRelaySet(new Set([relay]), instance),
+    );
+    sub.on("event", (event: NDKEvent) => {
+      if (!settled) events.push(event);
+    });
+    sub.on("eose", () => finish(true));
+
+    const timer = setTimeout(() => finish(false), timeoutMs);
+  });
+}
+
 export const RELAY_STORAGE_KEY = "wrystr_relays";
 
 export const FALLBACK_RELAYS = [

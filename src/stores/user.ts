@@ -1,6 +1,14 @@
 import { create } from "zustand";
 import { NDKPrivateKeySigner, NDKNip46Signer } from "@nostr-dev-kit/ndk";
-import { getNDK, publishContactList } from "../lib/nostr";
+import { getNDK, publishContactList, fetchContactList } from "../lib/nostr";
+import {
+  contactPubkeys,
+  newerContactList,
+  nextContactTags,
+  parseStoredContactList,
+  type ContactListResult,
+  type ContactListSnapshot,
+} from "../lib/contacts";
 import {
   acceptSecretEchoAsAck,
   connectWithTimeout,
@@ -88,11 +96,91 @@ function upsertAccount(accounts: SavedAccount[], entry: SavedAccount): SavedAcco
   return accounts.map((a, i) => (i === idx ? { ...a, ...entry } : a));
 }
 
+export type FollowsStatus = "idle" | "loading" | "loaded" | "unknown";
+
+// The newest contact list known for the active account in this session, either
+// fetched from a relay or published by us. It is the only thing a follow or
+// unfollow may be applied to. Keyed by pubkey so one account's list can never
+// become the base for another's after an account switch.
+let _contactBase: { pubkey: string; list: ContactListSnapshot } | null = null;
+// Which account `follows` currently describes.
+let _followsOwner: string | null = null;
+// The account whose relays have confirmed, in this session, that it has no
+// contact list at all. Only then may a first follow start a new one.
+let _noListConfirmedFor: string | null = null;
+// Follow and unfollow run one at a time. Two changes built from the same list
+// and published one after the other would each drop the other's edit.
+let _followChain: Promise<void> = Promise.resolve();
+let _followsRetryTimer: ReturnType<typeof setTimeout> | null = null;
+let _followsRetryCount = 0;
+/** Automatic retries after the relays could not tell us; "Try again" restarts the ladder. */
+const FOLLOWS_RETRY_DELAYS_MS = [4000, 10000, 30000];
+
+// The last contact list this device saw for each account, kept across restarts.
+// It makes the list available at once on startup, and it is the reason a relay
+// outage cannot shrink it: if the relays return nothing, or cannot tell, the
+// app still knows what the list was and builds on that.
+const CONTACT_LIST_CACHE_PREFIX = "wrystr_contact_list_";
+
+function loadCachedContactList(pubkey: string): ContactListSnapshot | null {
+  try {
+    return parseStoredContactList(localStorage.getItem(CONTACT_LIST_CACHE_PREFIX + pubkey));
+  } catch {
+    return null;
+  }
+}
+
+function saveCachedContactList(pubkey: string, list: ContactListSnapshot): void {
+  try {
+    localStorage.setItem(CONTACT_LIST_CACHE_PREFIX + pubkey, JSON.stringify(list));
+  } catch {
+    // Storage full or unavailable: the cache is a safety net, never a requirement.
+  }
+}
+
+function clearFollowsRetry(): void {
+  if (_followsRetryTimer) clearTimeout(_followsRetryTimer);
+  _followsRetryTimer = null;
+}
+
+/** Forget everything about the previous account's contact list. */
+function forgetContactList(): void {
+  clearFollowsRetry();
+  _followsRetryCount = 0;
+  _contactBase = null;
+  _followsOwner = null;
+  _noListConfirmedFor = null;
+}
+
+/**
+ * Point the follow state at `pubkey`, starting from what this device remembers
+ * about that account and nothing else. Whatever was on screen belonged to the
+ * previous account and is dropped here, before any relay is asked.
+ */
+function beginFollowsFor(pubkey: string): void {
+  _followsOwner = pubkey;
+  _followsRetryCount = 0;
+  _noListConfirmedFor = null;
+  const cached = loadCachedContactList(pubkey);
+  _contactBase = cached ? { pubkey, list: cached } : null;
+  useUserStore.setState(
+    cached
+      ? { follows: contactPubkeys(cached.tags), followsStatus: "loaded" }
+      : { follows: [], followsStatus: "loading" },
+  );
+}
+
 interface UserState {
   pubkey: string | null;
   npub: string | null;
   profile: any | null;
   follows: string[];
+  /**
+   * Whether `follows` reflects a contact list that actually loaded. An empty
+   * `follows` means "follows nobody" only when this is "loaded"; "unknown"
+   * means the relays did not all answer and none returned a list.
+   */
+  followsStatus: FollowsStatus;
   loggedIn: boolean;
   loginError: string | null;
   accounts: SavedAccount[];
@@ -124,6 +212,7 @@ export const useUserStore = create<UserState>((set, get) => ({
   npub: null,
   profile: null,
   follows: [],
+  followsStatus: "idle",
   loggedIn: false,
   loginError: null,
   accounts: loadSavedAccounts(),
@@ -307,7 +396,8 @@ export const useUserStore = create<UserState>((set, get) => ({
     // Don't delete the keychain entry — keep the account available for instant switch-back.
     localStorage.removeItem("wrystr_pubkey");
     localStorage.removeItem("wrystr_login_type");
-    set({ pubkey: null, npub: null, profile: null, follows: [], loggedIn: false, loginError: null });
+    forgetContactList();
+    set({ pubkey: null, npub: null, profile: null, follows: [], followsStatus: "idle", loggedIn: false, loginError: null });
   },
 
   restoreSession: async () => {
@@ -503,6 +593,7 @@ export const useUserStore = create<UserState>((set, get) => ({
           loginError: failedReconnect ? nip46RestoreError(null) : null,
           profile: null,
           follows: [],
+          followsStatus: "idle",
         });
         localStorage.setItem("wrystr_pubkey", pubkey);
         localStorage.setItem("wrystr_login_type", loginType);
@@ -517,6 +608,7 @@ export const useUserStore = create<UserState>((set, get) => ({
   },
 
   removeAccount: (pubkey: string) => {
+    try { localStorage.removeItem(CONTACT_LIST_CACHE_PREFIX + pubkey); } catch { /* nothing to remove */ }
     // Delete keychain entry (best-effort)
     invoke<void>("delete_nsec", { pubkey }).catch(() => {});
 
@@ -530,7 +622,8 @@ export const useUserStore = create<UserState>((set, get) => ({
       ndk.signer = undefined;
       localStorage.removeItem("wrystr_pubkey");
       localStorage.removeItem("wrystr_login_type");
-      set({ pubkey: null, npub: null, profile: null, follows: [], loggedIn: false, loginError: null });
+      forgetContactList();
+      set({ pubkey: null, npub: null, profile: null, follows: [], followsStatus: "idle", loggedIn: false, loginError: null });
     }
   },
 
@@ -576,34 +669,165 @@ export const useUserStore = create<UserState>((set, get) => ({
   fetchFollows: async () => {
     const { pubkey } = get();
     if (!pubkey) return;
+    clearFollowsRetry();
 
+    // A different account: nothing we hold applies to it. Switch at once rather
+    // than leave the previous account's follows on screen (and in reach of a
+    // Follow click) while this one loads.
+    if (_followsOwner !== pubkey) {
+      beginFollowsFor(pubkey);
+    } else if (get().followsStatus !== "loaded") {
+      set({ followsStatus: "loading" });
+    }
+
+    const adopt = (list: ContactListSnapshot) => {
+      if (get().pubkey !== pubkey) return;
+      const known = _contactBase?.pubkey === pubkey ? _contactBase.list : null;
+      const newest = newerContactList(known, list)!;
+      _contactBase = { pubkey, list: newest };
+      saveCachedContactList(pubkey, newest);
+      set({ follows: contactPubkeys(newest.tags), followsStatus: "loaded" });
+    };
+
+    let result: ContactListResult;
     try {
-      const ndk = getNDK();
-      const user = ndk.getUser({ pubkey });
-      const followSet = await user.follows();
-      const follows = Array.from(followSet).map((u) => u.pubkey);
-      set({ follows });
+      result = await fetchContactList(pubkey, { onFound: adopt });
     } catch {
-      // Non-critical
+      result = { status: "unknown" };
+    }
+    if (get().pubkey !== pubkey) return; // the account changed while we waited
+
+    if (result.status === "found") {
+      adopt(result.list);
+      _followsRetryCount = 0;
+    } else if (_contactBase?.pubkey === pubkey) {
+      // We already hold a list, from earlier in this session or from this
+      // device's cache. Relays that are quiet, or that have lost it, are no
+      // reason to throw it away; the next follow or unfollow republishes it.
+    } else if (result.status === "none") {
+      _noListConfirmedFor = pubkey;
+      set({ follows: [], followsStatus: "loaded" });
+      _followsRetryCount = 0;
+    } else {
+      // Could not tell. Say so, and keep asking for a while: this must never
+      // be shown, or acted on, as "follows nobody".
+      set({ followsStatus: "unknown" });
+      const delay = FOLLOWS_RETRY_DELAYS_MS[_followsRetryCount];
+      if (delay !== undefined) {
+        _followsRetryCount++;
+        _followsRetryTimer = setTimeout(() => {
+          _followsRetryTimer = null;
+          if (get().pubkey === pubkey) void get().fetchFollows();
+        }, delay);
+      }
     }
   },
 
-  follow: async (pubkey: string) => {
-    // Runtime guard — UI should already prevent this, but belt-and-suspenders
-    if (!getNDK().signer) return;
-    const { follows } = get();
-    if (follows.includes(pubkey)) return;
-    const updated = [...follows, pubkey];
-    set({ follows: updated });
-    await publishContactList(updated);
-  },
+  follow: (pubkey: string) => changeFollow({ add: pubkey }),
 
-  unfollow: async (pubkey: string) => {
-    // Runtime guard — UI should already prevent this, but belt-and-suspenders
-    if (!getNDK().signer) return;
-    const { follows } = get();
-    const updated = follows.filter((pk) => pk !== pubkey);
-    set({ follows: updated });
-    await publishContactList(updated);
-  },
+  unfollow: (pubkey: string) => changeFollow({ remove: pubkey }),
 }));
+
+/**
+ * Queue one follow or unfollow.
+ *
+ * The button answers at once when there is a loaded list to answer from; the
+ * real work runs in `applyFollowChange`, one change at a time, and corrects the
+ * display if it turns out differently.
+ */
+function changeFollow(change: { add: string } | { remove: string }): Promise<void> {
+  const { getState: get, setState: set } = useUserStore;
+  // Runtime guard — UI should already prevent this, but belt-and-suspenders
+  if (!getNDK().signer) return Promise.resolve();
+  const me = get().pubkey;
+  if (!me) return Promise.resolve();
+
+  // Reached before fetchFollows ran for this account (every login path calls
+  // it, but nothing guarantees it won the race with a click): whatever the
+  // store shows belongs to someone else.
+  if (_followsOwner !== me) beginFollowsFor(me);
+
+  if (get().followsStatus === "loaded") {
+    const shown = get().follows;
+    if ("add" in change) {
+      if (!shown.includes(change.add)) set({ follows: [...shown, change.add] });
+    } else {
+      set({ follows: shown.filter((pk) => pk !== change.remove) });
+    }
+  }
+
+  const run = _followChain.then(() => applyFollowChange(me, change));
+  _followChain = run.catch(() => undefined);
+  return run;
+}
+
+/**
+ * Apply one follow or unfollow to the user's contact list and publish it.
+ *
+ * A kind 3 is replaceable: publishing one *replaces* the previous list for
+ * every client the user owns. So the new list is never built from what happens
+ * to be on screen. It is built from the newest list the relays hold right now,
+ * merged with anything newer this device knows, and if neither exists and the
+ * relays have not confirmed there is no list, nothing is published at all.
+ * Before this, a list that had failed to load looked exactly like an empty one,
+ * and a single Follow click overwrote it.
+ */
+async function applyFollowChange(me: string, change: { add: string } | { remove: string }): Promise<void> {
+  const { getState: get, setState: set } = useUserStore;
+  if (get().pubkey !== me || !getNDK().signer) return; // the account changed while this waited its turn
+
+  const adding = "add" in change;
+  const target = adding ? change.add : change.remove;
+  const known = _contactBase?.pubkey === me ? _contactBase.list : null;
+
+  // Nothing to do — judged against the list itself, not the display, which
+  // already shows the change.
+  if (known && contactPubkeys(known.tags).includes(target) === adding) {
+    set({ follows: contactPubkeys(known.tags) });
+    return;
+  }
+  if (!known && !adding && _noListConfirmedFor === me) return;
+
+  let result: ContactListResult;
+  try {
+    // A list we already hold makes a slow relay tolerable, so wait less for it.
+    result = await fetchContactList(me, known ? { timeoutMs: 3000 } : {});
+  } catch {
+    result = { status: "unknown" };
+  }
+  if (get().pubkey !== me) return; // the account changed while we waited
+
+  if (result.status === "none" && !known) _noListConfirmedFor = me;
+  const base = result.status === "found" ? newerContactList(known, result.list) : known;
+  const mayStartNewList = _noListConfirmedFor === me;
+
+  if (!base && !mayStartNewList) {
+    set({ follows: [], followsStatus: "unknown" });
+    useToastStore.getState().addToast(
+      "Couldn't load your follow list, so nothing was changed. Check your relays and try again.",
+      "warning",
+      8000,
+    );
+    return;
+  }
+
+  const tags = nextContactTags(base?.tags ?? [], change);
+  const content = base?.content ?? "";
+  const next: ContactListSnapshot = { tags, content, createdAt: Math.floor(Date.now() / 1000) };
+  _contactBase = { pubkey: me, list: next };
+  set({ follows: contactPubkeys(tags), followsStatus: "loaded" });
+
+  try {
+    await publishContactList(tags, content);
+    saveCachedContactList(me, next);
+  } catch {
+    if (get().pubkey === me) {
+      // Back to the list as the relays have it, which may itself be newer than
+      // what this device knew before the attempt.
+      _contactBase = base ? { pubkey: me, list: base } : null;
+      if (base) saveCachedContactList(me, base);
+      set({ follows: base ? contactPubkeys(base.tags) : [], followsStatus: "loaded" });
+    }
+    useToastStore.getState().addToast("Couldn't publish your follow list. Nothing was changed.", "warning", 8000);
+  }
+}

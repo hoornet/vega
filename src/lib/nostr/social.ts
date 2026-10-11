@@ -1,5 +1,12 @@
-import { NDKEvent, NDKFilter, NDKKind, NDKUserProfile, profileFromEvent } from "@nostr-dev-kit/ndk";
-import { getNDK, fetchWithTimeout, FEED_TIMEOUT } from "./core";
+import NDK, { NDKEvent, NDKFilter, NDKKind, NDKRelay, NDKUserProfile, profileFromEvent } from "@nostr-dev-kit/ndk";
+import { getNDK, fetchWithTimeout, fetchFromRelay, isLocalRelayUrl, FEED_TIMEOUT } from "./core";
+import {
+  summarizeContactAnswers,
+  newerContactList,
+  type ContactListResult,
+  type ContactListSnapshot,
+  type RelayContactAnswer,
+} from "../contacts";
 
 export async function publishProfile(fields: {
   name?: string;
@@ -20,14 +27,97 @@ export async function publishProfile(fields: {
   await event.publish();
 }
 
-export async function publishContactList(pubkeys: string[]): Promise<void> {
+/** How long a relay gets to answer for the contact list before its silence counts. */
+const CONTACT_LIST_TIMEOUT = 6000;
+
+/**
+ * The relays worth asking right now: every connected one, after giving the pool
+ * a moment to finish connecting.
+ *
+ * Login asks for the contact list before the first socket is open, so "whoever
+ * is connected this instant" would be nobody. This waits until at least one
+ * remote relay is up, then a short settle period for the rest, so a relay that
+ * is merely a little slower to connect is still asked. A relay that never
+ * connects is left out: it cannot answer, and counting its silence would mean
+ * one dead relay in someone's list stops them ever following anyone.
+ */
+async function relaysToAsk(instance: NDK, maxWaitMs = 5000, settleMs = 1200): Promise<NDKRelay[]> {
+  const started = Date.now();
+  let firstRemoteUpAt: number | null = null;
+  for (;;) {
+    const all = Array.from(instance.pool?.relays?.values() ?? []);
+    const up = all.filter((r) => r.connected);
+    if (up.some((r) => !isLocalRelayUrl(r.url))) {
+      firstRemoteUpAt ??= Date.now();
+      if (up.length === all.length || Date.now() - firstRemoteUpAt >= settleMs) return up;
+    }
+    if (Date.now() - started >= maxWaitMs) return up;
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+}
+
+/**
+ * Fetch `pubkey`'s contact list (kind 3) by asking every connected relay
+ * individually, and say honestly what came back: a list, proof of no list, or
+ * "could not tell" (see `ContactListResult`).
+ *
+ * This replaces `NDKUser.follows()`, which is a multi-relay `fetchEvent` and so
+ * inherits NDK's early EOSE quorum — see `fetchFromRelay` in core.ts for the
+ * mechanism and the measurement. A user's kind 3 can live on a single relay;
+ * when that relay was the slow one the list came back empty, the UI said "not
+ * following anyone", and the next Follow click published a one-person list
+ * over the real one.
+ *
+ * `onFound` fires as soon as any relay returns a list (and again if a newer one
+ * turns up), so the UI does not have to wait for the slowest relay just to
+ * render. The returned promise settles when every relay has answered or timed
+ * out, which is what a caller about to *publish* needs.
+ */
+export async function fetchContactList(
+  pubkey: string,
+  opts: { timeoutMs?: number; onFound?: (list: ContactListSnapshot) => void } = {},
+): Promise<ContactListResult> {
+  const instance = getNDK();
+  const relays = await relaysToAsk(instance);
+  if (relays.length === 0) return { status: "unknown" };
+
+  const filter: NDKFilter = { kinds: [3 as NDKKind], authors: [pubkey] };
+  let newest: ContactListSnapshot | null = null;
+
+  const answers = await Promise.all(
+    relays.map(async (relay): Promise<RelayContactAnswer> => {
+      const { events, answered } = await fetchFromRelay(instance, relay, filter, opts.timeoutMs ?? CONTACT_LIST_TIMEOUT);
+      const lists = events
+        .filter((e) => e.kind === 3 && e.pubkey === pubkey)
+        .map((e): ContactListSnapshot => ({ tags: e.tags, content: e.content ?? "", createdAt: e.created_at ?? 0 }));
+      for (const list of lists) {
+        const next = newerContactList(newest, list);
+        if (next !== newest) {
+          newest = next;
+          opts.onFound?.(list);
+        }
+      }
+      return { lists, answered, local: isLocalRelayUrl(relay.url) };
+    }),
+  );
+
+  return summarizeContactAnswers(answers);
+}
+
+/**
+ * Publish a contact list. The caller supplies the complete tag set and content
+ * — built from the newest known list by `nextContactTags` — so relay hints,
+ * petnames and non-`p` tags are carried over. This function never invents a
+ * list from a bare array of pubkeys; that shape is what made the wipe possible.
+ */
+export async function publishContactList(tags: string[][], content: string): Promise<void> {
   const instance = getNDK();
   if (!instance.signer) throw new Error("Not logged in");
 
   const event = new NDKEvent(instance);
   event.kind = 3;
-  event.content = "";
-  event.tags = pubkeys.map((pk) => ["p", pk]);
+  event.content = content;
+  event.tags = tags;
   await event.publish();
 }
 
