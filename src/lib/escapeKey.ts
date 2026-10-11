@@ -20,3 +20,23 @@ export function escapeAction(state: {
   if (state.dialogOpen) return "nothing";
   return state.stackDepth > 0 ? "back" : "nothing";
 }
+
+/**
+ * What counts as "a dialog is open" for the two rules in this file: a modal
+ * dialog, the image viewer, and a confirmation such as the one before an
+ * account's key is deleted. With that question on screen and focus on Cancel,
+ * `n` used to change the view behind it.
+ */
+export const MODAL_SELECTOR = '[role="dialog"][aria-modal="true"], [role="alertdialog"]';
+
+/**
+ * Whether an app-wide shortcut must be ignored because a dialog is open.
+ *
+ * With the zap dialog up and focus on a button, `n` used to switch to the feed
+ * behind it, `/` to search, and `?` opened Help on top. A dialog owns the
+ * keyboard until it is closed. Escape is the one key still looked at, so that
+ * `escapeAction` can decide it does nothing.
+ */
+export function shortcutBlocked(key: string, dialogOpen: boolean): boolean {
+  return dialogOpen && key !== "Escape";
+}

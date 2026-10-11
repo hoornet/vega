@@ -6,6 +6,7 @@ import { startStreaming, stopStreaming, boost } from "../../lib/podcast/v4v";
 import { SwitchControl } from "../shared/Switch";
 import { Button } from "../shared/Button";
 import { Zap } from "lucide-react";
+import { usePopoverDismiss, type DismissReason } from "../../hooks/usePopoverDismiss";
 
 const NWC_KEY = "wrystr_nwc_uri";
 
@@ -14,7 +15,21 @@ const nudgedGuids = new Set<string>();
 
 export function V4VIndicator() {
   const streamId = useId();
+  // Closes on Escape and on a click outside, like every other popover. It was toggle-only.
+  const rootRef = useRef<HTMLDivElement>(null);
   const [open, setOpen] = useState(false);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const closePopover = useCallback((reason: DismissReason) => {
+    setOpen(false);
+    if (reason === "escape") triggerRef.current?.focus();
+  }, []);
+  // The whole player bar counts as "inside": with the popover open and sats
+  // streaming, the first click on play or pause must not be the one that
+  // only closes it.
+  const insideRef = useRef<HTMLElement | null>(null);
+  useEffect(() => {
+    insideRef.current = rootRef.current?.closest<HTMLElement>("[data-player-bar]") ?? rootRef.current;
+  });
   const [boostAmount, setBoostAmount] = useState("100");
   const [boosting, setBoosting] = useState(false);
   const [showNudge, setShowNudge] = useState(false);
@@ -122,11 +137,15 @@ export function V4VIndicator() {
     setBoosting(false);
   }, [episode, boostAmount, nwcUri, hasWallet, boosting]);
 
+  usePopoverDismiss(insideRef, open, closePopover);
+
   if (!episode) return null;
 
   return (
-    <div className="relative shrink-0">
+    <div ref={rootRef} className="relative shrink-0">
       <button
+        ref={triggerRef}
+        aria-expanded={open}
         onClick={() => { setOpen(!open); setShowNudge(false); }}
         className={`text-ui px-1.5 py-0.5 rounded-sm transition-colors flex items-center gap-1 ${
           capReachedReason

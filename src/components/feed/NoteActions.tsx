@@ -429,6 +429,7 @@ export function NoteActions({ event, onReplyToggle, showReply, enabled = true }:
           authorName={name}
           authorAvatar={avatar}
           onClose={() => setShowQuote(false)}
+          returnFocus={triggerRef}
         />
       )}
     </>

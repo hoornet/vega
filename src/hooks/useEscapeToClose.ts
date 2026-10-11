@@ -1,23 +1,23 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
+import { pushLayer } from "../lib/layers";
 
 /**
  * Close something floating when Escape is pressed, and stop there.
  *
- * Listens on `document`, which runs before the app-wide shortcut handler on
- * `window`, and stops the event so one press closes one thing and never also
- * navigates. The zap dialog, the reaction picker, the note menu and the emoji
- * picker each ignored Escape before this; the image lightbox already worked
- * this way and is the pattern copied here.
+ * The press goes to whatever opened last (see `lib/layers.ts`) and is stopped
+ * before the app-wide shortcut handler on `window` sees it, so one press
+ * closes one thing and never also navigates. The zap dialog, the reaction
+ * picker, the note menu and the emoji picker each ignored Escape before this.
+ *
+ * The layer is added when `enabled` becomes true and stays where it is until
+ * it becomes false: a new `onClose` on a later render must not move this
+ * above something that opened after it.
  */
 export function useEscapeToClose(onClose: () => void, enabled = true): void {
+  const latest = useRef(onClose);
+  latest.current = onClose;
   useEffect(() => {
     if (!enabled) return;
-    const handler = (e: KeyboardEvent) => {
-      if (e.key !== "Escape") return;
-      e.stopImmediatePropagation();
-      onClose();
-    };
-    document.addEventListener("keydown", handler);
-    return () => document.removeEventListener("keydown", handler);
-  }, [onClose, enabled]);
+    return pushLayer({ onEscape: () => latest.current() });
+  }, [enabled]);
 }

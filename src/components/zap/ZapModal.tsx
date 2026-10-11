@@ -3,8 +3,7 @@ import { useLightningStore, ZapTargetSpec } from "../../stores/lightning";
 import { useUIStore } from "../../stores/ui";
 import { useCanSign } from "../../stores/user";
 import { LoginModal } from "../shared/LoginModal";
-import { useEscapeToClose } from "../../hooks/useEscapeToClose";
-import { BodyPortal } from "../shared/BodyPortal";
+import { Dialog } from "../shared/Dialog";
 import { Button } from "../shared/Button";
 import { ArrowRight, Zap } from "lucide-react";
 
@@ -19,7 +18,6 @@ interface ZapModalProps {
 }
 
 export function ZapModal({ target, recipientName, onClose }: ZapModalProps) {
-  useEscapeToClose(onClose);
   const canSign = useCanSign();
   const { nwcUri, zap } = useLightningStore();
   const { setView } = useUIStore();
@@ -47,28 +45,16 @@ export function ZapModal({ target, recipientName, onClose }: ZapModalProps) {
     }
   };
 
-  const handleBackdrop = (e: React.MouseEvent) => {
-    if (e.target === e.currentTarget) onClose();
-  };
-
   return (
-    <BodyPortal>
-    <div
-      className="fixed inset-0 bg-black/60 flex items-center justify-center z-50"
-      role="dialog"
-      aria-modal="true"
-      aria-label={`Zap ${recipientName}`}
-      onClick={handleBackdrop}
-    >
-      <div className="bg-bg border border-border w-80 shadow-2xl rounded-lg">
-        {/* Header */}
-        <div className="border-b border-border-subtle px-4 py-3 flex items-center justify-between">
-          <div>
-            <div className="text-text text-title font-medium">⚡ Zap {recipientName}</div>
-            {!nwcUri && <div className="text-danger text-caption mt-0.5">No wallet connected</div>}
-          </div>
-          <button onClick={onClose} aria-label="Close" className="text-text-dim hover:text-text text-[11px] transition-colors">✕</button>
-        </div>
+    <>
+      <Dialog
+        size="sm"
+        title={<><Zap size={18} strokeWidth={1.75} className="text-zap shrink-0" aria-hidden /><span className="min-w-0 truncate" title={`Zap ${recipientName}`}>Zap {recipientName}</span></>}
+        status={!nwcUri && <span className="text-danger">No wallet connected</span>}
+        onClose={onClose}
+        // The result of a payment is shown here and nowhere else, and a comment is something typed.
+        closeOnBackdrop={state !== "paying" && comment.trim().length === 0}
+      >
 
         {/* Sign-in required state */}
         {!canSign && (
@@ -113,8 +99,9 @@ export function ZapModal({ target, recipientName, onClose }: ZapModalProps) {
               </div>
               <input
                 value={customAmount}
+                // Typing chooses the custom amount. Focus alone must not: the dialog
+                // puts focus here when it opens, and that used to clear the amount.
                 onChange={(e) => { setCustomAmount(e.target.value.replace(/\D/g, "")); setUseCustom(true); }}
-                onFocus={() => setUseCustom(true)}
                 placeholder="custom amount…"
                 className={`w-full bg-bg border px-3 py-1.5 text-text text-ui focus:outline-none transition-colors ${
                   useCustom ? "border-accent" : "border-border-strong"
@@ -165,9 +152,8 @@ export function ZapModal({ target, recipientName, onClose }: ZapModalProps) {
             <Button className="w-full" onClick={() => setState("idle")}>Try again</Button>
           </div>
         )}
-      </div>
+      </Dialog>
       {showLogin && <LoginModal onClose={() => setShowLogin(false)} />}
-    </div>
-    </BodyPortal>
+    </>
   );
 }

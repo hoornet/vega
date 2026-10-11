@@ -15,8 +15,10 @@ const store = {
   logout: vi.fn(),
 };
 vi.mock("../../stores/user", () => ({ useUserStore: () => store }));
-vi.mock("../../stores/ui", () => ({ useUIStore: () => ({ openProfile: vi.fn() }) }));
-vi.mock("../shared/LoginModal", () => ({ LoginModal: () => null }));
+const openProfile = vi.hoisted(() => vi.fn());
+vi.mock("../../stores/ui", () => ({ useUIStore: () => ({ openProfile }) }));
+const loginProps = vi.hoisted(() => ({ last: null as null | { returnFocus?: { current: HTMLElement | null } } }));
+vi.mock("../shared/LoginModal", () => ({ LoginModal: (props: { returnFocus?: { current: HTMLElement | null } }) => { loginProps.last = props; return <div>login dialog</div>; } }));
 
 import { AccountSwitcher } from "./AccountSwitcher";
 
@@ -136,6 +138,98 @@ describe("signing out", () => {
     fireEvent.click(screen.getByText("Sign out"));
 
     expect(store.logout).toHaveBeenCalledTimes(1);
+    expect(store.removeAccount).not.toHaveBeenCalled();
+  });
+});
+
+// The menu stayed open until its own arrow was pressed again, across navigation.
+describe("closing the menu", () => {
+  const menuOpen = () => screen.queryByText("Sign out") !== null;
+
+  it("closes on Escape", () => {
+    openMenu();
+    expect(menuOpen()).toBe(true);
+    fireEvent.keyDown(document.body, { key: "Escape" });
+    expect(menuOpen()).toBe(false);
+  });
+
+  it("closes on a click outside it, and that click does nothing else", () => {
+    const outside = vi.fn();
+    render(<button onClick={outside}>Feed</button>);
+    openMenu();
+    fireEvent.click(screen.getByText("Feed"));
+    expect(menuOpen()).toBe(false);
+    expect(outside).not.toHaveBeenCalled();
+    // the next click is an ordinary one
+    fireEvent.click(screen.getByText("Feed"));
+    expect(outside).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not swallow a click on one of its own items", () => {
+    openMenu();
+    fireEvent.click(screen.getByText("keeps this account here"));
+    expect(store.logout).toHaveBeenCalledTimes(1);
+  });
+
+  // Closed from the keyboard, the focused item is gone: focus must not fall to the page.
+  it("puts focus back on its arrow when Escape closes it", () => {
+    openMenu();
+    screen.getByText("Add account").closest("button")!.focus();
+    fireEvent.keyDown(document.activeElement!, { key: "Escape" });
+    expect(menuOpen()).toBe(false);
+    expect(document.activeElement).toBe(screen.getByTitle("Switch account"));
+  });
+
+  it("leaves focus where the pointer put it when a click closes it", () => {
+    render(<button>Feed</button>);
+    openMenu();
+    const arrow = screen.getByTitle("Switch account");
+    fireEvent.click(screen.getByText("Feed"));
+    expect(menuOpen()).toBe(false);
+    expect(document.activeElement).not.toBe(arrow);
+  });
+
+  // It stayed open over the profile it had just opened.
+  it("closes when your own name is clicked, and opens your profile", () => {
+    openMenu();
+    fireEvent.click(screen.getByText("Harpo"));
+    expect(openProfile).toHaveBeenCalledWith(ME);
+    expect(menuOpen()).toBe(false);
+  });
+
+  // "Add account" is a menu item: gone by the time the login dialog closes.
+  it("closes for Add account, and tells the login dialog to return focus to the arrow", () => {
+    openMenu();
+    fireEvent.click(screen.getByText("Add account"));
+    expect(menuOpen()).toBe(false);
+    expect(screen.getByText("login dialog")).toBeTruthy();
+    expect(loginProps.last?.returnFocus?.current).toBe(screen.getByTitle("Switch account"));
+  });
+
+  it("says whether it is open", () => {
+    render(<AccountSwitcher />);
+    const arrow = screen.getByTitle("Switch account");
+    expect(arrow.getAttribute("aria-expanded")).toBe("false");
+    fireEvent.click(arrow);
+    expect(arrow.getAttribute("aria-expanded")).toBe("true");
+  });
+
+  // Escape backs out of the dangerous question and does only that. A stray
+  // click must not dismiss a question about deleting a key either.
+  it("leaves the removal confirmation alone", () => {
+    const outside = vi.fn();
+    render(<button onClick={outside}>Feed</button>);
+    openMenu();
+    fireEvent.click(screen.getByText("Remove from this computer…"));
+    expect(screen.getByRole("alertdialog")).toBeTruthy();
+
+    fireEvent.click(screen.getByText("Feed"));
+    expect(screen.getByRole("alertdialog")).toBeTruthy();
+
+    fireEvent.keyDown(document.body, { key: "Escape" });
+    expect(screen.queryByRole("alertdialog")).toBeNull();
+    // back in the menu, not out of it
+    expect(menuOpen()).toBe(true);
     expect(store.removeAccount).not.toHaveBeenCalled();
   });
 });

@@ -382,7 +382,7 @@ export function SearchView() {
                 <FollowButton pubkey={s.pubkey} />
                 <button
                   onClick={() => dismiss(s.pubkey)}
-                  className="text-text-dim hover:text-danger text-[14px] opacity-0 group-hover/suggestion:opacity-100 transition-opacity shrink-0 px-1"
+                  className="text-text-dim hover:text-danger text-[14px] opacity-0 group-hover/suggestion:opacity-100 focus-visible:opacity-100 transition-opacity shrink-0 px-1"
                   title="Don't suggest again"
                 >
                   ×

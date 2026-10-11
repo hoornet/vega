@@ -15,6 +15,8 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import { ViewHeader } from "../shared/ViewHeader";
 import { Button } from "../shared/Button";
 import { ArrowLeft, Check, Upload } from "lucide-react";
+import { ImageLightbox } from "../shared/ImageLightbox";
+import { useEscapeToClose } from "../../hooks/useEscapeToClose";
 
 /** Extract image URLs from markdown ![alt](url) patterns */
 function extractImages(md: string): { alt: string; url: string }[] {
@@ -78,20 +80,20 @@ export function ArticleEditor() {
     }
   }, [zenMode]);
 
-  // F11 to toggle zen mode, Esc to exit
+  // F11 toggles zen mode. Escape leaves it, through the same rule as
+  // everything else that covers the window: if something is open over the
+  // editor, that closes first, and the press never also goes back a view.
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (e.key === "F11") {
         e.preventDefault();
         toggleZen();
       }
-      if (e.key === "Escape" && zenMode) {
-        toggleZen();
-      }
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [toggleZen, zenMode]);
+  }, [toggleZen]);
+  useEscapeToClose(toggleZen, zenMode);
 
   // Exit fullscreen on unmount
   useEffect(() => {
@@ -437,18 +439,7 @@ export function ArticleEditor() {
         )}
 
         {/* Lightbox */}
-        {lightboxUrl && (
-          <div
-            className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center cursor-zoom-out"
-            onClick={() => setLightboxUrl(null)}
-          >
-            <img
-              src={lightboxUrl}
-              className="max-w-[90vw] max-h-[90vh] rounded-lg shadow-2xl object-contain"
-              onClick={(e) => e.stopPropagation()}
-            />
-          </div>
-        )}
+        {lightboxUrl && <ImageLightbox images={[lightboxUrl]} index={0} onClose={() => setLightboxUrl(null)} onNavigate={() => {}} />}
 
         {/* Content area */}
         <div className="flex-1 overflow-y-auto px-6 pb-6">

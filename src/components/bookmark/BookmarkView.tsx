@@ -27,7 +27,7 @@ function ArticleCardWithReadStatus({ event }: { event: NDKEvent }) {
       {fullAddr && (
         <button
           onClick={() => isRead ? markArticleUnread(fullAddr) : markArticleRead(fullAddr)}
-          className="absolute right-3 top-3 text-caption text-text-dim hover:text-accent opacity-0 group-hover:opacity-100 transition-opacity z-10"
+          className="absolute right-3 top-3 text-caption text-text-dim hover:text-accent opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity z-10"
         >
           {isRead ? "Mark unread" : "Mark read"}
         </button>

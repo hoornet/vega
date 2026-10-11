@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { useUIStore } from "../stores/ui";
 import { useFeedStore } from "../stores/feed";
-import { escapeAction } from "../lib/escapeKey";
+import { escapeAction, shortcutBlocked, MODAL_SELECTOR } from "../lib/escapeKey";
 
 export function useKeyboardShortcuts() {
   const { currentView, setView, goBack, toggleHelp, showHelp, showDebugPanel, toggleDebugPanel } = useUIStore();
@@ -18,6 +18,8 @@ export function useKeyboardShortcuts() {
 
       const tag = (e.target as HTMLElement).tagName;
       if (tag === "INPUT" || tag === "TEXTAREA" || (e.target as HTMLElement).isContentEditable) return;
+      const dialogOpen = document.querySelector(MODAL_SELECTOR) !== null;
+      if (shortcutBlocked(e.key, dialogOpen)) return;
       switch (e.key) {
         case "n":
           setView("feed");
@@ -33,7 +35,7 @@ export function useKeyboardShortcuts() {
             escapeAction({
               showDebugPanel,
               showHelp,
-              dialogOpen: document.querySelector('[role="dialog"][aria-modal="true"]') !== null,
+              dialogOpen,
               stackDepth: useUIStore.getState().viewStack.length,
             })
           ) {

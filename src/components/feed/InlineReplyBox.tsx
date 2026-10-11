@@ -192,7 +192,7 @@ export function InlineReplyBox({ event, name, rootEvent }: InlineReplyBoxProps) 
               )}
               <button
                 onClick={() => removeAttachment(i)}
-                className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-danger text-danger-text text-[10px] rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-danger text-danger-text text-[10px] rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity"
                 title="Remove"
                 aria-label="Remove attachment"
               >

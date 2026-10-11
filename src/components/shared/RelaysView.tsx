@@ -88,7 +88,7 @@ function RelayHealthCard({ result, poolConnected, onRemove }: { result: RelayHea
           )}
           <button
             onClick={(e) => { e.stopPropagation(); onRemove(); }}
-            className="text-text-dim hover:text-danger text-caption opacity-0 group-hover/card:opacity-100 transition-opacity"
+            className="text-text-dim hover:text-danger text-caption opacity-0 group-hover/card:opacity-100 focus-visible:opacity-100 transition-opacity"
           >
             remove
           </button>
@@ -153,7 +153,7 @@ function RelayPoolRow({ url, connected, onRemove }: { url: string; connected: bo
       <span className="text-text-dim text-caption">{connected ? "connected" : "—"}</span>
       <button
         onClick={onRemove}
-        className="text-text-dim hover:text-danger text-caption opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
+        className="text-text-dim hover:text-danger text-caption opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity shrink-0"
       >
         remove
       </button>
@@ -477,7 +477,7 @@ function SuggestedRelays({ onAdded }: { onAdded: () => void }) {
             </span>
             <button
               onClick={() => handleAdd(s.url)}
-              className="text-accent hover:text-accent-hover text-caption opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
+              className="text-accent hover:text-accent-hover text-caption opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity shrink-0"
             >
               Add
 </button>
