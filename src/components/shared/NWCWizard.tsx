@@ -42,19 +42,6 @@ const WALLETS: WalletDef[] = [
     detect: (r) => r.includes("getalby") && !r.includes("albyhub"),
   },
   {
-    id: "mutiny",
-    name: "Mutiny",
-    tagline: "Web-based wallet",
-    setupUrl: "https://app.mutinywallet.com/#/settings/connections",
-    steps: [
-      "Open Mutiny Wallet",
-      "Go to Settings → Nostr Wallet Connect",
-      "Create a new connection",
-      "Copy the URI and paste it below",
-    ],
-    detect: (r) => r.includes("mutiny"),
-  },
-  {
     id: "phoenix",
     name: "Phoenix",
     tagline: "Mobile · self-custodial",

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useEscapeToClose } from "../../hooks/useEscapeToClose";
 
 const EMOJI_GROUPS: { label: string; emojis: string[] }[] = [
   { label: "Frequent", emojis: ["😂", "❤️", "🔥", "👍", "🤙", "⚡", "🫡", "👀", "🙏", "😎", "🎉", "💯"] },
@@ -14,6 +15,7 @@ interface EmojiPickerProps {
 }
 
 export function EmojiPicker({ onSelect, onClose }: EmojiPickerProps) {
+  useEscapeToClose(onClose);
   const [group, setGroup] = useState(0);
 
   return (

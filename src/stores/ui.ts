@@ -83,7 +83,10 @@ export const useUIStore = create<UIState>((set, _get) => ({
   fontSize: parseInt(localStorage.getItem(FONT_SIZE_KEY) || "14", 10),
   easyReadFont: localStorage.getItem(EASY_READ_FONT_KEY) === "true",
   themeId: localStorage.getItem(THEME_KEY) || "midnight",
-  setView: (currentView) => set({ currentView }),
+  // A sidebar destination is a fresh start: nothing to go "back" to. Leaving
+  // the stack in place made Esc and Back jump to a thread or profile visited
+  // before the last sidebar click.
+  setView: (currentView) => set({ currentView, viewStack: [] }),
   setFeedTab: (feedTab) => set({ feedTab }),
   setFollowsTab: (followsTab) => set({ followsTab }),
   openProfile: (pubkey) => set((s) => {

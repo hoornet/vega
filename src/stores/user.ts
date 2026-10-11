@@ -12,6 +12,7 @@ import {
 import { authenticatedRelayUrls, rechallengeRelays, setOwnDMRelayUrls } from "../lib/nostr/relayAuth";
 import { clearDecryptedDMCache } from "../lib/nostr/dms";
 import { useToastStore } from "./toast";
+import { explainPublicKeyError, explainSecretKeyError } from "../lib/loginErrors";
 import { nip19 } from "@nostr-dev-kit/ndk";
 import { invoke } from "@tauri-apps/api/core";
 import { useMuteStore } from "./mute";
@@ -165,9 +166,18 @@ export const useUserStore = create<UserState>((set, get) => ({
       localStorage.setItem("wrystr_pubkey", pubkey);
       localStorage.setItem("wrystr_login_type", "nsec");
 
-      // Store nsec in OS keychain
+      // Store nsec in OS keychain. If that fails the key lives only in this
+      // session: the next launch finds no keychain entry and the user is
+      // signed out. For someone who created the account here and chose to
+      // back up later, that would be the end of the account, so it must be
+      // said out loud, not left in a development-only log.
       invoke<void>("store_nsec", { pubkey, nsec: nsecInput }).catch((err) => {
         debug.warn("Failed to store nsec in OS keychain:", err);
+        useToastStore.getState().addToast(
+          "Vega couldn't save your secret key to this computer's keychain. You will be signed out when Vega closes. Copy your key now from Settings, under Identity.",
+          "warning",
+          20000,
+        );
       });
 
       // Load per-account NWC wallet
@@ -186,7 +196,8 @@ export const useUserStore = create<UserState>((set, get) => ({
       useUIStore.getState().setView("feed");
       useFeedStore.getState().loadFeed();
     } catch (err) {
-      set({ loginError: `Login failed: ${err}` });
+      debug.warn("Secret key login failed:", err);
+      set({ loginError: explainSecretKeyError(nsecInput) });
     }
   },
 
@@ -231,7 +242,8 @@ export const useUserStore = create<UserState>((set, get) => ({
       useUIStore.getState().setView("feed");
       useFeedStore.getState().loadFeed();
     } catch (err) {
-      set({ loginError: `Login failed: ${err}` });
+      debug.warn("Public key login failed:", err);
+      set({ loginError: explainPublicKeyError(pubkeyInput) });
     }
   },
 

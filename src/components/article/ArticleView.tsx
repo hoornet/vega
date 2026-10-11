@@ -382,13 +382,13 @@ export function ArticleView() {
               )}
 
               {/* Title */}
-              <h1 className="text-text text-2xl font-bold leading-tight mb-3 tracking-tight">
+              <h1 className="selectable-text text-text text-2xl font-bold leading-tight mb-3 tracking-tight">
                 {title || "Untitled"}
               </h1>
 
               {/* Summary */}
               {summary && (
-                <p className="text-text-muted text-[14px] leading-relaxed mb-4 italic border-l-2 border-border pl-3">
+                <p className="selectable-text text-text-muted text-[14px] leading-relaxed mb-4 italic border-l-2 border-border pl-3">
                   {summary}
                 </p>
               )}

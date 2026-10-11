@@ -24,6 +24,9 @@ export function ThreadView() {
   const [tree, setTree] = useState<ThreadNode | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  // The focused note is shown at once, so `loading` is false long before the
+  // replies arrive. Without this, "No replies yet." showed while they loaded.
+  const [repliesLoading, setRepliesLoading] = useState(true);
   const [showRootReply, setShowRootReply] = useState(false);
   const [replyText, setReplyText] = useState("");
   const [replying, setReplying] = useState(false);
@@ -43,6 +46,7 @@ export function ThreadView() {
 
     async function loadThread() {
       setLoadError(null);
+      setRepliesLoading(true);
       setTree(null);
       setAncestors([]);
       setRootEvent(null);
@@ -109,6 +113,8 @@ export function ThreadView() {
       } catch (err) {
         debug.error("Failed to load thread:", err);
         if (!cancelled) setLoadError(`Failed to load: ${err}`);
+      } finally {
+        if (!cancelled) setRepliesLoading(false);
       }
     }
 
@@ -265,9 +271,9 @@ export function ThreadView() {
             )}
 
             {/* Thread tree (children of root) */}
-            {tree.children.length === 0 && !showRootReply && (
+            {tree.children.length === 0 && !showRootReply && !(loadError && !repliesLoading) && (
               <div className="px-4 py-6 text-text-dim text-[12px] text-center">
-                No replies yet.
+                {repliesLoading ? "Loading replies…" : "No replies yet."}
               </div>
             )}
 

@@ -294,6 +294,14 @@ A relay answering `CLOSED auth-required:` never sends EOSE, so this is the shape
 - **Reproducing bunker bugs needs a bunker that echoes the secret**, and neither `nak bunker` nor NDK's own `NDKNip46Backend` does — both return a hardcoded `"ack"`. `scripts/echo-bunker.mjs` imitates Bunker46 for exactly this. Run it against `nak serve`, then `VEGA_BUNKER_URI=… npx vitest run nip46.live`; `src/lib/nostr/nip46.live.test.ts` is gated on that env var so CI stays hermetic, and needs `// @vitest-environment node` (undici's WebSocket dies under jsdom).
 - Verify this class of fix **in the running app**, not just in tests: the defect is in *when* the reconnect runs and how the store reacts, which unit tests can't see. Seed a scratch profile's localStorage (`wrystr_accounts` / `wrystr_pubkey` / `wrystr_login_type`) with a bunker account and launch against `XDG_DATA_HOME=<scratch>`.
 
+## Destructive actions and the secret key
+
+- **Removing an account deletes its nsec from the OS keychain** (`removeAccount` → `delete_nsec`). For someone who created the account in Vega and never saved the key, that is the only copy. It is confirmed in `AccountSwitcher.tsx` (`RemoveAccountConfirm`), which offers to copy the key first. Any new path to `removeAccount` must go through a confirmation too. "Sign out" keeps the key and needs none.
+- **A failed keychain write must be said out loud.** `store_nsec` is best-effort; when it fails the key lives only in the session and the next launch signs the user out. `debug.warn` is silent in release builds, so `loginWithNsec` raises a toast. On Linux a missing secret service is a normal configuration, not an edge case.
+- **Copy about the key must match what the code does.** The backup step said "Vega never stores it" for months while the same function wrote it to the keychain. If key handling changes, change that screen.
+- **Esc is decided in `src/lib/escapeKey.ts`.** Help closes first, an open `role="dialog"` owns the key, and "back" only happens when the view stack has something in it. `setView` (sidebar navigation) clears the stack; the `open*` actions push onto it. Anything that floats closes on Esc through `useEscapeToClose` (`src/hooks/`), which listens on `document` and stops the event so one press closes one thing and never also navigates. Use it for every new popover, menu or dialog.
+- **Publishing an article unmounts the editor** (the draft is deleted, the drafts list takes its place), so success is reported with a toast. A publish no relay accepted never reaches that point: NDK throws `NDKPublishError`, and the draft is kept.
+
 ## App identifier & data migration (v0.14.0)
 
 The identifier is **`com.veganostr.Vega`** (was `com.hoornet.vega` before v0.14.0). It must stay on a domain the project controls — **Flathub rejects anything else**, and it keys the app ID for winget and the native installers too.

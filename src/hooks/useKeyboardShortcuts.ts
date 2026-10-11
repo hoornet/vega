@@ -1,9 +1,10 @@
 import { useEffect } from "react";
 import { useUIStore } from "../stores/ui";
 import { useFeedStore } from "../stores/feed";
+import { escapeAction } from "../lib/escapeKey";
 
 export function useKeyboardShortcuts() {
-  const { currentView, setView, goBack, toggleHelp, showDebugPanel, toggleDebugPanel } = useUIStore();
+  const { currentView, setView, goBack, toggleHelp, showHelp, showDebugPanel, toggleDebugPanel } = useUIStore();
   const { focusedNoteIndex, setFocusedNoteIndex, notes } = useFeedStore();
 
   useEffect(() => {
@@ -28,8 +29,19 @@ export function useKeyboardShortcuts() {
           setTimeout(() => (document.querySelector("[data-search-input]") as HTMLInputElement)?.focus(), 50);
           break;
         case "Escape":
-          if (showDebugPanel) { toggleDebugPanel(); break; }
-          goBack();
+          switch (
+            escapeAction({
+              showDebugPanel,
+              showHelp,
+              dialogOpen: document.querySelector('[role="dialog"][aria-modal="true"]') !== null,
+              stackDepth: useUIStore.getState().viewStack.length,
+            })
+          ) {
+            case "close-debug-panel": toggleDebugPanel(); break;
+            case "close-help": toggleHelp(); break;
+            case "back": goBack(); break;
+            case "nothing": break;
+          }
           break;
         case "?":
           toggleHelp();
@@ -46,5 +58,5 @@ export function useKeyboardShortcuts() {
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [currentView, focusedNoteIndex, notes.length, showDebugPanel]);
+  }, [currentView, focusedNoteIndex, notes.length, showDebugPanel, showHelp]);
 }

@@ -2,6 +2,8 @@ import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { renderMarkdown } from "../../lib/markdown";
 import { publishArticle } from "../../lib/nostr";
 import { useUIStore } from "../../stores/ui";
+import { useToastStore } from "../../stores/toast";
+import { explainPublishError } from "../../lib/publishErrors";
 import { useCanSign } from "../../stores/user";
 import { MarkdownToolbar, handleEditorKeyDown } from "./MarkdownToolbar";
 import { useDraftStore, type ArticleDraft } from "../../stores/drafts";
@@ -143,15 +145,22 @@ export function ArticleEditor() {
         image: image.trim() || undefined,
         tags: tags.split(",").map((t: string) => t.trim()).filter(Boolean),
       });
-      if (activeDraftId) deleteDraft(activeDraftId);
+      // Deleting the draft unmounts this editor (the drafts list takes its
+      // place), so a confirmation rendered here is never seen. Say it in a
+      // toast, which outlives the view. A publish that no relay accepted
+      // does not reach this point: NDK throws, and the catch below keeps the
+      // draft and shows why.
+      useToastStore.getState().addToast(
+        `Article published to ${result.relayCount} ${result.relayCount === 1 ? "relay" : "relays"}.`,
+        "success",
+        6000,
+      );
       setPublished(true);
       setPublishedRelays(result.relayCount);
-      if (result.relayCount === 0) {
-        setError("Warning: no relays confirmed — your article may not have been published.");
-      }
-      setTimeout(goBack, 2000);
+      if (activeDraftId) deleteDraft(activeDraftId);
+      goBack();
     } catch (err) {
-      setError(`Failed to publish: ${err}`);
+      setError(explainPublishError(err, "Your draft is safe."));
     } finally {
       setPublishing(false);
     }

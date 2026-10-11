@@ -13,6 +13,7 @@ import { NoteContent } from "./NoteContent";
 import { NoteActions, LoggedOutStats } from "./NoteActions";
 import { InlineReplyBox } from "./InlineReplyBox";
 import { PollWidget } from "../poll/PollWidget";
+import { useEscapeToClose } from "../../hooks/useEscapeToClose";
 
 interface NoteCardProps {
   event: NDKEvent;
@@ -63,6 +64,7 @@ export const NoteCard = memo(function NoteCard({ event, focused, onReplyInThread
   }, [focused]);
 
   const [menuOpen, setMenuOpen] = useState(false);
+  useEscapeToClose(() => setMenuOpen(false), menuOpen);
   const [showReply, setShowReply] = useState(false);
 
   return (

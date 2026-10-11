@@ -516,9 +516,14 @@ function attachAuthListeners(instance: NDK): void {
     const host = relayHost(relay.url);
     debug.warn(`[Vega] AUTH to ${relay.url} failed:`, err);
 
+    // Lead with what it means for the user. The relay's own words follow,
+    // attributed and trimmed: they are useless to most people and exactly
+    // what a bug report needs, and the debug logger is silent in release
+    // builds, so this toast is the only place they can be read.
+    const said = detail.replace(/^error:\s*/i, "").slice(0, 90);
     const message = looksLikeSignerRefusal(detail)
-      ? `Your signer refused to identify you to ${host}${detail ? ` (${detail})` : ""}. Remote signers often need permission for kind 22242 — check for a pending approval.`
-      : `Couldn't identify you to ${host}${detail ? `: ${detail}` : ""}. Messages from that relay may not load.`;
+      ? `Your signer refused to sign you in to ${host}${said ? ` (${said})` : ""}. Remote signers often need permission to sign in to relays (kind 22242). Check it for a pending approval.`
+      : `${host} didn't accept Vega's sign-in, so private messages stored only there may be missing.${said ? ` The relay said: "${said}".` : ""}`;
 
     useToastStore.getState().addToast(message, "warning", 9000);
   });

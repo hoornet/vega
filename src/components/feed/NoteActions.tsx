@@ -10,6 +10,7 @@ import { publishReaction, publishRepost } from "../../lib/nostr";
 import { profileName } from "../../lib/utils";
 import { ZapModal } from "../zap/ZapModal";
 import { QuoteModal } from "./QuoteModal";
+import { useEscapeToClose } from "../../hooks/useEscapeToClose";
 
 const REACTION_EMOJIS = ["❤️", "🤙", "🔥", "😂", "🫡", "👀", "⚡"];
 
@@ -31,6 +32,7 @@ export function NoteActions({ event, onReplyToggle, showReply, enabled = true }:
   const [reactionsData, addReaction] = useReactions(event.id, enabled);
   const [reacting, setReacting] = useState(false);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  useEscapeToClose(() => setShowEmojiPicker(false), showEmojiPicker);
   const [replyCount] = useReplyCount(event.id, enabled);
   const [copied, setCopied] = useState(false);
   const zapData = useZapCount(event.id, enabled);

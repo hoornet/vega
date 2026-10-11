@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { invoke } from "@tauri-apps/api/core";
 import { useUserStore, SavedAccount } from "../../stores/user";
 import { useUIStore } from "../../stores/ui";
 import { LoginModal } from "../shared/LoginModal";
@@ -25,11 +26,75 @@ function Avatar({ account, size = "w-6 h-6", textSize = "text-[10px]" }: { accou
   );
 }
 
+/**
+ * Removing an account deletes its secret key from the OS keychain. For anyone
+ * who created the account in Vega and has not saved the key elsewhere, that is
+ * the only copy, so this used to be permanent identity loss on one click of a
+ * 10px link that sat beside "Sign out". Now it says what will happen, offers
+ * the key first, and needs a second, deliberate click.
+ */
+function RemoveAccountConfirm({ account, name, onCancel, onConfirm }: {
+  account: SavedAccount;
+  name: string;
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  const [copyState, setCopyState] = useState<"idle" | "copied" | "failed">("idle");
+  const holdsKey = account.loginType === "nsec";
+
+  const copyKey = async () => {
+    try {
+      const nsec = await invoke<string | null>("load_nsec", { pubkey: account.pubkey });
+      if (!nsec) throw new Error("no key stored");
+      await navigator.clipboard.writeText(nsec);
+      setCopyState("copied");
+    } catch {
+      setCopyState("failed");
+    }
+  };
+
+  return (
+    <div role="alertdialog" aria-label={`Remove ${name} from this computer`} className="px-3 py-3 border-b border-border">
+      <p className="text-text text-[12px] font-medium mb-1.5 break-words">Remove {name} from this computer?</p>
+      <p className="text-text-muted text-[11px] leading-relaxed mb-3">
+        {holdsKey
+          ? "This deletes the secret key stored on this computer. Without a copy of it you can never sign in to this account again."
+          : account.loginType === "remote-signer"
+            ? "This forgets the connection to your remote signer. You can add the account again with a new bunker address."
+            : "This account is read-only here. You can add it again any time."}
+      </p>
+      {holdsKey && (
+        <button
+          onClick={copyKey}
+          className="w-full mb-1.5 px-2 py-1.5 text-[11px] border border-border text-text hover:border-accent/50 transition-colors"
+        >
+          {copyState === "copied" ? "Copied. Paste it somewhere safe." : copyState === "failed" ? "Couldn't read the key. Copy it from Settings." : "Copy secret key first"}
+        </button>
+      )}
+      <button
+        onClick={onConfirm}
+        className="w-full mb-1.5 px-2 py-1.5 text-[11px] border border-danger/60 text-danger hover:bg-danger/10 transition-colors"
+      >
+        Remove account
+      </button>
+      <button
+        autoFocus
+        onClick={onCancel}
+        className="w-full px-2 py-1.5 text-[11px] text-text-muted hover:text-text transition-colors"
+      >
+        Cancel
+      </button>
+    </div>
+  );
+}
+
 export function AccountSwitcher() {
   const { accounts, pubkey, loggedIn, switchAccount, removeAccount, logout } = useUserStore();
   const { openProfile } = useUIStore();
   const [open, setOpen] = useState(false);
   const [showAddLogin, setShowAddLogin] = useState(false);
+  // The account awaiting a second click before it is removed, if any.
+  const [confirmRemove, setConfirmRemove] = useState<string | null>(null);
 
   const current = accounts.find((a) => a.pubkey === pubkey) ?? null;
   const others = accounts.filter((a) => a.pubkey !== pubkey);
@@ -42,10 +107,13 @@ export function AccountSwitcher() {
     await switchAccount(targetPubkey);
   };
 
-  const handleRemove = (e: React.MouseEvent, targetPubkey: string) => {
+  // Asking to remove never removes: it opens the confirmation.
+  const askRemove = (e: React.MouseEvent, targetPubkey: string) => {
     e.stopPropagation();
-    removeAccount(targetPubkey);
+    setConfirmRemove(targetPubkey);
   };
+
+  const confirmTarget = confirmRemove ? accounts.find((a) => a.pubkey === confirmRemove) ?? null : null;
 
   const handleAddAccount = () => {
     setOpen(false);
@@ -88,7 +156,20 @@ export function AccountSwitcher() {
     <>
       <div className="border-t border-border shrink-0">
         {/* Dropdown — other accounts + actions */}
-        {open && (
+        {open && confirmTarget && (
+          <RemoveAccountConfirm
+            account={confirmTarget}
+            name={displayName(confirmTarget)}
+            onCancel={() => setConfirmRemove(null)}
+            onConfirm={() => {
+              const target = confirmTarget.pubkey;
+              setConfirmRemove(null);
+              setOpen(false);
+              removeAccount(target);
+            }}
+          />
+        )}
+        {open && !confirmTarget && (
           <div className="border-b border-border">
             {others.map((a) => (
               <div
@@ -102,9 +183,10 @@ export function AccountSwitcher() {
                   <span className="text-[10px] text-text-dim" title="Remote signer (NIP-46)">NIP-46</span>
                 )}
                 <button
-                  onClick={(e) => handleRemove(e, a.pubkey)}
-                  className="text-text-dim hover:text-danger text-[11px] opacity-0 group-hover:opacity-100 transition-opacity"
-                  title="Remove account"
+                  onClick={(e) => askRemove(e, a.pubkey)}
+                  className="text-text-dim hover:text-danger text-[11px] opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity"
+                  title="Remove account from this computer…"
+                  aria-label={`Remove ${displayName(a)} from this computer`}
                 >
                   ×
                 </button>
@@ -121,20 +203,20 @@ export function AccountSwitcher() {
 
             <div className="border-t border-border mx-3 my-1" />
 
-            <div className="flex items-center justify-between px-3 py-1.5">
-              <button
-                onClick={() => { setOpen(false); logout(); }}
-                className="text-text-dim hover:text-danger text-[10px] transition-colors"
-              >
-                Sign out
-              </button>
-              <button
-                onClick={() => { setOpen(false); removeAccount(pubkey); }}
-                className="text-text-dim hover:text-danger text-[10px] transition-colors"
-              >
-                Remove
-              </button>
-            </div>
+            <button
+              onClick={() => { setOpen(false); logout(); }}
+              title="Sign out. The account stays on this computer for quick switching."
+              className="w-full flex items-baseline justify-between gap-2 px-3 py-1.5 text-left text-text-muted hover:text-text hover:bg-bg-hover text-[11px] transition-colors"
+            >
+              <span>Sign out</span>
+              <span className="text-text-dim text-[10px] truncate">keeps this account here</span>
+            </button>
+            <button
+              onClick={(e) => askRemove(e, pubkey)}
+              className="w-full px-3 py-1.5 text-left text-text-dim hover:text-danger hover:bg-bg-hover text-[11px] transition-colors"
+            >
+              Remove from this computer…
+            </button>
           </div>
         )}
 
@@ -149,7 +231,7 @@ export function AccountSwitcher() {
               <span className={`font-medium truncate flex-1 ${loggedIn ? "text-[15px] text-text" : "text-[12px] text-text-muted"}`}>{displayName(current)}</span>
             </div>
             <button
-              onClick={() => setOpen((v) => !v)}
+              onClick={() => { setConfirmRemove(null); setOpen((v) => !v); }}
               className="text-text-dim hover:text-text text-[14px] transition-colors px-1"
               title="Switch account"
             >
