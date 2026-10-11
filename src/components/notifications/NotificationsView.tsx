@@ -48,7 +48,7 @@ export function NotificationsView() {
         )}
       </header>
 
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto content-column">
         {loading && notifications.length === 0 && (
           <SkeletonNoteList count={4} />
         )}

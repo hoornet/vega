@@ -4,6 +4,7 @@ import { publishQuote } from "../../lib/nostr";
 import { useCanSign } from "../../stores/user";
 import { useAutoResize } from "../../hooks/useAutoResize";
 import { LoginModal } from "../shared/LoginModal";
+import { BodyPortal } from "../shared/BodyPortal";
 
 interface QuoteModalProps {
   event: NDKEvent;
@@ -53,6 +54,7 @@ export function QuoteModal({ event, authorName, authorAvatar, onClose, onPublish
   const preview = event.content.slice(0, 140) + (event.content.length > 140 ? "…" : "");
 
   return (
+    <BodyPortal>
     <div
       className="fixed inset-0 bg-black/60 flex items-center justify-center z-50"
       role="dialog"
@@ -123,5 +125,6 @@ export function QuoteModal({ event, authorName, authorAvatar, onClose, onPublish
       </div>
       {showLogin && <LoginModal onClose={() => setShowLogin(false)} />}
     </div>
+    </BodyPortal>
   );
 }

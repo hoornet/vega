@@ -1,4 +1,5 @@
 import { useEffect, useCallback } from "react";
+import { BodyPortal } from "./BodyPortal";
 
 interface ImageLightboxProps {
   images: string[];
@@ -26,6 +27,7 @@ export function ImageLightbox({ images, index, onClose, onNavigate }: ImageLight
   }, [handleKeyDown]);
 
   return (
+    <BodyPortal>
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm"
       role="dialog"
@@ -80,5 +82,6 @@ export function ImageLightbox({ images, index, onClose, onNavigate }: ImageLight
         </button>
       )}
     </div>
+    </BodyPortal>
   );
 }

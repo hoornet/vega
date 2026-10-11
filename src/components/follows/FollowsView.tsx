@@ -182,7 +182,7 @@ export function FollowsView() {
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto content-column">
         {followsTab === "followers" && (
           <>
             {followersLoading && (

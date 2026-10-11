@@ -75,11 +75,18 @@ export const NoteCard = memo(function NoteCard({ event, focused, onReplyInThread
       onClick={(e) => {
         // Don't navigate if clicking on interactive elements
         const target = e.target as HTMLElement;
+        // A dialog opened from this card is portaled to <body>, but React
+        // still bubbles its clicks here. Clicking a label inside the zap
+        // dialog must not open the thread behind it.
+        if (!e.currentTarget.contains(target)) return;
         if (target.closest("button, a, input, textarea, [data-no-navigate]")) return;
         openThread(event, currentView as "feed" | "profile");
       }}
     >
-      <div className="flex gap-3">
+      {/* items-start: without it the avatar button stretched to the card's full
+          height and centred the picture, so on a tall post the face sat hundreds
+          of pixels below the name and the whole strip opened the profile. */}
+      <div className="flex gap-3 items-start">
         {/* Avatar */}
         <button className="shrink-0 cursor-pointer" aria-label={`View profile of ${name}`} onClick={() => openProfile(event.pubkey)}>
           {avatar ? (

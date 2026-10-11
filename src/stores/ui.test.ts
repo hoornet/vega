@@ -1,5 +1,5 @@
-import { describe, it, expect, beforeEach } from "vitest";
-import { useUIStore } from "./ui";
+import { describe, it, expect, beforeEach, vi } from "vitest";
+import { useUIStore, hasChosenFeedTab } from "./ui";
 
 describe("useUIStore", () => {
   beforeEach(() => {
@@ -121,3 +121,51 @@ describe("useUIStore", () => {
     expect(useUIStore.getState().feedLanguageFilter).toBeNull();
   });
 });
+
+describe("feed tab memory", () => {
+  beforeEach(() => {
+    localStorage.clear();
+  });
+
+  it("remembers a tab the user picked", () => {
+    expect(hasChosenFeedTab()).toBe(false);
+    useUIStore.getState().setFeedTab("global");
+    expect(useUIStore.getState().feedTab).toBe("global");
+    expect(localStorage.getItem("wrystr_feed_tab")).toBe("global");
+    expect(hasChosenFeedTab()).toBe(true);
+  });
+
+  it("does not remember a default the app picked", () => {
+    useUIStore.getState().setFeedTab("trending", { remember: false });
+    expect(useUIStore.getState().feedTab).toBe("trending");
+    expect(localStorage.getItem("wrystr_feed_tab")).toBeNull();
+    expect(hasChosenFeedTab()).toBe(false);
+  });
+
+  // The opening tab is decided when the store module loads, so each case
+  // loads a fresh copy of it.
+  async function openingTab(seed: Record<string, string>) {
+    localStorage.clear();
+    for (const [k, v] of Object.entries(seed)) localStorage.setItem(k, v);
+    vi.resetModules();
+    const fresh = await import("./ui");
+    return fresh.useUIStore.getState().feedTab;
+  }
+
+  it("opens on the tab picked last time", async () => {
+    expect(await openingTab({ wrystr_feed_tab: "global", wrystr_pubkey: "ab".repeat(32) })).toBe("global");
+  });
+
+  it("opens on Following for a signed-in account that never picked one", async () => {
+    expect(await openingTab({ wrystr_pubkey: "ab".repeat(32) })).toBe("following");
+  });
+
+  it("opens on Trending when signed out", async () => {
+    expect(await openingTab({})).toBe("trending");
+  });
+
+  it("ignores a stored value that is not a tab", async () => {
+    expect(await openingTab({ wrystr_feed_tab: "nonsense" })).toBe("trending");
+  });
+});
+

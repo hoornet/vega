@@ -3,7 +3,7 @@ import { useVirtualizer } from "@tanstack/react-virtual";
 import { useFeedStore } from "../../stores/feed";
 import { useUserStore } from "../../stores/user";
 import { useMuteStore } from "../../stores/mute";
-import { useUIStore } from "../../stores/ui";
+import { useUIStore, hasChosenFeedTab } from "../../stores/ui";
 import { useWoTStore } from "../../stores/wot";
 import { fetchFollowFeed, getNDK, ensureConnected } from "../../lib/nostr";
 import { diagWrapFetch, logDiag } from "../../lib/feedDiagnostics";
@@ -48,7 +48,7 @@ export function Feed() {
   const fetchFollows = useUserStore((s) => s.fetchFollows);
   const mutedPubkeys = useMuteStore((s) => s.mutedPubkeys);
   const contentMatchesMutedKeyword = useMuteStore((s) => s.contentMatchesMutedKeyword);
-  const tab = useUIStore((s) => s.feedTab);
+  const storedTab = useUIStore((s) => s.feedTab);
   const setTab = useUIStore((s) => s.setFeedTab);
   const openHashtag = useUIStore((s) => s.openHashtag);
   const feedLanguageFilter = useUIStore((s) => s.feedLanguageFilter);
@@ -58,6 +58,9 @@ export function Feed() {
   const wotLoading = useWoTStore((s) => s.loading);
   const buildWoT = useWoTStore((s) => s.buildWoT);
   const myPubkey = useUserStore((s) => s.pubkey);
+  // "Following" does not exist without an account; a remembered choice of it
+  // must not leave a signed-out feed on a tab that is not shown.
+  const tab = storedTab === "following" && !loggedIn ? "trending" : storedTab;
   const [followNotes, setFollowNotes] = useState<NDKEvent[]>([]);
   const [followLoading, setFollowLoading] = useState(false);
   const [, setTick] = useState(0);
@@ -83,6 +86,16 @@ export function Feed() {
       loadTrendingFeed();
     }
   }, [tab, follows]);
+
+  // The feed opens on Following by default. For an account that follows nobody
+  // that is an empty page, so send it to Trending instead, once, and only if
+  // the user has not picked a tab themselves. "Follows nobody" is trusted only
+  // when the list actually loaded.
+  useEffect(() => {
+    if (tab === "following" && followsStatus === "loaded" && follows.length === 0 && !hasChosenFeedTab()) {
+      setTab("trending", { remember: false });
+    }
+  }, [tab, followsStatus, follows.length]);
 
   useEffect(() => {
     if (wotEnabled && myPubkey && follows.length > 0 && wotSet.size === 0 && !wotLoading) {
@@ -135,7 +148,8 @@ export function Feed() {
       const e = filteredNotes[index];
       if (!e) return 140;
       // content column = scroll width minus card padding (32) + avatar col (48)
-      return estimateNoteHeight(e, (scrollRef.current?.clientWidth ?? 600) - 80);
+      // and the column is capped at 42rem (672px) however wide the window is
+      return estimateNoteHeight(e, Math.min(scrollRef.current?.clientWidth ?? 600, 672) - 80);
     },
     overscan: 6,
     // Key measurements by note id, not list index. The feed list mutates order
@@ -205,16 +219,8 @@ export function Feed() {
       {/* Header */}
       <header className="border-b border-border px-4 py-2.5 flex flex-wrap items-center justify-between gap-y-1 shrink-0">
         <div className="flex items-center gap-1">
-          <button
-            onClick={() => setTab("global")}
-            className={`px-3 py-1 text-[12px] transition-colors ${
-              tab === "global"
-                ? "text-text border-b-2 border-accent"
-                : "text-text-muted hover:text-text"
-            }`}
-          >
-            Global
-          </button>
+          {/* Order follows the default: the people you chose first, the open
+              firehose last. */}
           {loggedIn && (
             <button
               onClick={() => setTab("following")}
@@ -236,6 +242,16 @@ export function Feed() {
             }`}
           >
             Trending
+          </button>
+          <button
+            onClick={() => setTab("global")}
+            className={`px-3 py-1 text-[12px] transition-colors ${
+              tab === "global"
+                ? "text-text border-b-2 border-accent"
+                : "text-text-muted hover:text-text"
+            }`}
+          >
+            Global
           </button>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -289,7 +305,7 @@ export function Feed() {
       )}
 
       {/* Feed (virtualized scroll container) */}
-      <div ref={scrollRef} className="flex-1 overflow-y-auto">
+      <div ref={scrollRef} className="flex-1 overflow-y-auto content-column">
         {isLoading && filteredNotes.length === 0 && (
           <SkeletonNoteList count={6} />
         )}

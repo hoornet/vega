@@ -169,7 +169,7 @@ function App() {
   // otherwise reset to Global — the firehose — on every launch (#34).
   useEffect(() => {
     if (isBrowseOnly() && !localStorage.getItem("wrystr_pubkey")) {
-      useUIStore.getState().setFeedTab("trending");
+      useUIStore.getState().setFeedTab("trending", { remember: false });
     }
   }, []);
 

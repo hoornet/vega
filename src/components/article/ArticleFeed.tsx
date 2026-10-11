@@ -216,7 +216,7 @@ export function ArticleFeed() {
       </div>
 
       {/* Articles list */}
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto content-column">
         {showLoading && (
           <div className="px-4 py-8 text-text-dim text-[12px] text-center">Loading articles…</div>
         )}

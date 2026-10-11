@@ -451,7 +451,7 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
           // Following is empty without follows, and Global is a spam-adjacent
           // firehose — neither is a fair first impression for someone who just
           // wanted to look. Trending is the closest thing to a curated view.
-          setFeedTab("trending");
+          setFeedTab("trending", { remember: false });
           onComplete();
         }}
       />

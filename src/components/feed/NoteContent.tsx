@@ -9,8 +9,11 @@ import { parseContent } from "../../lib/parsing";
 import { renderTextSegments } from "./TextSegments";
 import { VideoBlock, AudioBlock, YouTubeCard, VimeoCard, SpotifyCard, TidalCard } from "./MediaCards";
 import { FountainCard } from "./FountainCard";
+import { soloImageFit } from "../../lib/mediaFit";
 
 function ImageGrid({ images, onImageClick, inView }: { images: string[]; onImageClick: (index: number) => void; inView: boolean }) {
+  // How a lone image fits its frame; decided once its real shape is known.
+  const [soloFit, setSoloFit] = useState<"cover" | "contain">("contain");
   const count = images.length;
   if (count === 0) return null;
 
@@ -23,13 +26,22 @@ function ImageGrid({ images, onImageClick, inView }: { images: string[]; onImage
   // itself only mounts when the card is on screen (inView); off-screen rows
   // keep just the empty box, so scrolling stays light.
   const boxCls = "rounded-sm bg-bg-raised border border-border overflow-hidden cursor-zoom-in";
-  const cellImg = (src: string, idx: number) =>
+  // A lone image fills the frame only when it is about the frame's shape,
+  // and is shown whole otherwise (see lib/mediaFit). In a grid, cells are
+  // always cropped (cover) so they tile.
+  const cellImg = (
+    src: string,
+    idx: number,
+    fit: "cover" | "contain" = "cover",
+    onLoad?: (e: React.SyntheticEvent<HTMLImageElement>) => void,
+  ) =>
     inView ? (
       <img
         src={src}
         alt="Posted image"
         loading="lazy"
-        className="w-full h-full object-cover"
+        onLoad={onLoad}
+        className={`w-full h-full ${fit === "contain" ? "object-contain" : "object-cover"}`}
         onClick={(e) => { e.stopPropagation(); onImageClick(idx); }}
         onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
       />
@@ -38,7 +50,9 @@ function ImageGrid({ images, onImageClick, inView }: { images: string[]; onImage
   if (count === 1) {
     return (
       <div className="mt-2">
-        <div className={`w-full aspect-[4/3] ${boxCls}`}>{cellImg(images[0], 0)}</div>
+        {/* max-h keeps one photo from filling a short window; the fixed aspect
+            box stays so the virtual list can size the row before it loads. */}
+        <div className={`w-full aspect-[4/3] max-h-[70vh] ${boxCls}`}>{cellImg(images[0], 0, soloFit, (e) => setSoloFit(soloImageFit(e.currentTarget.naturalWidth, e.currentTarget.naturalHeight)))}</div>
       </div>
     );
   }

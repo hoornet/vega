@@ -68,6 +68,22 @@ html.font-readable body {
   user-select: text;
 }
 
+/* One content width for feeds and lists.
+   Applied to the *scroll container*, so the scrollbar stays at the edge of the
+   pane and the padding centres a 42rem (672px) column inside it. Before this
+   every list ran the full width of the window: 140-character lines, and a
+   single photo taller than the window on a large screen. The article reader
+   already used this measure; now the feed, threads, profiles and lists share it. */
+.content-column {
+  padding-inline: max(0px, calc((100% - 42rem) / 2));
+}
+/* The same column for a block that sits outside a scroll container. */
+.content-column-block {
+  width: 100%;
+  max-width: 42rem;
+  margin-inline: auto;
+}
+
 /* Article text is selectable. As with notes (issue #64) the `*` reset above
    matches every descendant directly, so opting in only the container leaves
    each <p>, <li>, <h2> and <code> inside it unselectable: a reader could not

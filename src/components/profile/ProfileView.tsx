@@ -206,7 +206,7 @@ export function ProfileView() {
         )}
       </header>
 
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto content-column">
         {/* Edit form */}
         {editing && (
           <EditProfileForm pubkey={pubkey} onSaved={() => setEditing(false)} />
