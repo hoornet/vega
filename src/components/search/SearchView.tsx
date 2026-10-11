@@ -9,6 +9,8 @@ import { useUIStore } from "../../stores/ui";
 import { shortenPubkey } from "../../lib/utils";
 import { NoteCard } from "../feed/NoteCard";
 import { ArticleCard } from "../article/ArticleCard";
+import { ViewHeader } from "../shared/ViewHeader";
+import { Tabs, tabPanelProps } from "../shared/Tabs";
 
 interface ParsedUser {
   pubkey: string;
@@ -277,20 +279,10 @@ export function SearchView() {
 
   return (
     <div className="h-full flex flex-col">
-      {/* Search bar */}
-      <header className="border-b border-border-subtle px-4 py-2.5 shrink-0">
-        <div className="flex gap-2">
-          <input
-            ref={inputRef}
-            data-search-input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder="search… try by:name, #tag, has:image, is:article, since:2026-01-01"
-            aria-label="Search Nostr"
-            autoFocus
-            className="flex-1 bg-transparent text-text text-ui placeholder:text-text-dim focus:outline-none"
-          />
+      {/* The search field is this view's header. */}
+      <ViewHeader
+        hiddenTitle="Search"
+        actions={
           <button
             onClick={() => handleSearch()}
             disabled={!query.trim() || loading}
@@ -298,29 +290,34 @@ export function SearchView() {
           >
             {loading ? "…" : "Search"}
           </button>
-        </div>
-      </header>
+        }
+      >
+        <input
+          ref={inputRef}
+          data-search-input
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          onKeyDown={handleKeyDown}
+          placeholder="search… try by:name, #tag, has:image, is:article, since:2026-01-01"
+          aria-label="Search Nostr"
+          autoFocus
+          className="w-full bg-transparent text-text text-ui placeholder:text-text-dim focus:outline-none"
+        />
+      </ViewHeader>
 
       {/* Tabs — shown once a search has been run */}
       {searched && (
-        <div className="border-b border-border-subtle flex shrink-0">
-          {(["notes", "articles", "people"] as const).map((tab) => {
-            const count = tab === "notes" ? filteredNoteResults.length : tab === "articles" ? filteredArticleResults.length : filteredUserResults.length;
-            return (
-              <button
-                key={tab}
-                onClick={() => setActiveTab(tab)}
-                className={`px-4 py-2 text-ui border-b-2 transition-colors ${
-                  activeTab === tab
-                    ? "border-accent text-accent"
-                    : "border-transparent text-text-dim hover:text-text"
-                }`}
-              >
-                {tab.charAt(0).toUpperCase() + tab.slice(1)} {count > 0 ? `(${count})` : ""}
-              </button>
-            );
-          })}
-        </div>
+        <Tabs
+          label="Search results"
+          panel="search-panel"
+          tabs={[
+            { id: "notes", label: "Notes", count: filteredNoteResults.length || undefined },
+            { id: "articles", label: "Articles", count: filteredArticleResults.length || undefined },
+            { id: "people", label: "People", count: filteredUserResults.length || undefined },
+          ]}
+          value={activeTab}
+          onChange={setActiveTab}
+        />
       )}
 
       {/* Search hint bar */}
@@ -331,7 +328,7 @@ export function SearchView() {
       )}
 
       {/* Results area */}
-      <div className="flex-1 overflow-y-auto content-column">
+      <div {...(searched ? tabPanelProps("search-panel", activeTab) : {})} className="flex-1 overflow-y-auto content-column">
 
         {/* Loading indicator */}
         {loading && (

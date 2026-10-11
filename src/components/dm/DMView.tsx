@@ -11,6 +11,7 @@ import { timeAgo, shortenPubkey, profileName } from "../../lib/utils";
 import { debug } from "../../lib/debug";
 import { parseContent } from "../../lib/parsing";
 import { tryHandleUrlInternally, tryOpenNostrEntity } from "../feed/TextSegments";
+import { ViewHeader } from "../shared/ViewHeader";
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -258,8 +259,8 @@ function ThreadPanel({
 
   return (
     <div className="flex-1 flex flex-col min-w-0">
-      {/* Header */}
-      <div className="border-b border-border-subtle px-4 py-2.5 flex items-center gap-3 shrink-0">
+      {/* The conversation's own bar: the same height as the list's header beside it. */}
+      <div className="min-h-12 border-b border-border-subtle px-4 flex items-center gap-3 shrink-0">
         {profile?.picture && (
           <img src={profile.picture} alt={`${name}'s avatar`} className="w-7 h-7 rounded-full object-cover" />
         )}
@@ -487,17 +488,23 @@ export function DMView() {
 
   if (!loggedIn || !pubkey) {
     return (
-      <div className="h-full flex items-center justify-center text-text-dim text-body">
-        Log in to send and receive direct messages.
+      <div className="h-full flex flex-col">
+        <ViewHeader title="Messages" />
+        <div className="flex-1 flex items-center justify-center text-text-dim text-body">
+          Log in to send and receive direct messages.
+        </div>
       </div>
     );
   }
 
   if (!hasSigner) {
     return (
-      <div className="h-full flex flex-col items-center justify-center gap-2 px-8 text-center">
-        <p className="text-text-dim text-body">Direct messages require a private key login.</p>
-        <p className="text-text-dim text-caption">Read-only (npub) accounts cannot encrypt or decrypt DMs.</p>
+      <div className="h-full flex flex-col">
+        <ViewHeader title="Messages" />
+        <div className="flex-1 flex flex-col items-center justify-center gap-2 px-8 text-center">
+          <p className="text-text-dim text-body">Direct messages require a private key login.</p>
+          <p className="text-text-dim text-caption">Read-only (npub) accounts cannot encrypt or decrypt DMs.</p>
+        </div>
       </div>
     );
   }
@@ -510,9 +517,7 @@ export function DMView() {
     <div className="h-full flex">
       {/* Left: conversation list */}
       <div className="w-56 border-r border-border-subtle flex flex-col shrink-0">
-        <div className="border-b border-border-subtle px-3 py-2.5 shrink-0">
-          <h2 className="text-text text-title font-medium">Messages</h2>
-        </div>
+        <ViewHeader title="Messages" />
 
         <div className="flex-1 overflow-y-auto">
           {loading && (

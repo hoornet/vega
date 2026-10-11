@@ -3,6 +3,7 @@ import type { PodcastShow, PodcastEpisode } from "../../types/podcast";
 import { getEpisodes } from "../../lib/podcast";
 import { usePodcastStore } from "../../stores/podcast";
 import { stripHtmlTags } from "../../lib/utils";
+import { ViewHeader } from "../shared/ViewHeader";
 
 function SubscribeButton({ show }: { show: PodcastShow }) {
   const subscribed = usePodcastStore((s) => s.isSubscribed(show.feedUrl));
@@ -62,14 +63,9 @@ export function EpisodeList({ show, onBack }: EpisodeListProps) {
 
   return (
     <div className="h-full flex flex-col">
-      {/* Header */}
+      <ViewHeader title={show.title} onBack={onBack} actions={<SubscribeButton show={show} />} />
+      {/* About the show */}
       <div className="border-b border-border-subtle p-4 flex items-start gap-4 shrink-0">
-        <button
-          onClick={onBack}
-          className="text-text-muted hover:text-accent text-ui mt-1 shrink-0"
-        >
-          Back
-        </button>
         {show.artworkUrl && (
           <img
             src={show.artworkUrl}
@@ -79,13 +75,7 @@ export function EpisodeList({ show, onBack }: EpisodeListProps) {
           />
         )}
         <div className="min-w-0 flex-1">
-          <div className="flex items-start justify-between gap-2">
-            <div>
-              <h2 className="text-title text-text font-semibold">{show.title}</h2>
-              <div className="text-body text-text-muted">{show.author}</div>
-            </div>
-            <SubscribeButton show={show} />
-          </div>
+          <div className="text-body text-text-muted">{show.author}</div>
           {show.description && (
             <div className="text-caption text-text-dim mt-1 line-clamp-3">
               {stripHtmlTags(show.description).slice(0, 200)}

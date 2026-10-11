@@ -2,6 +2,8 @@ import { useState } from "react";
 import { V4VDashboard } from "./V4VDashboard";
 import { V4VSettings } from "./V4VSettings";
 import { V4VHistory } from "./V4VHistory";
+import { ViewHeader } from "../shared/ViewHeader";
+import { Tabs, tabPanelProps } from "../shared/Tabs";
 
 const TABS = ["dashboard", "settings", "history"] as const;
 type Tab = (typeof TABS)[number];
@@ -11,30 +13,17 @@ export function V4VView() {
 
   return (
     <div className="h-full flex flex-col">
-      {/* Header */}
-      <div className="border-b border-border-subtle shrink-0">
-        <div className="flex items-center px-4 pt-3 pb-0">
-          <h1 className="text-text text-title font-medium mr-6">Value 4 Value</h1>
-          <div className="flex">
-            {TABS.map((t) => (
-              <button
-                key={t}
-                onClick={() => setTab(t)}
-                className={`px-4 py-2 text-ui border-b-2 transition-colors ${
-                  tab === t
-                    ? "border-accent text-accent"
-                    : "border-transparent text-text-dim hover:text-text"
-                }`}
-              >
-                {t.charAt(0).toUpperCase() + t.slice(1)}
-              </button>
-            ))}
-          </div>
-        </div>
-      </div>
+      <ViewHeader title="Value 4 Value" />
+      <Tabs
+        label="Value 4 Value"
+        panel="v4v-panel"
+        tabs={TABS.map((t) => ({ id: t, label: t.charAt(0).toUpperCase() + t.slice(1) }))}
+        value={tab}
+        onChange={setTab}
+      />
 
       {/* Content */}
-      <div className="flex-1 overflow-y-auto">
+      <div {...tabPanelProps("v4v-panel", tab)} className="flex-1 overflow-y-auto">
         {tab === "dashboard" && <V4VDashboard />}
         {tab === "settings" && <V4VSettings />}
         {tab === "history" && <V4VHistory />}

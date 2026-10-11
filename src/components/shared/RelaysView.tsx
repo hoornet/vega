@@ -11,6 +11,7 @@ import {
 import { useRelayHealthStore } from "../../stores/relayHealth";
 import { useUserStore, useCanSign } from "../../stores/user";
 import type { RelayHealthResult } from "../../lib/nostr/relayHealth";
+import { ViewHeader } from "./ViewHeader";
 
 function statusColor(status: RelayHealthResult["status"]): string {
   switch (status) {
@@ -238,19 +239,17 @@ export function RelaysView() {
 
   return (
     <div className="h-full flex flex-col">
-      <header className="border-b border-border-subtle px-4 py-2.5 shrink-0">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <h1 className="text-text text-title font-medium tracking-wide">Relays</h1>
-            {results.length > 0 && (
-              <div className="flex items-center gap-2 text-caption">
-                {onlineCount > 0 && <span className="text-success">{onlineCount} online</span>}
-                {slowCount > 0 && <span className="text-warning">{slowCount} slow</span>}
-                {offlineCount > 0 && <span className="text-danger">{offlineCount} offline</span>}
-              </div>
-            )}
-          </div>
-          <div className="flex items-center gap-2">
+      <ViewHeader
+        title="Relays"
+        meta={results.length > 0 ? (
+          <span className="flex items-center gap-2">
+            {onlineCount > 0 && <span className="text-success">{onlineCount} online</span>}
+            {slowCount > 0 && <span className="text-warning">{slowCount} slow</span>}
+            {offlineCount > 0 && <span className="text-danger">{offlineCount} offline</span>}
+          </span>
+        ) : undefined}
+        actions={
+          <>
             {lastChecked && (
               <span className="text-text-dim text-caption">
                 {new Date(lastChecked).toLocaleTimeString()}
@@ -268,9 +267,9 @@ export function RelaysView() {
                 </span>
               ) : "Check all"}
             </button>
-          </div>
-        </div>
-      </header>
+          </>
+        }
+      />
 
       {/* Add relay input */}
       <div className="border-b border-border-subtle px-4 py-2 shrink-0">

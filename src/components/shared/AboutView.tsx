@@ -2,6 +2,7 @@ import { useState } from "react";
 import QRCodeImport from "react-qr-code";
 import { ZapModal } from "../zap/ZapModal";
 import pkg from "../../../package.json";
+import { ViewHeader } from "./ViewHeader";
 
 // react-qr-code ships CommonJS. Under the app's bundler (Vite 8 / Rolldown) the
 // default import can resolve to the module namespace object ({ QRCode, default })
@@ -56,11 +57,12 @@ export function AboutView() {
   const [showZap, setShowZap] = useState(false);
 
   return (
-    <div className="h-full overflow-y-auto">
+    <div className="h-full flex flex-col">
+      <ViewHeader title="Support" />
+      <div className="flex-1 overflow-y-auto">
       <div className="max-w-xl mx-auto px-6 py-8">
-        {/* Header */}
+        {/* Lead */}
         <div className="mb-8">
-          <h1 className="text-text text-heading font-medium tracking-tight mb-2">Support Vega</h1>
           <p className="text-text-muted text-body leading-relaxed">
             Vega is free, open-source, and built by one person. If it's useful to you,
             any support — a zap, a share, a star on GitHub — genuinely helps.
@@ -160,6 +162,7 @@ export function AboutView() {
           onClose={() => setShowZap(false)}
         />
       )}
+      </div>
     </div>
   );
 }

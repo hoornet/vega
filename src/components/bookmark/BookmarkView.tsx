@@ -7,6 +7,8 @@ import { dbLoadBookmarkedNotes, dbSaveBookmarkedNotes } from "../../lib/db";
 import { NoteCard } from "../feed/NoteCard";
 import { ArticleCard } from "../article/ArticleCard";
 import { SkeletonNoteList } from "../shared/Skeleton";
+import { ViewHeader } from "../shared/ViewHeader";
+import { Tabs, tabPanelProps } from "../shared/Tabs";
 
 type BookmarkTab = "notes" | "articles";
 
@@ -169,33 +171,21 @@ export function BookmarkView() {
 
   return (
     <div className="h-full flex flex-col">
-      <header className="border-b border-border-subtle px-4 py-2.5 shrink-0">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <h2 className="text-text text-title font-medium">Bookmarks</h2>
-            <div className="flex border border-border rounded-sm overflow-hidden text-ui">
-              <button
-                onClick={() => setTab("notes")}
-                className={`px-3 py-0.5 transition-colors ${tab === "notes" ? "bg-accent/10 text-accent" : "text-text-muted hover:text-text"}`}
-              >
-                Notes
-              </button>
-              <button
-                onClick={() => setTab("articles")}
-                className={`px-3 py-0.5 transition-colors relative ${tab === "articles" ? "bg-accent/10 text-accent" : "text-text-muted hover:text-text"}`}
-              >
-                Articles
-                {unreadArticleCount() > 0 && (
-                  <span className="ml-1 text-micro bg-accent/20 text-accent px-1 rounded-sm">{unreadArticleCount()}</span>
-                )}
-              </button>
-            </div>
-          </div>
-          <span className="text-text-dim text-caption">{totalCount} saved</span>
-        </div>
-      </header>
+      <ViewHeader title="Bookmarks" meta={`${totalCount} saved`} />
+      {/* The number on Articles is how many are still unread, not how many
+          are saved, so it is a badge and not a quiet total. */}
+      <Tabs
+        label="Bookmarks"
+        panel="bookmarks-panel"
+        tabs={[
+          { id: "notes", label: "Notes" },
+          { id: "articles", label: "Articles", unread: unreadArticleCount() || undefined },
+        ]}
+        value={tab}
+        onChange={setTab}
+      />
 
-      <div className="flex-1 overflow-y-auto content-column">
+      <div {...tabPanelProps("bookmarks-panel", tab)} className="flex-1 overflow-y-auto content-column">
         {loading && items.length === 0 && (
           <SkeletonNoteList count={3} />
         )}

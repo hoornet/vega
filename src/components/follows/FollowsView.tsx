@@ -7,6 +7,8 @@ import { useNip05Verified } from "../../hooks/useNip05Verified";
 import { fetchFollowers, ensureConnected } from "../../lib/nostr";
 import { dbLoadFollowers, dbSaveFollowers } from "../../lib/db";
 import { shortenPubkey, profileName } from "../../lib/utils";
+import { ViewHeader } from "../shared/ViewHeader";
+import { Tabs, tabPanelProps } from "../shared/Tabs";
 
 function FollowRow({
   pubkey,
@@ -153,36 +155,18 @@ export function FollowsView() {
 
   const tabs: Array<{ id: "followers" | "following"; label: string; count?: number }> = [
     { id: "followers", label: "Followers", count: followersFetched ? followers.length : undefined },
-    { id: "following", label: "Following", count: follows.length },
+    // An empty list that has not loaded proves nothing: no "0" until it has.
+    { id: "following", label: "Following", count: followsStatus === "loaded" ? follows.length : undefined },
   ];
 
   return (
     <div className="h-full flex flex-col">
-      {/* Header */}
-      <div className="border-b border-border-subtle px-4 py-2.5 flex items-center gap-4 shrink-0">
-        <span className="text-text font-medium text-title">Follows</span>
-        <div className="flex gap-3 ml-auto">
-          {tabs.map((t) => (
-            <button
-              key={t.id}
-              onClick={() => setFollowsTab(t.id)}
-              className={`text-ui transition-colors flex items-center gap-1 ${
-                followsTab === t.id
-                  ? "text-accent border-b border-accent pb-0.5"
-                  : "text-text-dim hover:text-text"
-              }`}
-            >
-              {t.label}
-              {t.count !== undefined && (
-                <span className="text-caption text-text-dim">({t.count})</span>
-              )}
-            </button>
-          ))}
-        </div>
-      </div>
+      {/* The sidebar calls this view People, so the header does too. */}
+      <ViewHeader title="People" />
+      <Tabs label="People" panel="people-panel" tabs={tabs} value={followsTab} onChange={setFollowsTab} />
 
       {/* Content */}
-      <div className="flex-1 overflow-y-auto content-column">
+      <div {...tabPanelProps("people-panel", followsTab)} className="flex-1 overflow-y-auto content-column">
         {followsTab === "followers" && (
           <>
             {followersLoading && (

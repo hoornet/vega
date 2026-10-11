@@ -9,6 +9,8 @@ import { dbLoadArticles, dbSaveNotes } from "../../lib/db";
 import { peekCachedProfile, primeProfileCache } from "../../hooks/useProfile";
 import { shouldShowArticle, type AuthorProfile, type ProfileLookup } from "../../lib/articleFilters";
 import { ArticleCard } from "./ArticleCard";
+import { ViewHeader } from "../shared/ViewHeader";
+import { Tabs, tabPanelProps } from "../shared/Tabs";
 
 type ArticleTab = "latest" | "following";
 
@@ -106,6 +108,12 @@ export function ArticleFeed() {
   // Track follows length to avoid re-fetching latest when follows change
   const followsKey = tab === "following" ? follows.join(",") : "latest";
 
+  // Following needs an account. Signing out while on it left the selected tab
+  // disabled, with nothing loading and no way back to Latest by keyboard.
+  useEffect(() => {
+    if (!loggedIn && tab === "following") setTab("latest");
+  }, [loggedIn, tab]);
+
   useEffect(() => {
     if (tab === "following" && follows.length === 0) return;
     let cancelled = false;
@@ -184,39 +192,30 @@ export function ArticleFeed() {
 
   return (
     <div className="h-full flex flex-col">
-      {/* Header */}
-      <header className="border-b border-border-subtle px-4 py-2.5 flex items-center justify-between shrink-0">
-        <h1 className="text-text text-title font-medium">Articles</h1>
-        {canSign && (
+      <ViewHeader
+        title="Articles"
+        actions={canSign ? (
           <button
-            onClick={() => setView("article-editor")}
-            className="text-ui px-3 py-1 border border-accent/60 text-accent hover:bg-accent hover:text-accent-text transition-colors rounded-sm"
-          >
-            Write article
-          </button>
-        )}
-      </header>
-
-      {/* Tabs */}
-      <div className="border-b border-border-subtle flex shrink-0">
-        {(["latest", "following"] as const).map((t) => (
-          <button
-            key={t}
-            onClick={() => setTab(t)}
-            disabled={t === "following" && !loggedIn}
-            className={`px-4 py-2 text-ui border-b-2 transition-colors ${
-              tab === t
-                ? "border-accent text-accent"
-                : "border-transparent text-text-dim hover:text-text"
-            } disabled:opacity-30 disabled:cursor-not-allowed`}
-          >
-            {t}
-          </button>
-        ))}
-      </div>
+              onClick={() => setView("article-editor")}
+              className="text-ui px-3 py-1 border border-accent/60 text-accent hover:bg-accent hover:text-accent-text transition-colors rounded-sm"
+            >
+              Write article
+            </button>
+        ) : undefined}
+      />
+      <Tabs
+        label="Articles"
+        panel="articles-panel"
+        tabs={[
+          { id: "latest", label: "Latest" },
+          { id: "following", label: "Following", disabled: !loggedIn },
+        ]}
+        value={tab}
+        onChange={setTab}
+      />
 
       {/* Articles list */}
-      <div className="flex-1 overflow-y-auto content-column">
+      <div {...tabPanelProps("articles-panel", tab)} className="flex-1 overflow-y-auto content-column">
         {showLoading && (
           <div className="px-4 py-8 text-text-dim text-body text-center">Loading articles…</div>
         )}
@@ -232,7 +231,7 @@ export function ArticleFeed() {
             </p>
             {tab === "following" && (
               <p className="text-text-dim text-caption">
-                Try the "latest" tab to discover writers, then follow them.
+                Try the Latest tab to discover writers, then follow them.
               </p>
             )}
             {tab === "latest" && articles.length > 0 && (

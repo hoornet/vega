@@ -4,6 +4,7 @@ import { useMuteStore } from "../../stores/mute";
 import { useNotificationsStore } from "../../stores/notifications";
 import { NoteCard } from "../feed/NoteCard";
 import { SkeletonNoteList } from "../shared/Skeleton";
+import { ViewHeader } from "../shared/ViewHeader";
 
 export function NotificationsView() {
   const { pubkey, loggedIn } = useUserStore();
@@ -28,25 +29,28 @@ export function NotificationsView() {
 
   if (!loggedIn || !pubkey) {
     return (
-      <div className="h-full flex items-center justify-center text-text-dim text-body">
-        Log in to see notifications.
+      <div className="h-full flex flex-col">
+        <ViewHeader title="Notifications" />
+        <div className="flex-1 flex items-center justify-center text-text-dim text-body">
+          Log in to see notifications.
+        </div>
       </div>
     );
   }
 
   return (
     <div className="h-full flex flex-col">
-      <header className="border-b border-border-subtle px-4 py-2.5 flex items-center justify-between shrink-0">
-        <h1 className="text-text text-title font-medium tracking-wide">Notifications</h1>
-        {unreadCount > 0 && (
+      <ViewHeader
+        title="Notifications"
+        actions={unreadCount > 0 ? (
           <button
-            onClick={markAllRead}
-            className="text-ui text-text-dim hover:text-accent transition-colors"
-          >
-            Mark all read
-          </button>
-        )}
-      </header>
+              onClick={markAllRead}
+              className="text-ui text-text-dim hover:text-accent transition-colors"
+            >
+              Mark all read
+            </button>
+        ) : undefined}
+      />
 
       <div className="flex-1 overflow-y-auto content-column">
         {loading && notifications.length === 0 && (

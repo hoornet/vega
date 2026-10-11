@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { NDKPrivateKeySigner } from "@nostr-dev-kit/ndk";
 import { useUserStore } from "../../stores/user";
+import { Tabs } from "./Tabs";
 
 interface LoginModalProps {
   onClose: () => void;
@@ -132,22 +133,17 @@ export function LoginModal({ onClose }: LoginModalProps) {
           </button>
         </div>
 
-        {/* Tabs */}
-        <div className="flex border-b border-border-subtle">
-          {(["nsec", "pubkey", "bunker", "new"] as const).map((t) => (
-            <button
-              key={t}
-              onClick={() => { setTab(t); setInput(""); }}
-              className={`flex-1 px-3 py-2 text-ui transition-colors ${
-                tab === t
-                  ? "text-accent border-b-2 border-accent"
-                  : "text-text-muted hover:text-text"
-              }`}
-            >
-              {t === "nsec" ? "Private key" : t === "pubkey" ? "Read-only" : t === "bunker" ? "Remote signer" : "New account"}
-            </button>
-          ))}
-        </div>
+        <Tabs
+          label="How to log in"
+          tabs={[
+            { id: "nsec", label: "Private key" },
+            { id: "pubkey", label: "Read-only" },
+            { id: "bunker", label: "Remote signer" },
+            { id: "new", label: "New account" },
+          ]}
+          value={tab}
+          onChange={(t) => { setTab(t); setInput(""); }}
+        />
 
         {/* Content */}
         <div className="p-4">

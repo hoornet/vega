@@ -24,6 +24,7 @@ import { profileName } from "../../lib/utils";
 import { refreshProxySettingsCache, type ProxySettings } from "../../lib/proxy";
 import { NWCWizard } from "./NWCWizard";
 import { getNotificationSettings, saveNotificationSettings, ensurePermission } from "../../lib/notifications";
+import { ViewHeader } from "./ViewHeader";
 import {
   isLocalRelayEnabled,
   setLocalRelayEnabled,
@@ -920,9 +921,7 @@ function DiagnosticsSection() {
 export function SettingsView() {
   return (
     <div className="h-full flex flex-col">
-      <header className="border-b border-border-subtle px-4 py-2.5 shrink-0">
-        <h1 className="text-text text-title font-medium tracking-wide">Settings</h1>
-      </header>
+      <ViewHeader title="Settings" />
 
       <div className="flex-1 overflow-y-auto p-4 space-y-8">
         <ThemeSection />

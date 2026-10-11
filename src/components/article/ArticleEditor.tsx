@@ -12,6 +12,7 @@ import { open } from "@tauri-apps/plugin-dialog";
 import { readFile } from "@tauri-apps/plugin-fs";
 import { uploadBytes, uploadImage } from "../../lib/upload";
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import { ViewHeader } from "../shared/ViewHeader";
 
 /** Extract image URLs from markdown ![alt](url) patterns */
 function extractImages(md: string): { alt: string; url: string }[] {
@@ -527,26 +528,24 @@ export function ArticleEditor() {
 
 /** Draft list view — shown when no active draft is selected */
 function DraftListView({ onNewDraft }: { onNewDraft: () => void }) {
-  const { goBack } = useUIStore();
   const { drafts, deleteDraft, setActiveDraft } = useDraftStore();
 
   return (
     <div className="h-full flex flex-col">
-      <header className="border-b border-border-subtle px-4 py-2.5 flex items-center justify-between shrink-0">
-        <div className="flex items-center gap-3">
-          <button onClick={goBack} className="text-text-dim hover:text-text text-ui transition-colors">
-            ← Back
+      {/* Opened from the sidebar's "Write Article": that is its title, and
+          a view opened from the sidebar has no Back. */}
+      <ViewHeader
+        title="Write Article"
+        meta={`${drafts.length} ${drafts.length === 1 ? "draft" : "drafts"}`}
+        actions={
+          <button
+            onClick={onNewDraft}
+            className="px-3 py-1 text-ui bg-accent hover:bg-accent-hover text-accent-text transition-colors rounded-sm"
+          >
+            New draft
           </button>
-          <h2 className="text-text text-title font-medium">Drafts</h2>
-          <span className="text-text-dim text-caption">{drafts.length} {drafts.length === 1 ? "draft" : "drafts"}</span>
-        </div>
-        <button
-          onClick={onNewDraft}
-          className="px-3 py-1 text-ui bg-accent hover:bg-accent-hover text-accent-text transition-colors rounded-sm"
-        >
-          New draft
-        </button>
-      </header>
+        }
+      />
 
       <div className="flex-1 overflow-y-auto">
         {drafts.length === 0 && (
