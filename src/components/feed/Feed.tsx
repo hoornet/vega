@@ -382,6 +382,10 @@ export function Feed() {
                   key={event.id}
                   data-index={vi.index}
                   ref={virtualizer.measureElement}
+                  // A row is its own stacking context (the transform), and later
+                  // rows paint over earlier ones, so a menu that opens downward
+                  // would be covered by the next note. Lift the row that has one open.
+                  className="has-[[data-popover-open]]:z-10"
                   style={{ position: "absolute", top: 0, left: 0, width: "100%", transform: `translateY(${vi.start}px)` }}
                 >
                   {event.kind === 30023 ? (

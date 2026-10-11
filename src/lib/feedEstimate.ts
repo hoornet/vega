@@ -16,7 +16,7 @@ import { parseContent } from "./parsing";
 
 const cache = new Map<string, number>();
 
-const BASE = 96;        // avatar/name/time row + action row + vertical padding
+const BASE = 110;       // avatar/name/time row + 40px action band + vertical padding
 const LINE = 21;        // one line of 13px / leading-relaxed body text
 const QUOTE = 88;       // QuotePreview h-20 box + mt-2
 const LINK_CARD = 70;   // youtube / vimeo / spotify / tidal / fountain row + mt-2
