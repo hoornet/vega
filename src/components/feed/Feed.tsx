@@ -44,6 +44,8 @@ export function Feed() {
   const lastUpdated = useFeedStore((s) => s.lastUpdated);
   const loggedIn = useUserStore((s) => s.loggedIn);
   const follows = useUserStore((s) => s.follows);
+  const followsStatus = useUserStore((s) => s.followsStatus);
+  const fetchFollows = useUserStore((s) => s.fetchFollows);
   const mutedPubkeys = useMuteStore((s) => s.mutedPubkeys);
   const contentMatchesMutedKeyword = useMuteStore((s) => s.contentMatchesMutedKeyword);
   const tab = useUIStore((s) => s.feedTab);
@@ -298,7 +300,11 @@ export function Feed() {
               {isTrending
                 ? "No trending notes right now."
                 : isFollowing && follows.length === 0
-                  ? "You're not following anyone yet."
+                  ? followsStatus === "loaded"
+                    ? "You're not following anyone yet."
+                    : followsStatus === "unknown"
+                      ? "Couldn't load the list of people you follow."
+                      : "Loading the people you follow…"
                   : feedLanguageFilter
                     ? `No ${feedLanguageFilter} notes found.`
                     : "No notes to show."}
@@ -307,12 +313,26 @@ export function Feed() {
               {isTrending
                 ? "Check back in a bit."
                 : isFollowing && follows.length === 0
-                  ? "Use search to find people to follow."
+                  ? followsStatus === "loaded"
+                    ? "Use search to find people to follow."
+                    : followsStatus === "unknown"
+                      ? "Your relays didn't answer in time. Nothing has been changed, and Vega will keep trying."
+                      : "Asking your relays."
                   : feedLanguageFilter
                     ? "Try clearing the script filter or refreshing."
                     : "Try refreshing or switching tabs."}
             </p>
-            {isFollowing && follows.length === 0 && (() => {
+            {isFollowing && follows.length === 0 && followsStatus === "unknown" && (
+              <div className="pt-2">
+                <button
+                  onClick={() => void fetchFollows()}
+                  className="px-3 py-1.5 text-[12px] border border-border text-text hover:border-accent/60 hover:text-accent transition-colors"
+                >
+                  Try again
+                </button>
+              </div>
+            )}
+            {isFollowing && follows.length === 0 && followsStatus === "loaded" && (() => {
               const stored = localStorage.getItem("wrystr_interests");
               const interests: string[] = stored ? JSON.parse(stored) : [];
               if (interests.length === 0) return null;

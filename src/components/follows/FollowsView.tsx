@@ -87,7 +87,7 @@ function FollowRow({
 
 export function FollowsView() {
   const { followsTab, setFollowsTab } = useUIStore();
-  const { pubkey, follows } = useUserStore();
+  const { pubkey, follows, followsStatus } = useUserStore();
   const { newFollowerPubkeys, clearNewFollowers } = useNotificationsStore();
 
   const [followers, setFollowers] = useState<string[]>([]);
@@ -214,7 +214,13 @@ export function FollowsView() {
         {followsTab === "following" && (
           <>
             {follows.length === 0 && (
-              <p className="px-4 py-8 text-text-dim text-[12px] text-center">Not following anyone yet.</p>
+              <p className="px-4 py-8 text-text-dim text-[12px] text-center">
+                {followsStatus === "loaded"
+                  ? "Not following anyone yet."
+                  : followsStatus === "unknown"
+                    ? "Couldn't load the list of people you follow. Your relays didn't answer in time; nothing has been changed."
+                    : "Loading the people you follow…"}
+              </p>
             )}
             {follows.map((pk) => (
               <FollowRow key={pk} pubkey={pk} followsYou={followersSet.has(pk)} />
