@@ -65,9 +65,9 @@ export function QuoteModal({ event, authorName, authorAvatar, onClose, onPublish
       {/* max-h/overflow are load-bearing: the overlay centres this panel and
           never scrolls, so without them a grown composer pushes "Quote & post"
           off-screen with no way to reach it. */}
-      <div className="bg-bg border border-border w-full max-w-md mx-4 shadow-2xl max-h-[85vh] overflow-y-auto">
+      <div className="bg-bg border border-border w-full max-w-md mx-4 shadow-2xl max-h-[85vh] overflow-y-auto rounded-lg">
         {/* Header */}
-        <div className="flex items-center justify-between px-4 py-3 border-b border-border">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-border-subtle">
           <h2 id="quote-modal-title" className="text-text text-sm font-medium">Quote note</h2>
           <button onClick={onClose} aria-label="Close" className="text-text-dim hover:text-text text-lg leading-none">×</button>
         </div>
@@ -86,12 +86,12 @@ export function QuoteModal({ event, authorName, authorAvatar, onClose, onPublish
           />
 
           {/* Quoted note preview */}
-          <div className="border border-border px-3 py-2.5 bg-bg-raised rounded-sm">
+          <div className="border border-border px-3 py-2.5 bg-bg-raised rounded-lg">
             <div className="flex items-center gap-2 mb-1.5">
               {authorAvatar ? (
-                <img src={authorAvatar} alt={`${authorName}'s avatar`} className="w-4 h-4 rounded-sm object-cover" />
+                <img src={authorAvatar} alt={`${authorName}'s avatar`} className="w-4 h-4 rounded-full object-cover" />
               ) : (
-                <div className="w-4 h-4 rounded-sm bg-accent/20 flex items-center justify-center text-accent text-[8px]">
+                <div className="w-4 h-4 rounded-full bg-accent/20 flex items-center justify-center text-accent text-[8px]">
                   {authorName.charAt(0).toUpperCase()}
                 </div>
               )}
@@ -108,14 +108,14 @@ export function QuoteModal({ event, authorName, authorAvatar, onClose, onPublish
               <button
                 onClick={handlePublish}
                 disabled={!canPublish}
-                className="px-4 py-1.5 text-[11px] bg-accent hover:bg-accent-hover text-accent-text transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                className="px-4 py-1.5 text-[11px] bg-accent hover:bg-accent-hover text-accent-text transition-colors disabled:opacity-30 disabled:cursor-not-allowed rounded-sm"
               >
                 {publishing ? "Posting…" : "Quote & post"}
               </button>
             ) : (
               <button
                 onClick={() => setShowLogin(true)}
-                className="px-4 py-1.5 text-[11px] border border-accent/60 text-accent hover:bg-accent hover:text-accent-text transition-colors"
+                className="px-4 py-1.5 text-[11px] border border-accent/60 text-accent hover:bg-accent hover:text-accent-text transition-colors rounded-sm"
               >
                 Sign in to post
               </button>

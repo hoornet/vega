@@ -239,7 +239,7 @@ export function ComposeBox({ onPublished, onNoteInjected }: { onPublished?: () =
   };
 
   return (
-    <div className="border-b border-border">
+    <div className="border-b border-border-subtle">
       <div className="content-column-block px-4 py-3 flex gap-3">
         {/* Avatar */}
         <div className="shrink-0">
@@ -247,11 +247,11 @@ export function ComposeBox({ onPublished, onNoteInjected }: { onPublished?: () =
             <img
               src={avatar}
               alt="Your avatar"
-              className="w-9 h-9 rounded-sm object-cover bg-bg-raised"
+              className="w-9 h-9 rounded-full object-cover bg-bg-raised"
               onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
             />
           ) : (
-            <div className="w-9 h-9 rounded-sm bg-bg-raised border border-border flex items-center justify-center text-text-dim text-xs">
+            <div className="w-9 h-9 rounded-full bg-bg-raised border border-border flex items-center justify-center text-text-dim text-xs">
               {name.charAt(0).toUpperCase()}
             </div>
           )}
@@ -300,7 +300,7 @@ export function ComposeBox({ onPublished, onNoteInjected }: { onPublished?: () =
                   )}
                   <button
                     onClick={() => removeAttachment(i)}
-                    className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-danger text-white text-[10px] rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                    className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-danger text-danger-text text-[10px] rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
                     title="Remove"
                     aria-label="Remove attachment"
                   >

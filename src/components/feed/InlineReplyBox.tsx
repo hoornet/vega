@@ -190,7 +190,7 @@ export function InlineReplyBox({ event, name, rootEvent }: InlineReplyBoxProps) 
               )}
               <button
                 onClick={() => removeAttachment(i)}
-                className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-danger text-accent-text text-[10px] rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-danger text-danger-text text-[10px] rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
                 title="Remove"
                 aria-label="Remove attachment"
               >
@@ -239,7 +239,7 @@ export function InlineReplyBox({ event, name, rootEvent }: InlineReplyBoxProps) 
         <button
           onClick={handleReplySubmit}
           disabled={(!replyText.trim() && attachments.length === 0) || replying || uploading}
-          className="px-2 py-0.5 text-[10px] bg-accent hover:bg-accent-hover text-accent-text transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+          className="px-2 py-0.5 text-[10px] bg-accent hover:bg-accent-hover text-accent-text transition-colors disabled:opacity-30 disabled:cursor-not-allowed rounded-sm"
         >
           {replySent ? "Replied ✓" : replying ? "Posting…" : "Reply"}
         </button>

@@ -36,12 +36,12 @@ function FollowRow({
           <img
             src={avatar}
             alt={`${name}'s avatar`}
-            className="w-9 h-9 rounded-sm object-cover bg-bg-raised hover:opacity-80 transition-opacity"
+            className="w-9 h-9 rounded-full object-cover bg-bg-raised hover:opacity-80 transition-opacity"
             loading="lazy"
             onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
           />
         ) : (
-          <div className="w-9 h-9 rounded-sm bg-bg-raised border border-border flex items-center justify-center text-text-dim text-xs hover:border-accent/40 transition-colors">
+          <div className="w-9 h-9 rounded-full bg-bg-raised border border-border flex items-center justify-center text-text-dim text-xs hover:border-accent/40 transition-colors">
             {name.charAt(0).toUpperCase()}
           </div>
         )}
@@ -72,7 +72,7 @@ function FollowRow({
       {!isSelf && canSign && (
         <button
           onClick={() => isFollowing ? unfollow(pubkey) : follow(pubkey)}
-          className={`shrink-0 px-3 py-1 text-[11px] transition-colors ${
+          className={`shrink-0 px-3 py-1 text-[11px] rounded-sm transition-colors ${
             isFollowing
               ? "text-text-dim border border-border hover:text-danger hover:border-danger"
               : "bg-accent hover:bg-accent-hover text-accent-text"
@@ -159,7 +159,7 @@ export function FollowsView() {
   return (
     <div className="h-full flex flex-col">
       {/* Header */}
-      <div className="border-b border-border px-4 py-2.5 flex items-center gap-4 shrink-0">
+      <div className="border-b border-border-subtle px-4 py-2.5 flex items-center gap-4 shrink-0">
         <span className="text-text font-medium text-[13px]">Follows</span>
         <div className="flex gap-3 ml-auto">
           {tabs.map((t) => (
@@ -225,7 +225,7 @@ export function FollowsView() {
                 {followsStatus === "unknown" && (
                   <button
                     onClick={() => void fetchFollows()}
-                    className="mt-3 px-3 py-1.5 text-[12px] border border-border text-text hover:border-accent/60 hover:text-accent transition-colors"
+                    className="mt-3 px-3 py-1.5 text-[12px] border border-border text-text hover:border-accent/60 hover:text-accent transition-colors rounded-sm"
                   >
                     Try again
                   </button>

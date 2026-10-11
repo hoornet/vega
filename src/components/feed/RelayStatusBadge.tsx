@@ -38,7 +38,7 @@ export function RelayStatusBadge() {
       )}
 
       {hovered && (
-        <div className="absolute right-0 top-full mt-1 bg-bg-raised border border-border p-2 z-50 min-w-[220px] shadow-lg">
+        <div className="absolute right-0 top-full mt-1 bg-bg-raised border border-border p-2 z-50 min-w-[220px] shadow-lg rounded-lg">
           {GROUPS.map(({ origin, label, hint }) => {
             const group = relays
               .filter((r) => r.origin === origin)
@@ -62,7 +62,7 @@ export function RelayStatusBadge() {
                   </div>
                 ))}
                 {origin === "discovered" && (
-                  <div className="text-[10px] text-text-dim mt-0.5 opacity-70">{hint}</div>
+                  <div className="text-[10px] text-text-dim mt-0.5">{hint}</div>
                 )}
               </div>
             );

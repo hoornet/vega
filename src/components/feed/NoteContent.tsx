@@ -25,7 +25,7 @@ function ImageGrid({ images, onImageClick, inView }: { images: string[]; onImage
   // before anything loads — the virtualizer can't mis-measure it. The <img>
   // itself only mounts when the card is on screen (inView); off-screen rows
   // keep just the empty box, so scrolling stays light.
-  const boxCls = "rounded-sm bg-bg-raised border border-border overflow-hidden cursor-zoom-in";
+  const boxCls = "rounded-lg bg-bg-raised border border-border overflow-hidden cursor-zoom-in";
   // A lone image fills the frame only when it is about the frame's shape,
   // and is shown whole otherwise (see lib/mediaFit). In a grid, cells are
   // always cropped (cover) so they tile.
@@ -118,14 +118,14 @@ function QuotePreview({ eventId }: { eventId: string }) {
   // 2-line clamp keeps resolved content inside the reserved space.
   return (
     <div
-      className={`mt-2 h-20 border border-border bg-bg-raised px-3 py-2 overflow-hidden transition-colors ${event ? "cursor-pointer hover:bg-bg-hover" : ""}`}
+      className={`mt-2 h-20 border border-border bg-bg-raised px-3 py-2 overflow-hidden transition-colors ${event ? "cursor-pointer hover:bg-bg-hover" : ""} rounded-lg`}
       onClick={event ? (e) => { e.stopPropagation(); openThread(event, currentView as "feed" | "profile"); } : undefined}
     >
       {event && (
         <>
           <div className="flex items-center gap-2 mb-1">
             {profile?.picture && (
-              <img src={profile.picture} alt={`${name}'s avatar`} className="w-4 h-4 rounded-md object-cover shrink-0"
+              <img src={profile.picture} alt={`${name}'s avatar`} className="w-4 h-4 rounded-full object-cover shrink-0"
                 onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
             )}
             <span className="text-text-muted text-[11px] font-medium truncate">{name}</span>

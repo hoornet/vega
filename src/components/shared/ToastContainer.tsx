@@ -16,7 +16,7 @@ export function ToastContainer() {
       {toasts.map((toast) => (
         <div
           key={toast.id}
-          className="flex items-stretch min-w-[240px] max-w-[360px] bg-bg-raised border border-border shadow-lg toast-enter"
+          className="flex items-stretch min-w-[240px] max-w-[360px] bg-bg-raised border border-border shadow-lg toast-enter rounded-lg overflow-hidden"
         >
           <div className={`w-1 shrink-0 ${accentColor[toast.type]}`} />
           <div className="flex items-center justify-between gap-2 px-3 py-2 flex-1">

@@ -37,7 +37,7 @@ function NewAccountTab({ onClose }: { onClose: () => void }) {
         A new private key has been generated for you. Save it somewhere safe — it cannot be recovered.
       </p>
 
-      <div className="bg-bg border border-border px-3 py-2 font-mono text-[11px] text-text break-all mb-2"
+      <div className="bg-bg border border-border px-3 py-2 font-mono text-[11px] text-text break-all mb-2 rounded-lg"
         style={{ WebkitUserSelect: "text", userSelect: "text" } as React.CSSProperties}
       >
         {nsec}
@@ -45,7 +45,7 @@ function NewAccountTab({ onClose }: { onClose: () => void }) {
 
       <button
         onClick={handleCopy}
-        className="text-[11px] px-3 py-1 border border-border text-text-muted hover:text-accent hover:border-accent/40 transition-colors mb-4"
+        className="text-[11px] px-3 py-1 border border-border text-text-muted hover:text-accent hover:border-accent/40 transition-colors mb-4 rounded-sm"
       >
         {copied ? "copied ✓" : "copy key"}
       </button>
@@ -69,7 +69,7 @@ function NewAccountTab({ onClose }: { onClose: () => void }) {
       <button
         onClick={handleConfirm}
         disabled={!confirmed || logging}
-        className="w-full px-4 py-2 text-[12px] bg-accent hover:bg-accent-hover text-accent-text transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+        className="w-full px-4 py-2 text-[12px] bg-accent hover:bg-accent-hover text-accent-text transition-colors disabled:opacity-30 disabled:cursor-not-allowed rounded-sm"
       >
         {logging ? "Logging in…" : "create account"}
       </button>
@@ -117,11 +117,11 @@ export function LoginModal({ onClose }: LoginModalProps) {
       onKeyDown={(e) => { if (e.key === "Escape") onClose(); }}
     >
       <div
-        className="bg-bg-raised border border-border w-full max-w-md mx-4"
+        className="bg-bg-raised border border-border w-full max-w-md mx-4 rounded-lg"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-4 py-3 border-b border-border">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-border-subtle">
           <h2 id="login-modal-title" className="text-text text-sm font-medium">Login</h2>
           <button
             onClick={onClose}
@@ -133,7 +133,7 @@ export function LoginModal({ onClose }: LoginModalProps) {
         </div>
 
         {/* Tabs */}
-        <div className="flex border-b border-border">
+        <div className="flex border-b border-border-subtle">
           {(["nsec", "pubkey", "bunker", "new"] as const).map((t) => (
             <button
               key={t}
@@ -169,7 +169,7 @@ export function LoginModal({ onClose }: LoginModalProps) {
                 onKeyDown={handleKeyDown}
                 placeholder={tab === "nsec" ? "nsec1…" : tab === "pubkey" ? "npub1…" : "bunker://…"}
                 autoFocus
-                className="w-full bg-bg border border-border px-3 py-2 text-text text-[13px] font-mono placeholder:text-text-dim focus:outline-none focus:border-accent/50"
+                className="w-full bg-bg border border-border-strong px-3 py-2 text-text text-[13px] font-mono placeholder:text-text-dim focus:outline-none focus:border-accent rounded-lg"
               />
 
               {tab === "nsec" && (
@@ -197,7 +197,7 @@ export function LoginModal({ onClose }: LoginModalProps) {
               <button
                 onClick={handleLogin}
                 disabled={!input.trim() || loading}
-                className="w-full mt-3 px-4 py-2 text-[12px] bg-accent hover:bg-accent-hover text-accent-text transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                className="w-full mt-3 px-4 py-2 text-[12px] bg-accent hover:bg-accent-hover text-accent-text transition-colors disabled:opacity-30 disabled:cursor-not-allowed rounded-sm"
               >
                 {loading
                   ? (tab === "bunker" ? "Connecting…" : "Logging in…")

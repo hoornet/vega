@@ -128,7 +128,7 @@ minisign -Vm Vega_X.Y.Z_amd64.deb -p vega.pub
 - **NIP-05 verification badges** — cached verification with green checkmark on note cards
 
 **Personalization**
-- **Color themes** — 8 built-in themes: Midnight (default dark), Light, Catppuccin Mocha, Sepia, Gruvbox, Nord Frost, Hackerman, and **Reader** (a warm, low-glare palette for comfortable long reading); instant switching from Settings
+- **Color themes** — 7 built-in themes: Midnight (default dark), Light, Catppuccin Mocha, Gruvbox, Nord Frost, Hackerman, and **Reader** (a warm, low-glare palette for comfortable long reading); instant switching from Settings
 - **Font size** — Small / Normal / Large / Extra Large presets; scales the entire UI uniformly
 - **Easy-Read Font** — optional Atkinson Hyperlegible typeface, designed by the Braille Institute for legibility, with slightly wider letter-spacing and line-height; helps dyslexic readers and long reading sessions
 

@@ -35,14 +35,14 @@ export function ImageField({ label, value, onChange }: { label: string; value: s
           value={value}
           onChange={(e) => onChange(e.target.value)}
           placeholder="https://…  or click upload →"
-          className="flex-1 bg-bg border border-border px-3 py-1.5 text-text text-[12px] focus:outline-none focus:border-accent/50"
+          className="flex-1 bg-bg border border-border-strong px-3 py-1.5 text-text text-[12px] focus:outline-none focus:border-accent rounded-lg"
           style={{ WebkitUserSelect: "text", userSelect: "text" } as React.CSSProperties}
         />
         <button
           type="button"
           onClick={() => fileRef.current?.click()}
           disabled={uploading}
-          className="px-2 py-1.5 text-[10px] border border-border text-text-dim hover:text-accent hover:border-accent/40 transition-colors disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
+          className="px-2 py-1.5 text-[10px] border border-border text-text-dim hover:text-accent hover:border-accent/40 transition-colors disabled:opacity-40 disabled:cursor-not-allowed shrink-0 rounded-sm"
           title="Upload from your computer"
         >
           {uploading ? "Uploading…" : "Upload"}

@@ -63,7 +63,7 @@ export function V4VDashboard() {
             Playing <span className="text-text">{episode.title}</span> — no V4V recipients.
           </div>
         ) : v4vStreaming ? (
-          <div className="bg-zap/5 border border-zap/20 rounded-sm p-3">
+          <div className="bg-zap/5 border border-zap/20 rounded-lg p-3">
             <div className="flex items-center gap-2 mb-2">
               <span className="text-zap animate-pulse text-[12px]">&#9889;</span>
               <span className="text-[12px] text-text font-medium">Streaming</span>
@@ -77,7 +77,7 @@ export function V4VDashboard() {
             </div>
           </div>
         ) : capReachedReason ? (
-          <div className="bg-danger/5 border border-danger/20 rounded-sm p-3">
+          <div className="bg-danger/5 border border-danger/20 rounded-lg p-3">
             <div className="flex items-center gap-2 mb-2">
               <span className="text-danger text-[12px]">&#9889;</span>
               <span className="text-[12px] text-text font-medium">{capReachedReason}</span>
@@ -107,15 +107,15 @@ export function V4VDashboard() {
       <section>
         <h2 className="text-text-dim text-[10px] uppercase tracking-widest mb-3">Stats</h2>
         <div className="grid grid-cols-3 gap-3">
-          <div className="bg-bg-raised border border-border rounded-sm p-3 text-center">
+          <div className="bg-bg-raised border border-border rounded-lg p-3 text-center">
             <div className="text-[16px] text-text font-medium">{allTimeSats}</div>
             <div className="text-[9px] text-text-dim mt-0.5">total sats</div>
           </div>
-          <div className="bg-bg-raised border border-border rounded-sm p-3 text-center">
+          <div className="bg-bg-raised border border-border rounded-lg p-3 text-center">
             <div className="text-[16px] text-text font-medium">{episodesSupported}</div>
             <div className="text-[9px] text-text-dim mt-0.5">episodes</div>
           </div>
-          <div className="bg-bg-raised border border-border rounded-sm p-3 text-center">
+          <div className="bg-bg-raised border border-border rounded-lg p-3 text-center">
             <div className="text-[16px] text-text font-medium">
               {autoEnabled ? `${defaultRate}/m` : "off"}
             </div>

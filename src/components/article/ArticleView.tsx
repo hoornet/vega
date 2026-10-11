@@ -44,10 +44,10 @@ function AuthorRow({ pubkey, publishedAt, readingTime }: { pubkey: string; publi
     <div className="flex items-center gap-3 mb-6">
       <button className="shrink-0" onClick={() => openProfile(pubkey)}>
         {profile?.picture ? (
-          <img src={profile.picture} alt={`${name}'s avatar`} className="w-9 h-9 rounded-sm object-cover hover:opacity-80 transition-opacity"
+          <img src={profile.picture} alt={`${name}'s avatar`} className="w-9 h-9 rounded-full object-cover hover:opacity-80 transition-opacity"
             onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
         ) : (
-          <div className="w-9 h-9 rounded-sm bg-bg-raised border border-border flex items-center justify-center text-text-dim text-sm">
+          <div className="w-9 h-9 rounded-full bg-bg-raised border border-border flex items-center justify-center text-text-dim text-sm">
             {name.charAt(0).toUpperCase()}
           </div>
         )}
@@ -249,7 +249,7 @@ export function ArticleView() {
   return (
     <div className="h-full flex flex-col">
       {/* Header */}
-      <header className="border-b border-border px-4 py-2.5 flex items-center justify-between shrink-0">
+      <header className="border-b border-border-subtle px-4 py-2.5 flex items-center justify-between shrink-0">
         <button onClick={goBack} className="text-text-dim hover:text-text text-[11px] transition-colors">
           ← Back
         </button>
@@ -261,7 +261,7 @@ export function ArticleView() {
                 bookmarked
                   ? "border-accent/40 text-accent"
                   : "border-border text-text-muted hover:text-accent hover:border-accent/40"
-              }`}
+              } rounded-sm`}
               title={bookmarked ? "Remove bookmark" : "Bookmark article"}
             >
               {bookmarked ? "▪ Saved" : "▫ Save"}
@@ -270,7 +270,7 @@ export function ArticleView() {
           {event && canSign && (
             <button
               onClick={() => setShowZap(true)}
-              className="text-[11px] px-3 py-1 border border-border text-zap hover:border-zap/40 hover:bg-zap/5 transition-colors"
+              className="text-[11px] px-3 py-1 border border-border text-zap hover:border-zap/40 hover:bg-zap/5 transition-colors rounded-sm"
             >
               ⚡ zap {authorName}
             </button>
@@ -283,7 +283,7 @@ export function ArticleView() {
                 reposted
                   ? "border-accent/40 text-accent"
                   : "border-border text-text-muted hover:text-accent hover:border-accent/40"
-              }`}
+              } rounded-sm`}
             >
               {reposted ? "Reposted" : "Repost"}
             </button>
@@ -295,7 +295,7 @@ export function ArticleView() {
                 showComment
                   ? "border-accent/40 text-accent"
                   : "border-border text-text-muted hover:text-accent hover:border-accent/40"
-              }`}
+              } rounded-sm`}
             >
               Comment
             </button>
@@ -303,7 +303,7 @@ export function ArticleView() {
           {naddr && (
             <button
               onClick={() => navigator.clipboard.writeText(`nostr:${naddr}`)}
-              className="text-[11px] px-3 py-1 border border-border text-text-muted hover:text-accent hover:border-accent/40 transition-colors"
+              className="text-[11px] px-3 py-1 border border-border text-text-muted hover:text-accent hover:border-accent/40 transition-colors rounded-sm"
               title="Copy nostr: link"
             >
               Copy link
@@ -314,14 +314,14 @@ export function ArticleView() {
 
       {/* Comment box */}
       {showComment && event && (
-        <div className="border-b border-border px-4 py-3 shrink-0">
+        <div className="border-b border-border-subtle px-4 py-3 shrink-0">
           <textarea
             value={commentText}
             onChange={(e) => { setCommentText(e.target.value); autoResize(e); }}
             onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleComment(); } }}
             placeholder="Write a comment…"
             rows={3}
-            className="w-full bg-bg-raised border border-border rounded-sm px-3 py-2 text-[12px] text-text placeholder:text-text-dim resize-none focus:outline-none focus:border-accent leading-relaxed"
+            className="w-full bg-bg-raised border border-border-strong rounded-lg px-3 py-2 text-[12px] text-text placeholder:text-text-dim resize-none focus:outline-none focus:border-accent leading-relaxed"
             autoFocus
           />
           <div className="flex justify-between items-center mt-2">
@@ -375,7 +375,7 @@ export function ArticleView() {
                   <img
                     src={image}
                     alt={`Cover image for ${title || "article"}`}
-                    className="w-full aspect-video object-cover rounded-sm"
+                    className="w-full aspect-video object-cover rounded-lg"
                     onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
                   />
                 </div>
@@ -400,7 +400,7 @@ export function ArticleView() {
               {articleTags.length > 0 && (
                 <div className="flex flex-wrap gap-1.5 mb-6">
                   {articleTags.map((tag) => (
-                    <span key={tag} className="px-2 py-0.5 text-[10px] border border-border text-text-dim">
+                    <span key={tag} className="px-2 py-0.5 text-[10px] border border-border text-text-dim rounded-sm">
                       #{tag}
                     </span>
                   ))}
@@ -424,7 +424,7 @@ export function ArticleView() {
               )}
 
               {/* Footer */}
-              <div className="mt-10 pt-6 border-t border-border flex items-center justify-between">
+              <div className="mt-10 pt-6 border-t border-border-subtle flex items-center justify-between">
                 <button onClick={goBack} className="text-text-dim hover:text-text text-[11px] transition-colors">
                   ← Back
                 </button>
@@ -437,7 +437,7 @@ export function ArticleView() {
                         reacted
                           ? "border-accent/40 text-accent"
                           : "border-border text-text-muted hover:text-accent hover:border-accent/40"
-                      }`}
+                      } rounded-sm`}
                     >
                       {reacted ? "♥ Liked" : "♡ Like"}
                     </button>
@@ -449,7 +449,7 @@ export function ArticleView() {
                         bookmarked
                           ? "border-accent/40 text-accent"
                           : "border-border text-text-muted hover:text-accent hover:border-accent/40"
-                      }`}
+                      } rounded-sm`}
                     >
                       {bookmarked ? "▪ Saved" : "▫ Save"}
                     </button>
@@ -462,7 +462,7 @@ export function ArticleView() {
                         reposted
                           ? "border-accent/40 text-accent"
                           : "border-border text-text-muted hover:text-accent hover:border-accent/40"
-                      }`}
+                      } rounded-sm`}
                     >
                       {reposted ? "Reposted" : "Repost"}
                     </button>
@@ -470,7 +470,7 @@ export function ArticleView() {
                   {canSign && (
                     <button
                       onClick={() => { setShowComment(true); scrollRef.current?.scrollTo({ top: 0, behavior: "smooth" }); }}
-                      className="text-[11px] px-3 py-1.5 border border-border text-text-muted hover:text-accent hover:border-accent/40 transition-colors"
+                      className="text-[11px] px-3 py-1.5 border border-border text-text-muted hover:text-accent hover:border-accent/40 transition-colors rounded-sm"
                     >
                       Comment
                     </button>
@@ -478,7 +478,7 @@ export function ArticleView() {
                   {canSign && (
                     <button
                       onClick={() => setShowZap(true)}
-                      className="text-[11px] px-4 py-1.5 bg-zap hover:bg-zap/90 text-zap-text transition-colors"
+                      className="text-[11px] px-4 py-1.5 bg-zap hover:bg-zap/90 text-zap-text transition-colors rounded-sm"
                     >
                       ⚡ Zap {authorName}
                     </button>

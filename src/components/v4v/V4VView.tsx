@@ -12,7 +12,7 @@ export function V4VView() {
   return (
     <div className="h-full flex flex-col">
       {/* Header */}
-      <div className="border-b border-border shrink-0">
+      <div className="border-b border-border-subtle shrink-0">
         <div className="flex items-center px-4 pt-3 pb-0">
           <h1 className="text-text text-[14px] font-medium mr-6">Value 4 Value</h1>
           <div className="flex">

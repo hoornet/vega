@@ -12,7 +12,7 @@ export function PodcastCard({ show, onClick }: PodcastCardProps) {
   const { subscribe, unsubscribe } = usePodcastStore.getState();
 
   return (
-    <div className="flex items-start gap-3 p-3 rounded-sm bg-bg-raised border border-border hover:bg-bg-hover transition-colors text-left w-full">
+    <div className="flex items-start gap-3 p-3 rounded-lg bg-bg-raised border border-border hover:bg-bg-hover transition-colors text-left w-full">
       <button onClick={onClick} className="shrink-0">
         {show.artworkUrl ? (
           <img

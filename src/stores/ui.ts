@@ -1,6 +1,7 @@
 import { create } from "zustand";
 
 import { NDKEvent } from "@nostr-dev-kit/ndk";
+import { isRetiredTheme, resolveThemeId } from "../lib/themes";
 
 export type View = "feed" | "search" | "relays" | "settings" | "profile" | "thread" | "article-editor" | "article" | "articles" | "media" | "podcasts" | "about" | "zaps" | "dm" | "notifications" | "bookmarks" | "hashtag" | "follows" | "v4v";
 type FeedTab = "global" | "following" | "trending";
@@ -60,6 +61,27 @@ const SIDEBAR_KEY = "wrystr_sidebar_collapsed";
 const FONT_SIZE_KEY = "wrystr_font_size";
 const EASY_READ_FONT_KEY = "wrystr_easy_read_font";
 const THEME_KEY = "wrystr_theme";
+
+/**
+ * The stored theme, mapped off any theme that no longer exists.
+ *
+ * A retired id is rewritten so the replacement sticks. An unknown id is left
+ * in storage: it may belong to a newer build of Vega, and that choice should
+ * survive one launch of this build.
+ */
+function initialThemeId(): string {
+  const stored = localStorage.getItem(THEME_KEY);
+  const id = resolveThemeId(stored);
+  if (stored && isRetiredTheme(stored)) {
+    try {
+      localStorage.setItem(THEME_KEY, id);
+    } catch {
+      // Storage is full or blocked. Resolving again on the next launch is fine;
+      // failing here would stop the whole store from loading.
+    }
+  }
+  return id;
+}
 const SCRIPT_FILTER_KEY = "wrystr_script_filter";
 const FEED_TAB_KEY = "wrystr_feed_tab";
 
@@ -102,7 +124,7 @@ export const useUIStore = create<UIState>((set, _get) => ({
   followsTab: "followers",
   fontSize: parseInt(localStorage.getItem(FONT_SIZE_KEY) || "14", 10),
   easyReadFont: localStorage.getItem(EASY_READ_FONT_KEY) === "true",
-  themeId: localStorage.getItem(THEME_KEY) || "midnight",
+  themeId: initialThemeId(),
   // A sidebar destination is a fresh start: nothing to go "back" to. Leaving
   // the stack in place made Esc and Back jump to a thread or profile visited
   // before the last sidebar click.

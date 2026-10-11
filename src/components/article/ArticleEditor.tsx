@@ -295,7 +295,7 @@ export function ArticleEditor() {
   return (
     <div className="h-full flex flex-col">
       {/* Header */}
-      <header className="border-b border-border px-4 py-2.5 flex items-center justify-between shrink-0">
+      <header className="border-b border-border-subtle px-4 py-2.5 flex items-center justify-between shrink-0">
         <div className="flex items-center gap-3">
           <button onClick={() => setActiveDraft(null)} className="text-text-dim hover:text-text text-[11px] transition-colors">
             ← Drafts
@@ -319,7 +319,7 @@ export function ArticleEditor() {
 
         <div className="flex items-center gap-2">
           {/* Write / Preview toggle */}
-          <div className="flex border border-border text-[11px]">
+          <div className="flex border border-border text-[11px] rounded-sm overflow-hidden">
             <button
               onClick={() => setMode("write")}
               className={`px-3 py-1 transition-colors ${mode === "write" ? "bg-accent/10 text-accent" : "text-text-muted hover:text-text"}`}
@@ -336,7 +336,7 @@ export function ArticleEditor() {
 
           <button
             onClick={toggleZen}
-            className="px-3 py-1 text-[11px] border border-border text-text-muted hover:text-text transition-colors"
+            className="px-3 py-1 text-[11px] border border-border text-text-muted hover:text-text transition-colors rounded-sm"
             title="Focus mode (F11)"
           >
             Zen
@@ -344,7 +344,7 @@ export function ArticleEditor() {
 
           <button
             onClick={() => setShowMeta((v) => !v)}
-            className={`px-3 py-1 text-[11px] border border-border transition-colors ${showMeta ? "text-accent border-accent/40" : "text-text-muted hover:text-text"}`}
+            className={`px-3 py-1 text-[11px] border border-border transition-colors ${showMeta ? "text-accent border-accent/40" : "text-text-muted hover:text-text"} rounded-sm`}
           >
             Meta
           </button>
@@ -353,14 +353,14 @@ export function ArticleEditor() {
             <button
               onClick={handlePublish}
               disabled={!canPublish || publishing || published}
-              className="px-4 py-1 text-[11px] bg-accent hover:bg-accent-hover text-accent-text transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+              className="px-4 py-1 text-[11px] bg-accent hover:bg-accent-hover text-accent-text transition-colors disabled:opacity-30 disabled:cursor-not-allowed rounded-sm"
             >
               {published ? "Published ✓" : publishing ? "Publishing…" : "Publish"}
             </button>
           ) : (
             <button
               onClick={() => setShowLoginModal(true)}
-              className="px-4 py-1 text-[11px] border border-accent/60 text-accent hover:bg-accent hover:text-accent-text transition-colors"
+              className="px-4 py-1 text-[11px] border border-accent/60 text-accent hover:bg-accent hover:text-accent-text transition-colors rounded-sm"
             >
               Sign in to publish
             </button>
@@ -370,7 +370,7 @@ export function ArticleEditor() {
 
       {/* Meta panel */}
       {showMeta && (
-        <div className="border-b border-border px-6 py-3 bg-bg-raised grid grid-cols-2 gap-3 shrink-0">
+        <div className="border-b border-border-subtle px-6 py-3 bg-bg-raised grid grid-cols-2 gap-3 shrink-0">
           <div>
             <label className="text-text-dim text-[10px] block mb-1">Summary</label>
             <textarea
@@ -378,7 +378,7 @@ export function ArticleEditor() {
               onChange={(e) => setSummary(e.target.value)}
               placeholder="A short description…"
               rows={2}
-              className="w-full bg-bg border border-border px-2 py-1.5 text-text text-[12px] resize-none focus:outline-none focus:border-accent/50"
+              className="w-full bg-bg border border-border-strong px-2 py-1.5 text-text text-[12px] resize-none focus:outline-none focus:border-accent rounded-lg"
             />
           </div>
           <div className="flex flex-col gap-2">
@@ -389,13 +389,13 @@ export function ArticleEditor() {
                   value={image}
                   onChange={(e) => setImage(e.target.value)}
                   placeholder="https://…"
-                  className="flex-1 bg-bg border border-border px-2 py-1.5 text-text text-[12px] focus:outline-none focus:border-accent/50"
+                  className="flex-1 bg-bg border border-border-strong px-2 py-1.5 text-text text-[12px] focus:outline-none focus:border-accent rounded-lg"
                 />
                 <button
                   onClick={handleCoverImagePick}
                   disabled={uploading}
                   title="Upload cover image"
-                  className="px-2 py-1.5 text-[11px] border border-border text-text-muted hover:text-text hover:bg-bg-hover transition-colors disabled:opacity-30"
+                  className="px-2 py-1.5 text-[11px] border border-border text-text-muted hover:text-text hover:bg-bg-hover transition-colors disabled:opacity-30 rounded-sm"
                 >
                   {uploading ? "…" : "↑"}
                 </button>
@@ -407,7 +407,7 @@ export function ArticleEditor() {
                 value={tags}
                 onChange={(e) => setTags(e.target.value)}
                 placeholder="bitcoin, nostr, essay"
-                className="w-full bg-bg border border-border px-2 py-1.5 text-text text-[12px] focus:outline-none focus:border-accent/50"
+                className="w-full bg-bg border border-border-strong px-2 py-1.5 text-text text-[12px] focus:outline-none focus:border-accent rounded-lg"
               />
             </div>
           </div>
@@ -415,7 +415,7 @@ export function ArticleEditor() {
       )}
 
       {error && (
-        <div className="px-6 py-2 text-danger text-[12px] bg-danger/5 border-b border-border shrink-0">
+        <div className="px-6 py-2 text-danger text-[12px] bg-danger/5 border-b border-border-subtle shrink-0">
           {error}
         </div>
       )}
@@ -428,7 +428,7 @@ export function ArticleEditor() {
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             placeholder="Title"
-            className="w-full bg-transparent text-text text-2xl font-bold placeholder:text-text-dim focus:outline-none focus:border-b focus:border-accent/40"
+            className="w-full bg-transparent text-text text-2xl font-bold placeholder:text-text-dim focus:outline-none focus:border-b focus:border-accent"
             style={{ fontFamily: "var(--font-reading)" }}
           />
         </div>
@@ -446,7 +446,7 @@ export function ArticleEditor() {
 
         {/* Inline image previews (write mode only) */}
         {mode === "write" && inlineImages.length > 0 && (
-          <div className="flex items-center gap-2 px-6 py-2 border-b border-border bg-bg-raised/50 overflow-x-auto shrink-0">
+          <div className="flex items-center gap-2 px-6 py-2 border-b border-border-subtle bg-bg-raised/50 overflow-x-auto shrink-0">
             <span className="text-text-dim text-[10px] shrink-0">{inlineImages.length} {inlineImages.length === 1 ? "image" : "images"}</span>
             {inlineImages.map((img, i) => (
               <div key={i} className="relative shrink-0 group cursor-zoom-in" onClick={() => setLightboxUrl(img.url)}>
@@ -469,7 +469,7 @@ export function ArticleEditor() {
           >
             <img
               src={lightboxUrl}
-              className="max-w-[90vw] max-h-[90vh] rounded-md shadow-2xl object-contain"
+              className="max-w-[90vw] max-h-[90vh] rounded-lg shadow-2xl object-contain"
               onClick={(e) => e.stopPropagation()}
             />
           </div>
@@ -510,7 +510,7 @@ export function ArticleEditor() {
                 if (Array.from(e.dataTransfer.types).includes("Files")) e.preventDefault();
               }}
               placeholder="Write your article in Markdown… (paste or drop images)"
-              className="w-full h-full min-h-[400px] bg-transparent text-text text-[14px] leading-relaxed placeholder:text-text-dim resize-none focus:outline-none focus:border-b focus:border-accent/40 font-mono"
+              className="w-full h-full min-h-[400px] bg-transparent text-text text-[14px] leading-relaxed placeholder:text-text-dim resize-none focus:outline-none focus:border-b focus:border-accent font-mono"
             />
           ) : (
             <div
@@ -532,7 +532,7 @@ function DraftListView({ onNewDraft }: { onNewDraft: () => void }) {
 
   return (
     <div className="h-full flex flex-col">
-      <header className="border-b border-border px-4 py-2.5 flex items-center justify-between shrink-0">
+      <header className="border-b border-border-subtle px-4 py-2.5 flex items-center justify-between shrink-0">
         <div className="flex items-center gap-3">
           <button onClick={goBack} className="text-text-dim hover:text-text text-[11px] transition-colors">
             ← Back
@@ -542,7 +542,7 @@ function DraftListView({ onNewDraft }: { onNewDraft: () => void }) {
         </div>
         <button
           onClick={onNewDraft}
-          className="px-3 py-1 text-[11px] bg-accent hover:bg-accent-hover text-accent-text transition-colors"
+          className="px-3 py-1 text-[11px] bg-accent hover:bg-accent-hover text-accent-text transition-colors rounded-sm"
         >
           New draft
         </button>
@@ -552,7 +552,7 @@ function DraftListView({ onNewDraft }: { onNewDraft: () => void }) {
         {drafts.length === 0 && (
           <div className="px-4 py-12 text-center space-y-2">
             <p className="text-text-dim text-[13px]">No drafts yet.</p>
-            <p className="text-text-dim text-[11px] opacity-60">
+            <p className="text-text-dim text-[11px]">
               Click "New draft" to start writing an article.
             </p>
           </div>
@@ -566,7 +566,7 @@ function DraftListView({ onNewDraft }: { onNewDraft: () => void }) {
           return (
             <div
               key={draft.id}
-              className="border-b border-border px-4 py-3 hover:bg-bg-hover transition-colors cursor-pointer flex items-center justify-between"
+              className="border-b border-border-subtle px-4 py-3 hover:bg-bg-hover transition-colors cursor-pointer flex items-center justify-between"
               onClick={() => setActiveDraft(draft.id)}
             >
               <div className="min-w-0 flex-1">

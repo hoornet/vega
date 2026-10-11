@@ -53,7 +53,7 @@ function RelayHealthCard({ result, poolConnected, onRemove }: { result: RelayHea
   const nip11 = result.nip11;
 
   return (
-    <div className="border border-border group/card">
+    <div className="border border-border group/card rounded-lg overflow-hidden">
       <div
         className="flex items-center gap-3 px-3 py-2 text-[12px] cursor-pointer hover:bg-bg-hover transition-colors"
         onClick={() => setExpanded((v) => !v)}
@@ -93,7 +93,7 @@ function RelayHealthCard({ result, poolConnected, onRemove }: { result: RelayHea
       </div>
 
       {expanded && (
-        <div className="px-3 py-2 border-t border-border bg-bg-raised text-[11px] space-y-1.5">
+        <div className="px-3 py-2 border-t border-border-subtle bg-bg-raised text-[11px] space-y-1.5">
           {nip11 ? (
             <>
               {nip11.description && (
@@ -140,7 +140,7 @@ function RelayHealthCard({ result, poolConnected, onRemove }: { result: RelayHea
 /** Fallback row for relays not yet health-checked */
 function RelayPoolRow({ url, connected, onRemove }: { url: string; connected: boolean; onRemove: () => void }) {
   return (
-    <div className="flex items-center gap-3 px-3 py-2 border border-border text-[12px] group">
+    <div className="flex items-center gap-3 px-3 py-2 border border-border text-[12px] group rounded-lg">
       <span
         className={`w-2 h-2 rounded-full shrink-0 ${connected ? "bg-success" : "bg-text-dim"}`}
         title={connected ? "Connected" : "Not connected — awaiting health check"}
@@ -238,7 +238,7 @@ export function RelaysView() {
 
   return (
     <div className="h-full flex flex-col">
-      <header className="border-b border-border px-4 py-2.5 shrink-0">
+      <header className="border-b border-border-subtle px-4 py-2.5 shrink-0">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <h1 className="text-text text-sm font-medium tracking-wide">Relays</h1>
@@ -259,7 +259,7 @@ export function RelaysView() {
             <button
               onClick={checkAll}
               disabled={checking}
-              className="px-3 py-1 text-[11px] border border-border text-text-muted hover:text-accent hover:border-accent/40 transition-colors disabled:opacity-40"
+              className="px-3 py-1 text-[11px] border border-border text-text-muted hover:text-accent hover:border-accent/40 transition-colors disabled:opacity-40 rounded-sm"
             >
               {checking ? (
                 <span className="inline-flex items-center gap-1">
@@ -273,18 +273,18 @@ export function RelaysView() {
       </header>
 
       {/* Add relay input */}
-      <div className="border-b border-border px-4 py-2 shrink-0">
+      <div className="border-b border-border-subtle px-4 py-2 shrink-0">
         <div className="flex gap-2">
           <input
             value={input}
             onChange={(e) => { setInput(e.target.value); setAddError(null); }}
             onKeyDown={handleKeyDown}
             placeholder="wss://relay.example.com"
-            className="flex-1 bg-bg border border-border px-3 py-1.5 text-text text-[12px] font-mono focus:outline-none focus:border-accent/50 placeholder:text-text-dim"
+            className="flex-1 bg-bg border border-border-strong px-3 py-1.5 text-text text-[12px] font-mono focus:outline-none focus:border-accent placeholder:text-text-dim rounded-lg"
           />
           <button
             onClick={handleAddRelay}
-            className="px-3 py-1.5 text-[11px] border border-border text-text-muted hover:text-accent hover:border-accent/40 transition-colors shrink-0"
+            className="px-3 py-1.5 text-[11px] border border-border text-text-muted hover:text-accent hover:border-accent/40 transition-colors shrink-0 rounded-sm"
           >
             Add
           </button>
@@ -292,7 +292,7 @@ export function RelaysView() {
             <button
               onClick={handleRepublish}
               disabled={republishing}
-              className="px-3 py-1.5 text-[11px] border border-border text-text-muted hover:text-accent hover:border-accent/40 transition-colors disabled:opacity-40 shrink-0"
+              className="px-3 py-1.5 text-[11px] border border-border text-text-muted hover:text-accent hover:border-accent/40 transition-colors disabled:opacity-40 shrink-0 rounded-sm"
             >
               {republishing ? "Publishing…" : "Publish list"}
             </button>
@@ -303,14 +303,14 @@ export function RelaysView() {
 
       {/* Actions bar — show when there are dead relays */}
       {deadRelays.length > 0 && (
-        <div className="border-b border-border px-4 py-2 bg-danger/5 flex items-center justify-between shrink-0">
+        <div className="border-b border-border-subtle px-4 py-2 bg-danger/5 flex items-center justify-between shrink-0">
           <span className="text-danger text-[11px]">
             {deadRelays.length} relay{deadRelays.length > 1 ? "s" : ""} offline
           </span>
           <button
             onClick={handleRemoveDead}
             disabled={removing}
-            className="px-3 py-1 text-[11px] border border-danger/30 text-danger hover:bg-danger/10 transition-colors disabled:opacity-40"
+            className="px-3 py-1 text-[11px] border border-danger/30 text-danger hover:bg-danger/10 transition-colors disabled:opacity-40 rounded-sm"
           >
             {removing ? "Removing…" : "Remove dead"}
           </button>
@@ -386,7 +386,7 @@ function RelayAuthToggle() {
   ];
 
   return (
-    <div className="mt-6 pt-4 border-t border-border">
+    <div className="mt-6 pt-4 border-t border-border-subtle">
       <h3 className="text-text text-[11px] font-medium uppercase tracking-widest text-text-dim">
         Prove who you are to
       </h3>
@@ -399,7 +399,7 @@ function RelayAuthToggle() {
               scope === opt.value
                 ? "border-accent text-accent"
                 : "border-border text-text-muted hover:text-text hover:border-accent/40"
-            }`}
+            } rounded-sm`}
           >
             {opt.label}
           </button>
@@ -432,13 +432,13 @@ function RelayReachToggle() {
   };
 
   return (
-    <div className="mt-6 pt-4 border-t border-border">
+    <div className="mt-6 pt-4 border-t border-border-subtle">
       <label className="flex items-center gap-3 cursor-pointer">
         <button
           onClick={toggle}
           disabled={applying}
           className={`w-9 h-5 rounded-full transition-colors relative shrink-0 disabled:opacity-40 ${
-            enabled ? "bg-accent" : "bg-border"
+            enabled ? "bg-accent" : "bg-border-strong"
           }`}
         >
           <span
@@ -485,7 +485,7 @@ function SuggestedRelays({ onAdded }: { onAdded: () => void }) {
   };
 
   return (
-    <div className="mt-6 pt-4 border-t border-border">
+    <div className="mt-6 pt-4 border-t border-border-subtle">
       <div className="flex items-center justify-between mb-3">
         <div>
           <h3 className="text-text text-[11px] font-medium uppercase tracking-widest text-text-dim">Suggested Relays</h3>
@@ -494,7 +494,7 @@ function SuggestedRelays({ onAdded }: { onAdded: () => void }) {
         <button
           onClick={handleDiscover}
           disabled={loading || follows.length === 0}
-          className="px-3 py-1 text-[11px] border border-border text-text-muted hover:text-accent hover:border-accent/40 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+          className="px-3 py-1 text-[11px] border border-border text-text-muted hover:text-accent hover:border-accent/40 transition-colors disabled:opacity-40 disabled:cursor-not-allowed rounded-sm"
         >
           {loading ? (
             <span className="inline-flex items-center gap-1">
@@ -511,7 +511,7 @@ function SuggestedRelays({ onAdded }: { onAdded: () => void }) {
 
       <div className="space-y-1">
         {suggestions.map((s) => (
-          <div key={s.url} className="flex items-center gap-3 px-3 py-2 border border-border text-[12px] group">
+          <div key={s.url} className="flex items-center gap-3 px-3 py-2 border border-border text-[12px] group rounded-lg">
             <span className="text-text truncate flex-1 font-mono">{s.url}</span>
             <span className="text-text-dim text-[10px] shrink-0">
               {s.count} follow{s.count !== 1 ? "s" : ""}

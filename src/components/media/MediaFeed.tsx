@@ -44,7 +44,7 @@ export function MediaFeed() {
 
   return (
     <div className="h-full flex flex-col">
-      <header className="border-b border-border px-4 py-2.5 flex flex-wrap items-center justify-between gap-y-1 shrink-0">
+      <header className="border-b border-border-subtle px-4 py-2.5 flex flex-wrap items-center justify-between gap-y-1 shrink-0">
         <div className="flex flex-wrap items-center gap-1">
           <h1 className="text-text text-sm font-medium mr-3">Media</h1>
           {(["all", "videos", "images", "audio"] as const).map((t) => (
@@ -71,7 +71,7 @@ export function MediaFeed() {
             <p className="text-text-dim text-[13px]">
               No {tab === "all" ? "media" : tab} found.
             </p>
-            <p className="text-text-dim text-[11px] opacity-60">
+            <p className="text-text-dim text-[11px]">
               Try switching tabs or check back later.
             </p>
           </div>

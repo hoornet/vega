@@ -86,12 +86,12 @@ export function Sidebar() {
     <aside
       ref={asideRef}
       style={c ? undefined : { width }}
-      className={`relative h-full border-r border-border bg-bg flex flex-col shrink-0 ${
+      className={`relative h-full border-r border-border-subtle bg-bg-raised flex flex-col shrink-0 ${
         dragging ? "" : "transition-all duration-150"
       } ${c ? "w-12" : ""}`}
     >
       {/* Header / logo */}
-      <div className="border-b border-border px-2 py-2.5 flex items-center justify-between shrink-0">
+      <div className="border-b border-border-subtle px-2 py-2.5 flex items-center justify-between shrink-0">
         {c ? (
           /* Collapsed: just the expand chevron, centred */
           <button
@@ -131,7 +131,7 @@ export function Sidebar() {
             className={`w-full text-left px-3 py-1.5 flex items-center gap-2 text-[12px] transition-colors mb-1 ${
               currentView === "article-editor"
                 ? "text-accent bg-accent/8"
-                : "text-text-muted hover:text-text hover:bg-bg-hover"
+                : "text-text-muted hover:text-text hover:bg-text/8"
             }`}
           >
             <span className="relative w-4 flex items-center justify-center shrink-0">
@@ -142,7 +142,7 @@ export function Sidebar() {
             </span>
             {!c && <span>Write Article</span>}
             {!c && draftCount > 0 && (
-              <span className="ml-auto text-[10px] bg-accent/20 text-accent px-1.5 py-0.5 rounded-sm">{draftCount}</span>
+              <span className="ml-auto text-[10px] bg-accent text-accent-text px-1.5 py-0.5 rounded-sm">{draftCount}</span>
             )}
           </button>
         )}
@@ -157,7 +157,7 @@ export function Sidebar() {
               className={`w-full text-left px-3 py-1.5 flex items-center gap-2 text-[12px] transition-colors ${
                 currentView === item.id
                   ? "text-accent bg-accent/10"
-                  : "text-text-muted hover:text-text hover:bg-bg-hover"
+                  : "text-text-muted hover:text-text hover:bg-text/8"
               }`}
             >
               <span className="relative w-4 flex items-center justify-center shrink-0">
@@ -168,7 +168,7 @@ export function Sidebar() {
               </span>
               {!c && <span>{item.label}</span>}
               {!c && badge > 0 && (
-                <span className="ml-auto text-[10px] bg-accent/20 text-accent px-1.5 py-0.5 rounded-sm">{badge}</span>
+                <span className="ml-auto text-[10px] bg-accent text-accent-text px-1.5 py-0.5 rounded-sm">{badge}</span>
               )}
             </button>
           );

@@ -13,7 +13,7 @@ function Avatar({ account, size = "w-6 h-6", textSize = "text-[10px]" }: { accou
       <img
         src={account.picture}
         alt={`${account.name || "Account"} avatar`}
-        className={`${size} rounded-sm object-cover shrink-0`}
+        className={`${size} rounded-full object-cover shrink-0`}
         onError={(e) => {
           (e.target as HTMLImageElement).style.display = "none";
         }}
@@ -21,7 +21,7 @@ function Avatar({ account, size = "w-6 h-6", textSize = "text-[10px]" }: { accou
     );
   }
   return (
-    <div className={`${size} rounded-sm bg-accent/20 flex items-center justify-center text-accent ${textSize} shrink-0`}>
+    <div className={`${size} rounded-full bg-accent/20 flex items-center justify-center text-accent ${textSize} shrink-0`}>
       {initial}
     </div>
   );
@@ -59,7 +59,7 @@ function RemoveAccountConfirm({ account, name, onCancel, onConfirm }: {
   };
 
   return (
-    <div role="alertdialog" aria-label={`Remove ${name} from this computer`} className="px-3 py-3 border-b border-border">
+    <div role="alertdialog" aria-label={`Remove ${name} from this computer`} className="px-3 py-3 border-b border-border-subtle">
       <p className="text-text text-[12px] font-medium mb-1.5 break-words">Remove {name} from this computer?</p>
       <p className="text-text-muted text-[11px] leading-relaxed mb-3">
         {holdsKey
@@ -71,14 +71,14 @@ function RemoveAccountConfirm({ account, name, onCancel, onConfirm }: {
       {holdsKey && (
         <button
           onClick={copyKey}
-          className="w-full mb-1.5 px-2 py-1.5 text-[11px] border border-border text-text hover:border-accent/50 transition-colors"
+          className="w-full mb-1.5 px-2 py-1.5 text-[11px] border border-border text-text hover:border-accent/50 transition-colors rounded-sm"
         >
           {copyState === "copied" ? "Copied. Paste it somewhere safe." : copyState === "failed" ? "Couldn't read the key. Copy it from Settings." : "Copy secret key first"}
         </button>
       )}
       <button
         onClick={onConfirm}
-        className="w-full mb-1.5 px-2 py-1.5 text-[11px] border border-danger/60 text-danger hover:bg-danger/10 transition-colors"
+        className="w-full mb-1.5 px-2 py-1.5 text-[11px] border border-danger/60 text-danger hover:bg-danger/10 transition-colors rounded-sm"
       >
         Remove account
       </button>
@@ -129,25 +129,25 @@ export function AccountSwitcher() {
   if (!pubkey || !current) {
     return (
       <>
-        <div className="border-t border-border px-3 py-2">
+        <div className="border-t border-border-subtle px-3 py-2">
           {accounts.length > 0 && (
             <div className="mb-1.5">
               {accounts.map((a) => (
                 <button
                   key={a.pubkey}
                   onClick={() => handleSwitch(a.pubkey)}
-                  className="w-full flex items-center gap-2 px-1 py-1 text-left hover:bg-bg-hover transition-colors"
+                  className="w-full flex items-center gap-2 px-1 py-1 text-left hover:bg-text/8 transition-colors"
                 >
                   <Avatar account={a} />
                   <span className="text-text-muted text-[11px] truncate flex-1">{displayName(a)}</span>
                 </button>
               ))}
-              <div className="border-t border-border my-1" />
+              <div className="border-t border-border-subtle my-1" />
             </div>
           )}
           <button
             onClick={() => setShowAddLogin(true)}
-            className="w-full px-2 py-1.5 text-[11px] border border-border text-text-muted hover:text-accent hover:border-accent/40 transition-colors"
+            className="w-full px-2 py-1.5 text-[11px] border border-border text-text-muted hover:text-accent hover:border-accent/40 transition-colors rounded-sm"
           >
             Login
           </button>
@@ -159,7 +159,7 @@ export function AccountSwitcher() {
 
   return (
     <>
-      <div className="border-t border-border shrink-0">
+      <div className="border-t border-border-subtle shrink-0">
         {/* Dropdown — other accounts + actions */}
         {open && confirmTarget && (
           <RemoveAccountConfirm
@@ -175,11 +175,11 @@ export function AccountSwitcher() {
           />
         )}
         {open && !confirmTarget && (
-          <div className="border-b border-border">
+          <div className="border-b border-border-subtle">
             {others.map((a) => (
               <div
                 key={a.pubkey}
-                className="flex items-center gap-2 px-3 py-2 hover:bg-bg-hover cursor-pointer group transition-colors"
+                className="flex items-center gap-2 px-3 py-2 hover:bg-text/8 cursor-pointer group transition-colors"
                 onClick={() => handleSwitch(a.pubkey)}
               >
                 <Avatar account={a} />
@@ -200,25 +200,25 @@ export function AccountSwitcher() {
 
             <button
               onClick={handleAddAccount}
-              className="w-full flex items-center gap-2 px-3 py-2 text-text-dim hover:text-accent hover:bg-bg-hover text-[11px] transition-colors"
+              className="w-full flex items-center gap-2 px-3 py-2 text-text-dim hover:text-accent hover:bg-text/8 text-[11px] transition-colors"
             >
               <span className="w-6 text-center text-[12px]">+</span>
               <span>Add account</span>
             </button>
 
-            <div className="border-t border-border mx-3 my-1" />
+            <div className="border-t border-border-subtle mx-3 my-1" />
 
             <button
               onClick={() => { setOpen(false); logout(); }}
               title="Sign out. The account stays on this computer for quick switching."
-              className="w-full flex items-baseline justify-between gap-2 px-3 py-1.5 text-left text-text-muted hover:text-text hover:bg-bg-hover text-[11px] transition-colors"
+              className="w-full flex items-baseline justify-between gap-2 px-3 py-1.5 text-left text-text-muted hover:text-text hover:bg-text/8 text-[11px] transition-colors"
             >
               <span>Sign out</span>
               <span className="text-text-dim text-[10px] truncate">keeps this account here</span>
             </button>
             <button
               onClick={(e) => askRemove(e, pubkey)}
-              className="w-full px-3 py-1.5 text-left text-text-dim hover:text-danger hover:bg-bg-hover text-[11px] transition-colors"
+              className="w-full px-3 py-1.5 text-left text-text-dim hover:text-danger hover:bg-text/8 text-[11px] transition-colors"
             >
               Remove from this computer…
             </button>

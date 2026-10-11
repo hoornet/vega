@@ -265,7 +265,7 @@ export function PodcastPlayerBar() {
         }}
       />
       {!episode ? null : (
-      <div className="shrink-0 h-14 border-t border-border bg-bg flex items-center gap-3 px-3">
+      <div className="shrink-0 h-14 border-t border-border-subtle bg-bg flex items-center gap-3 px-3">
         {/* Artwork */}
         {artwork && (
           <img

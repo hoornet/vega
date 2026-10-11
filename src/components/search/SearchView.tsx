@@ -51,13 +51,13 @@ function UserRow({ user }: { user: ParsedUser }) {
   };
 
   return (
-    <div className="flex items-center gap-3 px-4 py-2.5 border-b border-border hover:bg-bg-hover transition-colors">
+    <div className="flex items-center gap-3 px-4 py-2.5 border-b border-border-subtle hover:bg-bg-hover transition-colors">
       <button className="shrink-0 cursor-pointer" aria-label={`View profile of ${displayName}`} onClick={() => navToProfile(user.pubkey)}>
         {user.picture ? (
-          <img src={user.picture} alt={`${displayName}'s avatar`} className="w-9 h-9 rounded-sm object-cover bg-bg-raised"
+          <img src={user.picture} alt={`${displayName}'s avatar`} className="w-9 h-9 rounded-full object-cover bg-bg-raised"
             onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
         ) : (
-          <div className="w-9 h-9 rounded-sm bg-bg-raised border border-border flex items-center justify-center text-text-dim text-xs">
+          <div className="w-9 h-9 rounded-full bg-bg-raised border border-border flex items-center justify-center text-text-dim text-xs">
             {displayName.charAt(0).toUpperCase()}
           </div>
         )}
@@ -75,7 +75,7 @@ function UserRow({ user }: { user: ParsedUser }) {
             isFollowing
               ? "border-border text-text-muted hover:text-danger hover:border-danger/40"
               : "border-accent/60 text-accent hover:bg-accent hover:text-accent-text"
-          }`}
+          } rounded-sm`}
         >
           {pending ? "…" : isFollowing ? "Unfollow" : "Follow"}
         </button>
@@ -115,7 +115,7 @@ function SuggestionFollowButton({ pubkey }: { pubkey: string }) {
         isFollowing
           ? "border-border text-text-muted hover:text-danger hover:border-danger/40"
           : "border-accent/60 text-accent hover:bg-accent hover:text-accent-text"
-      }`}
+      } rounded-sm`}
     >
       {pending ? "…" : isFollowing ? "Unfollow" : "Follow"}
     </button>
@@ -278,7 +278,7 @@ export function SearchView() {
   return (
     <div className="h-full flex flex-col">
       {/* Search bar */}
-      <header className="border-b border-border px-4 py-2.5 shrink-0">
+      <header className="border-b border-border-subtle px-4 py-2.5 shrink-0">
         <div className="flex gap-2">
           <input
             ref={inputRef}
@@ -294,7 +294,7 @@ export function SearchView() {
           <button
             onClick={() => handleSearch()}
             disabled={!query.trim() || loading}
-            className="text-[11px] px-3 py-1 border border-border text-text-muted hover:text-accent hover:border-accent/40 transition-colors disabled:opacity-30 disabled:cursor-not-allowed shrink-0"
+            className="text-[11px] px-3 py-1 border border-border text-text-muted hover:text-accent hover:border-accent/40 transition-colors disabled:opacity-30 disabled:cursor-not-allowed shrink-0 rounded-sm"
           >
             {loading ? "…" : "Search"}
           </button>
@@ -303,7 +303,7 @@ export function SearchView() {
 
       {/* Tabs — shown once a search has been run */}
       {searched && (
-        <div className="border-b border-border flex shrink-0">
+        <div className="border-b border-border-subtle flex shrink-0">
           {(["notes", "articles", "people"] as const).map((tab) => {
             const count = tab === "notes" ? filteredNoteResults.length : tab === "articles" ? filteredArticleResults.length : filteredUserResults.length;
             return (
@@ -325,7 +325,7 @@ export function SearchView() {
 
       {/* Search hint bar */}
       {searchHint && searched && (
-        <div className="border-b border-border px-4 py-1.5 bg-bg-raised shrink-0">
+        <div className="border-b border-border-subtle px-4 py-1.5 bg-bg-raised shrink-0">
           <span className="text-text-dim text-[10px]">{searchHint}</span>
         </div>
       )}
@@ -350,7 +350,7 @@ export function SearchView() {
               <p className="text-text-dim text-[12px]">
                 Type a keyword, <span className="text-accent">#hashtag</span>, or use search modifiers.
               </p>
-              <p className="text-text-dim text-[11px] opacity-70">
+              <p className="text-text-dim text-[11px]">
                 Full-text search uses dedicated search relays. Hashtag and keyword results are combined.
               </p>
             </div>
@@ -378,7 +378,7 @@ export function SearchView() {
                 <span className="text-accent font-mono">A OR B</span>
                 <span className="text-text-dim">match either term</span>
               </div>
-              <p className="text-text-dim text-[10px] mt-2 opacity-60">
+              <p className="text-text-dim text-[10px] mt-2">
                 Combine freely: <span className="font-mono text-text-muted">bitcoin by:dergigi has:image since:2026-01-01</span>
               </p>
             </div>
@@ -387,7 +387,7 @@ export function SearchView() {
 
         {/* Trending hashtags */}
         {!searched && !loading && (trending.length > 0 || trendingLoading) && (
-          <div className="border-t border-border px-4 py-4">
+          <div className="border-t border-border-subtle px-4 py-4">
             <h3 className="text-text-dim text-[10px] uppercase tracking-widest mb-2">Trending now</h3>
             {trendingLoading && (
               <p className="text-text-dim text-[11px]">Loading trends…</p>
@@ -401,7 +401,7 @@ export function SearchView() {
                     setQuery(hashQuery);
                     handleSearch(hashQuery);
                   }}
-                  className="px-2.5 py-1 text-[11px] border border-border text-text-muted hover:text-accent hover:border-accent/40 transition-colors"
+                  className="px-2.5 py-1 text-[11px] border border-border text-text-muted hover:text-accent hover:border-accent/40 transition-colors rounded-sm"
                 >
                   #{t.tag} <span className="text-text-dim text-[10px]">({t.count})</span>
                 </button>
@@ -412,8 +412,8 @@ export function SearchView() {
 
         {/* Discover — follow suggestions */}
         {!searched && !loading && loggedIn && (
-          <div className="border-t border-border">
-            <div className="px-4 py-2.5 border-b border-border">
+          <div className="border-t border-border-subtle">
+            <div className="px-4 py-2.5 border-b border-border-subtle">
               <h3 className="text-text text-[12px] font-medium">Discover people</h3>
               <p className="text-text-dim text-[10px] mt-0.5">Based on who your follows follow</p>
             </div>
@@ -421,13 +421,13 @@ export function SearchView() {
               <div className="px-4 py-6 text-text-dim text-[11px] text-center">Finding suggestions…</div>
             )}
             {visibleSuggestions.map((s) => s.profile && (
-              <div key={s.pubkey} className="flex items-center gap-3 px-4 py-2.5 border-b border-border hover:bg-bg-hover transition-colors group/suggestion">
+              <div key={s.pubkey} className="flex items-center gap-3 px-4 py-2.5 border-b border-border-subtle hover:bg-bg-hover transition-colors group/suggestion">
                 <button className="shrink-0 cursor-pointer" aria-label={`View profile of ${s.profile.displayName || s.profile.name || "user"}`} onClick={() => useUIStore.getState().openProfile(s.pubkey)}>
                   {s.profile.picture ? (
-                    <img src={s.profile.picture} alt={`${s.profile.displayName || s.profile.name || "User"}'s avatar`} className="w-9 h-9 rounded-sm object-cover bg-bg-raised"
+                    <img src={s.profile.picture} alt={`${s.profile.displayName || s.profile.name || "User"}'s avatar`} className="w-9 h-9 rounded-full object-cover bg-bg-raised"
                       onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
                   ) : (
-                    <div className="w-9 h-9 rounded-sm bg-bg-raised border border-border flex items-center justify-center text-text-dim text-xs">
+                    <div className="w-9 h-9 rounded-full bg-bg-raised border border-border flex items-center justify-center text-text-dim text-xs">
                       {(s.profile.displayName || s.profile.name || "?").charAt(0).toUpperCase()}
                     </div>
                   )}
@@ -468,7 +468,7 @@ export function SearchView() {
             <p className="text-text-dim text-[12px]">
               No results for <span className="text-text font-medium">{query}</span>.
             </p>
-            <p className="text-text-dim text-[11px] opacity-70">
+            <p className="text-text-dim text-[11px]">
               Try different keywords, a #hashtag, or check your relay connections.
             </p>
           </div>

@@ -35,14 +35,14 @@ const REACTION_EMOJIS = ["❤️", "🤙", "🔥", "😂", "🫡", "👀", "⚡"
 // pills come after the fixed actions, so they never move them.
 const ICON = { size: 16, strokeWidth: 1.75 } as const;
 const ACTION =
-  "h-8 min-w-8 px-2 inline-flex items-center justify-center gap-1.5 rounded-md text-[12px] tabular-nums transition-colors " +
+  "h-8 min-w-8 px-2 inline-flex items-center justify-center gap-1.5 rounded-sm text-[12px] tabular-nums transition-colors " +
   "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60";
 const QUIET = "text-text-muted hover:bg-accent/10 hover:text-accent";
 const ACTIVE = "text-accent bg-accent/10";
-const MENU = "absolute z-20 bg-bg-raised border border-border rounded-md shadow-lg py-1";
+const MENU = "absolute z-20 bg-bg-raised border border-border rounded-lg shadow-lg py-1 overflow-hidden";
 const MENU_ITEM =
-  "w-full h-8 px-3 flex items-center gap-2 text-left text-[12px] text-text-muted hover:bg-bg-hover transition-colors " +
-  "focus-visible:outline-none focus-visible:bg-bg-hover focus-visible:text-text focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-accent/60 " +
+  "w-full h-8 px-3 flex items-center gap-2 text-left text-[12px] text-text-muted hover:bg-text/8 transition-colors " +
+  "focus-visible:outline-none focus-visible:bg-text/8 focus-visible:text-text focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-accent/60 " +
   "disabled:opacity-50 disabled:cursor-default disabled:hover:bg-transparent";
 
 type Popover = "repost" | "react" | "more";
@@ -315,7 +315,7 @@ export function NoteActions({ event, onReplyToggle, showReply, enabled = true }:
                   onClick={() => handleReact(emoji, true)}
                   disabled={myReactions.has(emoji)}
                   aria-label={`React with ${emoji}`}
-                  className="w-8 h-8 rounded-md text-[18px] leading-none hover:bg-bg-hover transition-colors focus-visible:outline-none focus-visible:bg-bg-hover focus-visible:ring-1 focus-visible:ring-accent/60 disabled:opacity-30 disabled:cursor-default"
+                  className="w-8 h-8 rounded-sm text-[18px] leading-none hover:bg-text/8 transition-colors focus-visible:outline-none focus-visible:bg-text/8 focus-visible:ring-1 focus-visible:ring-accent/60 disabled:opacity-30 disabled:cursor-default"
                 >
                   {emoji}
                 </button>
@@ -345,7 +345,7 @@ export function NoteActions({ event, onReplyToggle, showReply, enabled = true }:
             disabled={reacting || myReactions.has(emoji)}
             title={myReactions.has(emoji) ? "You reacted with this" : "React with this too"}
             aria-label={`${emoji} ${count}. ${myReactions.has(emoji) ? "You reacted with this" : "React with this too"}`}
-            className={`h-7 px-2 inline-flex items-center gap-1 rounded-md border text-[12px] tabular-nums transition-colors disabled:cursor-default ${
+            className={`h-7 px-2 inline-flex items-center gap-1 rounded-sm border text-[12px] tabular-nums transition-colors disabled:cursor-default ${
               myReactions.has(emoji)
                 ? "border-accent/40 bg-accent/10 text-accent"
                 : "border-border text-text-muted hover:border-accent/40 hover:bg-accent/5"
@@ -389,7 +389,7 @@ export function NoteActions({ event, onReplyToggle, showReply, enabled = true }:
                 </MenuItem>
                 {!isOwn && (
                   <>
-                    <div className="my-1 border-t border-border" />
+                    <div className="my-1 border-t border-border-subtle" />
                     {/* "Follow" is only offered once the follow list is known.
                         Before it loads, "not in the list" proves nothing. */}
                     {(isFollowing || followsLoaded) && (

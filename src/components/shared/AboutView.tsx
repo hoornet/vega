@@ -75,7 +75,7 @@ export function AboutView() {
           </p>
           <button
             onClick={() => setShowZap(true)}
-            className="px-4 py-2 text-[12px] font-medium bg-zap hover:bg-zap/90 text-zap-text transition-colors"
+            className="px-4 py-2 text-[12px] font-medium bg-zap hover:bg-zap/90 text-zap-text transition-colors rounded-sm"
           >
             ⚡ Zap hoornet
           </button>
@@ -138,7 +138,7 @@ export function AboutView() {
         </section>
 
         {/* Version / About */}
-        <section className="border-t border-border pt-6">
+        <section className="border-t border-border-subtle pt-6">
           <div className="text-text-dim text-[11px] space-y-1">
             <div>Vega v{pkg.version} — MIT License — Copyright (c) 2026 Jure Sršen</div>
             <div>

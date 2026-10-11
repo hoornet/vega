@@ -23,9 +23,9 @@ export function EmojiPicker({ onSelect, onClose }: EmojiPickerProps) {
   const [group, setGroup] = useState(0);
 
   return (
-    <div ref={panelRef} className="absolute bottom-7 right-0 bg-bg-raised border border-border shadow-lg z-10 w-64">
+    <div ref={panelRef} className="absolute bottom-7 right-0 bg-bg-raised border border-border shadow-lg z-10 w-64 rounded-lg">
       {/* Group tabs */}
-      <div className="flex border-b border-border">
+      <div className="flex border-b border-border-subtle">
         {EMOJI_GROUPS.map((g, i) => (
           <button
             key={g.label}

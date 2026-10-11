@@ -56,7 +56,7 @@ export function PodcastsView() {
   return (
     <div className="h-full flex flex-col">
       {/* Header */}
-      <div className="border-b border-border px-4 py-3 shrink-0">
+      <div className="border-b border-border-subtle px-4 py-3 shrink-0">
         <h1 className="text-[14px] text-text font-semibold mb-3">Podcasts</h1>
 
         {/* Search */}
@@ -67,7 +67,7 @@ export function PodcastsView() {
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && handleSearch()}
             placeholder="Search podcasts…"
-            className="flex-1 bg-bg-raised border border-border rounded-sm px-3 py-1.5 text-[12px] text-text placeholder:text-text-dim focus:outline-none focus:border-accent"
+            className="flex-1 bg-bg-raised border border-border-strong rounded-lg px-3 py-1.5 text-[12px] text-text placeholder:text-text-dim focus:outline-none focus:border-accent"
           />
           <button
             onClick={handleSearch}
@@ -102,7 +102,7 @@ export function PodcastsView() {
           subscriptions.length === 0 ? (
             <div className="text-center py-12">
               <p className="text-text-dim text-[13px] mb-2">No subscriptions yet.</p>
-              <p className="text-text-dim text-[11px] opacity-60">Search for a podcast or browse trending to subscribe.</p>
+              <p className="text-text-dim text-[11px]">Search for a podcast or browse trending to subscribe.</p>
             </div>
           ) : (
             <div className="grid grid-cols-1 gap-2">

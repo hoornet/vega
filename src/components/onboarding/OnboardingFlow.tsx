@@ -112,7 +112,7 @@ function InterestsStep({ onComplete }: { onComplete: () => void }) {
                 active
                   ? "bg-accent/10 border-accent text-accent"
                   : "border-border text-text-dim hover:border-accent/40 hover:text-text"
-              }`}
+              } rounded-sm`}
             >
               <span>{emoji}</span>
               <span>{label}</span>
@@ -123,7 +123,7 @@ function InterestsStep({ onComplete }: { onComplete: () => void }) {
 
       <button
         onClick={handleConfirm}
-        className="w-full py-2.5 text-[13px] font-medium bg-accent hover:bg-accent-hover text-accent-text transition-colors mb-2"
+        className="w-full py-2.5 text-[13px] font-medium bg-accent hover:bg-accent-hover text-accent-text transition-colors mb-2 rounded-sm"
       >
         Get started →
       </button>
@@ -155,13 +155,13 @@ function WelcomeStep({ onCreateNew, onHaveKey, onBrowse }: { onCreateNew: () => 
       <div className="space-y-3">
         <button
           onClick={onCreateNew}
-          className="w-full py-2.5 text-[13px] font-medium bg-accent hover:bg-accent-hover text-accent-text transition-colors"
+          className="w-full py-2.5 text-[13px] font-medium bg-accent hover:bg-accent-hover text-accent-text transition-colors rounded-sm"
         >
           Create a new identity
         </button>
         <button
           onClick={onHaveKey}
-          className="w-full py-2.5 text-[13px] border border-border text-text-muted hover:text-text hover:border-accent/40 transition-colors"
+          className="w-full py-2.5 text-[13px] border border-border text-text-muted hover:text-text hover:border-accent/40 transition-colors rounded-sm"
         >
           I already have a key
         </button>
@@ -202,8 +202,8 @@ function CreateStep({ onNext }: { onNext: (signer: NDKPrivateKeySigner) => void 
         your identity on Nostr — like a username, but cryptographically yours. Share it freely.
       </Body>
 
-      <div className="border border-border mb-2">
-        <div className="px-3 py-1.5 border-b border-border">
+      <div className="border border-border mb-2 rounded-lg">
+        <div className="px-3 py-1.5 border-b border-border-subtle">
           <span className="text-text-dim text-[10px] uppercase tracking-widest">Your public key (npub)</span>
         </div>
         <div className="flex items-center gap-2 px-3 py-2">
@@ -221,7 +221,7 @@ function CreateStep({ onNext }: { onNext: (signer: NDKPrivateKeySigner) => void 
 
       <button
         onClick={() => onNext(signer)}
-        className="w-full py-2.5 text-[13px] font-medium bg-accent hover:bg-accent-hover text-accent-text transition-colors"
+        className="w-full py-2.5 text-[13px] font-medium bg-accent hover:bg-accent-hover text-accent-text transition-colors rounded-sm"
       >
         Next: back up your secret key →
       </button>
@@ -273,7 +273,7 @@ function BackupStep({ signer, onComplete }: { signer: NDKPrivateKeySigner; onCom
         gone for good. Save a copy in a password manager now.
       </Body>
 
-      <div className="border border-danger/40 mb-2">
+      <div className="border border-danger/40 mb-2 rounded-lg overflow-hidden">
         <div className="px-3 py-1.5 border-b border-danger/40 bg-danger/5">
           <span className="text-danger text-[10px] uppercase tracking-widest">Secret key (nsec) — keep private</span>
         </div>
@@ -317,7 +317,7 @@ function BackupStep({ signer, onComplete }: { signer: NDKPrivateKeySigner; onCom
       <button
         onClick={handleStart}
         disabled={!confirmed || saving}
-        className="w-full py-2.5 text-[13px] font-medium bg-accent hover:bg-accent-hover text-accent-text transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+        className="w-full py-2.5 text-[13px] font-medium bg-accent hover:bg-accent-hover text-accent-text transition-colors disabled:opacity-30 disabled:cursor-not-allowed rounded-sm"
       >
         {saving ? "Setting up…" : "Start using Vega"}
       </button>
@@ -371,7 +371,7 @@ function LoginStep({ onBack, onComplete }: { onBack: () => void; onComplete: () 
     <Shell>
       <Heading>Log in with your key.</Heading>
 
-      <div role="tablist" className="flex border border-border mb-4">
+      <div role="tablist" className="flex border border-border mb-4 rounded-sm overflow-hidden">
         {(["nsec", "npub", "bunker"] as const).map((m) => (
           <button
             key={m}
@@ -399,7 +399,7 @@ function LoginStep({ onBack, onComplete }: { onBack: () => void; onComplete: () 
         placeholder={mode === "nsec" ? "nsec1…" : mode === "npub" ? "npub1…" : "bunker://…"}
         aria-label={mode === "nsec" ? "Secret key" : mode === "npub" ? "Public key" : "Bunker URI"}
         autoFocus
-        className="w-full bg-bg border border-border px-3 py-2 text-text text-[12px] font-mono focus:outline-none focus:border-accent/50 placeholder:text-text-dim mb-2"
+        className="w-full bg-bg border border-border-strong px-3 py-2 text-text text-[12px] font-mono focus:outline-none focus:border-accent placeholder:text-text-dim mb-2 rounded-lg"
         style={{ WebkitUserSelect: "text", userSelect: "text" } as React.CSSProperties}
       />
 
@@ -419,7 +419,7 @@ function LoginStep({ onBack, onComplete }: { onBack: () => void; onComplete: () 
         <button
           onClick={handleLogin}
           disabled={!value.trim() || loading}
-          className="w-full py-2.5 text-[13px] font-medium bg-accent hover:bg-accent-hover text-accent-text transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+          className="w-full py-2.5 text-[13px] font-medium bg-accent hover:bg-accent-hover text-accent-text transition-colors disabled:opacity-30 disabled:cursor-not-allowed rounded-sm"
         >
           {loading ? (mode === "bunker" ? "Connecting…" : "Logging in…") : "Log in"}
         </button>

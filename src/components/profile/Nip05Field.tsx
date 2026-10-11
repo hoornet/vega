@@ -43,7 +43,7 @@ export function Nip05Field({ value, onChange, pubkey }: { value: string; onChang
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder="you@domain.com"
-        className="w-full bg-bg border border-border px-3 py-1.5 text-text text-[12px] focus:outline-none focus:border-accent/50"
+        className="w-full bg-bg border border-border-strong px-3 py-1.5 text-text text-[12px] focus:outline-none focus:border-accent rounded-lg"
         style={{ WebkitUserSelect: "text", userSelect: "text" } as React.CSSProperties}
       />
       <p className="text-text-dim text-[10px] mt-1">

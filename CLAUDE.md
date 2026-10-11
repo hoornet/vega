@@ -215,7 +215,7 @@ Vega is shipped through channels that carry our name: the AUR, winget, GitHub re
 - **Profile media gallery** — "Media" tab on profiles with grid layout; images open lightbox, videos/audio navigate to thread
 - **Emoji picker** — shared categorized emoji picker (Frequent/Faces/Gestures/Objects/Symbols) in compose box, inline reply, thread reply; emoji reaction picker on note cards via visible + button
 - **External link opener** — global click handler intercepts http(s) links and opens in system browser via `@tauri-apps/plugin-opener`
-- **Color themes** — 7 built-in themes (Midnight, Light, Catppuccin Mocha, Sepia, Gruvbox, Nord Frost, Hackerman); CSS custom properties swapped at runtime; persisted to localStorage
+- **Color themes** — 7 built-in themes (Midnight, Light, Catppuccin Mocha, Gruvbox, Nord Frost, Hackerman, Reader); CSS custom properties swapped at runtime; persisted to localStorage. Rules every theme must meet are tested, see "Theme tokens" below
 - **Font size presets** — Small/Normal/Large/Extra Large; CSS zoom scaling on document root; persisted to localStorage
 - **Web of Trust** — Vertex DVM integration (kind 5312→6312); personalized "Followed by people you trust" on profiles with clickable follower avatars
 - **SQLite-backed notifications** — instant load on startup from local cache; relay diff merged in background; read state persists in DB across restarts
@@ -316,6 +316,29 @@ A kind 3 is replaceable: publishing one replaces the user's whole follow list, f
 - **The avatar row in a note is `items-start`.** Without it the avatar button stretches to the card's height and centres the picture: on a tall post the face sat hundreds of pixels below the name, and the whole strip opened the profile.
 - **A lone feed image keeps its fixed 4:3 frame** (the virtual list needs the height before the picture loads) and is fitted by `soloImageFit` in `src/lib/mediaFit.ts`: fill the frame when the picture is about that shape, show it whole otherwise. The frame is capped at 70% of the window height.
 - **The feed opens on the tab the user picked last** (`wrystr_feed_tab`), otherwise Following when signed in and Trending when not. Tabs the app picks as a default are passed `{ remember: false }` to `setFeedTab`, so only the user's own choice persists. An account that follows nobody is sent to Trending once, and only after the follow list actually loaded.
+
+## Theme tokens
+
+Colours are set at runtime by `applyTheme()` from `src/lib/themes.ts`. The `@theme` block in `src/index.css` only supplies the first paint and tells Tailwind which utilities exist, so a colour changed there alone does nothing once the app has started. The October 2026 UI review found the most used text colour (`text-dim`, 431 uses, mostly at 10 to 11px) at 3.0 to 3.7:1 in all eight themes, and the default theme's primary button label at 2.7:1.
+
+- **`src/lib/themes.test.ts` computes the rules from the values**, for every theme, so a new theme or a tweaked colour that breaks one fails there:
+  - text, muted, dim and accent reach 4.5:1 on all three surfaces, and the three text levels stay distinct;
+  - labels reach 4.5:1 on the fill they sit on (`accent-text` on `accent` and `accent-hover`, `zap-text` on `zap`, `danger-text` on `danger`);
+  - accent reaches 4.5:1 on its own 10% tint (`bg-accent/10 text-accent`: the active tab, nav row and chip);
+  - status colours reach 4.5:1 on all three surfaces, hover included, because a zap count or a relay's latency is read on a hovered row;
+  - a field's edge reaches 3:1 on the canvas and on raised surfaces;
+  - the surfaces stay apart, and the hover surface stays within 1.35:1 of the canvas, because it is the worst case for dim text.
+- **`text-dim` is for text people are not required to read.** It now passes AA, but it is still the quietest level. Sentences a new user must read take `text-muted` or `text`. Never stack `opacity-60` on it: ten empty-state sentences did, at 2.4 to 3.1:1.
+- **Three border roles, three strengths.** `border-border-subtle` (about 1.45:1) for dividers between rows and regions. `border-border` (about 2:1) for the outline of something you can see the edge of: cards, chips, buttons, and the rails that show thread depth. `border-border-strong` (3:1 or more) for edges that say "you can type or switch this": inputs, selects, textareas and the off state of a toggle (`bg-border-strong`). One colour used to do all three at 1.2 to 1.8:1, too strong to recede and too weak to mark a field.
+- **A focused field takes `focus:border-accent`, solid.** The old `focus:border-accent/50` was tuned against the faint border. Against `border-strong` it made a focused field's edge *lighter* than a resting one in six of seven themes, with the outline removed.
+- **Never write white, or any fixed colour, on a token fill.** Use the fill's label token. `text-white` on `bg-danger` was 2.3 to 3.2:1 in every dark theme, because their danger is light.
+- **`hover:bg-bg-hover` is the hover for things on the canvas. On a raised surface use `hover:bg-text/8`.** `bg-hover` is only 1.06 to 1.19:1 from `bg-raised`, so on the sidebar and in menus it shows almost nothing. A tint of the text colour is a step from whatever is under it. Use it on rows whose text is `text-muted` or stronger; dim text does not pass on it.
+- **Corner radii, by role.** `rounded-sm` is 6px (`--radius-sm` in `index.css`) for buttons, chips, count badges and reaction pills. `rounded-lg` (8px) for cards, fields, popovers, dialogs, toasts and media, including images and code blocks in articles. `rounded-full` for avatars, status dots and toggles. Full-width rows such as the sidebar's nav rows have none. Do not use `rounded-md`: it is also 6px, a second name for one value. A rounded container whose children are filled to its edge (a segmented control, a toast with a colour stripe, a menu) also needs `overflow-hidden`. Person avatars and their letter placeholders are always round. Podcast and album artwork is not an avatar.
+- **The sidebar sits on `bg-raised`**, the feed on `bg`. In the light themes the canvas is the tinted surface and the card is the lighter one, so "raised" still reads as raised.
+- **The first-paint colours in `index.css` must equal the default theme.** A test compares them. If they drift, the app flashes the old colours on every launch.
+- **Removing a theme needs an entry in `RETIRED_THEMES`.** A stored id that matches nothing applies no theme, and the user is moved to Midnight without a word. `resolveThemeId` follows the map to a theme that exists, and the store writes the replacement back. An id this build does not know at all is shown as the default but left in storage: it may belong to a newer build. Sepia (a dark brown theme, despite the name) was cut this way and maps to Gruvbox.
+- **Values were computed, then looked at.** A ratio says a colour is legible, not that it looks right. Check a changed token in the running app, in the theme it belongs to.
+- **Known gaps.** Translucent text (`text-accent/60`, `text-accent/80` hashtags) and status text on its own tint (`text-warning` on `bg-warning/10`) are not covered by the tests and fall below 4.5:1 in some themes. Reader's raised surface is 1.03:1 from its canvas. The podcast player bar is still `bg-bg` under the raised sidebar.
 
 ## The note action row
 
