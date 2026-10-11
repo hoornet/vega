@@ -65,7 +65,11 @@ export function NotificationsView() {
           return (
             <div
               key={event.id}
-              className={`transition-opacity ${read ? "opacity-50" : "border-l-2 border-accent/40"}`}
+              // `opacity-50` makes a read item its own stacking context, so the
+              // next item painted over a note menu that opened downward, and
+              // the menu itself was drawn at half strength. While a menu is
+              // open the item is lifted and shown at full strength.
+              className={`transition-opacity has-[[data-popover-open]]:relative has-[[data-popover-open]]:z-10 has-[[data-popover-open]]:opacity-100 ${read ? "opacity-50" : "border-l-2 border-accent/40"}`}
               onClick={() => { if (!read && event.id) markRead(event.id); }}
             >
               <NoteCard event={event} />

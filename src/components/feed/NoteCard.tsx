@@ -3,8 +3,7 @@ import { NDKEvent } from "@nostr-dev-kit/ndk";
 import { useProfile } from "../../hooks/useProfile";
 import { useNip05Verified } from "../../hooks/useNip05Verified";
 import { useInView } from "../../hooks/useInView";
-import { useUserStore, useCanSign } from "../../stores/user";
-import { useMuteStore } from "../../stores/mute";
+import { useCanSign } from "../../stores/user";
 import { useUIStore } from "../../stores/ui";
 import { timeAgo, shortenPubkey } from "../../lib/utils";
 import { fetchNoteById, ensureConnected } from "../../lib/nostr";
@@ -13,7 +12,8 @@ import { NoteContent } from "./NoteContent";
 import { NoteActions, LoggedOutStats } from "./NoteActions";
 import { InlineReplyBox } from "./InlineReplyBox";
 import { PollWidget } from "../poll/PollWidget";
-import { useEscapeToClose } from "../../hooks/useEscapeToClose";
+import { opensThread } from "../../lib/cardClick";
+import type { Point } from "../../lib/pointer";
 
 interface NoteCardProps {
   event: NDKEvent;
@@ -41,17 +41,10 @@ export const NoteCard = memo(function NoteCard({ event, focused, onReplyInThread
   const time = event.created_at ? timeAgo(event.created_at) : "";
 
   const canSign = useCanSign();
-  const ownPubkey = useUserStore((s) => s.pubkey);
-  const follows = useUserStore((s) => s.follows);
-  const follow = useUserStore((s) => s.follow);
-  const unfollow = useUserStore((s) => s.unfollow);
-  const mutedPubkeys = useMuteStore((s) => s.mutedPubkeys);
-  const mute = useMuteStore((s) => s.mute);
-  const unmute = useMuteStore((s) => s.unmute);
-  const isMuted = mutedPubkeys.includes(event.pubkey);
   const openProfile = useUIStore((s) => s.openProfile);
   const openThread = useUIStore((s) => s.openThread);
   const currentView = useUIStore((s) => s.currentView);
+  const openThreadNoteId = useUIStore((s) => (s.currentView === "thread" ? s.selectedNote?.id : undefined));
 
   const parentEventId = getParentEventId(event);
   // The immediate parent author is typically the last p tag (NIP-10 ordering mirrors e tags).
@@ -63,23 +56,24 @@ export const NoteCard = memo(function NoteCard({ event, focused, onReplyInThread
     if (focused) cardRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
   }, [focused]);
 
-  const [menuOpen, setMenuOpen] = useState(false);
-  useEscapeToClose(() => setMenuOpen(false), menuOpen);
   const [showReply, setShowReply] = useState(false);
+  const pressAt = useRef<Point | null>(null);
 
   return (
     <article
       ref={cardRef}
       data-note-id={event.id}
       className={`border-b border-border px-4 py-3 hover:bg-bg-hover transition-colors cursor-pointer group/card${focused ? " bg-accent/10 border-l-2 border-l-accent" : ""}`}
+      onMouseDown={(e) => { pressAt.current = { x: e.clientX, y: e.clientY }; }}
       onClick={(e) => {
-        // Don't navigate if clicking on interactive elements
-        const target = e.target as HTMLElement;
-        // A dialog opened from this card is portaled to <body>, but React
-        // still bubbles its clicks here. Clicking a label inside the zap
-        // dialog must not open the thread behind it.
-        if (!e.currentTarget.contains(target)) return;
-        if (target.closest("button, a, input, textarea, [data-no-navigate]")) return;
+        // Which clicks count as "open this note" is decided in cardClick.ts.
+        if (!opensThread({
+          card: e.currentTarget,
+          target: e.target,
+          press: pressAt.current,
+          release: { x: e.clientX, y: e.clientY },
+          alreadyOpen: openThreadNoteId === event.id,
+        })) return;
         openThread(event, currentView as "feed" | "profile");
       }}
     >
@@ -122,38 +116,6 @@ export const NoteCard = memo(function NoteCard({ event, focused, onReplyInThread
               </span>
             )}
             <span className="text-text-dim text-[11px] shrink-0">{time}</span>
-            {/* Context menu — hidden until card hover, not shown for own notes */}
-            {canSign && event.pubkey !== ownPubkey && (
-              <div className="relative ml-auto">
-                <button
-                  onClick={() => setMenuOpen((v) => !v)}
-                  aria-label="More actions"
-                  aria-expanded={menuOpen}
-                  className="text-text-dim hover:text-text text-[14px] px-1 leading-none opacity-0 group-hover/card:opacity-100 transition-opacity"
-                >
-                  ⋯
-                </button>
-                {menuOpen && (
-                  <>
-                    <div className="fixed inset-0 z-[9]" role="presentation" onClick={() => setMenuOpen(false)} />
-                    <div role="menu" className="absolute right-0 top-5 bg-bg-raised border border-border rounded-sm shadow-lg z-10 w-32">
-                      <button
-                        onClick={() => { setMenuOpen(false); follows.includes(event.pubkey) ? unfollow(event.pubkey) : follow(event.pubkey); }}
-                        className="w-full text-left px-3 py-2 text-[11px] text-text-muted hover:text-accent hover:bg-bg-hover transition-colors"
-                      >
-                        {follows.includes(event.pubkey) ? "Unfollow" : "Follow"}
-                      </button>
-                      <button
-                        onClick={() => { setMenuOpen(false); isMuted ? unmute(event.pubkey) : mute(event.pubkey); }}
-                        className="w-full text-left px-3 py-2 text-[11px] text-text-muted hover:text-danger hover:bg-bg-hover transition-colors"
-                      >
-                        {isMuted ? "Unmute" : "Mute"}
-                      </button>
-                    </div>
-                  </>
-                )}
-              </div>
-            )}
           </div>
 
           {parentEventId && parentAuthorPubkey && (
@@ -201,27 +163,34 @@ export const NoteCard = memo(function NoteCard({ event, focused, onReplyInThread
           {/* Poll options — kind 1068 */}
           {event.kind === 1068 && <PollWidget event={event} />}
 
-          {/* Actions */}
-          {canSign && (
-            <NoteActions
-              event={event}
-              onReplyToggle={() => {
-                if (onReplyInThread) {
-                  onReplyInThread(event);
-                } else {
-                  setShowReply((v) => !v);
-                }
-              }}
-              showReply={showReply && !onReplyInThread}
-              enabled={inView}
-            />
-          )}
+          {/* From the action row down, nothing is "the card". The area runs
+              out to the card's left, right and bottom edges (the negative
+              margins undo the avatar column and the card padding), so a click
+              that just misses a button lands here and does nothing. Before,
+              the strips beside and below the row belonged to the card: aiming
+              at Reply and missing by a few pixels opened the thread. */}
+          <div data-no-navigate className="-ml-16 pl-16 -mr-4 pr-4 -mb-3 pb-3 cursor-default">
+            {canSign ? (
+              <NoteActions
+                event={event}
+                onReplyToggle={() => {
+                  if (onReplyInThread) {
+                    onReplyInThread(event);
+                  } else {
+                    setShowReply((v) => !v);
+                  }
+                }}
+                showReply={showReply && !onReplyInThread}
+                enabled={inView}
+              />
+            ) : (
+              // Stats visible in read-only mode (logged out or npub-only)
+              <LoggedOutStats event={event} enabled={inView} />
+            )}
 
-          {/* Stats visible in read-only mode (logged out or npub-only) */}
-          {!canSign && <LoggedOutStats event={event} enabled={inView} />}
-
-          {/* Inline reply box */}
-          {showReply && <InlineReplyBox event={event} name={name} />}
+            {/* Inline reply box */}
+            {showReply && <InlineReplyBox event={event} name={name} />}
+          </div>
         </div>
       </div>
     </article>
