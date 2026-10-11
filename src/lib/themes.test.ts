@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { contrast, over } from "./contrast";
 import { DEFAULT_THEME_ID, RETIRED_THEMES, getTheme, resolveThemeId, themes } from "./themes";
+import { SECONDARY_TINT } from "../components/shared/Button";
 
 // The October 2026 UI review found the most used text colour (`text-dim`, 431
 // uses, mostly 10 to 11px) at 3.0 to 3.7:1 in every theme, and the default
@@ -51,6 +52,47 @@ describe.each(themes.map((t) => [t.id, t.colors] as const))("theme %s", (_id, c)
     expect(contrast(c["zap-text"], c.zap), "label on zap").toBeGreaterThanOrEqual(AA);
     // Most dark themes have a light danger colour, so white on it fails.
     expect(contrast(c["danger-text"], c.danger), "label on danger").toBeGreaterThanOrEqual(AA);
+    expect(contrast(c["zap-text"], c["zap-hover"]), "label on zap-hover").toBeGreaterThanOrEqual(AA);
+    expect(contrast(c["danger-text"], c["danger-hover"]), "label on danger-hover").toBeGreaterThanOrEqual(AA);
+  });
+
+  // A hover that cannot be seen is not feedback.
+  it("makes the hover of a solid fill a visible step from the fill", () => {
+    for (const fill of ["accent", "zap", "danger"] as const) {
+      expect(contrast(c[fill], c[`${fill}-hover`]), `${fill} to ${fill}-hover`).toBeGreaterThanOrEqual(1.1);
+    }
+  });
+
+  // The shared Button's quiet fills are tints of the text colour, so that one
+  // button works on the canvas, in the sidebar and in a dialog. The tints come
+  // from the component, so changing one there is checked here.
+  const rest = SECONDARY_TINT.rest / 100;
+  const hovered = SECONDARY_TINT.hover / 100;
+
+  it("keeps a secondary button's label readable on its fill, at rest and hovered", () => {
+    for (const surface of ["bg", "bg-raised", "bg-hover"] as const) {
+      expect(contrast(c.text, over(c.text, rest, c[surface])), `text on the secondary fill over ${surface}`).toBeGreaterThanOrEqual(AA);
+      expect(contrast(c.text, over(c.text, hovered, c[surface])), `text on the hovered secondary fill over ${surface}`).toBeGreaterThanOrEqual(AA);
+    }
+  });
+
+  it("keeps a secondary button's fill a step from the surface under it, and its hover a step from that", () => {
+    for (const surface of ["bg", "bg-raised", "bg-hover"] as const) {
+      const fill = over(c.text, rest, c[surface]);
+      expect(contrast(fill, c[surface]), `secondary fill over ${surface}`).toBeGreaterThanOrEqual(1.1);
+      expect(contrast(over(c.text, hovered, c[surface]), fill), `hovered secondary fill over ${surface}`).toBeGreaterThanOrEqual(1.05);
+    }
+  });
+
+  // An icon in a status colour on a secondary button (the bolt on Zap) is a
+  // graphic, held to 3:1. Text in a status colour is not held to 4.5:1 there,
+  // which is why Button has no coloured secondary.
+  it("keeps a status-coloured icon visible on a secondary button", () => {
+    for (const surface of ["bg", "bg-raised", "bg-hover"] as const) {
+      for (const status of ["zap", "danger"] as const) {
+        expect(contrast(c[status], over(c.text, hovered, c[surface])), `${status} icon on the hovered secondary fill over ${surface}`).toBeGreaterThanOrEqual(3);
+      }
+    }
   });
 
   // `bg-accent/10 text-accent` marks the active tab, the active nav row and

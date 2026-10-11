@@ -2,6 +2,8 @@ import { useState } from "react";
 import { useLightningStore } from "../../stores/lightning";
 import { useUserStore } from "../../stores/user";
 import { isValidNwcUri, parseNwcUri } from "../../lib/lightning/nwc";
+import { Button, buttonClass } from "./Button";
+import { ArrowRight, ExternalLink } from "lucide-react";
 
 // ── Wallet catalogue ─────────────────────────────────────────────────────────
 
@@ -98,12 +100,7 @@ function ConnectedState({ nwcUri, onDisconnect }: { nwcUri: string; onDisconnect
           <span className="text-text text-body">{wallet.name} connected</span>
           {relay && <span className="text-text-dim text-caption ml-2">via {relay}</span>}
         </div>
-        <button
-          onClick={onDisconnect}
-          className="text-caption text-text-dim hover:text-danger transition-colors shrink-0"
-        >
-          Disconnect
-        </button>
+        <Button variant="ghost" tone="danger" size="sm" onClick={onDisconnect}>Disconnect</Button>
       </div>
       <p className="text-text-dim text-caption px-1">
         Your NWC connection is active. You can zap notes and profiles.
@@ -125,18 +122,13 @@ function WalletCard({ wallet, onSelect }: { wallet: WalletDef; onSelect: () => v
             href={wallet.setupUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="text-caption px-2 py-1 border border-border text-text-dim hover:text-accent hover:border-accent/40 transition-colors rounded-sm"
+            className={buttonClass({ variant: "ghost", size: "sm" })}
             onClick={(e) => e.stopPropagation()}
           >
-            open ↗
+            Open<ExternalLink />
           </a>
         )}
-        <button
-          onClick={onSelect}
-          className="text-caption px-2 py-1 border border-accent/60 text-accent hover:bg-accent hover:text-accent-text transition-colors rounded-sm"
-        >
-          connect →
-        </button>
+        <Button size="sm" onClick={onSelect}>Connect<ArrowRight /></Button>
       </div>
     </div>
   );
@@ -228,13 +220,7 @@ function PasteStep({
       )}
       {error && <p className="text-danger text-caption mb-2">{error}</p>}
 
-      <button
-        onClick={handleConnect}
-        disabled={!valid}
-        className="px-4 py-1.5 text-ui border border-border text-text-muted hover:text-accent hover:border-accent/40 transition-colors disabled:opacity-30 disabled:cursor-not-allowed rounded-sm"
-      >
-        Connect wallet
-      </button>
+      <Button variant="primary" onClick={handleConnect} disabled={!valid}>Connect wallet</Button>
     </div>
   );
 }

@@ -13,6 +13,8 @@ import { readFile } from "@tauri-apps/plugin-fs";
 import { uploadBytes, uploadImage } from "../../lib/upload";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { ViewHeader } from "../shared/ViewHeader";
+import { Button } from "../shared/Button";
+import { ArrowLeft, Check, Upload } from "lucide-react";
 
 /** Extract image URLs from markdown ![alt](url) patterns */
 function extractImages(md: string): { alt: string; url: string }[] {
@@ -296,11 +298,10 @@ export function ArticleEditor() {
   return (
     <div className="h-full flex flex-col">
       {/* Header */}
-      <header className="border-b border-border-subtle px-4 py-2.5 flex items-center justify-between shrink-0">
-        <div className="flex items-center gap-3">
-          <button onClick={() => setActiveDraft(null)} className="text-text-dim hover:text-text text-ui transition-colors">
-            ← Drafts
-          </button>
+      {/* Wraps: at Extra Large text in a small window the right-hand group ran off the edge. */}
+      <header className="border-b border-border-subtle px-4 py-2.5 flex flex-wrap items-center justify-between gap-x-3 gap-y-2 shrink-0">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+          <Button variant="ghost" className="-ml-3" onClick={() => setActiveDraft(null)}><ArrowLeft />Drafts</Button>
           <span className="text-text-dim text-caption">{wordCount > 0 ? `${wordCount} words` : "New article"}</span>
           {activeDraft && !published && lastSaved && (
             <span className="text-text-dim text-caption">
@@ -318,7 +319,7 @@ export function ArticleEditor() {
           )}
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center justify-end gap-2 ml-auto">
           {/* Write / Preview toggle */}
           <div className="flex border border-border text-ui rounded-sm overflow-hidden">
             <button
@@ -335,36 +336,16 @@ export function ArticleEditor() {
             </button>
           </div>
 
-          <button
-            onClick={toggleZen}
-            className="px-3 py-1 text-ui border border-border text-text-muted hover:text-text transition-colors rounded-sm"
-            title="Focus mode (F11)"
-          >
-            Zen
-          </button>
+          <Button variant="ghost" onClick={toggleZen} title="Focus mode (F11)">Zen</Button>
 
-          <button
-            onClick={() => setShowMeta((v) => !v)}
-            className={`px-3 py-1 text-ui border border-border transition-colors ${showMeta ? "text-accent border-accent/40" : "text-text-muted hover:text-text"} rounded-sm`}
-          >
-            Meta
-          </button>
+          <Button variant="ghost" pressed={showMeta} onClick={() => setShowMeta((v) => !v)}>Meta</Button>
 
           {canSign ? (
-            <button
-              onClick={handlePublish}
-              disabled={!canPublish || publishing || published}
-              className="px-4 py-1 text-ui bg-accent hover:bg-accent-hover text-accent-text transition-colors disabled:opacity-30 disabled:cursor-not-allowed rounded-sm"
-            >
-              {published ? "Published ✓" : publishing ? "Publishing…" : "Publish"}
-            </button>
+            <Button variant="primary" onClick={handlePublish} disabled={!canPublish || published} busy={publishing}>
+              {published && <Check />}{published ? "Published" : publishing ? "Publishing…" : "Publish"}
+            </Button>
           ) : (
-            <button
-              onClick={() => setShowLoginModal(true)}
-              className="px-4 py-1 text-ui border border-accent/60 text-accent hover:bg-accent hover:text-accent-text transition-colors rounded-sm"
-            >
-              Sign in to publish
-            </button>
+            <Button variant="primary" onClick={() => setShowLoginModal(true)}>Sign in to publish</Button>
           )}
         </div>
       </header>
@@ -392,14 +373,7 @@ export function ArticleEditor() {
                   placeholder="https://…"
                   className="flex-1 bg-bg border border-border-strong px-2 py-1.5 text-text text-ui focus:outline-none focus:border-accent rounded-lg"
                 />
-                <button
-                  onClick={handleCoverImagePick}
-                  disabled={uploading}
-                  title="Upload cover image"
-                  className="px-2 py-1.5 text-ui border border-border text-text-muted hover:text-text hover:bg-bg-hover transition-colors disabled:opacity-30 rounded-sm"
-                >
-                  {uploading ? "…" : "↑"}
-                </button>
+                <Button onClick={handleCoverImagePick} busy={uploading} title="Upload cover image" aria-label="Upload cover image"><Upload /></Button>
               </div>
             </div>
             <div>
@@ -538,12 +512,7 @@ function DraftListView({ onNewDraft }: { onNewDraft: () => void }) {
         title="Write Article"
         meta={`${drafts.length} ${drafts.length === 1 ? "draft" : "drafts"}`}
         actions={
-          <button
-            onClick={onNewDraft}
-            className="px-3 py-1 text-ui bg-accent hover:bg-accent-hover text-accent-text transition-colors rounded-sm"
-          >
-            New draft
-          </button>
+          <Button variant="primary" onClick={onNewDraft}>New draft</Button>
         }
       />
 

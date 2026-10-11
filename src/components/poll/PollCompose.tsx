@@ -1,3 +1,6 @@
+import { Button } from "../shared/Button";
+import { Plus } from "lucide-react";
+
 interface PollComposeProps {
   options: string[];
   onChange: (options: string[]) => void;
@@ -48,12 +51,7 @@ export function PollCompose({ options, onChange }: PollComposeProps) {
         </div>
       ))}
       {options.length < MAX_OPTIONS && (
-        <button
-          onClick={addOption}
-          className="text-accent hover:text-accent-hover text-ui transition-colors"
-        >
-          + Add option
-        </button>
+        <Button variant="ghost" size="sm" className="-ml-2" onClick={addOption}><Plus />Add option</Button>
       )}
     </div>
   );

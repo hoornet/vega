@@ -1,5 +1,6 @@
 import { useState, useRef } from "react";
 import { uploadImage } from "../../lib/upload";
+import { Button } from "../shared/Button";
 
 export function ImageField({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
   const [uploading, setUploading] = useState(false);
@@ -38,15 +39,9 @@ export function ImageField({ label, value, onChange }: { label: string; value: s
           className="flex-1 bg-bg border border-border-strong px-3 py-1.5 text-text text-ui focus:outline-none focus:border-accent rounded-lg"
           style={{ WebkitUserSelect: "text", userSelect: "text" } as React.CSSProperties}
         />
-        <button
-          type="button"
-          onClick={() => fileRef.current?.click()}
-          disabled={uploading}
-          className="px-2 py-1.5 text-caption border border-border text-text-dim hover:text-accent hover:border-accent/40 transition-colors disabled:opacity-40 disabled:cursor-not-allowed shrink-0 rounded-sm"
-          title="Upload from your computer"
-        >
+        <Button onClick={() => fileRef.current?.click()} busy={uploading} title="Upload from your computer">
           {uploading ? "Uploading…" : "Upload"}
-        </button>
+        </Button>
       </div>
       {uploadError && <p className="text-danger text-caption mt-1">{uploadError}</p>}
       <input ref={fileRef} type="file" accept="image/*" onChange={handleFile} className="hidden" />

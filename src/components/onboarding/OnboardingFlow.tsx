@@ -3,6 +3,8 @@ import { NDKPrivateKeySigner } from "@nostr-dev-kit/ndk";
 import { useUserStore } from "../../stores/user";
 import { useUIStore } from "../../stores/ui";
 import { setBrowseOnly } from "../../lib/browseOnly";
+import { Button } from "../shared/Button";
+import { ArrowLeft, ArrowRight } from "lucide-react";
 
 type Step = "welcome" | "create" | "backup" | "interests" | "login";
 
@@ -121,18 +123,8 @@ function InterestsStep({ onComplete }: { onComplete: () => void }) {
         })}
       </div>
 
-      <button
-        onClick={handleConfirm}
-        className="w-full py-2.5 text-ui font-medium bg-accent hover:bg-accent-hover text-accent-text transition-colors mb-2 rounded-sm"
-      >
-        Get started →
-      </button>
-      <button
-        onClick={handleConfirm}
-        className="w-full py-2 text-ui text-text-dim hover:text-text transition-colors"
-      >
-        Skip for now
-      </button>
+      <Button variant="primary" size="lg" className="w-full mb-2" onClick={handleConfirm}>Get started<ArrowRight /></Button>
+      <Button variant="ghost" size="lg" className="w-full" onClick={handleConfirm}>Skip for now</Button>
     </Shell>
   );
 }
@@ -153,26 +145,11 @@ function WelcomeStep({ onCreateNew, onHaveKey, onBrowse }: { onCreateNew: () => 
         combined into one — except you control it completely.
       </Body>
       <div className="space-y-3">
-        <button
-          onClick={onCreateNew}
-          className="w-full py-2.5 text-ui font-medium bg-accent hover:bg-accent-hover text-accent-text transition-colors rounded-sm"
-        >
-          Create a new identity
-        </button>
-        <button
-          onClick={onHaveKey}
-          className="w-full py-2.5 text-ui border border-border text-text-muted hover:text-text hover:border-accent/40 transition-colors rounded-sm"
-        >
-          I already have a key
-        </button>
+        <Button variant="primary" size="lg" className="w-full" onClick={onCreateNew}>Create a new identity</Button>
+        <Button size="lg" className="w-full" onClick={onHaveKey}>I already have a key</Button>
         {/* Deliberately quieter than the two above: creating or restoring an
             identity stays the main path, this is the escape hatch. */}
-        <button
-          onClick={onBrowse}
-          className="w-full py-1.5 text-ui text-text-dim hover:text-text-muted transition-colors"
-        >
-          Look around first
-        </button>
+        <Button variant="ghost" size="lg" className="w-full" onClick={onBrowse}>Look around first</Button>
       </div>
       <p className="text-text-dim text-caption mt-2 text-center">
         You can read Nostr without an identity. You'll need one to post, reply, or follow.
@@ -219,12 +196,7 @@ function CreateStep({ onNext }: { onNext: (signer: NDKPrivateKeySigner) => void 
       </div>
       <p className="text-text-dim text-caption mb-6">Safe to share with anyone. This is how people find you on Nostr.</p>
 
-      <button
-        onClick={() => onNext(signer)}
-        className="w-full py-2.5 text-ui font-medium bg-accent hover:bg-accent-hover text-accent-text transition-colors rounded-sm"
-      >
-        Next: back up your secret key →
-      </button>
+      <Button variant="primary" size="lg" className="w-full" onClick={() => onNext(signer)}>Next: back up your secret key<ArrowRight /></Button>
     </Shell>
   );
 }
@@ -314,20 +286,10 @@ function BackupStep({ signer, onComplete }: { signer: NDKPrivateKeySigner; onCom
 
       {loginError && <p className="text-danger text-caption mb-3">{loginError}</p>}
 
-      <button
-        onClick={handleStart}
-        disabled={!confirmed || saving}
-        className="w-full py-2.5 text-ui font-medium bg-accent hover:bg-accent-hover text-accent-text transition-colors disabled:opacity-30 disabled:cursor-not-allowed rounded-sm"
-      >
+      <Button variant="primary" size="lg" className="w-full" onClick={handleStart} disabled={!confirmed} busy={saving}>
         {saving ? "Setting up…" : "Start using Vega"}
-      </button>
-      <button
-        onClick={handleSkipBackup}
-        disabled={saving}
-        className="w-full py-2 text-ui text-text-dim hover:text-text transition-colors mt-1 disabled:opacity-30"
-      >
-        I'll back up my key later
-      </button>
+      </Button>
+      <Button variant="ghost" size="lg" className="w-full mt-1" onClick={handleSkipBackup} busy={saving}>I'll back up my key later</Button>
       <p className="text-text-muted text-caption text-center mt-1">
         You can also copy it later from Settings → Identity, on this computer only.
       </p>
@@ -416,19 +378,10 @@ function LoginStep({ onBack, onComplete }: { onBack: () => void; onComplete: () 
       {loginError && <p className="text-danger text-caption mb-3">{loginError}</p>}
 
       <div className="space-y-2">
-        <button
-          onClick={handleLogin}
-          disabled={!value.trim() || loading}
-          className="w-full py-2.5 text-ui font-medium bg-accent hover:bg-accent-hover text-accent-text transition-colors disabled:opacity-30 disabled:cursor-not-allowed rounded-sm"
-        >
+        <Button variant="primary" size="lg" className="w-full" onClick={handleLogin} disabled={!value.trim()} busy={loading}>
           {loading ? (mode === "bunker" ? "Connecting…" : "Logging in…") : "Log in"}
-        </button>
-        <button
-          onClick={onBack}
-          className="w-full py-2 text-ui text-text-dim hover:text-text transition-colors"
-        >
-          ← Back
-        </button>
+        </Button>
+        <Button variant="ghost" size="lg" className="w-full" onClick={onBack}><ArrowLeft />Back</Button>
       </div>
     </Shell>
   );

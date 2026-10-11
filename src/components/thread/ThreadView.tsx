@@ -14,6 +14,8 @@ import { ThreadNodeComponent } from "./ThreadNode";
 import { NoteCard } from "../feed/NoteCard";
 import { EmojiPicker } from "../shared/EmojiPicker";
 import { ViewHeader } from "../shared/ViewHeader";
+import { Button } from "../shared/Button";
+import { Check } from "lucide-react";
 
 export function ThreadView() {
   const { selectedNote, goBack } = useUIStore();
@@ -176,12 +178,7 @@ export function ThreadView() {
         {loadError && !loading && (
           <div className="px-4 py-2 bg-danger/10 border-b border-danger/20 flex items-center justify-between">
             <span className="text-danger text-caption">{loadError}</span>
-            <button
-              onClick={() => setRetryCount((c) => c + 1)}
-              className="text-ui text-accent hover:text-accent-hover transition-colors px-2 py-0.5 border border-accent/30 hover:border-accent rounded-sm"
-            >
-              Retry
-            </button>
+            <Button size="sm" onClick={() => setRetryCount((c) => c + 1)}>Retry</Button>
           </div>
         )}
 
@@ -251,13 +248,9 @@ export function ThreadView() {
                     )}
                   </div>
                   <span className="text-text-dim text-caption">Ctrl+Enter</span>
-                  <button
-                    onClick={handleRootReply}
-                    disabled={!replyText.trim() || replying}
-                    className="px-3 py-1 text-ui bg-accent hover:bg-accent-hover text-accent-text rounded-sm transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-                  >
-                    {replySent ? "Replied ✓" : replying ? "Posting…" : "Reply"}
-                  </button>
+                  <Button variant="primary" onClick={handleRootReply} disabled={!replyText.trim() && !replying} busy={replying}>
+                    {replySent && <Check />}{replySent ? "Replied" : replying ? "Posting…" : "Reply"}
+                  </Button>
                 </div>
               </div>
             )}
@@ -288,12 +281,7 @@ export function ThreadView() {
         {!loading && !tree && (
           <div className="px-4 py-6 text-center space-y-2">
             <p className="text-text-dim text-body">Could not load thread.</p>
-            <button
-              onClick={() => setRetryCount((c) => c + 1)}
-              className="text-ui text-accent hover:text-accent-hover transition-colors px-3 py-1 border border-accent/30 hover:border-accent rounded-sm"
-            >
-              Retry
-            </button>
+            <Button onClick={() => setRetryCount((c) => c + 1)}>Retry</Button>
           </div>
         )}
       </div>

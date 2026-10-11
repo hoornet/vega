@@ -7,6 +7,8 @@ import { useProfile } from "../../hooks/useProfile";
 import { shortenPubkey, profileName } from "../../lib/utils";
 import { EmojiPicker } from "../shared/EmojiPicker";
 import { useAutoResize } from "../../hooks/useAutoResize";
+import { Button } from "../shared/Button";
+import { Check } from "lucide-react";
 
 interface ThreadNodeProps {
   node: ThreadNodeType;
@@ -95,13 +97,9 @@ function InlineThreadReply({ replyTo, rootEvent, onPublished }: {
             />
           )}
         </div>
-        <button
-          onClick={handleSubmit}
-          disabled={!text.trim() || replying}
-          className="px-3 py-1 text-ui bg-accent hover:bg-accent-hover text-accent-text rounded-sm transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-        >
-          {sent ? "Replied ✓" : replying ? "Posting…" : "Reply"}
-        </button>
+        <Button variant="primary" onClick={handleSubmit} disabled={!text.trim() && !replying} busy={replying}>
+          {sent && <Check />}{sent ? "Replied" : replying ? "Posting…" : "Reply"}
+        </Button>
       </div>
     </div>
   );

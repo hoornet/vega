@@ -5,6 +5,7 @@ import { useCanSign } from "../../stores/user";
 import { useAutoResize } from "../../hooks/useAutoResize";
 import { LoginModal } from "../shared/LoginModal";
 import { BodyPortal } from "../shared/BodyPortal";
+import { Button } from "../shared/Button";
 
 interface QuoteModalProps {
   event: NDKEvent;
@@ -105,20 +106,11 @@ export function QuoteModal({ event, authorName, authorAvatar, onClose, onPublish
           <div className="flex items-center justify-between mt-3">
             <span className="text-text-dim text-caption">{canSign ? "Ctrl+Enter to post" : ""}</span>
             {canSign ? (
-              <button
-                onClick={handlePublish}
-                disabled={!canPublish}
-                className="px-4 py-1.5 text-ui bg-accent hover:bg-accent-hover text-accent-text transition-colors disabled:opacity-30 disabled:cursor-not-allowed rounded-sm"
-              >
+              <Button variant="primary" onClick={handlePublish} disabled={!canPublish && !publishing} busy={publishing}>
                 {publishing ? "Posting…" : "Quote & post"}
-              </button>
+              </Button>
             ) : (
-              <button
-                onClick={() => setShowLogin(true)}
-                className="px-4 py-1.5 text-ui border border-accent/60 text-accent hover:bg-accent hover:text-accent-text transition-colors rounded-sm"
-              >
-                Sign in to post
-              </button>
+              <Button variant="primary" onClick={() => setShowLogin(true)}>Sign in to post</Button>
             )}
           </div>
         </div>

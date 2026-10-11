@@ -11,6 +11,7 @@ import { shouldShowArticle, type AuthorProfile, type ProfileLookup } from "../..
 import { ArticleCard } from "./ArticleCard";
 import { ViewHeader } from "../shared/ViewHeader";
 import { Tabs, tabPanelProps } from "../shared/Tabs";
+import { Button } from "../shared/Button";
 
 type ArticleTab = "latest" | "following";
 
@@ -195,12 +196,7 @@ export function ArticleFeed() {
       <ViewHeader
         title="Articles"
         actions={canSign ? (
-          <button
-              onClick={() => setView("article-editor")}
-              className="text-ui px-3 py-1 border border-accent/60 text-accent hover:bg-accent hover:text-accent-text transition-colors rounded-sm"
-            >
-              Write article
-            </button>
+          <Button onClick={() => setView("article-editor")}>Write article</Button>
         ) : undefined}
       />
       <Tabs

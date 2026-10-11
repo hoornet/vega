@@ -5,6 +5,8 @@ import { useCanSign } from "../../stores/user";
 import { LoginModal } from "../shared/LoginModal";
 import { useEscapeToClose } from "../../hooks/useEscapeToClose";
 import { BodyPortal } from "../shared/BodyPortal";
+import { Button } from "../shared/Button";
+import { ArrowRight, Zap } from "lucide-react";
 
 const AMOUNT_PRESETS = [21, 100, 500, 1000, 5000];
 
@@ -74,12 +76,7 @@ export function ZapModal({ target, recipientName, onClose }: ZapModalProps) {
             <p className="text-text-dim text-body mb-3">
               Sign in with a private key or remote signer to send zaps.
             </p>
-            <button
-              onClick={() => setShowLogin(true)}
-              className="px-4 py-1.5 text-ui border border-accent/60 text-accent hover:bg-accent hover:text-accent-text transition-colors rounded-sm"
-            >
-              Sign in
-            </button>
+            <Button variant="primary" onClick={() => setShowLogin(true)}>Sign in</Button>
           </div>
         )}
 
@@ -89,12 +86,7 @@ export function ZapModal({ target, recipientName, onClose }: ZapModalProps) {
             <p className="text-text-dim text-body mb-3">
               Connect a Lightning wallet using a Nostr Wallet Connect (NWC) URI to send zaps.
             </p>
-            <button
-              onClick={() => { onClose(); setView("settings"); }}
-              className="px-4 py-1.5 text-ui border border-accent/60 text-accent hover:bg-accent hover:text-accent-text transition-colors rounded-sm"
-            >
-              Go to settings →
-            </button>
+            <Button variant="primary" onClick={() => { onClose(); setView("settings"); }}>Go to settings<ArrowRight /></Button>
           </div>
         )}
 
@@ -143,13 +135,9 @@ export function ZapModal({ target, recipientName, onClose }: ZapModalProps) {
             </div>
 
             {/* Zap button */}
-            <button
-              onClick={handleZap}
-              disabled={effectiveAmount <= 0}
-              className="w-full py-2 text-ui font-medium bg-zap hover:bg-zap/90 text-zap-text transition-colors disabled:opacity-30 disabled:cursor-not-allowed rounded-sm"
-            >
-              ⚡ Zap {effectiveAmount > 0 ? `${effectiveAmount} sats` : ""}
-            </button>
+            <Button variant="primary" tone="zap" size="lg" className="w-full" onClick={handleZap} disabled={effectiveAmount <= 0}>
+              <Zap />Zap {effectiveAmount > 0 ? `${effectiveAmount} sats` : ""}
+            </Button>
           </div>
         )}
 
@@ -174,12 +162,7 @@ export function ZapModal({ target, recipientName, onClose }: ZapModalProps) {
         {state === "error" && (
           <div className="px-4 py-5 space-y-3">
             <p className="text-danger text-body">{errorMsg}</p>
-            <button
-              onClick={() => setState("idle")}
-              className="w-full py-1.5 text-ui border border-border text-text-muted hover:text-text transition-colors rounded-sm"
-            >
-              Try again
-            </button>
+            <Button className="w-full" onClick={() => setState("idle")}>Try again</Button>
           </div>
         )}
       </div>

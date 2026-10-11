@@ -3,6 +3,8 @@ import QRCodeImport from "react-qr-code";
 import { ZapModal } from "../zap/ZapModal";
 import pkg from "../../../package.json";
 import { ViewHeader } from "./ViewHeader";
+import { Button } from "./Button";
+import { Zap } from "lucide-react";
 
 // react-qr-code ships CommonJS. Under the app's bundler (Vite 8 / Rolldown) the
 // default import can resolve to the module namespace object ({ QRCode, default })
@@ -75,12 +77,7 @@ export function AboutView() {
           <p className="text-text-muted text-body mb-3">
             Send sats directly from Vega using your connected Lightning wallet.
           </p>
-          <button
-            onClick={() => setShowZap(true)}
-            className="px-4 py-2 text-ui font-medium bg-zap hover:bg-zap/90 text-zap-text transition-colors rounded-sm"
-          >
-            ⚡ Zap hoornet
-          </button>
+          <Button variant="primary" tone="zap" size="lg" onClick={() => setShowZap(true)}><Zap />Zap hoornet</Button>
           <p className="text-text-dim text-micro mt-2 font-mono break-all">{DEV_NPUB}</p>
         </section>
 

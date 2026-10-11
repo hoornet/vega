@@ -1,13 +1,5 @@
 import { describe, it, expect } from "vitest";
-import {
-  contactPubkeys,
-  newerContactList,
-  nextContactTags,
-  parseStoredContactList,
-  summarizeContactAnswers,
-  type ContactListSnapshot,
-  type RelayContactAnswer,
-} from "./contacts";
+import { contactPubkeys, newerContactList, nextContactTags, parseStoredContactList, summarizeContactAnswers, type ContactListSnapshot, type RelayContactAnswer, keepUnfollowedRows } from "./contacts";
 
 const A = "a".repeat(64);
 const B = "b".repeat(64);
@@ -137,3 +129,29 @@ describe("parseStoredContactList", () => {
   });
 });
 
+describe("keepUnfollowedRows", () => {
+  // The bug: unfollow the first row, the second slides under the pointer, and
+  // a second press unfollows that person too.
+  it("keeps the row of someone just unfollowed, in place", () => {
+    expect(keepUnfollowedRows(["alice", "bob", "carol"], ["bob", "carol"])).toEqual(["alice", "bob", "carol"]);
+  });
+
+  it("adds someone newly followed at the end", () => {
+    expect(keepUnfollowedRows(["alice", "bob"], ["alice", "bob", "dave"])).toEqual(["alice", "bob", "dave"]);
+  });
+
+  it("does both at once, and never shows anyone twice", () => {
+    expect(keepUnfollowedRows(["alice", "bob"], ["bob", "dave", "bob"].filter((p, i, a) => a.indexOf(p) === i))).toEqual(["alice", "bob", "dave"]);
+    expect(keepUnfollowedRows(["alice"], ["alice"])).toEqual(["alice"]);
+  });
+
+  it("starts from the list itself", () => {
+    expect(keepUnfollowedRows([], ["alice", "bob"])).toEqual(["alice", "bob"]);
+  });
+
+  // React skips a re-render when a state setter returns the value it was given.
+  it("returns the same array when nothing was added", () => {
+    const shown = ["alice", "bob"];
+    expect(keepUnfollowedRows(shown, ["bob"])).toBe(shown);
+  });
+});

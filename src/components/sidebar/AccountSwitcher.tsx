@@ -5,6 +5,7 @@ import { useUIStore } from "../../stores/ui";
 import { LoginModal } from "../shared/LoginModal";
 import { shortenPubkey } from "../../lib/utils";
 import { useEscapeToClose } from "../../hooks/useEscapeToClose";
+import { Button } from "../shared/Button";
 
 function Avatar({ account, size = "w-6 h-6", textSize = "text-[10px]" }: { account: SavedAccount; size?: string; textSize?: string }) {
   const initial = (account.name || account.npub || "?").charAt(0).toUpperCase();
@@ -69,26 +70,12 @@ function RemoveAccountConfirm({ account, name, onCancel, onConfirm }: {
             : "This account is read-only here. You can add it again any time."}
       </p>
       {holdsKey && (
-        <button
-          onClick={copyKey}
-          className="w-full mb-1.5 px-2 py-1.5 text-ui border border-border text-text hover:border-accent/50 transition-colors rounded-sm"
-        >
+        <Button wrap className="w-full mb-1.5" onClick={copyKey}>
           {copyState === "copied" ? "Copied. Paste it somewhere safe." : copyState === "failed" ? "Couldn't read the key. Copy it from Settings." : "Copy secret key first"}
-        </button>
+        </Button>
       )}
-      <button
-        onClick={onConfirm}
-        className="w-full mb-1.5 px-2 py-1.5 text-ui border border-danger/60 text-danger hover:bg-danger/10 transition-colors rounded-sm"
-      >
-        Remove account
-      </button>
-      <button
-        autoFocus
-        onClick={onCancel}
-        className="w-full px-2 py-1.5 text-ui text-text-muted hover:text-text transition-colors"
-      >
-        Cancel
-      </button>
+      <Button variant="primary" tone="danger" className="w-full mb-1.5" onClick={onConfirm}>Remove account</Button>
+      <Button variant="ghost" autoFocus className="w-full" onClick={onCancel}>Cancel</Button>
     </div>
   );
 }
@@ -145,12 +132,7 @@ export function AccountSwitcher() {
               <div className="border-t border-border-subtle my-1" />
             </div>
           )}
-          <button
-            onClick={() => setShowAddLogin(true)}
-            className="w-full px-2 py-1.5 text-ui border border-border text-text-muted hover:text-accent hover:border-accent/40 transition-colors rounded-sm"
-          >
-            Login
-          </button>
+          <Button className="w-full" onClick={() => setShowAddLogin(true)}>Login</Button>
         </div>
         {showAddLogin && <LoginModal onClose={() => setShowAddLogin(false)} />}
       </>

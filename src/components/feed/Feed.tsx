@@ -17,6 +17,8 @@ import { RelayStatusBadge } from "./RelayStatusBadge";
 import { NDKEvent } from "@nostr-dev-kit/ndk";
 import { ViewHeader } from "../shared/ViewHeader";
 import { Tabs, tabPanelProps } from "../shared/Tabs";
+import { Button } from "../shared/Button";
+import { RefreshCw } from "lucide-react";
 
 function timeAgo(ts: number): string {
   const sec = Math.floor((Date.now() - ts) / 1000);
@@ -266,16 +268,16 @@ export function Feed() {
           <span className="text-text-dim text-caption w-16 text-right tabular-nums">
             {lastUpdated[tab] ? timeAgo(lastUpdated[tab]) : ""}
           </span>
-          <button
+          <Button
             onClick={() => {
               logDiag({ ts: new Date().toISOString(), action: "refresh_click", details: `tab=${tab}` });
               (isTrending ? () => loadTrendingFeed(true) : isFollowing ? loadFollowFeed : loadFeed)();
             }}
-            disabled={isLoading}
-            className="text-text-muted hover:text-text text-ui px-2 py-1 border border-border hover:border-text-dim transition-colors disabled:opacity-40 rounded-sm min-w-[5.5rem]"
+            busy={isLoading}
           >
-            {isLoading ? "Loading…" : "Refresh"}
-          </button>
+            {/* The label stays and the icon gives way to a spinner of its size, so the button keeps its width. */}
+            <RefreshCw />Refresh
+          </Button>
           </>
         }
       />
@@ -338,12 +340,7 @@ export function Feed() {
             </p>
             {isFollowing && follows.length === 0 && followsStatus === "unknown" && (
               <div className="pt-2">
-                <button
-                  onClick={() => void fetchFollows()}
-                  className="px-3 py-1.5 text-ui border border-border text-text hover:border-accent/60 hover:text-accent transition-colors rounded-sm"
-                >
-                  Try again
-                </button>
+                <Button onClick={() => void fetchFollows()}>Try again</Button>
               </div>
             )}
             {isFollowing && follows.length === 0 && followsStatus === "loaded" && (() => {

@@ -5,6 +5,8 @@ import { invalidateProfileCache } from "../../hooks/useProfile";
 import { publishProfile } from "../../lib/nostr";
 import { ImageField } from "./ImageField";
 import { Nip05Field } from "./Nip05Field";
+import { Button } from "../shared/Button";
+import { Check } from "lucide-react";
 
 export function EditProfileForm({ pubkey, onSaved }: { pubkey: string; onSaved: () => void }) {
   const canSign = useCanSign();
@@ -88,20 +90,11 @@ export function EditProfileForm({ pubkey, onSaved }: { pubkey: string; onSaved: 
       {error && <p className="text-danger text-caption mb-2">{error}</p>}
       <div className="flex items-center gap-2">
         {canSign ? (
-          <button
-            onClick={handleSave}
-            disabled={saving || saved}
-            className="px-4 py-1.5 text-ui bg-accent hover:bg-accent-hover text-accent-text transition-colors disabled:opacity-30 disabled:cursor-not-allowed rounded-sm"
-          >
-            {saved ? "Saved ✓" : saving ? "Saving…" : "Save profile"}
-          </button>
+          <Button variant="primary" onClick={handleSave} disabled={saved} busy={saving}>
+            {saved && <Check />}{saved ? "Saved" : saving ? "Saving…" : "Save profile"}
+          </Button>
         ) : (
-          <button
-            onClick={() => setShowLoginModal(true)}
-            className="px-4 py-1.5 text-ui border border-accent/60 text-accent hover:bg-accent hover:text-accent-text transition-colors rounded-sm"
-          >
-            Sign in to save
-          </button>
+          <Button variant="primary" onClick={() => setShowLoginModal(true)}>Sign in to save</Button>
         )}
       </div>
       {showLoginModal && <LoginModal onClose={() => setShowLoginModal(false)} />}

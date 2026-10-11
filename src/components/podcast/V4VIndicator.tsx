@@ -4,6 +4,8 @@ import { useV4VStore } from "../../stores/v4v";
 import { useUIStore } from "../../stores/ui";
 import { startStreaming, stopStreaming, boost } from "../../lib/podcast/v4v";
 import { SwitchControl } from "../shared/Switch";
+import { Button } from "../shared/Button";
+import { Zap } from "lucide-react";
 
 const NWC_KEY = "wrystr_nwc_uri";
 
@@ -216,13 +218,7 @@ export function V4VIndicator() {
                   className="w-16 bg-bg-raised border border-border-strong rounded-lg px-1.5 py-0.5 text-caption text-text"
                   min="1"
                 />
-                <button
-                  onClick={handleBoost}
-                  disabled={boosting}
-                  className="text-caption text-accent hover:text-accent-hover px-2 py-0.5 bg-accent/10 rounded-sm disabled:opacity-40"
-                >
-                  {boosting ? "…" : "boost"}
-                </button>
+                <Button size="sm" onClick={handleBoost} busy={boosting}><Zap className="text-zap" />Boost</Button>
               </div>
 
               {v4vTotalStreamed > 0 && (
