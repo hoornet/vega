@@ -19,6 +19,15 @@ describe("useUIStore", () => {
     });
   });
 
+  it("hides RSS articles by default and persists turning it off", () => {
+    expect(useUIStore.getState().hideRssArticles).toBe(true);
+    useUIStore.getState().setHideRssArticles(false);
+    expect(useUIStore.getState().hideRssArticles).toBe(false);
+    expect(localStorage.getItem("wrystr_hide_rss_articles")).toBe("false");
+    useUIStore.getState().setHideRssArticles(true);
+    expect(localStorage.getItem("wrystr_hide_rss_articles")).toBe("true");
+  });
+
   it("setFeedTab changes the tab", () => {
     useUIStore.getState().setFeedTab("following");
     expect(useUIStore.getState().feedTab).toBe("following");

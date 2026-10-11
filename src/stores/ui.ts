@@ -29,6 +29,8 @@ interface UIState {
   showHelp: boolean;
   showDebugPanel: boolean;
   feedLanguageFilter: string | null;
+  /** Hide RSS-bridge reposts on the Articles Latest tab. Default on. */
+  hideRssArticles: boolean;
   followsTab: "followers" | "following";
   fontSize: number;
   easyReadFont: boolean;
@@ -44,6 +46,7 @@ interface UIState {
   openArticle: (naddr: string, event?: NDKEvent) => void;
   goBack: () => void;
   setFeedLanguageFilter: (filter: string | null) => void;
+  setHideRssArticles: (hide: boolean) => void;
   setFontSize: (size: number) => void;
   setEasyReadFont: (on: boolean) => void;
   setTheme: (id: string) => void;
@@ -57,6 +60,7 @@ const FONT_SIZE_KEY = "wrystr_font_size";
 const EASY_READ_FONT_KEY = "wrystr_easy_read_font";
 const THEME_KEY = "wrystr_theme";
 const SCRIPT_FILTER_KEY = "wrystr_script_filter";
+const HIDE_RSS_ARTICLES_KEY = "wrystr_hide_rss_articles";
 
 export const useUIStore = create<UIState>((set, _get) => ({
   currentView: "feed",
@@ -74,6 +78,7 @@ export const useUIStore = create<UIState>((set, _get) => ({
   showHelp: false,
   showDebugPanel: false,
   feedLanguageFilter: localStorage.getItem(SCRIPT_FILTER_KEY) || null,
+  hideRssArticles: localStorage.getItem(HIDE_RSS_ARTICLES_KEY) !== "false",
   followsTab: "followers",
   fontSize: parseInt(localStorage.getItem(FONT_SIZE_KEY) || "14", 10),
   easyReadFont: localStorage.getItem(EASY_READ_FONT_KEY) === "true",
@@ -114,6 +119,10 @@ export const useUIStore = create<UIState>((set, _get) => ({
       localStorage.removeItem(SCRIPT_FILTER_KEY);
     }
     set({ feedLanguageFilter });
+  },
+  setHideRssArticles: (hideRssArticles) => {
+    localStorage.setItem(HIDE_RSS_ARTICLES_KEY, String(hideRssArticles));
+    set({ hideRssArticles });
   },
   setFontSize: (fontSize) => {
     localStorage.setItem(FONT_SIZE_KEY, String(fontSize));

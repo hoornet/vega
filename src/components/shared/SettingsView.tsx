@@ -81,6 +81,40 @@ function MuteSection() {
   );
 }
 
+function ArticlesSection() {
+  const hideRss = useUIStore((s) => s.hideRssArticles);
+  const setHideRss = useUIStore((s) => s.setHideRssArticles);
+
+  return (
+    <section>
+      <h2 className="text-text text-[11px] font-medium uppercase tracking-widest mb-2 text-text-dim">
+        Articles
+      </h2>
+      <label className="flex items-center gap-3 cursor-pointer group">
+        <button
+          onClick={() => setHideRss(!hideRss)}
+          className={`w-9 h-5 rounded-full transition-colors relative shrink-0 ${
+            hideRss ? "bg-accent" : "bg-border"
+          }`}
+        >
+          <span
+            className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-bg transition-transform ${
+              hideRss ? "translate-x-4" : "translate-x-0"
+            }`}
+          />
+        </button>
+        <span className="text-text text-[12px]">Hide RSS reposts in Latest</span>
+      </label>
+      <p className="text-text-dim text-[10px] mt-1.5 ml-12">
+        {hideRss
+          ? "Bridges that republish news sites as long-form posts are left out of the Latest tab."
+          : "Bridges that republish news sites as long-form posts show in the Latest tab."}
+        {" "}Latest always leaves out accounts without a profile; muted authors and keywords apply on both tabs, and people you follow are never filtered this way.
+      </p>
+    </section>
+  );
+}
+
 function MutedKeywordsSection() {
   const { mutedKeywords, addKeyword, removeKeyword } = useMuteStore();
   const [input, setInput] = useState("");
@@ -905,6 +939,7 @@ export function SettingsView() {
         <IdentitySection />
         <MuteSection />
         <MutedKeywordsSection />
+        <ArticlesSection />
         <WoTSection />
       </div>
     </div>
