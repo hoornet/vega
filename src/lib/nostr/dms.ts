@@ -7,6 +7,7 @@ import {
   isOutboxRelaysEnabled,
   stopSubscription,
   withTimeout,
+  publishToNetwork,
   FEED_TIMEOUT,
   SINGLE_TIMEOUT,
 } from "./core";
@@ -19,6 +20,7 @@ import {
   shouldAuthenticate,
 } from "./relayAuth";
 import { useToastStore, openView } from "../../stores/toast";
+import { stillAccount } from "../currentAccount";
 import { debug } from "../debug";
 
 /**
@@ -191,7 +193,8 @@ export async function fetchGiftWraps(myPubkey: string, limit: number, timeoutMs:
   }
   const sub = instance.subscribe(
     { kinds: [1059 as NDKKind], "#p": [myPubkey], limit },
-    { closeOnEose: true, groupable: false },
+    // From relays, not from this app's own publishing: see `fetchWithTimeout`.
+    { closeOnEose: true, groupable: false, skipOptimisticPublishEvent: true },
     relaySet,
   );
   sub.on("event", (e: NDKEvent) => events.push(e));
@@ -515,11 +518,30 @@ export async function sendDM(recipientPubkey: string, content: string): Promise<
   //
   // Each wrap targets its owner's DM relays merged with the configured list —
   // undefined (the pool, as before #49) when reach is off or no 10050 exists.
-  const [recipientResult, selfResult] = await Promise.all([
-    wrappedForRecipient.publish(dmRelaySet(recipientDMRelays, instance), DM_PUBLISH_TIMEOUT),
-    wrappedForSelf.publish(dmRelaySet(ownDMRelays, instance), DM_PUBLISH_TIMEOUT),
-  ]);
-  debug.log(`[DM] sendDM published: toRecipient=${recipientResult?.size ?? 0} relays, toSelf=${selfResult?.size ?? 0} relays`);
+  //
+  // The message is sent when the recipient's wrap is out. The other wrap is
+  // the sender's own copy, and its failure is not the message's: reported as
+  // one, the box kept the text and a second press sent the message twice.
+  // That could not happen while the built-in relay took the copy whatever
+  // the network did; it does not any more (`publishToNetwork`).
+  const toRecipient = publishToNetwork(wrappedForRecipient, dmRelaySet(recipientDMRelays, instance), DM_PUBLISH_TIMEOUT);
+  // Never rejects: what became of the copy is looked at once the message itself is out.
+  const ownCopy = publishToNetwork(wrappedForSelf, dmRelaySet(ownDMRelays, instance), DM_PUBLISH_TIMEOUT).then(
+    (relays) => relays.size,
+    (err) => { debug.warn("[DM] the sender's own copy reached no relay:", err); return 0; },
+  );
+  const recipientRelays = await toRecipient;
+  const ownRelays = await ownCopy;
+  // The copy can take its full fifteen seconds. If the account changed
+  // meanwhile, this is not the next account's to hear.
+  if (ownRelays === 0 && stillAccount(myUser.pubkey)) {
+    useToastStore.getState().addToast(
+      "Sent. Your own copy of the message could not be saved to a relay, so it will not show in this conversation.",
+      "warning",
+      { key: "dm:own-copy", action: { label: "Relays", run: openView("relays") } },
+    );
+  }
+  debug.log(`[DM] sendDM published: toRecipient=${recipientRelays.size} relays, toSelf=${ownRelays} relays`);
 }
 
 export async function decryptDM(event: NDKEvent, myPubkey: string): Promise<string> {

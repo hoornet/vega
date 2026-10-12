@@ -1,5 +1,5 @@
 import { NDKEvent, NDKFilter, NDKKind, nip19 } from "@nostr-dev-kit/ndk";
-import { getNDK, fetchWithTimeout, FEED_TIMEOUT, SINGLE_TIMEOUT } from "./core";
+import { getNDK, fetchWithTimeout, FEED_TIMEOUT, SINGLE_TIMEOUT, publishToNetwork } from "./core";
 
 export async function publishArticle(opts: {
   title: string;
@@ -29,7 +29,7 @@ export async function publishArticle(opts: {
   if (opts.image) event.tags.push(["image", opts.image]);
   if (opts.tags) opts.tags.forEach((t) => event.tags.push(["t", t]));
 
-  const relays = await event.publish();
+  const relays = await publishToNetwork(event);
   return { relayCount: relays.size };
 }
 

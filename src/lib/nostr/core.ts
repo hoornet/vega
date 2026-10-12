@@ -1,4 +1,4 @@
-import NDK, { NDKEvent, NDKFilter, NDKRelay, NDKRelaySet, NDKSubscription, NDKSubscriptionCacheUsage, tryNormalizeRelayUrl } from "@nostr-dev-kit/ndk";
+import NDK, { NDKEvent, NDKFilter, NDKRelay, NDKRelaySet, NDKRelayStatus, NDKSubscription, NDKSubscriptionCacheUsage, calculateRelaySetFromEvent, tryNormalizeRelayUrl } from "@nostr-dev-kit/ndk";
 import { debug } from "../debug";
 import { clipText } from "../utils";
 import { recordFetchOutcome } from "./fetchTotals";
@@ -153,8 +153,108 @@ function noteFetchUnanswered(): void {
 export function heardFromNetwork(heard: Iterable<string>, known: Iterable<string>): boolean {
   const answered = Array.from(heard);
   if (answered.length === 0) return false;
-  if (answered.some((url) => !isLocalRelayUrl(url))) return true;
-  return !Array.from(known).some((url) => !isLocalRelayUrl(url));
+  const builtIn = builtInRelayTest();
+  if (answered.some((url) => !builtIn(url))) return true;
+  return !Array.from(known).some((url) => !builtIn(url));
+}
+
+/**
+ * A test for "this is Vega's built-in relay", good for one decision.
+ *
+ * The built-in relay is at a local address and is never in the user's list
+ * (`connectLocalRelay` puts it in the pool only). A relay at a local address
+ * that the user did put in their list is theirs: their own strfry, or the
+ * local end of an SSH or Tor tunnel to a relay somewhere else. It is the
+ * network as far as they are concerned, and treating it as the built-in one
+ * stopped it counting, for answers and for publishing alike.
+ *
+ * The list is read once per test made, not once per URL.
+ */
+export function builtInRelayTest(): (url: string) => boolean {
+  const own = new Set(getStoredRelayUrls().map(normalizeRelayUrl));
+  return (url) => isLocalRelayUrl(url) && !own.has(normalizeRelayUrl(url));
+}
+
+/**
+ * The relays in the pool that are the user's own, and not Vega's built-in
+ * one: those in their list, and those NDK added from their published relay
+ * list. Not the ones NDK holds for a while to read other people's notes
+ * from, which it keeps on a timer: a note of ours has no business on a relay
+ * we only ever read someone else from.
+ *
+ * A relay in the user's list is theirs whatever the timers say. NDK never
+ * takes a relay off its timer list, so one it once borrowed to read someone
+ * from still reads as borrowed after the user has added it. Left out, it was
+ * not published to, and with no other relay the built-in one's yes was taken
+ * for "Posted." (measured with real NDK).
+ *
+ * `temporaryRelayTimers` is private in NDK's types and present at run time
+ * (3.0.3; it is what `permanentAndConnectedRelays` reads). Should it go away,
+ * every relay in the pool reads as the user's own, which errs towards trying
+ * a relay too many, not towards calling something published that is not.
+ */
+function ownNetworkRelays(ndk: NDK, builtIn: (url: string) => boolean): NDKRelay[] {
+  const temporary = (ndk.pool as unknown as { temporaryRelayTimers?: Map<string, unknown> }).temporaryRelayTimers;
+  const listed = new Set(getStoredRelayUrls().map(normalizeRelayUrl));
+  return Array.from(ndk.pool.relays.values()).filter(
+    (relay) => !builtIn(relay.url) && (listed.has(normalizeRelayUrl(relay.url)) || !temporary?.has(relay.url)),
+  );
+}
+
+/**
+ * Publish an event, and call it published only when the network has it.
+ *
+ * NDK's own `event.publish()` waits until every relay in its set has answered
+ * or run out of time, and succeeds if one of them accepted. Its set is worked
+ * out per event (the author's write relays, relay hints in the tags, relays
+ * of the people tagged) plus every relay of the user's that is connected
+ * right now. With the network gone, what is left of that is the built-in
+ * relay alone. It accepts, the publish "succeeds", and the app said "Posted."
+ * of a note no relay on the network had (shown with real NDK in
+ * `publish.live.test.ts`). This is the publish side of `heardFromNetwork`
+ * above.
+ *
+ * So the network goes first, and the built-in relay gets its copy only once
+ * a relay on the network has accepted. Not the other way round, and not both
+ * at once: an event that the built-in relay holds and nobody else does shows
+ * up in the user's own feed as if it had been posted, and a second try makes
+ * a second event beside it.
+ *
+ * When nothing in NDK's set is connected, the user's own relays are tried as
+ * well: NDK connects to publish, and gives up after its usual two and a half
+ * seconds per relay. Without this, NDK tries one relay of the user's list
+ * when the built-in relay is off, and none when it is on.
+ *
+ * The built-in relay's word does count when it is the only relay the user
+ * has: someone who has removed every other relay has chosen to keep their
+ * notes here. Relays that are merely down do not make it the network.
+ *
+ * Throws what NDK throws when no relay took it ("Not enough relays received
+ * the event…"), so callers and `explainPublishError` need no second case.
+ */
+export async function publishToNetwork(event: NDKEvent, relaySet?: NDKRelaySet, timeoutMs?: number): Promise<Set<NDKRelay>> {
+  const ndk = event.ndk ?? getNDK();
+  // As NDK does it: signed first, because the relays are worked out from the author.
+  if (!event.sig) await event.sign();
+  const given = relaySet && relaySet.size > 0 ? relaySet : undefined;
+  // A developer's override is the whole answer, as it is in NDK.
+  if (!given && ndk.devWriteRelaySet) return event.publish(ndk.devWriteRelaySet, timeoutMs);
+  const target = given ?? await calculateRelaySetFromEvent(ndk, event, 1);
+  const isBuiltIn = builtInRelayTest();
+  const inSet = Array.from(target.relays);
+  const builtIn = inSet.filter((relay) => isBuiltIn(relay.url));
+  const network = new Set(inSet.filter((relay) => !isBuiltIn(relay.url)));
+  if (!Array.from(network).some((relay) => relay.status >= NDKRelayStatus.CONNECTED)) {
+    for (const relay of ownNetworkRelays(ndk, isBuiltIn)) network.add(relay);
+  }
+  // Nothing but the built-in relay exists for this user: its answer is the answer.
+  if (network.size === 0) return event.publish(target, timeoutMs);
+  const accepted = await event.publish(new NDKRelaySet(network, ndk), timeoutMs);
+  // The network has it: now the copy this computer keeps. Best effort, and
+  // straight to the relay, so that a failure here is not reported as the
+  // event's own.
+  for (const relay of builtIn) void relay.publish(event, timeoutMs).catch(() => {});
+  return accepted;
 }
 
 /** Fresh pool, fresh verdict — used after connect and after a reset. */
@@ -237,6 +337,12 @@ export function fetchWithTimeout(
           // cost of 1 is redundancy per author, softened by NDK also querying
           // the user's own connected relays regardless of this goal.
           relayGoalPerAuthor: 1,
+          // What a fetch returns is what relays hold. NDK also hands an
+          // event to every open subscription it matches the moment it is
+          // published, before any relay has answered: a reply that no relay
+          // then took was in the thread's replies beside "Couldn't publish",
+          // and was counted as a relay having answered.
+          skipOptimisticPublishEvent: true,
         },
         relaySet,
       );
@@ -310,7 +416,8 @@ export function fetchFromRelay(
 
     const sub = instance.subscribe(
       filter,
-      { cacheUsage: NDKSubscriptionCacheUsage.ONLY_RELAY, groupable: false, closeOnEose: true },
+      // From this relay, not from this app's own publishing: see `fetchWithTimeout`.
+      { cacheUsage: NDKSubscriptionCacheUsage.ONLY_RELAY, groupable: false, closeOnEose: true, skipOptimisticPublishEvent: true },
       new NDKRelaySet(new Set([relay]), instance),
     );
     sub.on("event", (event: NDKEvent) => {

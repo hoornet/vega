@@ -1,5 +1,5 @@
 import { NDKEvent, NDKFilter, NDKKind } from "@nostr-dev-kit/ndk";
-import { getNDK, fetchWithTimeout, withTimeout, FEED_TIMEOUT, SINGLE_TIMEOUT } from "./core";
+import { getNDK, fetchWithTimeout, withTimeout, FEED_TIMEOUT, SINGLE_TIMEOUT, publishToNetwork } from "./core";
 
 export async function publishReaction(eventId: string, eventPubkey: string, reaction = "+"): Promise<void> {
   const instance = getNDK();
@@ -12,7 +12,7 @@ export async function publishReaction(eventId: string, eventPubkey: string, reac
     ["e", eventId],
     ["p", eventPubkey],
   ];
-  await event.publish();
+  await publishToNetwork(event);
 }
 
 

@@ -73,10 +73,21 @@ export function useReactions(eventId: string, enabled = true): [GroupedReactions
     }
     let cancelled = false;
     throttledFetch(cacheKey, eventId, pubkeyRef.current ?? undefined, effectiveWotSet).then((result) => {
-      if (!cancelled) {
-        cache.set(cacheKey, result);
-        setData(result);
-      }
+      // A reaction given while the tally was on its way. The tally was asked
+      // for before it went out and does not have it: put in place of what
+      // was shown, the pill went and the same reaction was offered again.
+      // What is in the cache by now can only be such reactions.
+      const mine = Array.from(cache.get(cacheKey)?.myReactions ?? []).filter((emoji) => !result.myReactions.has(emoji));
+      const merged = mine.length === 0 ? result : {
+        groups: new Map([...result.groups, ...mine.map((emoji): [string, number] => [emoji, (result.groups.get(emoji) ?? 0) + 1])]),
+        myReactions: new Set([...result.myReactions, ...mine]),
+        total: result.total + mine.length,
+      };
+      // Kept whether or not the row is still there. Dropped for a row that
+      // had scrolled away, the cache was left holding the user's own reaction
+      // and nothing else, and nothing asked again: 🔥1 where the relays had ten.
+      cache.set(cacheKey, merged);
+      if (!cancelled) setData(merged);
     });
     return () => { cancelled = true; };
   }, [cacheKey, enabled]);
@@ -102,6 +113,17 @@ export function useReactions(eventId: string, enabled = true): [GroupedReactions
 
 /** Seed the cache from batch engagement data (avoids per-note refetching). */
 export function seedReactionsCache(eventId: string, groups: Map<string, number>, myReactions: Set<string>, wotActive = false) {
-  const total = Array.from(groups.values()).reduce((sum, n) => sum + n, 0);
-  cache.set(keyFor(eventId, wotActive), { groups, myReactions, total });
+  const key = keyFor(eventId, wotActive);
+  // The batch that seeds this is fetched without saying who is asking, so it
+  // never knows the user's own reactions. One on record from this session
+  // must not be lost to it. The batch's count will have it already, unless
+  // the relays do not: then it is counted here.
+  const seeded = new Map(groups);
+  const mine = new Set(myReactions);
+  for (const emoji of cache.get(key)?.myReactions ?? []) {
+    if (!seeded.has(emoji)) seeded.set(emoji, 1);
+    mine.add(emoji);
+  }
+  const total = Array.from(seeded.values()).reduce((sum, n) => sum + n, 0);
+  cache.set(key, { groups: seeded, myReactions: mine, total });
 }

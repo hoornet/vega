@@ -1,5 +1,5 @@
 import { NDKEvent, NDKFilter, NDKKind, NDKRelaySet, nip19 } from "@nostr-dev-kit/ndk";
-import { getNDK, getStoredRelayUrls, fetchWithTimeout, withTimeout, isOutboxRelaysEnabled, FEED_TIMEOUT, THREAD_TIMEOUT, SINGLE_TIMEOUT } from "./core";
+import { getNDK, getStoredRelayUrls, fetchWithTimeout, withTimeout, isOutboxRelaysEnabled, FEED_TIMEOUT, THREAD_TIMEOUT, SINGLE_TIMEOUT, publishToNetwork } from "./core";
 import { fetchUserRelayList } from "./relays";
 
 export async function fetchGlobalFeed(limit: number = 50, until?: number): Promise<NDKEvent[]> {
@@ -83,7 +83,7 @@ export async function publishNote(content: string): Promise<NDKEvent> {
   const event = new NDKEvent(instance);
   event.kind = NDKKind.Text;
   event.content = content;
-  await event.publish();
+  await publishToNetwork(event);
   return event;
 }
 
@@ -112,7 +112,7 @@ export async function publishReply(
       ["p", replyTo.pubkey],
     ];
   }
-  await event.publish();
+  await publishToNetwork(event);
   return event;
 }
 
@@ -127,7 +127,7 @@ export async function publishRepost(event: NDKEvent): Promise<void> {
     ["e", event.id!, "", "mention"],
     ["p", event.pubkey],
   ];
-  await repost.publish();
+  await publishToNetwork(repost);
 }
 
 export async function publishQuote(content: string, quotedEvent: NDKEvent): Promise<NDKEvent> {
@@ -144,7 +144,7 @@ export async function publishQuote(content: string, quotedEvent: NDKEvent): Prom
     ["q", quotedEvent.id!, ""],
     ["p", quotedEvent.pubkey],
   ];
-  await note.publish();
+  await publishToNetwork(note);
   return note;
 }
 

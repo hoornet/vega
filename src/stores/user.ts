@@ -306,6 +306,9 @@ export const useUserStore = create<UserState>((set, get) => ({
       const user = await signer.user();
       const pubkey = user.pubkey;
       const npub = nip19.npubEncode(pubkey);
+      // Another account was signed in until now: the relays it signed in to
+      // must not go on serving this one under its name. See `switchAccount`.
+      if (get().pubkey !== pubkey) dropAuthenticatedSessions();
 
       // Cache signer in memory so switchAccount can reuse it without keychain
       _signerCache.set(pubkey, signer);
@@ -392,6 +395,15 @@ export const useUserStore = create<UserState>((set, get) => ({
 
       const npub = nip19.npubEncode(pubkey);
 
+      // A read-only account has no key, and must not go on with the last
+      // one's. Added from the account menu while signed in with a key, that
+      // key stayed in place: the screen said B, read-only, and whatever asked
+      // only "is there a signer" (the podcast list, the mute and bookmark
+      // lists) published as A. The relays A had signed in to went on serving
+      // B as A, too. See `switchAccount`.
+      getNDK().signer = undefined;
+      dropAuthenticatedSessions();
+
       // Update accounts list
       const accounts = upsertAccount(get().accounts, { pubkey, npub, loginType: "pubkey" });
       persistAccounts(accounts);
@@ -435,6 +447,8 @@ export const useUserStore = create<UserState>((set, get) => ({
       ndk.signer = signer;
       const pubkey = user.pubkey;
       const npub = nip19.npubEncode(pubkey);
+      // As for a key: not under the last account's name on its relays.
+      if (get().pubkey !== pubkey) dropAuthenticatedSessions();
 
       _nip46SignerCache.set(pubkey, signer);
 
@@ -482,6 +496,10 @@ export const useUserStore = create<UserState>((set, get) => ({
     localStorage.removeItem("wrystr_login_type");
     forgetContactList();
     set({ pubkey: null, npub: null, profile: null, follows: [], followsStatus: "idle", loggedIn: false, loginError: null });
+    // Signed out: what is subscribed to from here on is not that account's.
+    // It went into its list all the same, and was published under its name
+    // at the next sign-in.
+    usePodcastStore.getState().setActiveAccount(null);
   },
 
   restoreSession: async () => {
@@ -556,8 +574,15 @@ export const useUserStore = create<UserState>((set, get) => ({
           // sidebar that quietly dropped half its items (#47).
           debug.warn("Failed to restore NIP-46 session:", err);
           const npub = nip19.npubEncode(savedPubkey);
+          // Read-only from here. Whatever key is in place by now is not this
+          // account's: the wait for the signer can be half a minute, and
+          // someone may have signed in to another account meanwhile.
+          getNDK().signer = undefined;
+          dropAuthenticatedSessions();
           set({ pubkey: savedPubkey, npub, loggedIn: false, loginError: nip46RestoreError(err) });
           useToastStore.getState().addToast(nip46RestoreError(err), "warning", 8000);
+          // Read-only, but this account all the same: its podcasts, not the signed-out list.
+          usePodcastStore.getState().setActiveAccount(savedPubkey);
         }
       }
       return;
@@ -670,6 +695,11 @@ export const useUserStore = create<UserState>((set, get) => ({
         const loginType = account?.loginType ?? "nsec";
         const npub = account?.npub ?? nip19.npubEncode(pubkey);
         const failedReconnect = loginType === "remote-signer";
+        // The key was let go of when the switch began, but the wait for a
+        // signer or the keychain is long enough for another switch to have
+        // put one in place. This account has none.
+        getNDK().signer = undefined;
+        dropAuthenticatedSessions();
         set({
           pubkey,
           npub,
@@ -703,6 +733,7 @@ export const useUserStore = create<UserState>((set, get) => ({
     _nip46SignerCache.delete(pubkey);
     _unsaved.delete(pubkey);
     useToastStore.getState().removeByKey(keychainToast(pubkey));
+    usePodcastStore.getState().forgetAccount(pubkey);
 
     const accounts = get().accounts.filter((a) => a.pubkey !== pubkey);
     persistAccounts(accounts);
@@ -712,10 +743,13 @@ export const useUserStore = create<UserState>((set, get) => ({
     if (get().pubkey === pubkey) {
       const ndk = getNDK();
       ndk.signer = undefined;
+      // See switchAccount: an authenticated relay session outlives the signer.
+      dropAuthenticatedSessions();
       localStorage.removeItem("wrystr_pubkey");
       localStorage.removeItem("wrystr_login_type");
       forgetContactList();
       set({ pubkey: null, npub: null, profile: null, follows: [], followsStatus: "idle", loggedIn: false, loginError: null });
+      usePodcastStore.getState().setActiveAccount(null);
     }
   },
 

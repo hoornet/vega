@@ -19,7 +19,7 @@ vi.mock("../lib/db", () => ({
 }));
 
 import { useFeedStore } from "./feed";
-import { fetchTrendingCandidates, fetchBatchEngagement, fetchGlobalFeed } from "../lib/nostr";
+import { fetchTrendingCandidates, fetchBatchEngagement, fetchGlobalFeed, getNDK } from "../lib/nostr";
 import { recordFetchOutcome } from "../lib/nostr/fetchTotals";
 
 /** The relays answered, with these notes. */
@@ -364,5 +364,19 @@ describe("loadFeed: how the load ended", () => {
     vi.mocked(fetchGlobalFeed).mockRejectedValue(new Error("boom"));
     await useFeedStore.getState().loadFeed();
     expect(useFeedStore.getState().outcome).toEqual({ global: "error", trending: "unreachable" });
+  });
+});
+
+// NDK hands an event to every matching subscription the moment it is
+// published, before any relay has answered. A note that no relay then took
+// appeared under "1 new note", beside "Couldn't publish".
+describe("useFeedStore - the live subscription", () => {
+  it("takes notes from relays, not from this app's own publishing", () => {
+    const subscribe = vi.fn((_filter: unknown, _opts: unknown) => ({ on: vi.fn(), stop: vi.fn() }));
+    vi.mocked(getNDK).mockReturnValue({ pool: { relays: new Map() }, subscribe } as never);
+    useFeedStore.getState().startLiveFeed();
+    expect(subscribe).toHaveBeenCalledTimes(1);
+    expect(subscribe.mock.calls[0][1]).toMatchObject({ skipOptimisticPublishEvent: true, closeOnEose: false });
+    vi.mocked(getNDK).mockReturnValue({ pool: { relays: new Map() } } as never);
   });
 });

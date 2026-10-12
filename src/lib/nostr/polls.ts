@@ -1,5 +1,5 @@
 import { NDKEvent, NDKFilter, NDKKind } from "@nostr-dev-kit/ndk";
-import { getNDK, fetchWithTimeout, SINGLE_TIMEOUT } from "./core";
+import { getNDK, fetchWithTimeout, SINGLE_TIMEOUT, publishToNetwork } from "./core";
 
 export interface PollVotes {
   /** option index → vote count */
@@ -17,7 +17,7 @@ export async function publishPoll(question: string, options: string[]): Promise<
   event.kind = 1068 as NDKKind;
   event.content = question;
   event.tags = options.map((opt, i) => ["option", String(i), opt]);
-  await event.publish();
+  await publishToNetwork(event);
   return event;
 }
 
@@ -28,7 +28,7 @@ export async function publishPollResponse(pollId: string, pollPubkey: string, op
   event.kind = 1018 as NDKKind;
   event.content = String(optionIndex);
   event.tags = [["e", pollId], ["p", pollPubkey]];
-  await event.publish();
+  await publishToNetwork(event);
   return event;
 }
 

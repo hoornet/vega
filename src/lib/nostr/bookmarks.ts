@@ -1,5 +1,5 @@
 import { NDKEvent, NDKFilter, NDKKind } from "@nostr-dev-kit/ndk";
-import { getNDK, fetchWithTimeout, SINGLE_TIMEOUT } from "./core";
+import { getNDK, fetchWithTimeout, SINGLE_TIMEOUT, publishToNetwork } from "./core";
 
 export async function fetchBookmarkList(pubkey: string): Promise<string[]> {
   const instance = getNDK();
@@ -17,7 +17,7 @@ export async function publishBookmarkList(eventIds: string[]): Promise<void> {
   event.kind = 10003 as NDKKind;
   event.content = "";
   event.tags = eventIds.map((id) => ["e", id]);
-  await event.publish();
+  await publishToNetwork(event);
 }
 
 export async function fetchBookmarkListFull(pubkey: string): Promise<{ eventIds: string[]; articleAddrs: string[] }> {
@@ -42,6 +42,6 @@ export async function publishBookmarkListFull(eventIds: string[], articleAddrs: 
     ...eventIds.map((id) => ["e", id]),
     ...articleAddrs.map((addr) => ["a", addr]),
   ];
-  await event.publish();
+  await publishToNetwork(event);
   return true;
 }

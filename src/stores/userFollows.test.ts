@@ -21,7 +21,7 @@ vi.mock("./notifications", () => ({
   useNotificationsStore: { getState: () => ({ fetchNotifications: vi.fn() }) },
 }));
 vi.mock("./podcast", () => ({
-  usePodcastStore: { getState: () => ({ setActiveAccount: vi.fn(), hydrateSubscriptions: vi.fn() }) },
+  usePodcastStore: { getState: () => ({ setActiveAccount: vi.fn(), hydrateSubscriptions: vi.fn(), forgetAccount: vi.fn() }) },
 }));
 
 import { invoke } from "@tauri-apps/api/core";

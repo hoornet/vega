@@ -44,6 +44,10 @@ export function ThreadView() {
   const replyRef = useRef<HTMLTextAreaElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const [retryCount, setRetryCount] = useState(0);
+  // Replies published from this view, for the note it is showing. The list
+  // of replies that arrives replaces what is on screen, and one asked for
+  // before a reply was sent does not have it.
+  const publishedHere = useRef<{ note: string | null; replies: NDKEvent[] }>({ note: null, replies: [] });
 
   // Guard AFTER all hooks to satisfy React rules of hooks
   if (!selectedNote) { goBack(); return null; }
@@ -51,6 +55,8 @@ export function ThreadView() {
 
   useEffect(() => {
     let cancelled = false;
+    // Another note: its replies are not this one's. The same note again ("Try again") keeps them.
+    if (publishedHere.current.note !== focusedEvent.id) publishedHere.current = { note: focusedEvent.id, replies: [] };
 
     async function loadThread() {
       setLoadError(null);
@@ -119,6 +125,13 @@ export function ThreadView() {
             allEvents.push(anc);
           }
         }
+        // Replies published from this view while the fetch was on its way.
+        // The fetch was asked before they existed, so it does not have them,
+        // and this list replaces what is on screen: a reply sent while
+        // "replies loading" went out, showed, and vanished.
+        for (const reply of publishedHere.current.replies) {
+          if (!allEvents.some((e) => e.id === reply.id)) allEvents.push(reply);
+        }
 
         const built = buildThreadTree(root.id, allEvents);
         setTree(built);
@@ -149,12 +162,14 @@ export function ThreadView() {
 
   // Called when any inline reply box publishes a reply
   const handleReplyPublished = (reply: NDKEvent) => {
-    if (tree && rootEvent) {
-      const allEvents = collectEvents(tree);
-      allEvents.push(reply);
-      const rebuilt = buildThreadTree(rootEvent.id, allEvents);
-      setTree(rebuilt);
-    }
+    // Written under the note this render shows. If another note has been
+    // opened since, it is not that note's reply, and went under it as one.
+    if (publishedHere.current.note !== focusedEvent.id) return;
+    publishedHere.current.replies.push(reply);
+    // From the tree as it is now, not as it was when Reply was pressed. The
+    // replies may have arrived in between, and a tree rebuilt from the older
+    // one took them all off the screen and left this reply alone.
+    setTree((current) => (current ? buildThreadTree(current.event.id, [...collectEvents(current), reply]) : current));
   };
 
   // Root-level reply (reply to the root note)
