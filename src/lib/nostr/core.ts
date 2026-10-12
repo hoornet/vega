@@ -798,7 +798,11 @@ export async function resetNDK(): Promise<void> {
   // across a reset would leave the new instance born silent.
   clearSilentFetchStreak();
   debug.log("[Vega] NDK instance reset — connecting fresh relays");
-  await ndk.connect();
+  // Bounded: NDK's `connect()` resolves only once every relay in the list
+  // has connected, so with one relay down it never does, and the Relay reach
+  // switch stayed busy for the rest of the session. What matters is below:
+  // one relay up, or five seconds.
+  await withTimeout(ndk.connect(), 4000, undefined);
   await waitForConnectedRelay(ndk, 5000);
 
   // Re-add local relay if enabled (dynamic import to avoid circular dependency)
