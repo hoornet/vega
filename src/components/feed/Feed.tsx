@@ -15,6 +15,8 @@ import { ComposeBox } from "./ComposeBox";
 import { SkeletonNoteList } from "../shared/Skeleton";
 import { RelayStatusBadge } from "./RelayStatusBadge";
 import { NDKEvent } from "@nostr-dev-kit/ndk";
+import { ViewHeader } from "../shared/ViewHeader";
+import { Tabs, tabPanelProps } from "../shared/Tabs";
 
 function timeAgo(ts: number): string {
   const sec = Math.floor((Date.now() - ts) / 1000);
@@ -227,44 +229,25 @@ export function Feed() {
   return (
     <div className="h-full flex flex-col">
       {/* Header */}
-      <header className="border-b border-border-subtle px-4 py-2.5 flex flex-wrap items-center justify-between gap-y-1 shrink-0">
-        <div className="flex items-center gap-1">
-          {/* Order follows the default: the people you chose first, the open
-              firehose last. */}
-          {loggedIn && (
-            <button
-              onClick={() => setTab("following")}
-              className={`px-3 py-1 text-ui transition-colors ${
-                tab === "following"
-                  ? "text-text border-b-2 border-accent"
-                  : "text-text-muted hover:text-text"
-              }`}
-            >
-              Following
-            </button>
-          )}
-          <button
-            onClick={() => setTab("trending")}
-            className={`px-3 py-1 text-ui transition-colors ${
-              tab === "trending"
-                ? "text-text border-b-2 border-accent"
-                : "text-text-muted hover:text-text"
-            }`}
-          >
-            Trending
-          </button>
-          <button
-            onClick={() => setTab("global")}
-            className={`px-3 py-1 text-ui transition-colors ${
-              tab === "global"
-                ? "text-text border-b-2 border-accent"
-                : "text-text-muted hover:text-text"
-            }`}
-          >
-            Global
-          </button>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
+      <ViewHeader
+        hiddenTitle="Feed"
+        // Order follows the default: the people you chose first, the open
+        // firehose last. Following is only offered to someone signed in.
+        tabs={
+          <Tabs
+            label="Feed"
+            panel="feed-panel"
+            tabs={[
+              ...(loggedIn ? [{ id: "following" as const, label: "Following" }] : []),
+              { id: "trending" as const, label: "Trending" },
+              { id: "global" as const, label: "Global" },
+            ]}
+            value={tab}
+            onChange={setTab}
+          />
+        }
+        actions={
+          <>
           <select
             value={feedLanguageFilter ?? ""}
             onChange={(e) => setFeedLanguageFilter(e.target.value || null)}
@@ -276,21 +259,26 @@ export function Feed() {
             ))}
           </select>
           <RelayStatusBadge />
-          {lastUpdated[tab] && (
-            <span className="text-text-dim text-caption">{timeAgo(lastUpdated[tab])}</span>
-          )}
+          {/* Always there, at a fixed width. It used to appear when a tab's
+              first load finished, which could push the header onto two lines
+              and move the tabs just as someone reached for them. The same
+              goes for the Refresh button's width below. */}
+          <span className="text-text-dim text-caption w-16 text-right tabular-nums">
+            {lastUpdated[tab] ? timeAgo(lastUpdated[tab]) : ""}
+          </span>
           <button
             onClick={() => {
               logDiag({ ts: new Date().toISOString(), action: "refresh_click", details: `tab=${tab}` });
               (isTrending ? () => loadTrendingFeed(true) : isFollowing ? loadFollowFeed : loadFeed)();
             }}
             disabled={isLoading}
-            className="text-text-muted hover:text-text text-ui px-2 py-1 border border-border hover:border-text-dim transition-colors disabled:opacity-40 rounded-sm"
+            className="text-text-muted hover:text-text text-ui px-2 py-1 border border-border hover:border-text-dim transition-colors disabled:opacity-40 rounded-sm min-w-[5.5rem]"
           >
             {isLoading ? "Loading…" : "Refresh"}
           </button>
-        </div>
-      </header>
+          </>
+        }
+      />
 
       {/* Compose */}
       {loggedIn && !!getNDK().signer && (
@@ -315,7 +303,7 @@ export function Feed() {
       )}
 
       {/* Feed (virtualized scroll container) */}
-      <div ref={scrollRef} className="flex-1 overflow-y-auto content-column">
+      <div ref={scrollRef} {...tabPanelProps("feed-panel", tab)} className="flex-1 overflow-y-auto content-column">
         {isLoading && filteredNotes.length === 0 && (
           <SkeletonNoteList count={6} />
         )}

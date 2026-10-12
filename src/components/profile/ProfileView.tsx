@@ -16,6 +16,8 @@ import { parseContent } from "../../lib/parsing";
 import { tryHandleUrlInternally, tryOpenNostrEntity } from "../feed/TextSegments";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { ProfileMediaGallery } from "./ProfileMediaGallery";
+import { ViewHeader } from "../shared/ViewHeader";
+import { Tabs, tabPanelProps } from "../shared/Tabs";
 
 function TopFollowerAvatar({ pubkey }: { pubkey: string }) {
   const profile = useProfile(pubkey);
@@ -101,6 +103,9 @@ export function ProfileView() {
     let cancelled = false;
     setLoading(true);
     setProfileTab("notes");
+    // Someone else's profile opened from inside the edit form (a mention in
+    // the notes under it) must not open titled "Edit profile".
+    setEditing(false);
     setBannerLoaded(false);
     setBannerError(false);
     setWotExpanded(false);
@@ -142,69 +147,72 @@ export function ProfileView() {
   return (
     <div className="h-full flex flex-col">
       {/* Header */}
-      <header className="border-b border-border-subtle px-4 py-2.5 flex flex-wrap items-center justify-between gap-y-1 shrink-0">
-        <div className="flex items-center gap-3">
-          <button
-            onClick={editing ? () => setEditing(false) : goBack}
-            className="text-text-dim hover:text-text text-ui transition-colors"
-          >
-            ← {editing ? "Cancel" : "Back"}
-          </button>
-          <h1 className="text-text text-title font-medium">{isOwn ? "Your Profile" : "Profile"}</h1>
-          {isOwn && !canSign && (
-            <span className="text-text-dim text-caption border border-border px-2 py-0.5 rounded-sm">
-              read-only
-            </span>
-          )}
-        </div>
-        {isOwn && !editing && canSign && (
-          <button
-            onClick={() => setEditing(true)}
-            className="text-ui px-3 py-1 border border-border text-text-muted hover:text-accent hover:border-accent/40 transition-colors rounded-sm"
-          >
-            Edit profile
-          </button>
-        )}
-        {!isOwn && canSign && (
-          <div className="flex flex-wrap items-center gap-2">
-            {(lud16 || profile?.lud06) && (
+      <ViewHeader
+        title={editing ? "Edit profile" : isOwn ? "Your Profile" : "Profile"}
+        onBack={editing ? undefined : goBack}
+        meta={isOwn && !canSign ? (
+          <span className="border border-border px-2 py-0.5 rounded-sm">read-only</span>
+        ) : undefined}
+        actions={
+          <>
+            {editing && (
               <button
-                onClick={() => setShowZap(true)}
-                className="text-ui px-3 py-1 border border-border text-zap hover:border-zap/40 hover:bg-zap/5 transition-colors rounded-sm"
+                onClick={() => setEditing(false)}
+                className="text-ui px-3 py-1 border border-border text-text-muted hover:text-text transition-colors rounded-sm"
               >
-                ⚡ Zap
+                Cancel
               </button>
             )}
-            <button
-              onClick={handleFollowToggle}
-              disabled={followPending}
-              className={`text-ui px-3 py-1 border transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
-                isFollowing
-                  ? "border-border text-text-muted hover:text-danger hover:border-danger/40"
-                  : "border-accent/60 text-accent hover:bg-accent hover:text-accent-text"
-              } rounded-sm`}
-            >
-              {followPending ? "…" : isFollowing ? "Unfollow" : "Follow"}
-            </button>
-            <button
-              onClick={() => isMuted ? unmute(pubkey) : mute(pubkey)}
-              className={`text-ui px-3 py-1 border transition-colors ${
-                isMuted
-                  ? "border-danger/40 text-danger hover:bg-danger/5"
-                  : "border-border text-text-dim hover:text-danger hover:border-danger/40"
-              } rounded-sm`}
-            >
-              {isMuted ? "Unmute" : "Mute"}
-            </button>
-            <button
-              onClick={() => openDM(pubkey)}
-              className="text-ui px-3 py-1 border border-border text-text-muted hover:text-accent hover:border-accent/40 transition-colors rounded-sm"
-            >
-              ✉ Message
-            </button>
-          </div>
-        )}
-      </header>
+            {isOwn && !editing && canSign && (
+              <button
+                onClick={() => setEditing(true)}
+                className="text-ui px-3 py-1 border border-border text-text-muted hover:text-accent hover:border-accent/40 transition-colors rounded-sm"
+              >
+                Edit profile
+              </button>
+            )}
+            {!isOwn && canSign && (
+              <>
+              {(lud16 || profile?.lud06) && (
+                <button
+                  onClick={() => setShowZap(true)}
+                  className="text-ui px-3 py-1 border border-border text-zap hover:border-zap/40 hover:bg-zap/5 transition-colors rounded-sm"
+                >
+                  ⚡ Zap
+                </button>
+              )}
+              <button
+                onClick={handleFollowToggle}
+                disabled={followPending}
+                className={`text-ui px-3 py-1 border transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
+                  isFollowing
+                    ? "border-border text-text-muted hover:text-danger hover:border-danger/40"
+                    : "border-accent/60 text-accent hover:bg-accent hover:text-accent-text"
+                } rounded-sm`}
+              >
+                {followPending ? "…" : isFollowing ? "Unfollow" : "Follow"}
+              </button>
+              <button
+                onClick={() => isMuted ? unmute(pubkey) : mute(pubkey)}
+                className={`text-ui px-3 py-1 border transition-colors ${
+                  isMuted
+                    ? "border-danger/40 text-danger hover:bg-danger/5"
+                    : "border-border text-text-dim hover:text-danger hover:border-danger/40"
+                } rounded-sm`}
+              >
+                {isMuted ? "Unmute" : "Mute"}
+              </button>
+              <button
+                onClick={() => openDM(pubkey)}
+                className="text-ui px-3 py-1 border border-border text-text-muted hover:text-accent hover:border-accent/40 transition-colors rounded-sm"
+              >
+                ✉ Message
+              </button>
+              </>
+            )}
+          </>
+        }
+      />
 
       <div className="flex-1 overflow-y-auto content-column">
         {/* Edit form */}
@@ -352,45 +360,43 @@ export function ProfileView() {
         )}
 
         {/* Notes / Articles / Media tabs */}
-        <div className="border-b border-border-subtle flex shrink-0">
-          {(["notes", "articles", "media"] as const).map((t) => (
-            <button
-              key={t}
-              onClick={() => setProfileTab(t)}
-              className={`px-4 py-2 text-ui border-b-2 transition-colors ${
-                profileTab === t
-                  ? "border-accent text-accent"
-                  : "border-transparent text-text-dim hover:text-text"
-              }`}
-            >
-              {t === "notes" ? "Notes" : t === "articles" ? "Articles" : "Media"}
-            </button>
-          ))}
+        <Tabs
+          label="Profile"
+          panel="profile-panel"
+          tabs={[
+            { id: "notes", label: "Notes" },
+            { id: "articles", label: "Articles" },
+            { id: "media", label: "Media" },
+          ]}
+          value={profileTab}
+          onChange={setProfileTab}
+        />
+
+        <div {...tabPanelProps("profile-panel", profileTab)}>
+          {profileTab === "notes" && (
+            <>
+              {loading && <div className="px-4 py-8 text-text-dim text-body text-center">Loading notes…</div>}
+              {!loading && notes.length === 0 && <div className="px-4 py-8 text-text-dim text-body text-center">No notes found.</div>}
+              {notes.map((event) => (
+                <NoteCard key={event.id} event={event} />
+              ))}
+            </>
+          )}
+
+          {profileTab === "articles" && (
+            <>
+              {articlesLoading && <div className="px-4 py-8 text-text-dim text-body text-center">Loading articles…</div>}
+              {!articlesLoading && articles.length === 0 && <div className="px-4 py-8 text-text-dim text-body text-center">No articles found.</div>}
+              {articles.map((event) => (
+                <ArticleCard key={event.id} event={event} />
+              ))}
+            </>
+          )}
+
+          {profileTab === "media" && (
+            <ProfileMediaGallery notes={notes} loading={loading} />
+          )}
         </div>
-
-        {profileTab === "notes" && (
-          <>
-            {loading && <div className="px-4 py-8 text-text-dim text-body text-center">Loading notes…</div>}
-            {!loading && notes.length === 0 && <div className="px-4 py-8 text-text-dim text-body text-center">No notes found.</div>}
-            {notes.map((event) => (
-              <NoteCard key={event.id} event={event} />
-            ))}
-          </>
-        )}
-
-        {profileTab === "articles" && (
-          <>
-            {articlesLoading && <div className="px-4 py-8 text-text-dim text-body text-center">Loading articles…</div>}
-            {!articlesLoading && articles.length === 0 && <div className="px-4 py-8 text-text-dim text-body text-center">No articles found.</div>}
-            {articles.map((event) => (
-              <ArticleCard key={event.id} event={event} />
-            ))}
-          </>
-        )}
-
-        {profileTab === "media" && (
-          <ProfileMediaGallery notes={notes} loading={loading} />
-        )}
       </div>
     </div>
   );

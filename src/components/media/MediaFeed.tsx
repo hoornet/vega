@@ -5,6 +5,8 @@ import { useMuteStore } from "../../stores/mute";
 import { parseContent, ContentSegment } from "../../lib/parsing";
 import { NoteCard } from "../feed/NoteCard";
 import { SkeletonNoteList } from "../shared/Skeleton";
+import { ViewHeader } from "../shared/ViewHeader";
+import { Tabs, tabPanelProps } from "../shared/Tabs";
 
 type MediaTab = "all" | "videos" | "images" | "audio";
 
@@ -44,26 +46,21 @@ export function MediaFeed() {
 
   return (
     <div className="h-full flex flex-col">
-      <header className="border-b border-border-subtle px-4 py-2.5 flex flex-wrap items-center justify-between gap-y-1 shrink-0">
-        <div className="flex flex-wrap items-center gap-1">
-          <h1 className="text-text text-title font-medium mr-3">Media</h1>
-          {(["all", "videos", "images", "audio"] as const).map((t) => (
-            <button
-              key={t}
-              onClick={() => setTab(t)}
-              className={`px-3 py-1 text-ui transition-colors border-b-2 ${
-                tab === t
-                  ? "text-text border-accent"
-                  : "text-text-muted hover:text-text border-transparent"
-              }`}
-            >
-              {t.charAt(0).toUpperCase() + t.slice(1)}
-            </button>
-          ))}
-        </div>
-      </header>
+      <ViewHeader title="Media" />
+      <Tabs
+        label="Media"
+        panel="media-panel"
+        tabs={[
+          { id: "all", label: "All" },
+          { id: "videos", label: "Videos" },
+          { id: "images", label: "Images" },
+          { id: "audio", label: "Audio" },
+        ]}
+        value={tab}
+        onChange={setTab}
+      />
 
-      <div className="flex-1 overflow-y-auto content-column">
+      <div {...tabPanelProps("media-panel", tab)} className="flex-1 overflow-y-auto content-column">
         {loading && <SkeletonNoteList count={4} />}
 
         {!loading && filtered.length === 0 && (

@@ -4,6 +4,8 @@ import { searchPodcasts, getTrending } from "../../lib/podcast";
 import { usePodcastStore } from "../../stores/podcast";
 import { PodcastCard } from "./PodcastCard";
 import { EpisodeList } from "./EpisodeList";
+import { ViewHeader } from "../shared/ViewHeader";
+import { Tabs, tabPanelProps } from "../shared/Tabs";
 
 type Tab = "subscriptions" | "trending" | "search";
 
@@ -55,49 +57,40 @@ export function PodcastsView() {
 
   return (
     <div className="h-full flex flex-col">
-      {/* Header */}
-      <div className="border-b border-border-subtle px-4 py-3 shrink-0">
-        <h1 className="text-title text-text font-semibold mb-3">Podcasts</h1>
-
-        {/* Search */}
-        <div className="flex gap-2 mb-3">
+      <ViewHeader title="Podcasts">
+        {/* The field and its button stay together, beside the title. */}
+        <div className="flex items-center gap-2 w-full max-w-lg">
           <input
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && handleSearch()}
             placeholder="Search podcasts…"
-            className="flex-1 bg-bg-raised border border-border-strong rounded-lg px-3 py-1.5 text-ui text-text placeholder:text-text-dim focus:outline-none focus:border-accent"
+            className="flex-1 min-w-0 bg-bg-raised border border-border-strong rounded-lg px-3 py-1.5 text-ui text-text placeholder:text-text-dim focus:outline-none focus:border-accent"
           />
           <button
             onClick={handleSearch}
             disabled={!query.trim()}
             className="px-3 py-1.5 bg-accent/10 text-accent text-ui rounded-sm hover:bg-accent/20 transition-colors disabled:opacity-40"
           >
-            search
+            Search
           </button>
         </div>
-
-        {/* Tabs */}
-        <div className="flex gap-4">
-          {(["subscriptions", "trending", "search"] as Tab[]).map((t) => (
-            <button
-              key={t}
-              onClick={() => handleTabChange(t)}
-              className={`text-ui pb-1 border-b-2 transition-colors ${
-                tab === t
-                  ? "text-accent border-accent"
-                  : "text-text-muted border-transparent hover:text-text"
-              }`}
-            >
-              {t === "subscriptions" ? `My Podcasts${subscriptions.length > 0 ? ` (${subscriptions.length})` : ""}` : t === "trending" ? "Trending" : "Search Results"}
-            </button>
-          ))}
-        </div>
-      </div>
+      </ViewHeader>
+      <Tabs
+        label="Podcasts"
+        panel="podcasts-panel"
+        tabs={[
+          { id: "subscriptions", label: "My Podcasts", count: subscriptions.length || undefined },
+          { id: "trending", label: "Trending" },
+          { id: "search", label: "Search Results" },
+        ]}
+        value={tab}
+        onChange={handleTabChange}
+      />
 
       {/* Results */}
-      <div className="flex-1 overflow-y-auto p-4">
+      <div {...tabPanelProps("podcasts-panel", tab)} className="flex-1 overflow-y-auto p-4">
         {tab === "subscriptions" ? (
           subscriptions.length === 0 ? (
             <div className="text-center py-12">

@@ -13,6 +13,7 @@ import { AncestorChain } from "./AncestorChain";
 import { ThreadNodeComponent } from "./ThreadNode";
 import { NoteCard } from "../feed/NoteCard";
 import { EmojiPicker } from "../shared/EmojiPicker";
+import { ViewHeader } from "../shared/ViewHeader";
 
 export function ThreadView() {
   const { selectedNote, goBack } = useUIStore();
@@ -168,16 +169,7 @@ export function ThreadView() {
 
   return (
     <div className="h-full flex flex-col">
-      {/* Header */}
-      <header className="border-b border-border-subtle px-4 py-2.5 flex items-center gap-3 shrink-0">
-        <button
-          onClick={goBack}
-          className="text-text-dim hover:text-text text-ui transition-colors"
-        >
-          ← Back
-        </button>
-        <h1 className="text-text text-title font-medium">Thread</h1>
-      </header>
+      <ViewHeader title="Thread" onBack={goBack} />
 
       <div ref={scrollRef} className="flex-1 overflow-y-auto content-column">
         {/* Error banner */}

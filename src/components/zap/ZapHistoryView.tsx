@@ -5,6 +5,8 @@ import { useUIStore } from "../../stores/ui";
 import { fetchZapsReceived, fetchZapsSent, fetchNoteById } from "../../lib/nostr";
 import { useProfile } from "../../hooks/useProfile";
 import { timeAgo, shortenPubkey, profileName } from "../../lib/utils";
+import { ViewHeader } from "../shared/ViewHeader";
+import { Tabs, tabPanelProps } from "../shared/Tabs";
 
 // ── Parsing helpers ──────────────────────────────────────────────────────────
 
@@ -151,7 +153,6 @@ type Tab = "received" | "sent";
 
 export function ZapHistoryView() {
   const { pubkey, loggedIn } = useUserStore();
-  const { goBack } = useUIStore();
   const [tab, setTab] = useState<Tab>("received");
   const [received, setReceived] = useState<NDKEvent[]>([]);
   const [sent, setSent] = useState<NDKEvent[]>([]);
@@ -177,9 +178,7 @@ export function ZapHistoryView() {
   if (!loggedIn || !pubkey) {
     return (
       <div className="h-full flex flex-col">
-        <header className="border-b border-border-subtle px-4 py-2.5 shrink-0">
-          <h1 className="text-text text-title font-medium">Zap History</h1>
-        </header>
+        <ViewHeader title="Zaps" />
         <div className="flex-1 flex items-center justify-center text-text-dim text-body">
           Log in to see your zap history.
         </div>
@@ -201,41 +200,29 @@ export function ZapHistoryView() {
 
   return (
     <div className="h-full flex flex-col">
-      {/* Header */}
-      <header className="border-b border-border-subtle px-4 py-2.5 flex items-center justify-between shrink-0">
-        <div className="flex items-center gap-3">
-          <button onClick={goBack} className="text-text-dim hover:text-text text-ui transition-colors">
-            ← back
-          </button>
-          <h1 className="text-text text-title font-medium">Zap History</h1>
-        </div>
-        <div className="text-text-dim text-caption flex gap-4">
-          <span>⚡ {totalReceived.toLocaleString()} in</span>
-          <span>⚡ {totalSent.toLocaleString()} out</span>
-        </div>
-      </header>
-
-      {/* Tabs */}
-      <div className="flex border-b border-border-subtle shrink-0">
-        {(["received", "sent"] as Tab[]).map((t) => (
-          <button
-            key={t}
-            onClick={() => setTab(t)}
-            className={`px-4 py-2 text-ui transition-colors ${
-              tab === t
-                ? "text-text border-b-2 border-accent"
-                : "text-text-muted hover:text-text"
-            }`}
-          >
-            {t === "received"
-              ? `Received${received.length ? ` (${received.length})` : ""}`
-              : `Sent${sent.length ? ` (${sent.length})` : ""}`}
-          </button>
-        ))}
-      </div>
+      {/* The sidebar calls this view Zaps. It is a top-level view, so no Back. */}
+      <ViewHeader
+        title="Zaps"
+        actions={
+          <div className="text-text-dim text-caption flex gap-4">
+            <span>⚡ {totalReceived.toLocaleString()} in</span>
+            <span>⚡ {totalSent.toLocaleString()} out</span>
+          </div>
+        }
+      />
+      <Tabs
+        label="Zaps"
+        panel="zaps-panel"
+        tabs={[
+          { id: "received", label: "Received", count: received.length || undefined },
+          { id: "sent", label: "Sent", count: sent.length || undefined },
+        ]}
+        value={tab}
+        onChange={setTab}
+      />
 
       {/* Body */}
-      <div className="flex-1 overflow-y-auto content-column">
+      <div {...tabPanelProps("zaps-panel", tab)} className="flex-1 overflow-y-auto content-column">
         {loading && (
           <div className="px-4 py-8 text-text-dim text-body text-center">Loading zap history…</div>
         )}

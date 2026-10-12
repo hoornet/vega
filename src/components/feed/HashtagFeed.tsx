@@ -3,6 +3,7 @@ import { NDKEvent } from "@nostr-dev-kit/ndk";
 import { useUIStore } from "../../stores/ui";
 import { fetchHashtagFeed } from "../../lib/nostr";
 import { NoteCard } from "./NoteCard";
+import { ViewHeader } from "../shared/ViewHeader";
 
 export function HashtagFeed() {
   const { pendingHashtag, goBack } = useUIStore();
@@ -33,15 +34,11 @@ export function HashtagFeed() {
 
   return (
     <div className="h-full flex flex-col">
-      <header className="border-b border-border-subtle px-4 py-2.5 flex items-center gap-3 shrink-0">
-        <button onClick={goBack} className="text-text-dim hover:text-text text-ui transition-colors">
-          ← back
-        </button>
-        <h2 className="text-text text-title font-medium">#{tag}</h2>
-        {!loading && (
-          <span className="text-text-dim text-caption">{notes.length} note{notes.length !== 1 ? "s" : ""}</span>
-        )}
-      </header>
+      <ViewHeader
+        title={`#${tag}`}
+        onBack={goBack}
+        meta={!loading ? `${notes.length} note${notes.length !== 1 ? "s" : ""}` : undefined}
+      />
 
       <div className="flex-1 overflow-y-auto content-column">
         {loading && (

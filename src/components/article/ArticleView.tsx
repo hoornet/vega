@@ -11,6 +11,7 @@ import { useProfile } from "../../hooks/useProfile";
 import { profileName } from "../../lib/utils";
 import { ZapModal } from "../zap/ZapModal";
 import { ImageLightbox } from "../shared/ImageLightbox";
+import { ViewHeader } from "../shared/ViewHeader";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -248,69 +249,68 @@ export function ArticleView() {
 
   return (
     <div className="h-full flex flex-col">
-      {/* Header */}
-      <header className="border-b border-border-subtle px-4 py-2.5 flex items-center justify-between shrink-0">
-        <button onClick={goBack} className="text-text-dim hover:text-text text-ui transition-colors">
-          ← Back
-        </button>
-        <div className="flex items-center gap-2">
-          {event && canSign && (
-            <button
-              onClick={handleBookmark}
-              className={`text-ui px-3 py-1 border transition-colors ${
-                bookmarked
-                  ? "border-accent/40 text-accent"
-                  : "border-border text-text-muted hover:text-accent hover:border-accent/40"
-              } rounded-sm`}
-              title={bookmarked ? "Remove bookmark" : "Bookmark article"}
-            >
-              {bookmarked ? "▪ Saved" : "▫ Save"}
-            </button>
-          )}
-          {event && canSign && (
-            <button
-              onClick={() => setShowZap(true)}
-              className="text-ui px-3 py-1 border border-border text-zap hover:border-zap/40 hover:bg-zap/5 transition-colors rounded-sm"
-            >
-              ⚡ zap {authorName}
-            </button>
-          )}
-          {event && canSign && (
-            <button
-              onClick={handleRepost}
-              disabled={reposted}
-              className={`text-ui px-3 py-1 border transition-colors ${
-                reposted
-                  ? "border-accent/40 text-accent"
-                  : "border-border text-text-muted hover:text-accent hover:border-accent/40"
-              } rounded-sm`}
-            >
-              {reposted ? "Reposted" : "Repost"}
-            </button>
-          )}
-          {event && canSign && (
-            <button
-              onClick={() => setShowComment(!showComment)}
-              className={`text-ui px-3 py-1 border transition-colors ${
-                showComment
-                  ? "border-accent/40 text-accent"
-                  : "border-border text-text-muted hover:text-accent hover:border-accent/40"
-              } rounded-sm`}
-            >
-              Comment
-            </button>
-          )}
-          {naddr && (
-            <button
-              onClick={() => navigator.clipboard.writeText(`nostr:${naddr}`)}
-              className="text-ui px-3 py-1 border border-border text-text-muted hover:text-accent hover:border-accent/40 transition-colors rounded-sm"
-              title="Copy nostr: link"
-            >
-              Copy link
-            </button>
-          )}
-        </div>
-      </header>
+      <ViewHeader
+        onBack={goBack}
+        actions={
+          <>
+            {event && canSign && (
+              <button
+                onClick={handleBookmark}
+                className={`text-ui px-3 py-1 border transition-colors ${
+                  bookmarked
+                    ? "border-accent/40 text-accent"
+                    : "border-border text-text-muted hover:text-accent hover:border-accent/40"
+                } rounded-sm`}
+                title={bookmarked ? "Remove bookmark" : "Bookmark article"}
+              >
+                {bookmarked ? "▪ Saved" : "▫ Save"}
+              </button>
+            )}
+            {event && canSign && (
+              <button
+                onClick={() => setShowZap(true)}
+                className="text-ui px-3 py-1 border border-border text-zap hover:border-zap/40 hover:bg-zap/5 transition-colors rounded-sm"
+              >
+                ⚡ zap {authorName}
+              </button>
+            )}
+            {event && canSign && (
+              <button
+                onClick={handleRepost}
+                disabled={reposted}
+                className={`text-ui px-3 py-1 border transition-colors ${
+                  reposted
+                    ? "border-accent/40 text-accent"
+                    : "border-border text-text-muted hover:text-accent hover:border-accent/40"
+                } rounded-sm`}
+              >
+                {reposted ? "Reposted" : "Repost"}
+              </button>
+            )}
+            {event && canSign && (
+              <button
+                onClick={() => setShowComment(!showComment)}
+                className={`text-ui px-3 py-1 border transition-colors ${
+                  showComment
+                    ? "border-accent/40 text-accent"
+                    : "border-border text-text-muted hover:text-accent hover:border-accent/40"
+                } rounded-sm`}
+              >
+                Comment
+              </button>
+            )}
+            {naddr && (
+              <button
+                onClick={() => navigator.clipboard.writeText(`nostr:${naddr}`)}
+                className="text-ui px-3 py-1 border border-border text-text-muted hover:text-accent hover:border-accent/40 transition-colors rounded-sm"
+                title="Copy nostr: link"
+              >
+                Copy link
+              </button>
+            )}
+          </>
+        }
+      />
 
       {/* Comment box */}
       {showComment && event && (
