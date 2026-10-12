@@ -172,21 +172,21 @@ export function ThreadView() {
       <header className="border-b border-border-subtle px-4 py-2.5 flex items-center gap-3 shrink-0">
         <button
           onClick={goBack}
-          className="text-text-dim hover:text-text text-[11px] transition-colors"
+          className="text-text-dim hover:text-text text-ui transition-colors"
         >
           ← Back
         </button>
-        <h1 className="text-text text-sm font-medium">Thread</h1>
+        <h1 className="text-text text-title font-medium">Thread</h1>
       </header>
 
       <div ref={scrollRef} className="flex-1 overflow-y-auto content-column">
         {/* Error banner */}
         {loadError && !loading && (
           <div className="px-4 py-2 bg-danger/10 border-b border-danger/20 flex items-center justify-between">
-            <span className="text-danger text-[11px]">{loadError}</span>
+            <span className="text-danger text-caption">{loadError}</span>
             <button
               onClick={() => setRetryCount((c) => c + 1)}
-              className="text-[11px] text-accent hover:text-accent-hover transition-colors px-2 py-0.5 border border-accent/30 hover:border-accent rounded-sm"
+              className="text-ui text-accent hover:text-accent-hover transition-colors px-2 py-0.5 border border-accent/30 hover:border-accent rounded-sm"
             >
               Retry
             </button>
@@ -229,7 +229,7 @@ export function ThreadView() {
                   onKeyDown={handleKeyDown}
                   placeholder="Write a reply…"
                   rows={2}
-                  className="w-full bg-transparent text-text text-[12px] placeholder:text-text-dim resize-none focus:outline-none leading-relaxed"
+                  className="w-full bg-transparent text-text text-body placeholder:text-text-dim resize-none focus:outline-none leading-relaxed"
                   autoFocus
                 />
                 <div className="flex items-center justify-end gap-2 mt-1">
@@ -258,11 +258,11 @@ export function ThreadView() {
                       />
                     )}
                   </div>
-                  <span className="text-text-dim text-[10px]">Ctrl+Enter</span>
+                  <span className="text-text-dim text-caption">Ctrl+Enter</span>
                   <button
                     onClick={handleRootReply}
                     disabled={!replyText.trim() || replying}
-                    className="px-3 py-1 text-[11px] bg-accent hover:bg-accent-hover text-accent-text rounded-sm transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                    className="px-3 py-1 text-ui bg-accent hover:bg-accent-hover text-accent-text rounded-sm transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
                   >
                     {replySent ? "Replied ✓" : replying ? "Posting…" : "Reply"}
                   </button>
@@ -272,7 +272,7 @@ export function ThreadView() {
 
             {/* Thread tree (children of root) */}
             {tree.children.length === 0 && !showRootReply && !(loadError && !repliesLoading) && (
-              <div className="px-4 py-6 text-text-dim text-[12px] text-center">
+              <div className="px-4 py-6 text-text-dim text-body text-center">
                 {repliesLoading ? "Loading replies…" : "No replies yet."}
               </div>
             )}
@@ -295,10 +295,10 @@ export function ThreadView() {
 
         {!loading && !tree && (
           <div className="px-4 py-6 text-center space-y-2">
-            <p className="text-text-dim text-[12px]">Could not load thread.</p>
+            <p className="text-text-dim text-body">Could not load thread.</p>
             <button
               onClick={() => setRetryCount((c) => c + 1)}
-              className="text-[11px] text-accent hover:text-accent-hover transition-colors px-3 py-1 border border-accent/30 hover:border-accent rounded-sm"
+              className="text-ui text-accent hover:text-accent-hover transition-colors px-3 py-1 border border-accent/30 hover:border-accent rounded-sm"
             >
               Retry
             </button>

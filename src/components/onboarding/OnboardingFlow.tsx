@@ -49,11 +49,11 @@ function Shell({
 }
 
 function Heading({ children }: { children: React.ReactNode }) {
-  return <h1 className="text-text text-xl font-medium mb-3 leading-snug">{children}</h1>;
+  return <h1 className="text-text text-heading font-medium mb-3 leading-snug">{children}</h1>;
 }
 
 function Body({ children }: { children: React.ReactNode }) {
-  return <p className="text-text-dim text-[13px] leading-relaxed mb-6">{children}</p>;
+  return <p className="text-text-dim text-body leading-relaxed mb-6">{children}</p>;
 }
 
 // ─── Interest topics ─────────────────────────────────────────────────────────
@@ -108,7 +108,7 @@ function InterestsStep({ onComplete }: { onComplete: () => void }) {
             <button
               key={tag}
               onClick={() => toggle(tag)}
-              className={`flex items-center gap-2 px-3 py-2 text-[12px] border transition-colors text-left ${
+              className={`flex items-center gap-2 px-2 py-2 text-ui border transition-colors text-left ${
                 active
                   ? "bg-accent/10 border-accent text-accent"
                   : "border-border text-text-dim hover:border-accent/40 hover:text-text"
@@ -123,13 +123,13 @@ function InterestsStep({ onComplete }: { onComplete: () => void }) {
 
       <button
         onClick={handleConfirm}
-        className="w-full py-2.5 text-[13px] font-medium bg-accent hover:bg-accent-hover text-accent-text transition-colors mb-2 rounded-sm"
+        className="w-full py-2.5 text-ui font-medium bg-accent hover:bg-accent-hover text-accent-text transition-colors mb-2 rounded-sm"
       >
         Get started →
       </button>
       <button
         onClick={handleConfirm}
-        className="w-full py-2 text-[12px] text-text-dim hover:text-text transition-colors"
+        className="w-full py-2 text-ui text-text-dim hover:text-text transition-colors"
       >
         Skip for now
       </button>
@@ -155,13 +155,13 @@ function WelcomeStep({ onCreateNew, onHaveKey, onBrowse }: { onCreateNew: () => 
       <div className="space-y-3">
         <button
           onClick={onCreateNew}
-          className="w-full py-2.5 text-[13px] font-medium bg-accent hover:bg-accent-hover text-accent-text transition-colors rounded-sm"
+          className="w-full py-2.5 text-ui font-medium bg-accent hover:bg-accent-hover text-accent-text transition-colors rounded-sm"
         >
           Create a new identity
         </button>
         <button
           onClick={onHaveKey}
-          className="w-full py-2.5 text-[13px] border border-border text-text-muted hover:text-text hover:border-accent/40 transition-colors rounded-sm"
+          className="w-full py-2.5 text-ui border border-border text-text-muted hover:text-text hover:border-accent/40 transition-colors rounded-sm"
         >
           I already have a key
         </button>
@@ -169,12 +169,12 @@ function WelcomeStep({ onCreateNew, onHaveKey, onBrowse }: { onCreateNew: () => 
             identity stays the main path, this is the escape hatch. */}
         <button
           onClick={onBrowse}
-          className="w-full py-1.5 text-[12px] text-text-dim hover:text-text-muted transition-colors"
+          className="w-full py-1.5 text-ui text-text-dim hover:text-text-muted transition-colors"
         >
           Look around first
         </button>
       </div>
-      <p className="text-text-dim text-[11px] mt-2 text-center">
+      <p className="text-text-dim text-caption mt-2 text-center">
         You can read Nostr without an identity. You'll need one to post, reply, or follow.
       </p>
     </Shell>
@@ -204,24 +204,24 @@ function CreateStep({ onNext }: { onNext: (signer: NDKPrivateKeySigner) => void 
 
       <div className="border border-border mb-2 rounded-lg">
         <div className="px-3 py-1.5 border-b border-border-subtle">
-          <span className="text-text-dim text-[10px] uppercase tracking-widest">Your public key (npub)</span>
+          <span className="text-text-dim text-micro uppercase tracking-widest">Your public key (npub)</span>
         </div>
         <div className="flex items-center gap-2 px-3 py-2">
-          <span title={signer.npub} className="text-text font-mono text-[11px] truncate flex-1 select-all">{signer.npub}</span>
+          <span title={signer.npub} className="text-text font-mono text-caption truncate flex-1 select-all">{signer.npub}</span>
           <button
             onClick={handleCopy}
             aria-label="Copy public key"
-            className="text-[10px] text-text-dim hover:text-accent transition-colors shrink-0"
+            className="text-caption text-text-dim hover:text-accent transition-colors shrink-0"
           >
             {copied ? "copied ✓" : "copy"}
           </button>
         </div>
       </div>
-      <p className="text-text-dim text-[11px] mb-6">Safe to share with anyone. This is how people find you on Nostr.</p>
+      <p className="text-text-dim text-caption mb-6">Safe to share with anyone. This is how people find you on Nostr.</p>
 
       <button
         onClick={() => onNext(signer)}
-        className="w-full py-2.5 text-[13px] font-medium bg-accent hover:bg-accent-hover text-accent-text transition-colors rounded-sm"
+        className="w-full py-2.5 text-ui font-medium bg-accent hover:bg-accent-hover text-accent-text transition-colors rounded-sm"
       >
         Next: back up your secret key →
       </button>
@@ -275,28 +275,28 @@ function BackupStep({ signer, onComplete }: { signer: NDKPrivateKeySigner; onCom
 
       <div className="border border-danger/40 mb-2 rounded-lg overflow-hidden">
         <div className="px-3 py-1.5 border-b border-danger/40 bg-danger/5">
-          <span className="text-danger text-[10px] uppercase tracking-widest">Secret key (nsec) — keep private</span>
+          <span className="text-danger text-micro uppercase tracking-widest">Secret key (nsec) — keep private</span>
         </div>
         <div className="flex items-center gap-2 px-3 py-2">
-          <span title={revealed ? signer.nsec : undefined} className={`font-mono text-[11px] truncate flex-1 ${revealed ? "text-text select-all" : "text-text-dim"}`}>
+          <span title={revealed ? signer.nsec : undefined} className={`font-mono text-caption truncate flex-1 ${revealed ? "text-text select-all" : "text-text-dim"}`}>
             {revealed ? signer.nsec : "••••••••••••••••••••••••••••••••••••••••••••••••"}
           </span>
           <button
             onClick={() => setRevealed(!revealed)}
-            className="text-[10px] text-text-dim hover:text-text transition-colors shrink-0"
+            className="text-caption text-text-dim hover:text-text transition-colors shrink-0"
           >
             {revealed ? "hide" : "reveal"}
           </button>
           <button
             onClick={handleCopy}
             aria-label="Copy secret key"
-            className="text-[10px] text-text-dim hover:text-danger transition-colors shrink-0"
+            className="text-caption text-text-dim hover:text-danger transition-colors shrink-0"
           >
             {copied ? "copied ✓" : "copy"}
           </button>
         </div>
       </div>
-      <p className="text-text-dim text-[11px] mb-6">
+      <p className="text-text-dim text-caption mb-6">
         Never share this with anyone. Anyone who has it controls your account.
       </p>
 
@@ -307,28 +307,28 @@ function BackupStep({ signer, onComplete }: { signer: NDKPrivateKeySigner; onCom
           onChange={(e) => setConfirmed(e.target.checked)}
           className="mt-0.5 accent-accent w-4 h-4 shrink-0"
         />
-        <span className="text-text-dim text-[12px] group-hover:text-text transition-colors">
+        <span className="text-text-dim text-body group-hover:text-text transition-colors">
           I've saved my secret key in a safe place and understand that losing it means losing access to my account.
         </span>
       </label>
 
-      {loginError && <p className="text-danger text-[11px] mb-3">{loginError}</p>}
+      {loginError && <p className="text-danger text-caption mb-3">{loginError}</p>}
 
       <button
         onClick={handleStart}
         disabled={!confirmed || saving}
-        className="w-full py-2.5 text-[13px] font-medium bg-accent hover:bg-accent-hover text-accent-text transition-colors disabled:opacity-30 disabled:cursor-not-allowed rounded-sm"
+        className="w-full py-2.5 text-ui font-medium bg-accent hover:bg-accent-hover text-accent-text transition-colors disabled:opacity-30 disabled:cursor-not-allowed rounded-sm"
       >
         {saving ? "Setting up…" : "Start using Vega"}
       </button>
       <button
         onClick={handleSkipBackup}
         disabled={saving}
-        className="w-full py-2 text-[11px] text-text-dim hover:text-text transition-colors mt-1 disabled:opacity-30"
+        className="w-full py-2 text-ui text-text-dim hover:text-text transition-colors mt-1 disabled:opacity-30"
       >
         I'll back up my key later
       </button>
-      <p className="text-text-muted text-[11px] text-center mt-1">
+      <p className="text-text-muted text-caption text-center mt-1">
         You can also copy it later from Settings → Identity, on this computer only.
       </p>
     </Shell>
@@ -378,7 +378,7 @@ function LoginStep({ onBack, onComplete }: { onBack: () => void; onComplete: () 
             role="tab"
             aria-selected={mode === m}
             onClick={() => { setMode(m); setValue(""); }}
-            className={`flex-1 py-2 text-[11px] transition-colors ${
+            className={`flex-1 py-2 text-ui transition-colors ${
               mode === m ? "bg-accent/10 text-accent" : "text-text-dim hover:text-text"
             }`}
           >
@@ -399,33 +399,33 @@ function LoginStep({ onBack, onComplete }: { onBack: () => void; onComplete: () 
         placeholder={mode === "nsec" ? "nsec1…" : mode === "npub" ? "npub1…" : "bunker://…"}
         aria-label={mode === "nsec" ? "Secret key" : mode === "npub" ? "Public key" : "Bunker URI"}
         autoFocus
-        className="w-full bg-bg border border-border-strong px-3 py-2 text-text text-[12px] font-mono focus:outline-none focus:border-accent placeholder:text-text-dim mb-2 rounded-lg"
+        className="w-full bg-bg border border-border-strong px-3 py-2 text-text text-ui font-mono focus:outline-none focus:border-accent placeholder:text-text-dim mb-2 rounded-lg"
         style={{ WebkitUserSelect: "text", userSelect: "text" } as React.CSSProperties}
       />
 
       {mode === "nsec" && (
-        <p className="text-text-dim text-[11px] mb-4">Stored in this computer's keychain. Never sent to any server.</p>
+        <p className="text-text-dim text-caption mb-4">Stored in this computer's keychain. Never sent to any server.</p>
       )}
       {mode === "npub" && (
-        <p className="text-text-dim text-[11px] mb-4">Read-only mode — you can browse but not post, react, or zap.</p>
+        <p className="text-text-dim text-caption mb-4">Read-only mode — you can browse but not post, react, or zap.</p>
       )}
       {mode === "bunker" && (
-        <p className="text-text-dim text-[11px] mb-4">Connect to nsecBunker, Amber, or similar. Paste your bunker:// URI.</p>
+        <p className="text-text-dim text-caption mb-4">Connect to nsecBunker, Amber, or similar. Paste your bunker:// URI.</p>
       )}
 
-      {loginError && <p className="text-danger text-[11px] mb-3">{loginError}</p>}
+      {loginError && <p className="text-danger text-caption mb-3">{loginError}</p>}
 
       <div className="space-y-2">
         <button
           onClick={handleLogin}
           disabled={!value.trim() || loading}
-          className="w-full py-2.5 text-[13px] font-medium bg-accent hover:bg-accent-hover text-accent-text transition-colors disabled:opacity-30 disabled:cursor-not-allowed rounded-sm"
+          className="w-full py-2.5 text-ui font-medium bg-accent hover:bg-accent-hover text-accent-text transition-colors disabled:opacity-30 disabled:cursor-not-allowed rounded-sm"
         >
           {loading ? (mode === "bunker" ? "Connecting…" : "Logging in…") : "Log in"}
         </button>
         <button
           onClick={onBack}
-          className="w-full py-2 text-[12px] text-text-dim hover:text-text transition-colors"
+          className="w-full py-2 text-ui text-text-dim hover:text-text transition-colors"
         >
           ← Back
         </button>

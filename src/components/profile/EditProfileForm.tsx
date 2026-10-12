@@ -50,12 +50,12 @@ export function EditProfileForm({ pubkey, onSaved }: { pubkey: string; onSaved: 
 
   const field = (label: string, value: string, onChange: (v: string) => void, placeholder = "") => (
     <div>
-      <label className="text-text-dim text-[10px] block mb-1">{label}</label>
+      <label className="text-text-dim text-caption block mb-1">{label}</label>
       <input
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
-        className="w-full bg-bg border border-border-strong px-3 py-1.5 text-text text-[12px] focus:outline-none focus:border-accent rounded-lg"
+        className="w-full bg-bg border border-border-strong px-3 py-1.5 text-text text-ui focus:outline-none focus:border-accent rounded-lg"
         style={{ WebkitUserSelect: "text", userSelect: "text" } as React.CSSProperties}
       />
     </div>
@@ -72,33 +72,33 @@ export function EditProfileForm({ pubkey, onSaved }: { pubkey: string; onSaved: 
         <ImageField label="Profile picture" value={picture} onChange={setPicture} />
       </div>
       <div className="mb-3">
-        <label className="text-text-dim text-[10px] block mb-1">Bio</label>
+        <label className="text-text-dim text-caption block mb-1">Bio</label>
         <textarea
           value={about}
           onChange={(e) => setAbout(e.target.value)}
           placeholder="Tell people about yourself…"
           rows={3}
-          className="w-full bg-bg border border-border-strong px-3 py-1.5 text-text text-[12px] resize-none focus:outline-none focus:border-accent rounded-lg"
+          className="w-full bg-bg border border-border-strong px-3 py-1.5 text-text text-ui resize-none focus:outline-none focus:border-accent rounded-lg"
           style={{ WebkitUserSelect: "text", userSelect: "text" } as React.CSSProperties}
         />
       </div>
       <div className="mb-3">
         <ImageField label="Banner image" value={banner} onChange={setBanner} />
       </div>
-      {error && <p className="text-danger text-[11px] mb-2">{error}</p>}
+      {error && <p className="text-danger text-caption mb-2">{error}</p>}
       <div className="flex items-center gap-2">
         {canSign ? (
           <button
             onClick={handleSave}
             disabled={saving || saved}
-            className="px-4 py-1.5 text-[11px] bg-accent hover:bg-accent-hover text-accent-text transition-colors disabled:opacity-30 disabled:cursor-not-allowed rounded-sm"
+            className="px-4 py-1.5 text-ui bg-accent hover:bg-accent-hover text-accent-text transition-colors disabled:opacity-30 disabled:cursor-not-allowed rounded-sm"
           >
             {saved ? "Saved ✓" : saving ? "Saving…" : "Save profile"}
           </button>
         ) : (
           <button
             onClick={() => setShowLoginModal(true)}
-            className="px-4 py-1.5 text-[11px] border border-accent/60 text-accent hover:bg-accent hover:text-accent-text transition-colors rounded-sm"
+            className="px-4 py-1.5 text-ui border border-accent/60 text-accent hover:bg-accent hover:text-accent-text transition-colors rounded-sm"
           >
             Sign in to save
           </button>

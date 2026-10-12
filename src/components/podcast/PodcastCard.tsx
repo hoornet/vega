@@ -29,10 +29,10 @@ export function PodcastCard({ show, onClick }: PodcastCardProps) {
         )}
       </button>
       <button onClick={onClick} className="min-w-0 flex-1 text-left">
-        <div className="text-[13px] text-text font-medium truncate">{show.title}</div>
-        <div className="text-[11px] text-text-muted truncate">{show.author}</div>
+        <div className="text-body text-text font-medium truncate">{show.title}</div>
+        <div className="text-caption text-text-muted truncate">{show.author}</div>
         {show.description && (
-          <div className="text-[11px] text-text-dim mt-1 line-clamp-2">
+          <div className="text-caption text-text-dim mt-1 line-clamp-2">
             {stripHtmlTags(show.description).slice(0, 120)}
           </div>
         )}
@@ -43,7 +43,7 @@ export function PodcastCard({ show, onClick }: PodcastCardProps) {
           if (subscribed) unsubscribe(show.feedUrl);
           else subscribe(show);
         }}
-        className={`shrink-0 text-[10px] px-2 py-1 rounded-sm border transition-colors ${
+        className={`shrink-0 text-caption px-2 py-1 rounded-sm border transition-colors ${
           subscribed
             ? "border-accent/40 text-accent"
             : "border-border text-text-muted hover:text-accent hover:border-accent/40"

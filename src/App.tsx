@@ -62,7 +62,7 @@ function UpdateBanner() {
   const changelog = body ? latestChangelogSection(body) : "";
 
   return (
-    <div className="bg-accent/10 border-b border-accent/30 text-[12px] shrink-0">
+    <div className="bg-accent/10 border-b border-accent/30 text-ui shrink-0">
       <div className="flex items-center justify-between px-4 py-2">
         <span className="text-text">
           Vega {version} is available.
@@ -114,7 +114,7 @@ function UpdateBanner() {
           <div className="prose-article" dangerouslySetInnerHTML={{ __html: renderMarkdown(changelog) }} />
           <button
             onClick={() => openUrl("https://github.com/hoornet/vega/releases").catch(() => {})}
-            className="mt-3 text-accent hover:text-accent-hover transition-colors text-[11px]"
+            className="mt-3 text-accent hover:text-accent-hover transition-colors text-ui"
           >
             Full changelog on GitHub →
           </button>
@@ -128,7 +128,7 @@ function ReadOnlyBanner() {
   const canSign = useCanSign();
   if (canSign) return null;
   return (
-    <div className="flex items-center justify-center gap-2 px-4 py-1.5 bg-warning/10 border-b border-warning/30 text-[11px] shrink-0">
+    <div className="flex items-center justify-center gap-2 px-4 py-1.5 bg-warning/10 border-b border-warning/30 text-caption shrink-0">
       <span className="text-warning">Read-only mode — sign in to post, react, and zap</span>
     </div>
   );

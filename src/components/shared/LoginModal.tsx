@@ -33,11 +33,11 @@ function NewAccountTab({ onClose }: { onClose: () => void }) {
 
   return (
     <div>
-      <p className="text-text-muted text-[12px] mb-3">
+      <p className="text-text-muted text-body mb-3">
         A new private key has been generated for you. Save it somewhere safe — it cannot be recovered.
       </p>
 
-      <div className="bg-bg border border-border px-3 py-2 font-mono text-[11px] text-text break-all mb-2 rounded-lg"
+      <div className="bg-bg border border-border px-3 py-2 font-mono text-caption text-text break-all mb-2 rounded-lg"
         style={{ WebkitUserSelect: "text", userSelect: "text" } as React.CSSProperties}
       >
         {nsec}
@@ -45,7 +45,7 @@ function NewAccountTab({ onClose }: { onClose: () => void }) {
 
       <button
         onClick={handleCopy}
-        className="text-[11px] px-3 py-1 border border-border text-text-muted hover:text-accent hover:border-accent/40 transition-colors mb-4 rounded-sm"
+        className="text-ui px-3 py-1 border border-border text-text-muted hover:text-accent hover:border-accent/40 transition-colors mb-4 rounded-sm"
       >
         {copied ? "copied ✓" : "copy key"}
       </button>
@@ -57,19 +57,19 @@ function NewAccountTab({ onClose }: { onClose: () => void }) {
           onChange={(e) => setConfirmed(e.target.checked)}
           className="mt-0.5 shrink-0"
         />
-        <span className="text-text-muted text-[12px]">
+        <span className="text-text-muted text-body">
           I've saved my private key in a safe place
         </span>
       </label>
 
       {loginError && (
-        <p className="text-danger text-[11px] mb-2">{loginError}</p>
+        <p className="text-danger text-caption mb-2">{loginError}</p>
       )}
 
       <button
         onClick={handleConfirm}
         disabled={!confirmed || logging}
-        className="w-full px-4 py-2 text-[12px] bg-accent hover:bg-accent-hover text-accent-text transition-colors disabled:opacity-30 disabled:cursor-not-allowed rounded-sm"
+        className="w-full px-4 py-2 text-ui bg-accent hover:bg-accent-hover text-accent-text transition-colors disabled:opacity-30 disabled:cursor-not-allowed rounded-sm"
       >
         {logging ? "Logging in…" : "create account"}
       </button>
@@ -122,7 +122,7 @@ export function LoginModal({ onClose }: LoginModalProps) {
       >
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-border-subtle">
-          <h2 id="login-modal-title" className="text-text text-sm font-medium">Login</h2>
+          <h2 id="login-modal-title" className="text-text text-title font-medium">Login</h2>
           <button
             onClick={onClose}
             aria-label="Close login dialog"
@@ -138,7 +138,7 @@ export function LoginModal({ onClose }: LoginModalProps) {
             <button
               key={t}
               onClick={() => { setTab(t); setInput(""); }}
-              className={`flex-1 px-3 py-2 text-[11px] transition-colors ${
+              className={`flex-1 px-3 py-2 text-ui transition-colors ${
                 tab === t
                   ? "text-accent border-b-2 border-accent"
                   : "text-text-muted hover:text-text"
@@ -155,7 +155,7 @@ export function LoginModal({ onClose }: LoginModalProps) {
             <NewAccountTab onClose={onClose} />
           ) : (
             <>
-              <label className="block text-text-muted text-[11px] mb-1.5">
+              <label className="block text-text-muted text-caption mb-1.5">
                 {tab === "nsec"
                   ? "Paste your nsec or hex private key"
                   : tab === "pubkey"
@@ -169,35 +169,35 @@ export function LoginModal({ onClose }: LoginModalProps) {
                 onKeyDown={handleKeyDown}
                 placeholder={tab === "nsec" ? "nsec1…" : tab === "pubkey" ? "npub1…" : "bunker://…"}
                 autoFocus
-                className="w-full bg-bg border border-border-strong px-3 py-2 text-text text-[13px] font-mono placeholder:text-text-dim focus:outline-none focus:border-accent rounded-lg"
+                className="w-full bg-bg border border-border-strong px-3 py-2 text-text text-ui font-mono placeholder:text-text-dim focus:outline-none focus:border-accent rounded-lg"
               />
 
               {tab === "nsec" && (
-                <p className="text-text-dim text-[10px] mt-1.5">
+                <p className="text-text-dim text-caption mt-1.5">
                   Your key stays local. Never sent to any server.
                 </p>
               )}
 
               {tab === "pubkey" && (
-                <p className="text-text-dim text-[10px] mt-1.5">
+                <p className="text-text-dim text-caption mt-1.5">
                   Read-only mode — you can browse but not post or zap.
                 </p>
               )}
 
               {tab === "bunker" && (
-                <p className="text-text-dim text-[10px] mt-1.5">
+                <p className="text-text-dim text-caption mt-1.5">
                   Connect to nsecBunker, Amber, or similar. Your keys never leave the signer.
                 </p>
               )}
 
               {loginError && (
-                <p className="text-danger text-[11px] mt-2">{loginError}</p>
+                <p className="text-danger text-caption mt-2">{loginError}</p>
               )}
 
               <button
                 onClick={handleLogin}
                 disabled={!input.trim() || loading}
-                className="w-full mt-3 px-4 py-2 text-[12px] bg-accent hover:bg-accent-hover text-accent-text transition-colors disabled:opacity-30 disabled:cursor-not-allowed rounded-sm"
+                className="w-full mt-3 px-4 py-2 text-ui bg-accent hover:bg-accent-hover text-accent-text transition-colors disabled:opacity-30 disabled:cursor-not-allowed rounded-sm"
               >
                 {loading
                   ? (tab === "bunker" ? "Connecting…" : "Logging in…")

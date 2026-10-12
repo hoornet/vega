@@ -30,7 +30,7 @@ function CopyButton({ text }: { text: string }) {
   return (
     <button
       onClick={handle}
-      className="text-text-dim hover:text-accent text-[10px] transition-colors ml-2 shrink-0"
+      className="text-text-dim hover:text-accent text-caption transition-colors ml-2 shrink-0"
     >
       {copied ? "copied ✓" : "copy"}
     </button>
@@ -45,7 +45,7 @@ function QRBlock({ value, label }: { value: string; label: string }) {
         <QRCode value={value} size={120} />
       </div>
       <div className="flex items-center gap-1 max-w-[160px]">
-        <span className="text-text-dim text-[10px] font-mono truncate">{label}</span>
+        <span className="text-text-dim text-micro font-mono truncate">{label}</span>
         <CopyButton text={label} />
       </div>
     </div>
@@ -60,8 +60,8 @@ export function AboutView() {
       <div className="max-w-xl mx-auto px-6 py-8">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-text text-lg font-medium tracking-tight mb-2">Support Vega</h1>
-          <p className="text-text-muted text-[13px] leading-relaxed">
+          <h1 className="text-text text-heading font-medium tracking-tight mb-2">Support Vega</h1>
+          <p className="text-text-muted text-body leading-relaxed">
             Vega is free, open-source, and built by one person. If it's useful to you,
             any support — a zap, a share, a star on GitHub — genuinely helps.
           </p>
@@ -69,29 +69,29 @@ export function AboutView() {
 
         {/* Zap */}
         <section className="mb-8">
-          <h2 className="text-text-dim text-[10px] uppercase tracking-widest mb-3">⚡ Zap the developer</h2>
-          <p className="text-text-muted text-[12px] mb-3">
+          <h2 className="text-text-dim text-micro uppercase tracking-widest mb-3">⚡ Zap the developer</h2>
+          <p className="text-text-muted text-body mb-3">
             Send sats directly from Vega using your connected Lightning wallet.
           </p>
           <button
             onClick={() => setShowZap(true)}
-            className="px-4 py-2 text-[12px] font-medium bg-zap hover:bg-zap/90 text-zap-text transition-colors rounded-sm"
+            className="px-4 py-2 text-ui font-medium bg-zap hover:bg-zap/90 text-zap-text transition-colors rounded-sm"
           >
             ⚡ Zap hoornet
           </button>
-          <p className="text-text-dim text-[10px] mt-2 font-mono break-all">{DEV_NPUB}</p>
+          <p className="text-text-dim text-micro mt-2 font-mono break-all">{DEV_NPUB}</p>
         </section>
 
         {/* QR codes */}
         <section className="mb-8">
-          <h2 className="text-text-dim text-[10px] uppercase tracking-widest mb-4">Scan to send</h2>
+          <h2 className="text-text-dim text-micro uppercase tracking-widest mb-4">Scan to send</h2>
           <div className="flex justify-between gap-8">
             <div>
-              <div className="text-text-muted text-[11px] mb-2">Lightning</div>
+              <div className="text-text-muted text-caption mb-2">Lightning</div>
               <QRBlock value={`lightning:${LIGHTNING_ADDRESS}`} label={LIGHTNING_ADDRESS} />
             </div>
             <div>
-              <div className="text-text-muted text-[11px] mb-2">Bitcoin</div>
+              <div className="text-text-muted text-caption mb-2">Bitcoin</div>
               <QRBlock value={`bitcoin:${BITCOIN_ADDRESS}`} label={BITCOIN_ADDRESS} />
             </div>
           </div>
@@ -99,37 +99,37 @@ export function AboutView() {
 
         {/* Links */}
         <section className="mb-8">
-          <h2 className="text-text-dim text-[10px] uppercase tracking-widest mb-3">Other ways to help</h2>
+          <h2 className="text-text-dim text-micro uppercase tracking-widest mb-3">Other ways to help</h2>
           <div className="space-y-2">
             <div className="flex items-center gap-3">
-              <span className="text-text-muted text-[12px] w-16 shrink-0">Ko-fi</span>
+              <span className="text-text-muted text-body w-20 shrink-0">Ko-fi</span>
               <a
                 href={KOFI_URL}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-accent text-[12px] hover:text-accent-hover transition-colors"
+                className="text-accent text-body hover:text-accent-hover transition-colors"
               >
                 {KOFI_URL} ↗
               </a>
             </div>
             <div className="flex items-center gap-3">
-              <span className="text-text-muted text-[12px] w-16 shrink-0">GitHub</span>
+              <span className="text-text-muted text-body w-20 shrink-0">GitHub</span>
               <a
                 href={GITHUB_URL}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-accent text-[12px] hover:text-accent-hover transition-colors"
+                className="text-accent text-body hover:text-accent-hover transition-colors"
               >
                 {GITHUB_URL} ↗
               </a>
             </div>
             <div className="flex items-center gap-3">
-              <span className="text-text-muted text-[12px] w-16 shrink-0">Sponsors</span>
+              <span className="text-text-muted text-body w-20 shrink-0">Sponsors</span>
               <a
                 href={GITHUB_SPONSORS_URL}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-accent text-[12px] hover:text-accent-hover transition-colors"
+                className="text-accent text-body hover:text-accent-hover transition-colors"
               >
                 {GITHUB_SPONSORS_URL} ↗
               </a>
@@ -139,7 +139,7 @@ export function AboutView() {
 
         {/* Version / About */}
         <section className="border-t border-border-subtle pt-6">
-          <div className="text-text-dim text-[11px] space-y-1">
+          <div className="text-text-dim text-caption space-y-1">
             <div>Vega v{pkg.version} — MIT License — Copyright (c) 2026 Jure Sršen</div>
             <div>
               Built with{" "}

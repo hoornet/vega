@@ -32,8 +32,8 @@ export function FountainCard({ seg }: { seg: ContentSegment }) {
           <span className="text-accent text-lg font-bold">F</span>
         </div>
         <div className="min-w-0">
-          <div className="text-[11px] text-text-muted">Fountain.fm</div>
-          <div className="text-[12px] text-accent truncate">{seg.value}</div>
+          <div className="text-caption text-text-muted">Fountain.fm</div>
+          <div className="text-ui text-accent truncate">{seg.value}</div>
         </div>
       </a>
     );
@@ -80,10 +80,10 @@ export function FountainCard({ seg }: { seg: ContentSegment }) {
         </div>
       )}
       <div className="min-w-0 flex-1">
-        <div className="text-[11px] text-text-muted">Fountain.fm</div>
-        <div className="text-[12px] text-text truncate">{episode.title}</div>
+        <div className="text-caption text-text-muted">Fountain.fm</div>
+        <div className="text-ui text-text truncate">{episode.title}</div>
         {episode.showTitle && (
-          <div className="text-[10px] text-text-dim truncate">{episode.showTitle}</div>
+          <div className="text-caption text-text-dim truncate">{episode.showTitle}</div>
         )}
       </div>
       {episode.enclosureUrl && (

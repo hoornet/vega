@@ -14,13 +14,13 @@ export function V4VView() {
       {/* Header */}
       <div className="border-b border-border-subtle shrink-0">
         <div className="flex items-center px-4 pt-3 pb-0">
-          <h1 className="text-text text-[14px] font-medium mr-6">Value 4 Value</h1>
+          <h1 className="text-text text-title font-medium mr-6">Value 4 Value</h1>
           <div className="flex">
             {TABS.map((t) => (
               <button
                 key={t}
                 onClick={() => setTab(t)}
-                className={`px-4 py-2 text-[11px] border-b-2 transition-colors ${
+                className={`px-4 py-2 text-ui border-b-2 transition-colors ${
                   tab === t
                     ? "border-accent text-accent"
                     : "border-transparent text-text-dim hover:text-text"

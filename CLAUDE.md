@@ -216,7 +216,7 @@ Vega is shipped through channels that carry our name: the AUR, winget, GitHub re
 - **Emoji picker** — shared categorized emoji picker (Frequent/Faces/Gestures/Objects/Symbols) in compose box, inline reply, thread reply; emoji reaction picker on note cards via visible + button
 - **External link opener** — global click handler intercepts http(s) links and opens in system browser via `@tauri-apps/plugin-opener`
 - **Color themes** — 7 built-in themes (Midnight, Light, Catppuccin Mocha, Gruvbox, Nord Frost, Hackerman, Reader); CSS custom properties swapped at runtime; persisted to localStorage. Rules every theme must meet are tested, see "Theme tokens" below
-- **Font size presets** — Small/Normal/Large/Extra Large; CSS zoom scaling on document root; persisted to localStorage
+- **Font size presets** — Small/Normal/Large/Extra Large; a CSS zoom on `<main>` (not on the document root: the sidebar is outside it); persisted to localStorage
 - **Web of Trust** — Vertex DVM integration (kind 5312→6312); personalized "Followed by people you trust" on profiles with clickable follower avatars
 - **SQLite-backed notifications** — instant load on startup from local cache; relay diff merged in background; read state persists in DB across restarts
 - **SQLite-backed followers cache** — instant load from DB, relay results merged in background; follower count only grows (never lost to partial relay results)
@@ -316,6 +316,40 @@ A kind 3 is replaceable: publishing one replaces the user's whole follow list, f
 - **The avatar row in a note is `items-start`.** Without it the avatar button stretches to the card's height and centres the picture: on a tall post the face sat hundreds of pixels below the name, and the whole strip opened the profile.
 - **A lone feed image keeps its fixed 4:3 frame** (the virtual list needs the height before the picture loads) and is fitted by `soloImageFit` in `src/lib/mediaFit.ts`: fill the frame when the picture is about that shape, show it whole otherwise. The frame is capped at 70% of the window height.
 - **The feed opens on the tab the user picked last** (`wrystr_feed_tab`), otherwise Following when signed in and Trending when not. Tabs the app picks as a default are passed `{ remember: false }` to `setFeedTab`, so only the user's own choice persists. An account that follows nobody is sent to Trending once, and only after the follow list actually loaded.
+
+## Type scale
+
+Seven steps, defined as `--text-*` tokens in `src/index.css` and used as `text-micro` to `text-display`. Each sets a size and a line height. Before October 2026 there were 726 hard-coded sizes, 656 of them 12px or smaller, and the note body was 13px.
+
+| Step | Size / line | Used for |
+|---|---|---|
+| `text-micro` | 11 / 16 | badges, counts, uppercase section labels, `kbd` |
+| `text-caption` | 12 / 18 | timestamps, NIP-05, helper text, tags, the smallest buttons |
+| `text-ui` | 13 / 20 | nav rows, buttons, tabs, inputs and other form fields, menu items, rows of controls, compact cards |
+| `text-body` | 15 / 24 | note text, names, bios, messages, toasts, empty states, setting labels, anything composed (a note, a reply, a message, an article) |
+| `text-title` | 17 / 24 | view titles, card titles, dialog titles |
+| `text-heading` | 22 / 28 | profile name, onboarding step titles |
+| `text-display` | 28 / 34 | article title, onboarding welcome |
+
+- **Nothing is below 11px and no sentence is below 12px.** The page default (`body` in `index.css`) is the body step, so text with no size class is 15px.
+- **Pick a step by what the text is, not by how big it should look.** A control takes `text-ui`. A sentence someone reads takes `text-body`, or `text-caption` when it only annotates something. An uppercase label takes `text-micro`. A title takes `text-title` whatever tag it is in, and a sub-heading inside a view takes `text-body font-medium`, so it does not compete with the view's title.
+- **Names are `text-body`, even when the name is a button.** The exception is a name inside a compact row that sets its own size: a quote preview, the ancestor chain, an article's byline, the account menu.
+- **Where you compose is `text-body`; a field in a form matches the form.** The compose box, replies, messages and the article editor are body size. A bio or a summary sitting among `text-ui` inputs is `text-ui` too.
+- **`src/lib/typeScale.test.ts` is a ratchet.** It counts hard-coded sizes (`text-[11px]`, `text-sm`, ...) per file, in `.tsx` and `.ts`. A file may lose them and never gain them. What is left (66) are icon sizes: a lone glyph, an emoji, the initial in an avatar placeholder, the wordmark. Lower the number in the test when you replace one with an icon. It cannot see a size set in a stylesheet or an inline style, or a swap within one file that leaves the count unchanged.
+- **Size and line height come from the step. Weight does not.** Use `font-medium` or `font-semibold` beside it. An explicit `leading-*` class still overrides the step's line height.
+- **Anything that changes line height globally must set the steps' `--text-*--line-height` tokens.** A line height on `body` no longer reaches stepped text by inheritance. The easy-read font setting does this in `index.css`.
+- **A fixed-width box around text has to be checked when a step changes.** The theme picker's `w-20` buttons cut "Hackerman" off at the new size, the Help dialog wrapped a line, and a hint beside "Sign out" was truncated in the sidebar. Prefer `min-w-*` and let the text set the width. An automated overflow scan found none of these; looking at the screens did.
+- **A size rewrite by script needs its buckets read before it is applied.** The rewrite classified elements by tag and class. It took three tab bars for avatar initials because their labels are built with `charAt(0)`, and sized a Markdown text area as a control because it is monospaced. A reviewer reading every swap found them.
+- **The font-size setting scales the whole pane** (`zoom` on `<main>`), so the steps keep their proportions at every setting. Small is close to what Normal was before this scale. The sidebar is outside `<main>` and does not scale.
+
+### The feed's row-height estimate
+
+`src/lib/feedEstimate.ts` tells the virtual list how tall a row will be before it is rendered. When it is far off, each row snaps to its real height on first measurement and the list jumps on upward scroll.
+
+- **It depends on the body step and on each card's layout.** Its constants were measured against rendered rows, not chosen by eye: compare `estimateNoteHeight` with each row's `getBoundingClientRect().height` in the running app. Measured on 2026-10-11: notes 3.3% mean error on Global (31 of 31 within 15%) and 1.4% on Trending (30 of 32), article cards 0.9% (33 of 33). The flat value article cards had before was 18.7% off. If the body step or a card's layout changes, measure again.
+- **It counts what a note shows, not what was written.** A link counts as its shortened form, a mention as a name, an article reference as a title, and zero-width padding as nothing. Counting the raw text put one 800-character URL down as fifteen lines.
+- **It must never be asked for a width it cannot know.** The feed stays mounted while hidden and reports a width of 0, and the list still asks for estimates then. `Feed.tsx` answers with a flat number in that case. The estimator's cache is per column width and is dropped when the width changes.
+- **Each link card has its own height.** A YouTube card (98) is taller than a Spotify one (74) because of its thumbnail; one number for both was 24px off for one of them.
 
 ## Theme tokens
 

@@ -9,7 +9,7 @@ function BudgetBar({ label, spent, total }: { label: string; spent: number; tota
 
   return (
     <div className="mb-4">
-      <div className="flex items-center justify-between text-[11px] mb-1">
+      <div className="flex items-center justify-between text-caption mb-1">
         <span className="text-text-muted">{label}</span>
         <span className={`font-medium ${isOver ? "text-danger" : isNear ? "text-warning" : "text-text"}`}>
           {spent} / {total} sats
@@ -23,7 +23,7 @@ function BudgetBar({ label, spent, total }: { label: string; spent: number; tota
           style={{ width: `${pct}%` }}
         />
       </div>
-      <div className="text-[9px] text-text-dim mt-0.5 text-right">
+      <div className="text-micro text-text-dim mt-0.5 text-right">
         {total - spent > 0 ? `${total - spent} sats remaining` : "Budget reached"}
       </div>
     </div>
@@ -54,41 +54,41 @@ export function V4VDashboard() {
     <div className="max-w-md mx-auto px-6 py-6">
       {/* Current streaming status */}
       <section className="mb-6">
-        <h2 className="text-text-dim text-[10px] uppercase tracking-widest mb-3">Now</h2>
+        <h2 className="text-text-dim text-micro uppercase tracking-widest mb-3">Now</h2>
 
         {!episode ? (
-          <div className="text-[12px] text-text-dim">No episode playing.</div>
+          <div className="text-body text-text-dim">No episode playing.</div>
         ) : !hasRecipients ? (
-          <div className="text-[12px] text-text-dim">
+          <div className="text-body text-text-dim">
             Playing <span className="text-text">{episode.title}</span> — no V4V recipients.
           </div>
         ) : v4vStreaming ? (
           <div className="bg-zap/5 border border-zap/20 rounded-lg p-3">
             <div className="flex items-center gap-2 mb-2">
-              <span className="text-zap animate-pulse text-[12px]">&#9889;</span>
-              <span className="text-[12px] text-text font-medium">Streaming</span>
+              <span className="text-zap animate-pulse">&#9889;</span>
+              <span className="text-body text-text font-medium">Streaming</span>
               {autoEnabled && (
-                <span className="text-[9px] text-accent bg-accent/10 px-1.5 py-0.5 rounded-sm">AUTO</span>
+                <span className="text-micro text-accent bg-accent/10 px-1.5 py-0.5 rounded-sm">AUTO</span>
               )}
             </div>
-            <div className="text-[11px] text-text-muted truncate">{episode.title}</div>
-            <div className="text-[10px] text-text-dim mt-1">
+            <div className="text-caption text-text-muted truncate">{episode.title}</div>
+            <div className="text-caption text-text-dim mt-1">
               {v4vTotalStreamed} sats this session · {episode.value?.length} recipients
             </div>
           </div>
         ) : capReachedReason ? (
           <div className="bg-danger/5 border border-danger/20 rounded-lg p-3">
             <div className="flex items-center gap-2 mb-2">
-              <span className="text-danger text-[12px]">&#9889;</span>
-              <span className="text-[12px] text-text font-medium">{capReachedReason}</span>
+              <span className="text-danger">&#9889;</span>
+              <span className="text-body text-text font-medium">{capReachedReason}</span>
             </div>
-            <div className="text-[11px] text-text-muted truncate">{episode.title}</div>
-            <div className="text-[10px] text-text-dim mt-1">
+            <div className="text-caption text-text-muted truncate">{episode.title}</div>
+            <div className="text-caption text-text-dim mt-1">
               {currentEpisodeSats} sats streamed to {episode.value?.length} recipients
             </div>
           </div>
         ) : (
-          <div className="text-[12px] text-text-dim">
+          <div className="text-body text-text-dim">
             Playing <span className="text-text">{episode.title}</span> — V4V available but not streaming.
           </div>
         )}
@@ -97,7 +97,7 @@ export function V4VDashboard() {
       {/* Budget bars */}
       {(perEpisodeCap > 0 || weeklyBudget > 0) && (
         <section className="mb-6">
-          <h2 className="text-text-dim text-[10px] uppercase tracking-widest mb-3">Budget</h2>
+          <h2 className="text-text-dim text-micro uppercase tracking-widest mb-3">Budget</h2>
           <BudgetBar label="This episode" spent={currentEpisodeSats} total={perEpisodeCap} />
           <BudgetBar label="This week" spent={weeklySpent} total={weeklyBudget} />
         </section>
@@ -105,21 +105,21 @@ export function V4VDashboard() {
 
       {/* Quick stats */}
       <section>
-        <h2 className="text-text-dim text-[10px] uppercase tracking-widest mb-3">Stats</h2>
+        <h2 className="text-text-dim text-micro uppercase tracking-widest mb-3">Stats</h2>
         <div className="grid grid-cols-3 gap-3">
           <div className="bg-bg-raised border border-border rounded-lg p-3 text-center">
-            <div className="text-[16px] text-text font-medium">{allTimeSats}</div>
-            <div className="text-[9px] text-text-dim mt-0.5">total sats</div>
+            <div className="text-title text-text font-medium">{allTimeSats}</div>
+            <div className="text-micro text-text-dim mt-0.5">total sats</div>
           </div>
           <div className="bg-bg-raised border border-border rounded-lg p-3 text-center">
-            <div className="text-[16px] text-text font-medium">{episodesSupported}</div>
-            <div className="text-[9px] text-text-dim mt-0.5">episodes</div>
+            <div className="text-title text-text font-medium">{episodesSupported}</div>
+            <div className="text-micro text-text-dim mt-0.5">episodes</div>
           </div>
           <div className="bg-bg-raised border border-border rounded-lg p-3 text-center">
-            <div className="text-[16px] text-text font-medium">
+            <div className="text-title text-text font-medium">
               {autoEnabled ? `${defaultRate}/m` : "off"}
             </div>
-            <div className="text-[9px] text-text-dim mt-0.5">auto-stream</div>
+            <div className="text-micro text-text-dim mt-0.5">auto-stream</div>
           </div>
         </div>
       </section>

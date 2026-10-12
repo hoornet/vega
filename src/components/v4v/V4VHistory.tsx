@@ -18,12 +18,12 @@ function HistoryRow({ entry }: { entry: V4VHistoryEntry }) {
       >
         <div className="flex items-center justify-between">
           <div className="min-w-0 flex-1">
-            <div className="text-[12px] text-text truncate">{entry.episodeTitle}</div>
-            <div className="text-[10px] text-text-dim truncate">{entry.showTitle}</div>
+            <div className="text-body text-text truncate">{entry.episodeTitle}</div>
+            <div className="text-caption text-text-dim truncate">{entry.showTitle}</div>
           </div>
           <div className="shrink-0 text-right ml-3">
-            <div className="text-[12px] text-zap font-medium">{totalSats} sats</div>
-            <div className="text-[9px] text-text-dim">{formatDate(entry.timestamp)}</div>
+            <div className="text-body text-zap font-medium">{totalSats} sats</div>
+            <div className="text-micro text-text-dim">{formatDate(entry.timestamp)}</div>
           </div>
         </div>
       </button>
@@ -31,16 +31,16 @@ function HistoryRow({ entry }: { entry: V4VHistoryEntry }) {
       {expanded && (
         <div className="px-4 pb-3 space-y-1">
           {entry.satsStreamed > 0 && (
-            <div className="text-[10px] text-text-dim">Streamed: {entry.satsStreamed} sats</div>
+            <div className="text-caption text-text-dim">Streamed: {entry.satsStreamed} sats</div>
           )}
           {entry.satsBoosted > 0 && (
-            <div className="text-[10px] text-text-dim">Boosted: {entry.satsBoosted} sats</div>
+            <div className="text-caption text-text-dim">Boosted: {entry.satsBoosted} sats</div>
           )}
           {entry.recipients.length > 0 && (
             <div className="mt-1">
-              <div className="text-[9px] text-text-dim mb-1">Recipients:</div>
+              <div className="text-micro text-text-dim mb-1">Recipients:</div>
               {entry.recipients.map((r, i) => (
-                <div key={i} className="flex items-center justify-between text-[10px]">
+                <div key={i} className="flex items-center justify-between text-caption">
                   <span className="text-text-muted truncate">{r.name || r.address.slice(0, 16) + "…"}</span>
                   <span className="text-text-dim shrink-0 ml-2">{r.sats} sats</span>
                 </div>
@@ -60,8 +60,8 @@ export function V4VHistory() {
     return (
       <div className="flex items-center justify-center h-48">
         <div className="text-center">
-          <div className="text-[13px] text-text-dim">No V4V history yet</div>
-          <div className="text-[11px] text-text-dim/60 mt-1">
+          <div className="text-body text-text-dim">No V4V history yet</div>
+          <div className="text-caption text-text-dim/60 mt-1">
             Start streaming to see your contributions here.
           </div>
         </div>

@@ -124,7 +124,7 @@ export function V4VIndicator() {
     <div className="relative shrink-0">
       <button
         onClick={() => { setOpen(!open); setShowNudge(false); }}
-        className={`text-[11px] px-1.5 py-0.5 rounded-sm transition-colors flex items-center gap-1 ${
+        className={`text-ui px-1.5 py-0.5 rounded-sm transition-colors flex items-center gap-1 ${
           capReachedReason
             ? "text-text-dim bg-border/50"
             : v4vStreaming
@@ -136,7 +136,7 @@ export function V4VIndicator() {
         title="Value 4 Value"
       >
         {v4vStreaming && autoEnabled && (
-          <span className="text-[8px] text-accent bg-accent/15 px-1 rounded-sm font-medium">AUTO</span>
+          <span className="text-micro text-accent bg-accent/15 px-1 rounded-sm font-medium">AUTO</span>
         )}
         {capReachedReason
           ? `⚡ ${v4vTotalStreamed} sats (capped)`
@@ -149,7 +149,7 @@ export function V4VIndicator() {
       {/* Brief nudge when V4V episode starts — once per episode per session */}
       {showNudge && (
         <div
-          className="absolute bottom-full right-0 mb-2 px-3 py-2 bg-warning/15 border border-warning/30 rounded-lg text-[10px] text-warning whitespace-nowrap z-50 animate-fade-in cursor-pointer"
+          className="absolute bottom-full right-0 mb-2 px-3 py-2 bg-warning/15 border border-warning/30 rounded-lg text-caption text-warning whitespace-nowrap z-50 animate-fade-in cursor-pointer"
           onClick={() => { setShowNudge(false); setOpen(true); }}
         >
           ⚡ This episode supports V4V — stream sats to the creators
@@ -159,23 +159,23 @@ export function V4VIndicator() {
       {open && (
         <div className="absolute bottom-full right-0 mb-2 w-56 bg-bg border border-border rounded-lg shadow-lg p-3 z-50">
           <div className="flex items-center justify-between mb-2">
-            <div className="text-[11px] text-text font-medium">Value 4 Value</div>
+            <div className="text-caption text-text font-medium">Value 4 Value</div>
             <button
               onClick={() => { setOpen(false); useUIStore.getState().setView("v4v"); }}
-              className="text-[9px] text-accent hover:text-accent-hover transition-colors"
+              className="text-caption text-accent hover:text-accent-hover transition-colors"
             >
               open v4v ↗
             </button>
           </div>
 
           {!hasWallet && (
-            <div className="text-[10px] text-text-dim mb-2">
+            <div className="text-caption text-text-dim mb-2">
               Connect NWC wallet in Settings to stream sats.
             </div>
           )}
 
           {!hasRecipients && hasWallet && (
-            <div className="text-[10px] text-text-dim mb-2">
+            <div className="text-caption text-text-dim mb-2">
               This episode has no V4V recipients.
             </div>
           )}
@@ -184,7 +184,7 @@ export function V4VIndicator() {
             <>
               {/* Toggle */}
               <div className="flex items-center justify-between mb-2">
-                <span className="text-[10px] text-text-muted">Stream sats</span>
+                <span className="text-caption text-text-muted">Stream sats</span>
                 <button
                   onClick={toggleStreaming}
                   className={`w-8 h-4 rounded-full transition-colors relative ${
@@ -202,12 +202,12 @@ export function V4VIndicator() {
               {/* Recipients */}
               {episode.value && episode.value.length > 0 && (
                 <div className="mb-2 border-t border-border-subtle pt-2">
-                  <div className="text-[9px] text-text-dim mb-1">Sats go to:</div>
+                  <div className="text-micro text-text-dim mb-1">Sats go to:</div>
                   {episode.value.map((r, i) => {
                     const totalSplit = episode.value!.reduce((s, v) => s + v.split, 0);
                     const pct = totalSplit > 0 ? Math.round((r.split / totalSplit) * 100) : 0;
                     return (
-                      <div key={i} className="flex items-center justify-between text-[9px]">
+                      <div key={i} className="flex items-center justify-between text-caption">
                         <span className="text-text-muted truncate">{r.name || r.address?.slice(0, 12) + "…"}</span>
                         <span className="text-text-dim shrink-0 ml-1">{pct}%</span>
                       </div>
@@ -222,20 +222,20 @@ export function V4VIndicator() {
                   type="number"
                   value={boostAmount}
                   onChange={(e) => setBoostAmount(e.target.value)}
-                  className="w-16 bg-bg-raised border border-border-strong rounded-lg px-1.5 py-0.5 text-[10px] text-text"
+                  className="w-16 bg-bg-raised border border-border-strong rounded-lg px-1.5 py-0.5 text-caption text-text"
                   min="1"
                 />
                 <button
                   onClick={handleBoost}
                   disabled={boosting}
-                  className="text-[10px] text-accent hover:text-accent-hover px-2 py-0.5 bg-accent/10 rounded-sm disabled:opacity-40"
+                  className="text-caption text-accent hover:text-accent-hover px-2 py-0.5 bg-accent/10 rounded-sm disabled:opacity-40"
                 >
                   {boosting ? "…" : "boost"}
                 </button>
               </div>
 
               {v4vTotalStreamed > 0 && (
-                <div className="text-[9px] text-text-dim mt-2">
+                <div className="text-micro text-text-dim mt-2">
                   Total streamed: {v4vTotalStreamed} sats
                 </div>
               )}

@@ -14,11 +14,11 @@ export function HelpModal({ onClose }: { onClose: () => void }) {
       onClick={onClose}
     >
       <div
-        className="bg-bg border border-border shadow-xl p-6 w-72 rounded-lg"
+        className="bg-bg border border-border shadow-xl p-6 w-80 rounded-lg"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-text text-sm font-medium tracking-wide">Keyboard Shortcuts</h2>
+          <h2 className="text-text text-title font-medium tracking-wide">Keyboard Shortcuts</h2>
           <button
             onClick={onClose}
             className="text-text-dim hover:text-text transition-colors text-[14px]"
@@ -29,10 +29,10 @@ export function HelpModal({ onClose }: { onClose: () => void }) {
         <div className="space-y-2">
           {SHORTCUTS.map(({ key, desc }) => (
             <div key={key} className="flex items-center gap-3">
-              <kbd className="bg-bg-raised border border-border text-text text-[11px] font-mono px-2 py-0.5 min-w-[2.5rem] text-center shrink-0 rounded-sm">
+              <kbd className="bg-bg-raised border border-border text-text text-micro font-mono px-2 py-0.5 min-w-[2.5rem] text-center shrink-0 rounded-sm">
                 {key}
               </kbd>
-              <span className="text-text-dim text-[12px]">{desc}</span>
+              <span className="text-text-dim text-body">{desc}</span>
             </div>
           ))}
         </div>

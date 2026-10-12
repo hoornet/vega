@@ -10,7 +10,7 @@ function SubscribeButton({ show }: { show: PodcastShow }) {
   return (
     <button
       onClick={() => subscribed ? unsubscribe(show.feedUrl) : subscribe(show)}
-      className={`shrink-0 text-[11px] px-3 py-1 rounded-sm border transition-colors ${
+      className={`shrink-0 text-ui px-3 py-1 rounded-sm border transition-colors ${
         subscribed
           ? "border-accent/40 text-accent"
           : "border-border text-text-muted hover:text-accent hover:border-accent/40"
@@ -66,7 +66,7 @@ export function EpisodeList({ show, onBack }: EpisodeListProps) {
       <div className="border-b border-border-subtle p-4 flex items-start gap-4 shrink-0">
         <button
           onClick={onBack}
-          className="text-text-muted hover:text-accent text-[12px] mt-1 shrink-0"
+          className="text-text-muted hover:text-accent text-ui mt-1 shrink-0"
         >
           Back
         </button>
@@ -81,13 +81,13 @@ export function EpisodeList({ show, onBack }: EpisodeListProps) {
         <div className="min-w-0 flex-1">
           <div className="flex items-start justify-between gap-2">
             <div>
-              <h2 className="text-[15px] text-text font-semibold">{show.title}</h2>
-              <div className="text-[12px] text-text-muted">{show.author}</div>
+              <h2 className="text-title text-text font-semibold">{show.title}</h2>
+              <div className="text-body text-text-muted">{show.author}</div>
             </div>
             <SubscribeButton show={show} />
           </div>
           {show.description && (
-            <div className="text-[11px] text-text-dim mt-1 line-clamp-3">
+            <div className="text-caption text-text-dim mt-1 line-clamp-3">
               {stripHtmlTags(show.description).slice(0, 200)}
             </div>
           )}
@@ -97,9 +97,9 @@ export function EpisodeList({ show, onBack }: EpisodeListProps) {
       {/* Episodes */}
       <div className="flex-1 overflow-y-auto">
         {loading ? (
-          <div className="p-4 text-text-dim text-[12px]">Loading episodes…</div>
+          <div className="p-4 text-text-dim text-body">Loading episodes…</div>
         ) : episodes.length === 0 ? (
-          <div className="p-4 text-text-dim text-[12px]">No episodes found</div>
+          <div className="p-4 text-text-dim text-body">No episodes found</div>
         ) : (
           episodes.map((ep) => {
             const isPlaying = currentGuid === ep.guid;
@@ -115,7 +115,7 @@ export function EpisodeList({ show, onBack }: EpisodeListProps) {
               >
                 <div className="w-6 shrink-0 flex items-center justify-center">
                   {isPlaying ? (
-                    <span className="text-accent text-[12px]">*</span>
+                    <span className="text-accent">*</span>
                   ) : (
                     <svg width="10" height="12" viewBox="0 0 10 12" fill="currentColor" className="text-text-dim">
                       <polygon points="0,0 10,6 0,12" />
@@ -123,17 +123,17 @@ export function EpisodeList({ show, onBack }: EpisodeListProps) {
                   )}
                 </div>
                 <div className="min-w-0 flex-1">
-                  <div className="text-[12px] text-text truncate">{ep.title}</div>
+                  <div className="text-body text-text truncate">{ep.title}</div>
                   <div className="flex items-center gap-2 mt-0.5">
-                    <span className="text-[10px] text-text-dim">{formatDate(ep.pubDate)}</span>
+                    <span className="text-caption text-text-dim">{formatDate(ep.pubDate)}</span>
                     {ep.duration > 0 && (
-                      <span className="text-[10px] text-text-dim">{formatDuration(ep.duration)}</span>
+                      <span className="text-caption text-text-dim">{formatDuration(ep.duration)}</span>
                     )}
                     {hasProgress && (
-                      <span className="text-[10px] text-accent">resumed</span>
+                      <span className="text-caption text-accent">resumed</span>
                     )}
                     {ep.value && ep.value.length > 0 && (
-                      <span className="text-[10px] text-zap bg-zap/10 px-1.5 py-0.5 rounded-sm font-medium">
+                      <span className="text-micro text-zap bg-zap/10 px-1.5 py-0.5 rounded-sm font-medium">
                         ⚡ V4V
                       </span>
                     )}

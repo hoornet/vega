@@ -67,10 +67,10 @@ export function DebugPanel({ onClose }: { onClose: () => void }) {
   const connectedCount = state.relays.filter((r) => r.connected).length;
 
   return (
-    <div className="fixed bottom-4 left-4 z-50 w-80 bg-bg-raised/95 backdrop-blur-sm border border-border shadow-xl text-[11px] font-mono rounded-lg">
+    <div className="fixed bottom-4 left-4 z-50 w-80 bg-bg-raised/95 backdrop-blur-sm border border-border shadow-xl text-caption font-mono rounded-lg">
       {/* Header */}
       <div className="flex items-center justify-between px-3 py-2 border-b border-border/50">
-        <span className="text-text-muted uppercase tracking-widest text-[10px]">Debug</span>
+        <span className="text-text-muted uppercase tracking-widest text-micro">Debug</span>
         <button onClick={onClose} aria-label="Close debug panel" className="text-text-dim hover:text-text transition-colors">×</button>
       </div>
 
@@ -119,7 +119,7 @@ export function DebugPanel({ onClose }: { onClose: () => void }) {
         ) : (
           <div className="space-y-0.5 max-h-28 overflow-y-auto">
             {state.recentDiag.map((d, i) => (
-              <div key={i} className="flex items-center gap-2 text-[10px]">
+              <div key={i} className="flex items-center gap-2 text-caption">
                 <span className="text-text-dim shrink-0">
                   {new Date(d.ts).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
                 </span>

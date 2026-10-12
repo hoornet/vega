@@ -93,19 +93,19 @@ function ConnectedState({ nwcUri, onDisconnect }: { nwcUri: string; onDisconnect
   return (
     <div>
       <div className="flex items-center gap-2 px-3 py-2 border border-border mb-2 rounded-lg">
-        <span className="text-zap text-[11px]">⚡</span>
+        <span className="text-zap">⚡</span>
         <div className="flex-1 min-w-0">
-          <span className="text-text text-[12px]">{wallet.name} connected</span>
-          {relay && <span className="text-text-dim text-[10px] ml-2">via {relay}</span>}
+          <span className="text-text text-body">{wallet.name} connected</span>
+          {relay && <span className="text-text-dim text-caption ml-2">via {relay}</span>}
         </div>
         <button
           onClick={onDisconnect}
-          className="text-[10px] text-text-dim hover:text-danger transition-colors shrink-0"
+          className="text-caption text-text-dim hover:text-danger transition-colors shrink-0"
         >
           Disconnect
         </button>
       </div>
-      <p className="text-text-dim text-[10px] px-1">
+      <p className="text-text-dim text-caption px-1">
         Your NWC connection is active. You can zap notes and profiles.
       </p>
     </div>
@@ -117,15 +117,15 @@ function ConnectedState({ nwcUri, onDisconnect }: { nwcUri: string; onDisconnect
 function WalletCard({ wallet, onSelect }: { wallet: WalletDef; onSelect: () => void }) {
   return (
     <div className="border border-border p-3 hover:border-accent/50 hover:bg-bg-hover transition-colors rounded-lg">
-      <div className="font-medium text-text text-[12px] mb-0.5">{wallet.name}</div>
-      <div className="text-text-dim text-[10px] mb-2">{wallet.tagline}</div>
+      <div className="font-medium text-text text-body mb-0.5">{wallet.name}</div>
+      <div className="text-text-dim text-caption mb-2">{wallet.tagline}</div>
       <div className="flex gap-2">
         {wallet.setupUrl && (
           <a
             href={wallet.setupUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="text-[10px] px-2 py-1 border border-border text-text-dim hover:text-accent hover:border-accent/40 transition-colors rounded-sm"
+            className="text-caption px-2 py-1 border border-border text-text-dim hover:text-accent hover:border-accent/40 transition-colors rounded-sm"
             onClick={(e) => e.stopPropagation()}
           >
             open ↗
@@ -133,7 +133,7 @@ function WalletCard({ wallet, onSelect }: { wallet: WalletDef; onSelect: () => v
         )}
         <button
           onClick={onSelect}
-          className="text-[10px] px-2 py-1 border border-accent/60 text-accent hover:bg-accent hover:text-accent-text transition-colors rounded-sm"
+          className="text-caption px-2 py-1 border border-accent/60 text-accent hover:bg-accent hover:text-accent-text transition-colors rounded-sm"
         >
           connect →
         </button>
@@ -191,7 +191,7 @@ function PasteStep({
     <div>
       <button
         onClick={onBack}
-        className="text-text-dim hover:text-text text-[11px] transition-colors mb-3 block"
+        className="text-text-dim hover:text-text text-ui transition-colors mb-3 block"
       >
         ← {wallet.name}
       </button>
@@ -199,7 +199,7 @@ function PasteStep({
       {/* Step-by-step instructions */}
       <ol className="space-y-1 mb-4">
         {wallet.steps.map((step, i) => (
-          <li key={i} className="flex items-start gap-2 text-[12px]">
+          <li key={i} className="flex items-start gap-2 text-body">
             <span className="text-accent shrink-0 w-4 text-right">{i + 1}.</span>
             <span className="text-text-muted">{step}</span>
           </li>
@@ -213,25 +213,25 @@ function PasteStep({
         placeholder="nostr+walletconnect://…"
         rows={3}
         autoFocus
-        className="w-full bg-bg border border-border-strong px-3 py-2 text-text text-[11px] font-mono resize-none focus:outline-none focus:border-accent placeholder:text-text-dim mb-1.5 rounded-lg"
+        className="w-full bg-bg border border-border-strong px-3 py-2 text-text text-ui font-mono resize-none focus:outline-none focus:border-accent placeholder:text-text-dim mb-1.5 rounded-lg"
         style={{ WebkitUserSelect: "text", userSelect: "text" } as React.CSSProperties}
       />
 
       {/* Inline validation feedback */}
       {formatError && (
-        <p className="text-danger text-[10px] mb-1.5">{formatError}</p>
+        <p className="text-danger text-caption mb-1.5">{formatError}</p>
       )}
       {valid && (
-        <p className="text-success text-[10px] mb-1.5">
+        <p className="text-success text-caption mb-1.5">
           ✓ Valid — relay: {parsedRelay}
         </p>
       )}
-      {error && <p className="text-danger text-[11px] mb-2">{error}</p>}
+      {error && <p className="text-danger text-caption mb-2">{error}</p>}
 
       <button
         onClick={handleConnect}
         disabled={!valid}
-        className="px-4 py-1.5 text-[11px] border border-border text-text-muted hover:text-accent hover:border-accent/40 transition-colors disabled:opacity-30 disabled:cursor-not-allowed rounded-sm"
+        className="px-4 py-1.5 text-ui border border-border text-text-muted hover:text-accent hover:border-accent/40 transition-colors disabled:opacity-30 disabled:cursor-not-allowed rounded-sm"
       >
         Connect wallet
       </button>
@@ -263,7 +263,7 @@ export function NWCWizard() {
 
   return (
     <div>
-      <p className="text-text-muted text-[12px] mb-3">
+      <p className="text-text-muted text-body mb-3">
         Choose your Lightning wallet to get a Nostr Wallet Connect (NWC) URI.
       </p>
       <div className="grid grid-cols-2 gap-2 mb-3">
@@ -277,7 +277,7 @@ export function NWCWizard() {
       </div>
       <button
         onClick={() => { setSelectedWallet(GENERIC); setStep("paste"); }}
-        className="text-text-dim hover:text-text text-[11px] transition-colors"
+        className="text-text-dim hover:text-text text-ui transition-colors"
       >
         I already have a connection string →
       </button>

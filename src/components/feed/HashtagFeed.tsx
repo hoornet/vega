@@ -34,22 +34,22 @@ export function HashtagFeed() {
   return (
     <div className="h-full flex flex-col">
       <header className="border-b border-border-subtle px-4 py-2.5 flex items-center gap-3 shrink-0">
-        <button onClick={goBack} className="text-text-dim hover:text-text text-[11px] transition-colors">
+        <button onClick={goBack} className="text-text-dim hover:text-text text-ui transition-colors">
           ← back
         </button>
-        <h2 className="text-text text-[14px] font-medium">#{tag}</h2>
+        <h2 className="text-text text-title font-medium">#{tag}</h2>
         {!loading && (
-          <span className="text-text-dim text-[11px]">{notes.length} note{notes.length !== 1 ? "s" : ""}</span>
+          <span className="text-text-dim text-caption">{notes.length} note{notes.length !== 1 ? "s" : ""}</span>
         )}
       </header>
 
       <div className="flex-1 overflow-y-auto content-column">
         {loading && (
-          <div className="px-4 py-8 text-text-dim text-[12px] text-center">Loading notes for #{tag}…</div>
+          <div className="px-4 py-8 text-text-dim text-body text-center">Loading notes for #{tag}…</div>
         )}
 
         {!loading && notes.length === 0 && (
-          <div className="px-4 py-8 text-text-dim text-[12px] text-center">No notes found for #{tag}</div>
+          <div className="px-4 py-8 text-text-dim text-body text-center">No notes found for #{tag}</div>
         )}
 
         {notes.map((event) => (

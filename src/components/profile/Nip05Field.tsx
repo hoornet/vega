@@ -27,26 +27,26 @@ export function Nip05Field({ value, onChange, pubkey }: { value: string; onChang
 
   const badge = {
     idle: null,
-    checking: <span className="text-text-dim text-[10px]">checking…</span>,
-    valid: <span className="text-success text-[10px]">✓ verified</span>,
-    mismatch: <span className="text-danger text-[10px]">✗ pubkey mismatch</span>,
-    notfound: <span className="text-danger text-[10px]">✗ not found</span>,
+    checking: <span className="text-text-dim text-caption">checking…</span>,
+    valid: <span className="text-success text-caption">✓ verified</span>,
+    mismatch: <span className="text-danger text-caption">✗ pubkey mismatch</span>,
+    notfound: <span className="text-danger text-caption">✗ not found</span>,
   }[status];
 
   return (
     <div>
       <div className="flex items-baseline gap-2 mb-1">
-        <label className="text-text-dim text-[10px]">NIP-05 verified name</label>
+        <label className="text-text-dim text-caption">NIP-05 verified name</label>
         {badge}
       </div>
       <input
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder="you@domain.com"
-        className="w-full bg-bg border border-border-strong px-3 py-1.5 text-text text-[12px] focus:outline-none focus:border-accent rounded-lg"
+        className="w-full bg-bg border border-border-strong px-3 py-1.5 text-text text-ui focus:outline-none focus:border-accent rounded-lg"
         style={{ WebkitUserSelect: "text", userSelect: "text" } as React.CSSProperties}
       />
-      <p className="text-text-dim text-[10px] mt-1">
+      <p className="text-text-dim text-caption mt-1">
         Proves your identity via a domain you control.{" "}
         <a
           href="https://nostr.how/en/guides/get-verified"

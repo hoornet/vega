@@ -278,7 +278,7 @@ export function ComposeBox({ onPublished, onNoteInjected }: { onPublished?: () =
             onDragOver={handleDragOver}
             placeholder="What's on your mind?"
             rows={expanded ? 3 : 1}
-            className="w-full bg-transparent text-text text-[13px] placeholder:text-text-dim resize-none focus:outline-none leading-relaxed"
+            className="w-full bg-transparent text-text text-body placeholder:text-text-dim resize-none focus:outline-none leading-relaxed"
           />
 
           {/* Attachment thumbnails */}
@@ -287,7 +287,7 @@ export function ComposeBox({ onPublished, onNoteInjected }: { onPublished?: () =
               {attachments.map((url, i) => (
                 <div key={i} className="relative group">
                   {/\.(mp4|webm|mov|ogg|m4v)(\?|$)/i.test(url) ? (
-                    <div className="h-16 w-20 rounded-sm border border-border bg-bg-raised flex items-center justify-center text-text-dim text-[10px]">
+                    <div className="h-16 w-20 rounded-sm border border-border bg-bg-raised flex items-center justify-center text-text-dim text-caption">
                       video
                     </div>
                   ) : (
@@ -317,12 +317,12 @@ export function ComposeBox({ onPublished, onNoteInjected }: { onPublished?: () =
           )}
 
           {error && (
-            <p className="text-danger text-[11px] mb-2">{error}</p>
+            <p className="text-danger text-caption mb-2">{error}</p>
           )}
 
           {expanded && (
           <div className="flex flex-wrap items-center justify-between gap-y-1 mt-1">
-            <span className={`text-[10px] ${overLimit ? "text-danger" : warnLimit ? "text-warning" : "text-text-dim"}`}>
+            <span className={`text-caption ${overLimit ? "text-danger" : warnLimit ? "text-warning" : "text-text-dim"}`}>
               {uploading ? (
                 <span className="inline-flex items-center gap-1">
                   <span className="w-3 h-3 border border-accent border-t-transparent rounded-full animate-spin" />
@@ -370,7 +370,7 @@ export function ComposeBox({ onPublished, onNoteInjected }: { onPublished?: () =
               <button
                 onClick={handlePublish}
                 disabled={!canPost}
-                className="px-3 py-1 text-[11px] bg-accent hover:bg-accent-hover text-accent-text rounded-sm transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                className="px-3 py-1 text-ui bg-accent hover:bg-accent-hover text-accent-text rounded-sm transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
               >
                 {publishing ? "Posting…" : isPoll ? "Post poll" : "Post"}
               </button>

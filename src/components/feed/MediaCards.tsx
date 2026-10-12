@@ -75,8 +75,8 @@ export function AudioBlock({ sources }: { sources: string[] }) {
               </svg>
             </div>
             <div className="min-w-0 flex-1">
-              <div className="text-[12px] text-text truncate">{name}</div>
-              <div className="text-[10px] text-text-dim">audio · play in vega</div>
+              <div className="text-ui text-text truncate">{name}</div>
+              <div className="text-caption text-text-dim">audio · play in vega</div>
             </div>
           </button>
         );
@@ -100,8 +100,8 @@ export function YouTubeCard({ seg }: { seg: ContentSegment }) {
         loading="lazy"
       />
       <div className="min-w-0">
-        <div className="text-[11px] text-text-muted">YouTube</div>
-        <div className="text-[12px] text-accent truncate">{seg.value}</div>
+        <div className="text-caption text-text-muted">YouTube</div>
+        <div className="text-ui text-accent truncate">{seg.value}</div>
       </div>
     </a>
   );
@@ -119,8 +119,8 @@ export function VimeoCard({ seg }: { seg: ContentSegment }) {
         <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor"><polygon points="6,3 17,10 6,17" /></svg>
       </div>
       <div className="min-w-0">
-        <div className="text-[11px] text-text-muted">Vimeo</div>
-        <div className="text-[12px] text-accent truncate">{seg.value}</div>
+        <div className="text-caption text-text-muted">Vimeo</div>
+        <div className="text-ui text-accent truncate">{seg.value}</div>
       </div>
     </a>
   );
@@ -138,8 +138,8 @@ export function SpotifyCard({ seg }: { seg: ContentSegment }) {
         <span className="text-[#1DB954] text-lg font-bold">S</span>
       </div>
       <div className="min-w-0">
-        <div className="text-[11px] text-text-muted">Spotify · {seg.mediaType}</div>
-        <div className="text-[12px] text-accent truncate">{seg.value}</div>
+        <div className="text-caption text-text-muted">Spotify · {seg.mediaType}</div>
+        <div className="text-ui text-accent truncate">{seg.value}</div>
       </div>
     </a>
   );
@@ -157,8 +157,8 @@ export function TidalCard({ seg }: { seg: ContentSegment }) {
         <span className="text-lg font-bold">T</span>
       </div>
       <div className="min-w-0">
-        <div className="text-[11px] text-text-muted">Tidal · {seg.mediaType}</div>
-        <div className="text-[12px] text-accent truncate">{seg.value}</div>
+        <div className="text-caption text-text-muted">Tidal · {seg.mediaType}</div>
+        <div className="text-ui text-accent truncate">{seg.value}</div>
       </div>
     </a>
   );

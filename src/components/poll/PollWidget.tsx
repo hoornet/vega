@@ -85,15 +85,15 @@ export const PollWidget = memo(function PollWidget({ event }: { event: NDKEvent 
             )}
 
             <div className="relative flex items-center justify-between gap-2">
-              <span className="text-text text-[12px] flex items-center gap-1.5">
+              <span className="text-text text-body flex items-center gap-1.5">
                 {showResults && isMyVote && (
                   <span className="text-accent text-[10px]" title="Your vote">&#10003;</span>
                 )}
                 {opt.label}
               </span>
               {showResults && (
-                <span className="text-text-dim text-[11px] shrink-0 tabular-nums">
-                  {pct}% <span className="text-[10px]">({count})</span>
+                <span className="text-text-dim text-caption shrink-0 tabular-nums">
+                  {pct}% <span className="text-caption">({count})</span>
                 </span>
               )}
             </div>
@@ -102,7 +102,7 @@ export const PollWidget = memo(function PollWidget({ event }: { event: NDKEvent 
       })}
 
       {/* Footer: vote count + expiry */}
-      <div className="flex items-center gap-2 text-text-dim text-[10px] pt-0.5">
+      <div className="flex items-center gap-2 text-text-dim text-caption pt-0.5">
         {pollData ? (
           <span>{total} {total === 1 ? "vote" : "votes"}</span>
         ) : (

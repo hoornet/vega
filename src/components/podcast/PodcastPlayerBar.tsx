@@ -43,7 +43,7 @@ function ShareButton({ episode }: { episode: PodcastEpisode | null }) {
     <span className="shrink-0 flex items-center gap-1">
       <button
         onClick={handleClick}
-        className={`text-[11px] transition-colors ${
+        className={`text-ui transition-colors ${
           state === "shared" ? "text-success"
             : state === "confirm" ? "text-accent"
             : "text-text-dim hover:text-text"
@@ -278,9 +278,10 @@ export function PodcastPlayerBar() {
 
         {/* Title + show */}
         <div className="min-w-0 w-40 shrink-0">
-          {audioError && <div className="text-[10px] text-danger truncate">{audioError}</div>}
-          <div className="text-[12px] text-text truncate">{episode.title}</div>
-          <div className="text-[10px] text-text-dim truncate">{episode.showTitle}</div>
+          {/* The bar is 56px tall. Three stacked lines only fit at 16 + 20 + 16. */}
+          {audioError && <div className="text-caption leading-4 text-danger truncate">{audioError}</div>}
+          <div className="text-ui text-text truncate">{episode.title}</div>
+          <div className="text-caption leading-4 text-text-dim truncate">{episode.showTitle}</div>
         </div>
 
         {/* Play/Pause */}
@@ -305,7 +306,7 @@ export function PodcastPlayerBar() {
 
         {/* Seek bar */}
         <div className="flex-1 flex items-center gap-2 min-w-0">
-          <span className="text-[10px] text-text-dim w-12 text-right shrink-0">{formatTime(currentTime)}</span>
+          <span className="text-caption text-text-dim w-12 text-right shrink-0">{formatTime(currentTime)}</span>
           <div className="flex-1 relative h-4 flex items-center">
             <div className="absolute inset-x-0 h-1 bg-border rounded-full">
               <div
@@ -323,13 +324,13 @@ export function PodcastPlayerBar() {
               className="absolute inset-0 w-full opacity-0 cursor-pointer"
             />
           </div>
-          <span className="text-[10px] text-text-dim w-12 shrink-0">{formatTime(duration)}</span>
+          <span className="text-caption text-text-dim w-12 shrink-0">{formatTime(duration)}</span>
         </div>
 
         {/* Speed */}
         <button
           onClick={cycleRate}
-          className="text-[11px] text-text-muted hover:text-accent transition-colors px-1 shrink-0"
+          className="text-ui text-text-muted hover:text-accent transition-colors px-1 shrink-0"
           title="Playback speed"
         >
           {playbackRate}x
@@ -337,7 +338,7 @@ export function PodcastPlayerBar() {
 
         {/* Volume */}
         <div className="flex items-center gap-1 shrink-0">
-          <span className="text-[11px] text-text-dim">vol</span>
+          <span className="text-caption text-text-dim">vol</span>
           <input
             type="range"
             min={0}

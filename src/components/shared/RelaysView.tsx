@@ -40,7 +40,7 @@ function NipBadges({ nips }: { nips: number[] }) {
   return (
     <div className="flex flex-wrap gap-1 mt-1">
       {sorted.map((n) => (
-        <span key={n} className="px-1 py-0 text-[9px] border border-border text-text-dim rounded-sm">
+        <span key={n} className="px-1 py-0 text-micro border border-border text-text-dim rounded-sm">
           NIP-{String(n).padStart(2, "0")}
         </span>
       ))}
@@ -55,7 +55,7 @@ function RelayHealthCard({ result, poolConnected, onRemove }: { result: RelayHea
   return (
     <div className="border border-border group/card rounded-lg overflow-hidden">
       <div
-        className="flex items-center gap-3 px-3 py-2 text-[12px] cursor-pointer hover:bg-bg-hover transition-colors"
+        className="flex items-center gap-3 px-3 py-2 text-ui cursor-pointer hover:bg-bg-hover transition-colors"
         onClick={() => setExpanded((v) => !v)}
       >
         <span
@@ -66,17 +66,17 @@ function RelayHealthCard({ result, poolConnected, onRemove }: { result: RelayHea
           <div className="flex items-center gap-2">
             <span title={result.url} className="text-text truncate font-mono">{result.url}</span>
             {nip11?.name && (
-              <span className="text-text-dim text-[10px] truncate">({nip11.name})</span>
+              <span className="text-text-dim text-caption truncate">({nip11.name})</span>
             )}
           </div>
         </div>
         <div className="flex items-center gap-3 shrink-0">
           {result.latencyMs !== null && (
-            <span className={`text-[10px] font-mono ${result.latencyMs > 2000 ? "text-warning" : "text-text-dim"}`}>
+            <span className={`text-micro font-mono ${result.latencyMs > 2000 ? "text-warning" : "text-text-dim"}`}>
               {formatLatency(result.latencyMs)}
             </span>
           )}
-          <span className={`text-[10px] ${result.status === "offline" ? "text-danger" : "text-text-dim"}`}>
+          <span className={`text-caption ${result.status === "offline" ? "text-danger" : "text-text-dim"}`}>
             {statusLabel(result.status)}
           </span>
           {poolConnected && (
@@ -84,7 +84,7 @@ function RelayHealthCard({ result, poolConnected, onRemove }: { result: RelayHea
           )}
           <button
             onClick={(e) => { e.stopPropagation(); onRemove(); }}
-            className="text-text-dim hover:text-danger text-[10px] opacity-0 group-hover/card:opacity-100 transition-opacity"
+            className="text-text-dim hover:text-danger text-caption opacity-0 group-hover/card:opacity-100 transition-opacity"
           >
             remove
           </button>
@@ -93,13 +93,13 @@ function RelayHealthCard({ result, poolConnected, onRemove }: { result: RelayHea
       </div>
 
       {expanded && (
-        <div className="px-3 py-2 border-t border-border-subtle bg-bg-raised text-[11px] space-y-1.5">
+        <div className="px-3 py-2 border-t border-border-subtle bg-bg-raised text-caption space-y-1.5">
           {nip11 ? (
             <>
               {nip11.description && (
                 <p className="text-text-muted">{nip11.description}</p>
               )}
-              <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-[10px]">
+              <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-caption">
                 {nip11.software && (
                   <div>
                     <span className="text-text-dim">Software: </span>
@@ -128,7 +128,7 @@ function RelayHealthCard({ result, poolConnected, onRemove }: { result: RelayHea
           ) : (
             <p className="text-text-dim">No NIP-11 info available{result.error ? ` — ${result.error}` : ""}</p>
           )}
-          <div className="text-text-dim text-[9px]">
+          <div className="text-text-dim text-micro">
             Checked {new Date(result.checkedAt).toLocaleTimeString()}
           </div>
         </div>
@@ -140,16 +140,16 @@ function RelayHealthCard({ result, poolConnected, onRemove }: { result: RelayHea
 /** Fallback row for relays not yet health-checked */
 function RelayPoolRow({ url, connected, onRemove }: { url: string; connected: boolean; onRemove: () => void }) {
   return (
-    <div className="flex items-center gap-3 px-3 py-2 border border-border text-[12px] group rounded-lg">
+    <div className="flex items-center gap-3 px-3 py-2 border border-border text-ui group rounded-lg">
       <span
         className={`w-2 h-2 rounded-full shrink-0 ${connected ? "bg-success" : "bg-text-dim"}`}
         title={connected ? "Connected" : "Not connected — awaiting health check"}
       />
       <span className="text-text truncate flex-1 font-mono">{url}</span>
-      <span className="text-text-dim text-[10px]">{connected ? "connected" : "—"}</span>
+      <span className="text-text-dim text-caption">{connected ? "connected" : "—"}</span>
       <button
         onClick={onRemove}
-        className="text-text-dim hover:text-danger text-[10px] opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
+        className="text-text-dim hover:text-danger text-caption opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
       >
         remove
       </button>
@@ -241,9 +241,9 @@ export function RelaysView() {
       <header className="border-b border-border-subtle px-4 py-2.5 shrink-0">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <h1 className="text-text text-sm font-medium tracking-wide">Relays</h1>
+            <h1 className="text-text text-title font-medium tracking-wide">Relays</h1>
             {results.length > 0 && (
-              <div className="flex items-center gap-2 text-[10px]">
+              <div className="flex items-center gap-2 text-caption">
                 {onlineCount > 0 && <span className="text-success">{onlineCount} online</span>}
                 {slowCount > 0 && <span className="text-warning">{slowCount} slow</span>}
                 {offlineCount > 0 && <span className="text-danger">{offlineCount} offline</span>}
@@ -252,14 +252,14 @@ export function RelaysView() {
           </div>
           <div className="flex items-center gap-2">
             {lastChecked && (
-              <span className="text-text-dim text-[10px]">
+              <span className="text-text-dim text-caption">
                 {new Date(lastChecked).toLocaleTimeString()}
               </span>
             )}
             <button
               onClick={checkAll}
               disabled={checking}
-              className="px-3 py-1 text-[11px] border border-border text-text-muted hover:text-accent hover:border-accent/40 transition-colors disabled:opacity-40 rounded-sm"
+              className="px-3 py-1 text-ui border border-border text-text-muted hover:text-accent hover:border-accent/40 transition-colors disabled:opacity-40 rounded-sm"
             >
               {checking ? (
                 <span className="inline-flex items-center gap-1">
@@ -280,11 +280,11 @@ export function RelaysView() {
             onChange={(e) => { setInput(e.target.value); setAddError(null); }}
             onKeyDown={handleKeyDown}
             placeholder="wss://relay.example.com"
-            className="flex-1 bg-bg border border-border-strong px-3 py-1.5 text-text text-[12px] font-mono focus:outline-none focus:border-accent placeholder:text-text-dim rounded-lg"
+            className="flex-1 bg-bg border border-border-strong px-3 py-1.5 text-text text-ui font-mono focus:outline-none focus:border-accent placeholder:text-text-dim rounded-lg"
           />
           <button
             onClick={handleAddRelay}
-            className="px-3 py-1.5 text-[11px] border border-border text-text-muted hover:text-accent hover:border-accent/40 transition-colors shrink-0 rounded-sm"
+            className="px-3 py-1.5 text-ui border border-border text-text-muted hover:text-accent hover:border-accent/40 transition-colors shrink-0 rounded-sm"
           >
             Add
           </button>
@@ -292,25 +292,25 @@ export function RelaysView() {
             <button
               onClick={handleRepublish}
               disabled={republishing}
-              className="px-3 py-1.5 text-[11px] border border-border text-text-muted hover:text-accent hover:border-accent/40 transition-colors disabled:opacity-40 shrink-0 rounded-sm"
+              className="px-3 py-1.5 text-ui border border-border text-text-muted hover:text-accent hover:border-accent/40 transition-colors disabled:opacity-40 shrink-0 rounded-sm"
             >
               {republishing ? "Publishing…" : "Publish list"}
             </button>
           )}
         </div>
-        {addError && <p className="text-danger text-[11px] mt-1">{addError}</p>}
+        {addError && <p className="text-danger text-caption mt-1">{addError}</p>}
       </div>
 
       {/* Actions bar — show when there are dead relays */}
       {deadRelays.length > 0 && (
         <div className="border-b border-border-subtle px-4 py-2 bg-danger/5 flex items-center justify-between shrink-0">
-          <span className="text-danger text-[11px]">
+          <span className="text-danger text-caption">
             {deadRelays.length} relay{deadRelays.length > 1 ? "s" : ""} offline
           </span>
           <button
             onClick={handleRemoveDead}
             disabled={removing}
-            className="px-3 py-1 text-[11px] border border-danger/30 text-danger hover:bg-danger/10 transition-colors disabled:opacity-40 rounded-sm"
+            className="px-3 py-1 text-ui border border-danger/30 text-danger hover:bg-danger/10 transition-colors disabled:opacity-40 rounded-sm"
           >
             {removing ? "Removing…" : "Remove dead"}
           </button>
@@ -319,7 +319,7 @@ export function RelaysView() {
 
       <div className="flex-1 overflow-y-auto p-4">
         {results.length === 0 && !checking && poolRelays.length === 0 && (
-          <p className="text-text-dim text-[12px]">No relays configured.</p>
+          <p className="text-text-dim text-body">No relays configured.</p>
         )}
 
         <div className="space-y-1">
@@ -343,7 +343,7 @@ export function RelaysView() {
         </div>
 
         {checking && results.length === 0 && (
-          <div className="flex items-center gap-2 text-text-dim text-[12px] py-8 justify-center">
+          <div className="flex items-center gap-2 text-text-dim text-body py-8 justify-center">
             <span className="w-4 h-4 border-2 border-accent border-t-transparent rounded-full animate-spin" />
             Checking relay health…
           </div>
@@ -387,7 +387,7 @@ function RelayAuthToggle() {
 
   return (
     <div className="mt-6 pt-4 border-t border-border-subtle">
-      <h3 className="text-text text-[11px] font-medium uppercase tracking-widest text-text-dim">
+      <h3 className="text-text text-micro font-medium uppercase tracking-widest text-text-dim">
         Prove who you are to
       </h3>
       <div className="flex flex-wrap items-center gap-2 mt-2">
@@ -395,7 +395,7 @@ function RelayAuthToggle() {
           <button
             key={opt.value}
             onClick={() => choose(opt.value)}
-            className={`px-3 py-1.5 text-[11px] border transition-colors ${
+            className={`px-3 py-1.5 text-ui border transition-colors ${
               scope === opt.value
                 ? "border-accent text-accent"
                 : "border-border text-text-muted hover:text-text hover:border-accent/40"
@@ -405,7 +405,7 @@ function RelayAuthToggle() {
           </button>
         ))}
       </div>
-      <p className="text-text-dim text-[10px] mt-1.5">
+      <p className="text-text-dim text-caption mt-1.5">
         {scope === "configured"
           ? "Some relays hide private messages until you identify yourself. Vega will only do that for the relays listed above."
           : "Any relay that asks will learn your identity, including relays Vega reached on its own."}
@@ -447,9 +447,9 @@ function RelayReachToggle() {
             }`}
           />
         </button>
-        <span className="text-text text-[12px]">Also use relays that people you follow publish to</span>
+        <span className="text-text text-body">Also use relays that people you follow publish to</span>
       </label>
-      <p className="text-text-dim text-[10px] mt-1.5 ml-12">
+      <p className="text-text-dim text-caption mt-1.5 ml-12">
         {enabled
           ? "Better reach, but Vega connects to many relays beyond the ones listed above."
           : "Vega connects only to the relays listed above. Some notes from people you follow may not load."}
@@ -488,13 +488,13 @@ function SuggestedRelays({ onAdded }: { onAdded: () => void }) {
     <div className="mt-6 pt-4 border-t border-border-subtle">
       <div className="flex items-center justify-between mb-3">
         <div>
-          <h3 className="text-text text-[11px] font-medium uppercase tracking-widest text-text-dim">Suggested Relays</h3>
-          <p className="text-text-dim text-[10px] mt-0.5">Based on relays your follows use</p>
+          <h3 className="text-text text-micro font-medium uppercase tracking-widest text-text-dim">Suggested Relays</h3>
+          <p className="text-text-dim text-caption mt-0.5">Based on relays your follows use</p>
         </div>
         <button
           onClick={handleDiscover}
           disabled={loading || follows.length === 0}
-          className="px-3 py-1 text-[11px] border border-border text-text-muted hover:text-accent hover:border-accent/40 transition-colors disabled:opacity-40 disabled:cursor-not-allowed rounded-sm"
+          className="px-3 py-1 text-ui border border-border text-text-muted hover:text-accent hover:border-accent/40 transition-colors disabled:opacity-40 disabled:cursor-not-allowed rounded-sm"
         >
           {loading ? (
             <span className="inline-flex items-center gap-1">
@@ -506,19 +506,19 @@ function SuggestedRelays({ onAdded }: { onAdded: () => void }) {
       </div>
 
       {loaded && suggestions.length === 0 && (
-        <p className="text-text-dim text-[11px]">No new relay suggestions found.</p>
+        <p className="text-text-dim text-caption">No new relay suggestions found.</p>
       )}
 
       <div className="space-y-1">
         {suggestions.map((s) => (
-          <div key={s.url} className="flex items-center gap-3 px-3 py-2 border border-border text-[12px] group rounded-lg">
+          <div key={s.url} className="flex items-center gap-3 px-3 py-2 border border-border text-ui group rounded-lg">
             <span className="text-text truncate flex-1 font-mono">{s.url}</span>
-            <span className="text-text-dim text-[10px] shrink-0">
+            <span className="text-text-dim text-caption shrink-0">
               {s.count} follow{s.count !== 1 ? "s" : ""}
             </span>
             <button
               onClick={() => handleAdd(s.url)}
-              className="text-accent hover:text-accent-hover text-[10px] opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
+              className="text-accent hover:text-accent-hover text-caption opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
             >
               Add
 </button>

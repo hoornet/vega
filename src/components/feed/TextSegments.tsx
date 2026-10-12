@@ -171,7 +171,7 @@ export function renderTextSegments(
         elements.push(
           <span
             key={i}
-            className="text-accent/60 text-xs cursor-pointer hover:text-accent"
+            className="text-accent/60 text-caption cursor-pointer hover:text-accent"
             onClick={(e) => { e.stopPropagation(); tryOpenNostrEntity(`note1${seg.value.slice(0, 8)}`); }}
             title="Quoted note"
           >

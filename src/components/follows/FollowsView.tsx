@@ -51,20 +51,20 @@ function FollowRow({
         <div className="flex items-baseline gap-2">
           <button
             onClick={() => openProfile(pubkey)}
-            className="text-text font-medium truncate text-[13px] hover:text-accent transition-colors text-left"
+            className="text-text font-medium truncate text-body hover:text-accent transition-colors text-left"
           >
             {name}
           </button>
           {nip05 && (
-            <span className={`text-[10px] truncate max-w-40 ${verified === "valid" ? "text-success" : "text-text-dim"}`}>
+            <span className={`text-caption truncate max-w-40 ${verified === "valid" ? "text-success" : "text-text-dim"}`}>
               {verified === "valid" ? "✓ " : ""}{nip05}
             </span>
           )}
           {followsYou && (
-            <span className="text-[9px] text-text-dim bg-bg-raised px-1.5 py-0.5 rounded-sm">follows you</span>
+            <span className="text-micro text-text-dim bg-bg-raised px-1.5 py-0.5 rounded-sm">follows you</span>
           )}
           {isNew && (
-            <span className="text-[9px] text-accent bg-accent/15 px-1.5 py-0.5 rounded-sm font-medium">new</span>
+            <span className="text-micro text-accent bg-accent/15 px-1.5 py-0.5 rounded-sm font-medium">new</span>
           )}
         </div>
       </div>
@@ -72,7 +72,7 @@ function FollowRow({
       {!isSelf && canSign && (
         <button
           onClick={() => isFollowing ? unfollow(pubkey) : follow(pubkey)}
-          className={`shrink-0 px-3 py-1 text-[11px] rounded-sm transition-colors ${
+          className={`shrink-0 px-3 py-1 text-ui rounded-sm transition-colors ${
             isFollowing
               ? "text-text-dim border border-border hover:text-danger hover:border-danger"
               : "bg-accent hover:bg-accent-hover text-accent-text"
@@ -160,13 +160,13 @@ export function FollowsView() {
     <div className="h-full flex flex-col">
       {/* Header */}
       <div className="border-b border-border-subtle px-4 py-2.5 flex items-center gap-4 shrink-0">
-        <span className="text-text font-medium text-[13px]">Follows</span>
+        <span className="text-text font-medium text-title">Follows</span>
         <div className="flex gap-3 ml-auto">
           {tabs.map((t) => (
             <button
               key={t.id}
               onClick={() => setFollowsTab(t.id)}
-              className={`text-[12px] transition-colors flex items-center gap-1 ${
+              className={`text-ui transition-colors flex items-center gap-1 ${
                 followsTab === t.id
                   ? "text-accent border-b border-accent pb-0.5"
                   : "text-text-dim hover:text-text"
@@ -174,7 +174,7 @@ export function FollowsView() {
             >
               {t.label}
               {t.count !== undefined && (
-                <span className="text-[10px] text-text-dim">({t.count})</span>
+                <span className="text-caption text-text-dim">({t.count})</span>
               )}
             </button>
           ))}
@@ -186,7 +186,7 @@ export function FollowsView() {
         {followsTab === "followers" && (
           <>
             {followersLoading && (
-              <div className="px-4 py-8 text-center text-text-dim text-[12px]">
+              <div className="px-4 py-8 text-center text-text-dim text-body">
                 <span className="inline-flex items-center gap-2">
                   <span className="w-4 h-4 border-2 border-accent border-t-transparent rounded-full animate-spin" />
                   Loading followers…
@@ -194,10 +194,10 @@ export function FollowsView() {
               </div>
             )}
             {followersError && (
-              <p className="px-4 py-4 text-danger text-[12px]">{followersError}</p>
+              <p className="px-4 py-4 text-danger text-body">{followersError}</p>
             )}
             {!followersLoading && !followersError && followers.length === 0 && followersFetched && (
-              <p className="px-4 py-8 text-text-dim text-[12px] text-center">No followers found yet.</p>
+              <p className="px-4 py-8 text-text-dim text-body text-center">No followers found yet.</p>
             )}
             {[...followers]
               .sort((a, b) => {
@@ -215,7 +215,7 @@ export function FollowsView() {
           <>
             {follows.length === 0 && (
               <div className="px-4 py-8 text-center">
-                <p className="text-text-dim text-[12px]">
+                <p className="text-text-dim text-body">
                   {followsStatus === "loaded"
                     ? "Not following anyone yet."
                     : followsStatus === "unknown"
@@ -225,7 +225,7 @@ export function FollowsView() {
                 {followsStatus === "unknown" && (
                   <button
                     onClick={() => void fetchFollows()}
-                    className="mt-3 px-3 py-1.5 text-[12px] border border-border text-text hover:border-accent/60 hover:text-accent transition-colors rounded-sm"
+                    className="mt-3 px-3 py-1.5 text-ui border border-border text-text hover:border-accent/60 hover:text-accent transition-colors rounded-sm"
                   >
                     Try again
                   </button>

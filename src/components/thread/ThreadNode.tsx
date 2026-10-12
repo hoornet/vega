@@ -58,7 +58,7 @@ function InlineThreadReply({ replyTo, rootEvent, onPublished }: {
 
   return (
     <div className="border-l-2 border-accent/40 ml-4 pl-3 py-2">
-      <div className="text-text-dim text-[10px] mb-1">replying to <span className="text-accent">@{name}</span></div>
+      <div className="text-text-dim text-caption mb-1">replying to <span className="text-accent">@{name}</span></div>
       <textarea
         ref={ref}
         value={text}
@@ -66,7 +66,7 @@ function InlineThreadReply({ replyTo, rootEvent, onPublished }: {
         onKeyDown={handleKeyDown}
         placeholder="Write a reply…"
         rows={2}
-        className="w-full bg-transparent text-text text-[12px] placeholder:text-text-dim resize-none focus:outline-none"
+        className="w-full bg-transparent text-text text-body placeholder:text-text-dim resize-none focus:outline-none"
         autoFocus
       />
       <div className="flex items-center justify-end gap-2 mt-1">
@@ -98,7 +98,7 @@ function InlineThreadReply({ replyTo, rootEvent, onPublished }: {
         <button
           onClick={handleSubmit}
           disabled={!text.trim() || replying}
-          className="px-3 py-1 text-[11px] bg-accent hover:bg-accent-hover text-accent-text rounded-sm transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+          className="px-3 py-1 text-ui bg-accent hover:bg-accent-hover text-accent-text rounded-sm transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
         >
           {sent ? "Replied ✓" : replying ? "Posting…" : "Reply"}
         </button>
@@ -174,14 +174,14 @@ export function ThreadNodeComponent({ node, rootEvent, onReplyPublished, focused
       {remainingCount > 0 && (
         <button
           onClick={() => setExpanded(true)}
-          className="text-accent hover:text-accent-hover text-[11px] py-1.5 ml-4 transition-colors"
+          className="text-accent hover:text-accent-hover text-ui py-1.5 ml-4 transition-colors"
         >
           show {remainingCount} more {remainingCount === 1 ? "reply" : "replies"}
         </button>
       )}
 
       {hiddenCount > 0 && (
-        <div className="text-text-dim text-[10px] py-1 ml-4 italic">
+        <div className="text-text-dim text-caption py-1 ml-4 italic">
           {hiddenCount} {hiddenCount === 1 ? "reply" : "replies"} hidden (muted)
         </div>
       )}

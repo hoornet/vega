@@ -46,7 +46,7 @@ export function ImageLightbox({ images, index, onClose, onNavigate }: ImageLight
 
       {/* Counter */}
       {images.length > 1 && (
-        <div className="absolute top-4 left-4 text-white/50 text-[12px] z-10">
+        <div className="absolute top-4 left-4 text-white/50 text-body z-10">
           {index + 1} / {images.length}
         </div>
       )}
