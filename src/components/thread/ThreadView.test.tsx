@@ -124,4 +124,95 @@ describe("ThreadView: replying to the note", () => {
     expect(await screen.findByText("reply mine")).toBeTruthy();
     expect(toasts()).toEqual([]);
   });
+
+  // The list of replies was asked for before the reply existed, so it does
+  // not have it, and it replaces what is on screen. The reply went out,
+  // showed, and vanished, and a second press sent it again.
+  it("keeps a reply sent while the replies were still loading", async () => {
+    account.canSign = true;
+    let arrive: (events: NDKEvent[]) => void = () => {};
+    vi.mocked(fetchThreadEvents).mockImplementation(() => new Promise((resolve) => { arrive = (events) => { recordFetchOutcome(true); resolve(events); }; }));
+    vi.mocked(publishReply).mockResolvedValue(reply("mine"));
+    render(<ThreadView />);
+    fireEvent.click(await screen.findByRole("button", { name: "reply to this" }));
+    fireEvent.change(screen.getByPlaceholderText("Write a reply…"), { target: { value: "my reply" } });
+    fireEvent.click(screen.getByRole("button", { name: "Reply" }));
+    expect(await screen.findByText("reply mine")).toBeTruthy();
+
+    arrive([reply("theirs")]);
+    expect(await screen.findByText("reply theirs")).toBeTruthy();
+    expect(screen.getByText("reply mine")).toBeTruthy();
+  });
+
+  it("does not show it twice when the replies that arrive do have it", async () => {
+    account.canSign = true;
+    let arrive: (events: NDKEvent[]) => void = () => {};
+    vi.mocked(fetchThreadEvents).mockImplementation(() => new Promise((resolve) => { arrive = (events) => { recordFetchOutcome(true); resolve(events); }; }));
+    vi.mocked(publishReply).mockResolvedValue(reply("mine"));
+    render(<ThreadView />);
+    fireEvent.click(await screen.findByRole("button", { name: "reply to this" }));
+    fireEvent.change(screen.getByPlaceholderText("Write a reply…"), { target: { value: "my reply" } });
+    fireEvent.click(screen.getByRole("button", { name: "Reply" }));
+    await screen.findByText("reply mine");
+    arrive([reply("mine"), reply("theirs")]);
+    await screen.findByText("reply theirs");
+    expect(screen.getAllByText("reply mine")).toHaveLength(1);
+  });
+
+  // The other order: the list arrives while the reply is still on its way.
+  // The thread was rebuilt from the tree of the moment Reply was pressed,
+  // and every reply that had arrived since was taken off the screen.
+  it("keeps the replies that arrived while a reply was on its way", async () => {
+    account.canSign = true;
+    let arrive: (events: NDKEvent[]) => void = () => {};
+    vi.mocked(fetchThreadEvents).mockImplementation(() => new Promise((resolve) => { arrive = (events) => { recordFetchOutcome(true); resolve(events); }; }));
+    let goOut: (event: NDKEvent) => void = () => {};
+    vi.mocked(publishReply).mockImplementation(() => new Promise((resolve) => { goOut = resolve; }));
+    render(<ThreadView />);
+    fireEvent.click(await screen.findByRole("button", { name: "reply to this" }));
+    fireEvent.change(screen.getByPlaceholderText("Write a reply…"), { target: { value: "my reply" } });
+    fireEvent.click(screen.getByRole("button", { name: "Reply" }));
+    arrive([reply("theirs-1"), reply("theirs-2")]);
+    await screen.findByText("reply theirs-2");
+    goOut(reply("mine"));
+    expect(await screen.findByText("reply mine")).toBeTruthy();
+    expect(screen.getByText("reply theirs-1")).toBeTruthy();
+    expect(screen.getByText("reply theirs-2")).toBeTruthy();
+  });
+
+  // Reply pressed, and another note opened before it went out. It is not that note's reply.
+  it("does not put a reply under another note that was opened while it was on its way", async () => {
+    account.canSign = true;
+    vi.mocked(fetchThreadEvents).mockImplementation(answering([]));
+    let goOut: (event: NDKEvent) => void = () => {};
+    vi.mocked(publishReply).mockImplementation(() => new Promise((resolve) => { goOut = resolve; }));
+    render(<ThreadView />);
+    await settled();
+    fireEvent.click(screen.getByRole("button", { name: "reply to this" }));
+    fireEvent.change(screen.getByPlaceholderText("Write a reply…"), { target: { value: "my reply" } });
+    fireEvent.click(screen.getByRole("button", { name: "Reply" }));
+
+    const OTHER = { ...ROOT, id: "other-root", content: "another note" } as unknown as NDKEvent;
+    let arrive: (events: NDKEvent[]) => void = () => {};
+    vi.mocked(fetchThreadEvents).mockImplementation(() => new Promise((resolve) => { arrive = (events) => { recordFetchOutcome(true); resolve(events); }; }));
+    useUIStore.setState({ selectedNote: OTHER });
+    await screen.findByText("another note");
+    goOut(reply("mine"));
+    arrive([reply("theirs-other")]);
+    await screen.findByText("reply theirs-other");
+    expect(screen.queryByText("reply mine")).toBeNull();
+  });
+
+  // The replies of one note are not another's.
+  it("does not carry a reply over to the next note opened", async () => {
+    vi.mocked(publishReply).mockResolvedValue(reply("mine"));
+    await writeReply("my reply");
+    await screen.findByText("reply mine");
+    const OTHER = { ...ROOT, id: "other-root", content: "another note" } as unknown as NDKEvent;
+    vi.mocked(fetchThreadEvents).mockImplementation(answering([]));
+    useUIStore.setState({ selectedNote: OTHER });
+    await screen.findByText("another note");
+    await settled();
+    expect(screen.queryByText("reply mine")).toBeNull();
+  });
 });

@@ -20,12 +20,15 @@ vi.mock("./feed", () => ({ useFeedStore: { getState: () => ({ loadFeed: vi.fn() 
 vi.mock("./notifications", () => ({
   useNotificationsStore: { getState: () => ({ fetchNotifications: vi.fn() }) },
 }));
+const podcasts = vi.hoisted(() => ({ setActiveAccount: vi.fn(), hydrateSubscriptions: vi.fn(), forgetAccount: vi.fn() }));
 vi.mock("./podcast", () => ({
-  usePodcastStore: { getState: () => ({ setActiveAccount: vi.fn(), hydrateSubscriptions: vi.fn() }) },
+  usePodcastStore: { getState: () => podcasts },
 }));
 
 import { invoke } from "@tauri-apps/api/core";
 import { useUserStore, readSecretKey } from "./user";
+import { getNDK } from "../lib/nostr";
+import * as relayAuth from "../lib/nostr/relayAuth";
 import { useToastStore } from "./toast";
 
 const BUNKER_PUBKEY = "ab".repeat(32);
@@ -269,5 +272,90 @@ describe("loginWithNsec — the keychain will not store the key", () => {
     await useUserStore.getState().loginWithNsec(nsec);
     await new Promise((r) => setTimeout(r, 0));
     expect(warning()).toBeUndefined();
+  });
+});
+
+// Whoever is on screen, NDK signs with the key it holds. Every way of
+// becoming someone else has to let go of the last account's key and of the
+// relays that know this connection by its name.
+describe("becoming another account", () => {
+  const A_KEY = NDKPrivateKeySigner.generate();
+  const B = "bb".repeat(32);
+  const ndk = { signer: undefined as unknown, pool: { relays: new Map() } };
+  let rechallenged: ReturnType<typeof vi.spyOn>;
+
+  beforeEach(async () => {
+    localStorage.clear();
+    vi.clearAllMocks();
+    vi.mocked(invoke).mockResolvedValue(null);
+    ndk.signer = undefined;
+    vi.mocked(getNDK).mockReturnValue(ndk as never);
+    useToastStore.setState({ toasts: [] });
+    useUserStore.setState({ accounts: [], pubkey: null, npub: null, loggedIn: false, loginError: null });
+    await useUserStore.getState().loginWithNsec(A_KEY.nsec);
+    rechallenged = vi.spyOn(relayAuth, "rechallengeRelays").mockImplementation(() => {});
+  });
+  afterEach(() => {
+    rechallenged.mockRestore();
+    vi.mocked(getNDK).mockImplementation(() => ({ signer: undefined, pool: { relays: new Map() } }) as never);
+  });
+
+  // "Add account", Public key tab, while signed in with a key. The key
+  // stayed: the screen said B, read-only, and the podcast, mute and bookmark
+  // lists, which ask only whether there is a signer, were published as A.
+  it("a read-only sign-in does not go on with the last account's key", async () => {
+    expect(ndk.signer).toBeDefined();
+    await useUserStore.getState().loginWithPubkey(B);
+    expect(useUserStore.getState().pubkey).toBe(B);
+    expect(ndk.signer).toBeUndefined();
+  });
+
+  // A relay that knows this connection as A goes on serving B as A.
+  it("a read-only sign-in drops the relay sessions of the last account", async () => {
+    await useUserStore.getState().loginWithPubkey(B);
+    expect(rechallenged).toHaveBeenCalledTimes(1);
+  });
+
+  it("signing in with another key drops the relay sessions of the last account", async () => {
+    await useUserStore.getState().loginWithNsec(NDKPrivateKeySigner.generate().nsec);
+    expect(rechallenged).toHaveBeenCalledTimes(1);
+  });
+
+  it("signing in again as the same account drops nothing", async () => {
+    await useUserStore.getState().loginWithNsec(A_KEY.nsec);
+    expect(rechallenged).not.toHaveBeenCalled();
+  });
+
+  it("removing the account that is signed in drops its relay sessions, and its podcasts are no longer the list in use", async () => {
+    const pubkey = useUserStore.getState().pubkey as string;
+    useUserStore.getState().removeAccount(pubkey);
+    expect(ndk.signer).toBeUndefined();
+    expect(rechallenged).toHaveBeenCalledTimes(1);
+    expect(podcasts.forgetAccount).toHaveBeenCalledWith(pubkey);
+    expect(podcasts.setActiveAccount).toHaveBeenLastCalledWith(null);
+  });
+
+  // The key is let go of when a switch begins. But the wait for the keychain
+  // or a signer is long enough for another sign-in to put one in place, and
+  // the account the switch then lands on, signed out, has none.
+  it("a switch that ends signed out does not leave a key that turned up while it waited", async () => {
+    const D = "dd".repeat(32);
+    useUserStore.setState({ accounts: [...useUserStore.getState().accounts, { pubkey: D, npub: "npub1d", loginType: "nsec" }] });
+    vi.mocked(invoke).mockImplementation(async (cmd: string) => {
+      if (cmd === "load_nsec") ndk.signer = { someone: "else" }; // another sign-in, while the keychain is asked
+      return null; // and the keychain has no key for D
+    });
+    await useUserStore.getState().switchAccount(D);
+    expect(useUserStore.getState().pubkey).toBe(D);
+    expect(useUserStore.getState().loggedIn).toBe(false);
+    expect(ndk.signer).toBeUndefined();
+    expect(rechallenged).toHaveBeenCalledTimes(2); // when it began, and when it ended
+  });
+
+  // What is subscribed to after signing out went into that account's list,
+  // and was published under its name at the next sign-in.
+  it("signing out tells the podcast list that nobody is signed in", () => {
+    useUserStore.getState().logout();
+    expect(podcasts.setActiveAccount).toHaveBeenLastCalledWith(null);
   });
 });

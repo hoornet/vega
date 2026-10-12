@@ -1,5 +1,5 @@
 import { NDKEvent, NDKFilter, NDKKind } from "@nostr-dev-kit/ndk";
-import { getNDK, fetchWithTimeout, SINGLE_TIMEOUT } from "./core";
+import { getNDK, fetchWithTimeout, SINGLE_TIMEOUT, publishToNetwork } from "./core";
 
 export interface UserRelayList { read: string[]; write: string[]; }
 
@@ -61,7 +61,7 @@ export async function publishRelayList(relayUrls: string[]): Promise<void> {
   event.kind = 10002 as NDKKind;
   event.content = "";
   event.tags = relayUrls.map((url) => ["r", url]);
-  await event.publish();
+  await publishToNetwork(event);
 }
 
 export async function fetchRelayRecommendations(

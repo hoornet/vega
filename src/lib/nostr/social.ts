@@ -1,5 +1,5 @@
 import NDK, { NDKEvent, NDKFilter, NDKKind, NDKRelay, NDKUserProfile, profileFromEvent } from "@nostr-dev-kit/ndk";
-import { getNDK, fetchWithTimeout, fetchFromRelay, isLocalRelayUrl, FEED_TIMEOUT } from "./core";
+import { getNDK, fetchWithTimeout, fetchFromRelay, isLocalRelayUrl, FEED_TIMEOUT, publishToNetwork } from "./core";
 import {
   summarizeContactAnswers,
   newerContactList,
@@ -24,7 +24,7 @@ export async function publishProfile(fields: {
   const event = new NDKEvent(instance);
   event.kind = 0;
   event.content = JSON.stringify(fields);
-  await event.publish();
+  await publishToNetwork(event);
 }
 
 /** How long a relay gets to answer for the contact list before its silence counts. */
@@ -41,7 +41,7 @@ const CONTACT_LIST_TIMEOUT = 6000;
  * connects is left out: it cannot answer, and counting its silence would mean
  * one dead relay in someone's list stops them ever following anyone.
  */
-async function relaysToAsk(instance: NDK, maxWaitMs = 5000, settleMs = 1200): Promise<NDKRelay[]> {
+export async function relaysToAsk(instance: NDK, maxWaitMs = 5000, settleMs = 1200): Promise<NDKRelay[]> {
   const started = Date.now();
   let firstRemoteUpAt: number | null = null;
   for (;;) {
@@ -118,7 +118,7 @@ export async function publishContactList(tags: string[][], content: string): Pro
   event.kind = 3;
   event.content = content;
   event.tags = tags;
-  await event.publish();
+  await publishToNetwork(event);
 }
 
 export async function fetchProfile(pubkey: string) {

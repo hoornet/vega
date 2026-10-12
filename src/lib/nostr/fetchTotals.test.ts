@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import type NDK from "@nostr-dev-kit/ndk";
 import type { NDKEvent } from "@nostr-dev-kit/ndk";
-import { fetchWithTimeout, heardFromNetwork } from "./core";
+import { fetchWithTimeout, fetchFromRelay, heardFromNetwork } from "./core";
 import { fetchMark, unansweredSince, recordFetchOutcome } from "./fetchTotals";
 
 // "The relays said there is nothing" and "nobody said anything" used to reach
@@ -30,9 +30,12 @@ function fakeNdk({ pool, sentTo = pool }: { pool: string[]; sentTo?: string[] })
     stop: vi.fn(),
   };
   const emit = (name: string, ...args: unknown[]) => (handlers.get(name) ?? []).forEach((fn) => fn(...args));
-  const instance = { subscribe: () => sub, pool: { relays: new Map(pool.map((url) => [url, { url }])) } } as unknown as NDK;
+  const asked: { options?: Record<string, unknown> } = {};
+  const instance = { subscribe: (_filter: unknown, options: Record<string, unknown>) => { asked.options = options; return sub; }, pool: { relays: new Map(pool.map((url) => [url, { url }])) } } as unknown as NDK;
   return {
     instance,
+    /** How the subscription was asked for. */
+    asked,
     /** A relay sends an event. */
     event: (url: string, id: string) => emit("event", { id } as unknown as NDKEvent, { url }),
     /** A relay sends something another relay already sent. */
@@ -99,6 +102,22 @@ describe("heardFromNetwork", () => {
     expect(heardFromNetwork([LOCAL], [LOCAL])).toBe(true);
     expect(heardFromNetwork(["ws://localhost:7777/"], ["ws://localhost:7777/"])).toBe(true);
   });
+
+  // A relay at a local address that the user put in their list is theirs:
+  // their own strfry, or the local end of a tunnel to a relay elsewhere. It
+  // was taken for the built-in one, and its answer for no answer.
+  it("takes a relay at a local address for the network when it is one of the user's own", () => {
+    const TUNNEL = "ws://127.0.0.1:7777/";
+    localStorage.setItem("wrystr_vega_relay_added", "1");
+    localStorage.setItem("wrystr_relays", JSON.stringify(["ws://127.0.0.1:7777", "wss://relay.example.com"]));
+    try {
+      expect(heardFromNetwork([TUNNEL], [REMOTE, TUNNEL, LOCAL])).toBe(true);
+      // The built-in relay, at another port and in nobody's list, is still not the network.
+      expect(heardFromNetwork([LOCAL], [REMOTE, TUNNEL, LOCAL])).toBe(false);
+    } finally {
+      localStorage.removeItem("wrystr_relays");
+    }
+  });
 });
 
 describe("what fetchWithTimeout counts", () => {
@@ -112,6 +131,15 @@ describe("what fetchWithTimeout counts", () => {
     await vi.advanceTimersByTimeAsync(1100);
     return { events: await done, unanswered: unansweredSince(mark) };
   };
+
+  // NDK hands an event to every open subscription it matches the moment it
+  // is published, before any relay has answered. A reply no relay then took
+  // was in the thread's replies, and counted as a relay having answered.
+  it("asks for what relays hold, not for this app's own publishing", async () => {
+    const relays = fakeNdk({ pool: [REMOTE] });
+    await run(relays, () => {});
+    expect(relays.asked.options).toMatchObject({ skipOptimisticPublishEvent: true, closeOnEose: true });
+  });
 
   it("a timeout with nothing collected is unanswered", async () => {
     const { events, unanswered } = await run(fakeNdk({ pool: [REMOTE, OTHER] }), () => {});
@@ -202,5 +230,22 @@ describe("what fetchWithTimeout counts", () => {
     relays.allDone();
     relays.event(REMOTE, "late");
     expect((await done).size).toBe(0);
+  });
+});
+
+describe("fetchFromRelay", () => {
+  it("asks that relay for what it holds, not for this app's own publishing", async () => {
+    vi.useFakeTimers();
+    try {
+      const subscribe = vi.fn((_filter: unknown, _options: unknown, _set: unknown) => ({ on: vi.fn(), stop: vi.fn(), eosesSeen: new Set() }));
+      const relay = { url: REMOTE, status: 5, on: vi.fn(), off: vi.fn() };
+      const instance = { subscribe, debug: { extend: () => () => {} }, pool: { relays: new Map() } } as unknown as NDK;
+      const done = fetchFromRelay(instance, relay as never, { kinds: [3] }, 500);
+      await vi.advanceTimersByTimeAsync(600);
+      await done;
+      expect(subscribe.mock.calls[0][1]).toMatchObject({ skipOptimisticPublishEvent: true });
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

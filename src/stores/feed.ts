@@ -332,6 +332,11 @@ export const useFeedStore = create<FeedState>((set, get) => ({
       closeOnEose: false,  // Keep subscription open — this is the key difference
       groupable: false,
       cacheUsage: NDKSubscriptionCacheUsage.ONLY_RELAY,
+      // NDK hands an event to every matching subscription the moment it is
+      // published, before any relay has answered. A note no relay then took
+      // appeared under "1 new note" beside "Couldn't publish". From a relay
+      // or not at all.
+      skipOptimisticPublishEvent: true,
     });
 
     sub.on("event", (event: NDKEvent) => {

@@ -285,10 +285,13 @@ describe("fetchGiftWraps — NIP-17 DM relay routing (#49)", () => {
     reach.on = true;
     fetchWithTimeout.mockResolvedValueOnce(dmRelayListEvent(["wss://dm.example.invalid"]));
     let relaySetArg: unknown = "unset";
-    subscribeImpl = (...args: unknown[]) => { relaySetArg = args[2]; return currentSub; };
+    let optionsArg: unknown = "unset";
+    subscribeImpl = (...args: unknown[]) => { optionsArg = args[1]; relaySetArg = args[2]; return currentSub; };
 
     await fetchSettled();
 
+    // From relays, not from this app's own publishing: a wrap no relay took is not in the inbox.
+    expect(optionsArg).toMatchObject({ skipOptimisticPublishEvent: true });
     // The 10050 was actually asked for…
     expect(fetchWithTimeout.mock.calls[0]?.[1]).toMatchObject({ kinds: [10050], authors: ["abcd"] });
     // …and the subscription got a relay set of DM relays ∪ configured relays.

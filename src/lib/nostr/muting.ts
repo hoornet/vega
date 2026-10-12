@@ -1,5 +1,5 @@
 import { NDKEvent, NDKFilter, NDKKind } from "@nostr-dev-kit/ndk";
-import { getNDK, fetchWithTimeout, SINGLE_TIMEOUT } from "./core";
+import { getNDK, fetchWithTimeout, SINGLE_TIMEOUT, publishToNetwork } from "./core";
 
 export async function fetchMuteList(pubkey: string): Promise<string[]> {
   const instance = getNDK();
@@ -18,6 +18,6 @@ export async function publishMuteList(pubkeys: string[]): Promise<boolean> {
   event.kind = 10000 as NDKKind;
   event.content = "";
   event.tags = pubkeys.map((pk) => ["p", pk]);
-  await event.publish();
+  await publishToNetwork(event);
   return true;
 }
