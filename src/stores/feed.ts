@@ -7,6 +7,7 @@ import { useWoTStore } from "./wot";
 import { dbLoadFeed, dbSaveNotes } from "../lib/db";
 import { diagWrapFetch, logDiag, startRelaySnapshots, startDiagFileFlusher, getRelayStates } from "../lib/feedDiagnostics";
 import { debug } from "../lib/debug";
+import { fetchMark, wentUnanswered, type LoadOutcome } from "../lib/listLoad";
 // Local relay imports deferred to avoid circular dependency
 // import { isLocalRelayEnabled, connectLocalRelay } from "../lib/localRelay";
 
@@ -39,7 +40,11 @@ interface FeedState {
   loadingOlder: boolean;
   feedReachedEnd: boolean;
   connected: boolean;
-  error: string | null;
+  /**
+   * How the last load of each tab ended. "unreachable" means nothing came back
+   * and no relay answered, so an empty tab is not known to be empty.
+   */
+  outcome: { global: LoadOutcome; trending: LoadOutcome };
   focusedNoteIndex: number;
   lastUpdated: Record<string, number>;
   trendingNotes: NDKEvent[];
@@ -61,7 +66,7 @@ export const useFeedStore = create<FeedState>((set, get) => ({
   loadingOlder: false,
   feedReachedEnd: false,
   connected: false,
-  error: null,
+  outcome: { global: "pending", trending: "pending" },
   focusedNoteIndex: -1,
   lastUpdated: {},
   trendingNotes: [],
@@ -84,7 +89,6 @@ export const useFeedStore = create<FeedState>((set, get) => ({
     connectCalled = true;
 
     try {
-      set({ error: null });
       const connectStart = performance.now();
       // connectToRelays() can hang if NDK's instance.connect() never resolves — safety timeout
       await Promise.race([
@@ -191,7 +195,7 @@ export const useFeedStore = create<FeedState>((set, get) => ({
       checkInterval = setInterval(checkConnection, 5000);
     } catch (err) {
       connectCalled = false; // allow retry on error
-      set({ error: `Connection failed: ${err}` });
+      logDiag({ ts: new Date().toISOString(), action: "connect_failed", details: String(err) });
     }
   },
 
@@ -212,10 +216,17 @@ export const useFeedStore = create<FeedState>((set, get) => ({
    */
   loadFeed: async () => {
     if (get().loading) return;
-    set({ loading: true, error: null, feedReachedEnd: false });
+    set({ loading: true, feedReachedEnd: false });
     try {
       await ensureConnected();
+      const mark = fetchMark();
       const fresh = await diagWrapFetch("global_fetch", () => fetchGlobalFeed(100));
+      if (fresh.length === 0 && wentUnanswered(mark)) {
+        // Nobody answered. Nothing to merge, and the notes on screen were not
+        // "updated just now": the time in the header stays where it was.
+        set({ loading: false, outcome: { ...get().outcome, global: "unreachable" } });
+        return;
+      }
 
       // Merge with currently displayed notes
       const freshIds = new Set(fresh.map((n) => n.id));
@@ -224,7 +235,7 @@ export const useFeedStore = create<FeedState>((set, get) => ({
         .sort((a, b) => (b.created_at ?? 0) - (a.created_at ?? 0))
         .slice(0, MAX_FEED_SIZE);
 
-      set({ notes: merged, loading: false, focusedNoteIndex: -1, lastUpdated: { ...get().lastUpdated, global: Date.now() } });
+      set({ notes: merged, loading: false, focusedNoteIndex: -1, lastUpdated: { ...get().lastUpdated, global: Date.now() }, outcome: { ...get().outcome, global: "answered" } });
 
       // Persist fresh notes to SQLite (fire-and-forget)
       dbSaveNotes(fresh.map((e) => JSON.stringify(e.rawEvent())));
@@ -233,8 +244,10 @@ export const useFeedStore = create<FeedState>((set, get) => ({
       // internally regardless of our pendingNotes cap, causing unbounded memory growth.
       // Feed is manual-refresh only until NDK subscription memory is resolved.
       // get().startLiveFeed();
-    } catch (err) {
-      set({ error: `Feed failed: ${err}`, loading: false });
+    } catch {
+      // The fetch wrapper has already logged it. The feed says so in plain
+      // words: this used to put "Feed failed: Error: …" above the notes.
+      set({ loading: false, outcome: { ...get().outcome, global: "error" } });
     }
   },
 
@@ -375,7 +388,11 @@ export const useFeedStore = create<FeedState>((set, get) => ({
       } catch { /* ignore cache errors */ }
     }
 
-    set({ trendingLoading: true, ...(force ? { trendingNotes: [] } : {}) });
+    // A refresh used to empty the list before asking. When nobody answered,
+    // the notes that had been on screen were gone and the tab said there were
+    // none. They now stay until there is something to put in their place.
+    set({ trendingLoading: true });
+    const mark = fetchMark();
     try {
       let notes = await fetchTrendingCandidates(200, 24);
 
@@ -386,9 +403,16 @@ export const useFeedStore = create<FeedState>((set, get) => ({
       }
 
       if (notes.length === 0) {
-        set({ trendingLoading: false });
+        const unanswered = wentUnanswered(mark);
+        set({
+          trendingLoading: false,
+          outcome: { ...get().outcome, trending: unanswered ? "unreachable" : "answered" },
+          // A relay that answered "nothing" on a refresh is the new truth.
+          ...(force && !unanswered ? { trendingNotes: [] } : {}),
+        });
         return;
       }
+      set({ outcome: { ...get().outcome, trending: "answered" } });
 
       const eventIds = notes.map((n) => n.id).filter(Boolean) as string[];
       const wotState = useWoTStore.getState();
@@ -424,8 +448,10 @@ export const useFeedStore = create<FeedState>((set, get) => ({
         noteIds: scored.map((n) => n.id),
         timestamp: Date.now(),
       }));
-    } catch (err) {
-      set({ error: `Trending failed: ${err}`, trendingLoading: false });
+    } catch {
+      // Not the shared `error`: that banner is only shown on Global, where
+      // "Trending failed" then appeared over a feed that had loaded fine.
+      set({ trendingLoading: false, outcome: { ...get().outcome, trending: "error" } });
     }
   },
 }));

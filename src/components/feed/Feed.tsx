@@ -19,6 +19,17 @@ import { ViewHeader } from "../shared/ViewHeader";
 import { Tabs, tabPanelProps } from "../shared/Tabs";
 import { Button } from "../shared/Button";
 import { RefreshCw } from "lucide-react";
+import { ListState, stateWithoutRows, followListState, didNotLoad } from "../shared/ListState";
+import { loadList, type LoadOutcome } from "../../lib/listLoad";
+
+function storedInterests(): string[] {
+  try {
+    const parsed: unknown = JSON.parse(localStorage.getItem("wrystr_interests") ?? "[]");
+    return Array.isArray(parsed) ? parsed.filter((t): t is string => typeof t === "string") : [];
+  } catch {
+    return [];
+  }
+}
 
 function timeAgo(ts: number): string {
   const sec = Math.floor((Date.now() - ts) / 1000);
@@ -35,7 +46,7 @@ export function Feed() {
   const pendingNotes = useFeedStore((s) => s.pendingNotes);
   const flushPendingNotes = useFeedStore((s) => s.flushPendingNotes);
   const loading = useFeedStore((s) => s.loading);
-  const error = useFeedStore((s) => s.error);
+  const storeOutcome = useFeedStore((s) => s.outcome);
   const connect = useFeedStore((s) => s.connect);
   const loadCachedFeed = useFeedStore((s) => s.loadCachedFeed);
   const loadFeed = useFeedStore((s) => s.loadFeed);
@@ -67,6 +78,11 @@ export function Feed() {
   const tab = storedTab === "following" && !loggedIn ? "trending" : storedTab;
   const [followNotes, setFollowNotes] = useState<NDKEvent[]>([]);
   const [followLoading, setFollowLoading] = useState(false);
+  const [followOutcome, setFollowOutcome] = useState<LoadOutcome>("pending");
+  // Only the newest Following load may land. The follow list changes while
+  // one is in flight (each adopted contact list starts another), and so can
+  // the account.
+  const followLoadSeq = useRef(0);
   const [, setTick] = useState(0);
 
   // Tick every 10s to keep "last updated" relative time fresh
@@ -81,6 +97,18 @@ export function Feed() {
     connect().then(() => loadFeed());
   }, []);
 
+
+  // The feed is never unmounted, so these notes outlive an account switch.
+  // Since a load nobody answers now keeps what is on screen, they would be
+  // the previous account's notes, kept "from before" under the new one.
+  useEffect(() => {
+    followLoadSeq.current++;
+    setFollowNotes([]);
+    setFollowOutcome("pending");
+    setFollowLoading(false);
+  }, [myPubkey]);
+  // Keep this effect above the one that starts a load. Effects run in order,
+  // and the other way round this one would cancel the load just started.
 
   useEffect(() => {
     if (tab === "following" && loggedIn && follows.length > 0) {
@@ -108,22 +136,41 @@ export function Feed() {
   }, [wotEnabled, myPubkey, follows]);
 
   const loadFollowFeed = useCallback(async () => {
+    const seq = ++followLoadSeq.current;
     setFollowLoading(true);
-    try {
+    const result = await loadList(async () => {
       await ensureConnected();
-      const events = await diagWrapFetch("follow_fetch", () => fetchFollowFeed(follows));
-      setFollowNotes(events.slice(0, 100));
+      return diagWrapFetch("follow_fetch", () => fetchFollowFeed(follows));
+    });
+    if (seq !== followLoadSeq.current) return;
+    if (result.status === "loaded") {
+      setFollowNotes(result.items.slice(0, 100));
       const prev = useFeedStore.getState().lastUpdated;
       useFeedStore.setState({ lastUpdated: { ...prev, following: Date.now() } });
-    } finally {
-      setFollowLoading(false);
+      setFollowOutcome("answered");
+    } else {
+      // Nobody answered, or the load failed. The notes already on screen stay:
+      // an empty result used to replace them, and a feed that had loaded went
+      // blank. A failure used to end as "No notes to show" and an unhandled rejection.
+      setFollowOutcome(result.status);
     }
+    setFollowLoading(false);
   }, [follows]);
 
   const isFollowing = tab === "following";
   const isTrending = tab === "trending";
   const activeNotes = isTrending ? trendingNotes : isFollowing ? followNotes : notes;
   const isLoading = isTrending ? trendingLoading : isFollowing ? followLoading : loading;
+  const tabOutcome: LoadOutcome = isTrending ? storeOutcome.trending : isFollowing ? followOutcome : storeOutcome.global;
+  // Following shows nothing without a follow list, and why it has none matters.
+  const needsFollows = isFollowing && follows.length === 0;
+  // Read only when it will be shown. A stored value that does not parse used to throw during render.
+  const interests = needsFollows && followsStatus === "loaded" ? storedInterests() : [];
+  const reloadTab = () => {
+    if (isTrending) void loadTrendingFeed(true);
+    else if (isFollowing) void loadFollowFeed();
+    else void loadFeed();
+  };
 
   const filteredNotes = activeNotes.filter((event) => {
     if (mutedPubkeys.includes(event.pubkey)) return false;
@@ -271,7 +318,7 @@ export function Feed() {
           <Button
             onClick={() => {
               logDiag({ ts: new Date().toISOString(), action: "refresh_click", details: `tab=${tab}` });
-              (isTrending ? () => loadTrendingFeed(true) : isFollowing ? loadFollowFeed : loadFeed)();
+              reloadTab();
             }}
             busy={isLoading}
           >
@@ -289,9 +336,17 @@ export function Feed() {
 
       {/* Error + new-notes banners — pinned above the scroll area so they never
           offset the virtualizer's coordinate space (its spacer must start at scrollTop 0) */}
-      {error && !isFollowing && !isTrending && (
-        <div className="px-4 py-3 text-danger text-body border-b border-border-subtle bg-danger/5 shrink-0">
-          {error}
+      {/* A refresh that fails or goes unanswered leaves the tab as it was
+          and says so here: whenever the tab holds notes, shown or filtered
+          out. With none held, the list itself says it. */}
+      {!isLoading && didNotLoad(tabOutcome) && activeNotes.length > 0 && (
+        <div role="status" className="border-b border-border-subtle bg-bg-raised shrink-0">
+          {/* In the notes' column, so it reads as being about them. */}
+          <p className="content-column-block px-4 py-2 text-text-muted text-ui">
+            {tabOutcome === "unreachable"
+              ? "Couldn't reach your relays, so this may be out of date."
+              : "Couldn't refresh, so this may be out of date."}
+          </p>
         </div>
       )}
 
@@ -306,66 +361,52 @@ export function Feed() {
 
       {/* Feed (virtualized scroll container) */}
       <div ref={scrollRef} {...tabPanelProps("feed-panel", tab)} className="flex-1 overflow-y-auto content-column">
-        {isLoading && filteredNotes.length === 0 && (
-          <SkeletonNoteList count={6} />
-        )}
-
-        {!isLoading && filteredNotes.length === 0 && (
-          <div className="px-4 py-12 text-center space-y-2">
-            <p className="text-text-dim text-body">
-              {isTrending
-                ? "No trending notes right now."
-                : isFollowing && follows.length === 0
-                  ? followsStatus === "loaded"
-                    ? "You're not following anyone yet."
-                    : followsStatus === "unknown"
-                      ? "Couldn't load the list of people you follow."
-                      : "Loading the people you follow…"
-                  : feedLanguageFilter
-                    ? `No ${feedLanguageFilter} notes found.`
-                    : "No notes to show."}
-            </p>
-            <p className="text-text-dim text-caption">
-              {isTrending
-                ? "Check back in a bit."
-                : isFollowing && follows.length === 0
-                  ? followsStatus === "loaded"
-                    ? "Use search to find people to follow."
-                    : followsStatus === "unknown"
-                      ? "Your relays didn't answer in time. Nothing has been changed, and Vega will keep trying."
-                      : "Asking your relays."
-                  : feedLanguageFilter
-                    ? "Try clearing the script filter or refreshing."
-                    : "Try refreshing or switching tabs."}
-            </p>
-            {isFollowing && follows.length === 0 && followsStatus === "unknown" && (
-              <div className="pt-2">
-                <Button onClick={() => void fetchFollows()}>Try again</Button>
-              </div>
-            )}
-            {isFollowing && follows.length === 0 && followsStatus === "loaded" && (() => {
-              const stored = localStorage.getItem("wrystr_interests");
-              const interests: string[] = stored ? JSON.parse(stored) : [];
-              if (interests.length === 0) return null;
-              return (
-                <div className="pt-2">
-                  <p className="text-text-dim text-caption mb-2">Explore your interests:</p>
-                  <div className="flex flex-wrap justify-center gap-1.5">
-                    {interests.map((tag) => (
-                      <button
-                        key={tag}
-                        onClick={() => openHashtag(tag)}
-                        className="px-2.5 py-1 text-ui border border-border text-text-dim hover:border-accent/40 hover:text-accent transition-colors rounded-sm"
-                      >
-                        #{tag}
-                      </button>
-                    ))}
-                  </div>
+        {/* A tab with no rows says which of four things is true: still loading,
+            really empty, relays did not answer, or the load failed. */}
+        {filteredNotes.length === 0 && (needsFollows ? (
+          <ListState
+            state={followListState(followsStatus)}
+            loadingLabel="Loading the people you follow…"
+            empty="You're not following anyone yet."
+            emptyHint="Use search to find people to follow."
+            emptyAction={interests.length > 0 ? (
+              <div>
+                <p className="text-text-dim text-caption mb-2">Explore your interests:</p>
+                <div className="flex flex-wrap justify-center gap-1.5">
+                  {interests.map((tag) => (
+                    <button
+                      key={tag}
+                      onClick={() => openHashtag(tag)}
+                      className="px-2.5 py-1 text-ui border border-border text-text-dim hover:border-accent/40 hover:text-accent transition-colors rounded-sm"
+                    >
+                      #{tag}
+                    </button>
+                  ))}
                 </div>
-              );
-            })()}
-          </div>
-        )}
+              </div>
+            ) : undefined}
+            what="the list of people you follow"
+            onRetry={() => void fetchFollows()}
+          />
+        ) : (
+          <ListState
+            state={stateWithoutRows(isLoading, activeNotes.length, tabOutcome)}
+            loadingLabel="Loading notes…"
+            loading={<SkeletonNoteList count={6} />}
+            empty={isTrending
+              ? "No trending notes right now."
+              : feedLanguageFilter && activeNotes.length > 0
+                ? `No ${feedLanguageFilter} notes found.`
+                : "No notes to show."}
+            emptyHint={isTrending
+              ? "Check back in a bit."
+              : feedLanguageFilter && activeNotes.length > 0
+                ? "Try clearing the script filter, or refresh."
+                : "Try refreshing, or another tab."}
+            what={isTrending ? "trending notes" : isFollowing ? "notes from the people you follow" : "the feed"}
+            onRetry={reloadTab}
+          />
+        ))}
 
         {/* Virtualized list — only the visible window of cards stays in the DOM */}
         {filteredNotes.length > 0 && (

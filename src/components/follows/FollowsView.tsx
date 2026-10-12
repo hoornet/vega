@@ -10,8 +10,9 @@ import { dbLoadFollowers, dbSaveFollowers } from "../../lib/db";
 import { shortenPubkey, profileName } from "../../lib/utils";
 import { ViewHeader } from "../shared/ViewHeader";
 import { Tabs, tabPanelProps } from "../shared/Tabs";
-import { Button } from "../shared/Button";
 import { FollowButton } from "../shared/FollowButton";
+import { ListState, followListState } from "../shared/ListState";
+import { fetchMark, wentUnanswered } from "../../lib/listLoad";
 
 function FollowRow({
   pubkey,
@@ -102,6 +103,9 @@ export function FollowsView() {
   const [followersLoading, setFollowersLoading] = useState(false);
   const [followersError, setFollowersError] = useState<string | null>(null);
   const [followersFetched, setFollowersFetched] = useState(false);
+  // The network did not answer the followers fetch: with none to show, "no followers" would be a guess.
+  const [followersUnanswered, setFollowersUnanswered] = useState(false);
+  const [followersReload, setFollowersReload] = useState(0);
   // Snapshot new follower pubkeys on mount, before clearing
   const [newPubkeys] = useState(() => new Set(newFollowerPubkeys));
 
@@ -116,6 +120,7 @@ export function FollowsView() {
     let cancelled = false;
     setFollowersLoading(true);
     setFollowersError(null);
+    setFollowersUnanswered(false);
 
     (async () => {
       try {
@@ -128,6 +133,7 @@ export function FollowsView() {
 
         // 2) Background: fetch from relays and merge
         await ensureConnected();
+        const mark = fetchMark();
         let result = await fetchFollowers(pubkey);
         if (result.length === 0 && !cancelled) {
           await new Promise((r) => setTimeout(r, 3000));
@@ -139,6 +145,8 @@ export function FollowsView() {
           const merged = Array.from(new Set([...result, ...cached]));
           setFollowers(merged);
           setFollowersFetched(true);
+          // Only read when there are no followers to show.
+          setFollowersUnanswered(wentUnanswered(mark));
           // Persist merged set to DB
           if (result.length > 0) {
             dbSaveFollowers(merged, pubkey);
@@ -146,7 +154,7 @@ export function FollowsView() {
         }
       } catch (err) {
         if (!cancelled && followers.length === 0) {
-          setFollowersError(`Failed to load followers: ${err}`);
+          setFollowersError(err instanceof Error ? err.message : String(err));
         }
       } finally {
         if (!cancelled) setFollowersLoading(false);
@@ -154,13 +162,14 @@ export function FollowsView() {
     })();
 
     return () => { cancelled = true; };
-  }, [followsTab, pubkey]);
+  }, [followsTab, pubkey, followersReload]);
 
   // Build followers set for "follows you" badge on Following tab
   const followersSet = new Set(followers);
 
   const tabs: Array<{ id: "followers" | "following"; label: string; count?: number }> = [
-    { id: "followers", label: "Followers", count: followersFetched ? followers.length : undefined },
+    // No "0" beside a list that could not be read.
+    { id: "followers", label: "Followers", count: followersFetched && !(followers.length === 0 && followersUnanswered) ? followers.length : undefined },
     // An empty list that has not loaded proves nothing: no "0" until it has.
     { id: "following", label: "Following", count: followsStatus === "loaded" ? follows.length : undefined },
   ];
@@ -175,19 +184,15 @@ export function FollowsView() {
       <div {...tabPanelProps("people-panel", followsTab)} className="flex-1 overflow-y-auto content-column">
         {followsTab === "followers" && (
           <>
-            {followersLoading && (
-              <div className="px-4 py-8 text-center text-text-dim text-body">
-                <span className="inline-flex items-center gap-2">
-                  <span className="w-4 h-4 border-2 border-accent border-t-transparent rounded-full animate-spin" />
-                  Loading followers…
-                </span>
-              </div>
-            )}
-            {followersError && (
-              <p className="px-4 py-4 text-danger text-body">{followersError}</p>
-            )}
-            {!followersLoading && !followersError && followers.length === 0 && followersFetched && (
-              <p className="px-4 py-8 text-text-dim text-body text-center">No followers found yet.</p>
+            {followers.length === 0 && (followersLoading || followersError !== null || followersFetched) && (
+              <ListState
+                state={followersLoading ? "loading" : followersError !== null ? "error" : followersUnanswered ? "unreachable" : "empty"}
+                loadingLabel="Loading followers…"
+                empty="No followers found yet."
+                what="your followers"
+                error={followersError ?? undefined}
+                onRetry={() => { setFollowersFetched(false); setFollowersReload((n) => n + 1); }}
+              />
             )}
             {[...followers]
               .sort((a, b) => {
@@ -204,18 +209,13 @@ export function FollowsView() {
         {followsTab === "following" && (
           <>
             {follows.length === 0 && (
-              <div className="px-4 py-8 text-center">
-                <p className="text-text-dim text-body">
-                  {followsStatus === "loaded"
-                    ? "Not following anyone yet."
-                    : followsStatus === "unknown"
-                      ? "Couldn't load the list of people you follow. Your relays didn't answer in time; nothing has been changed."
-                      : "Loading the people you follow…"}
-                </p>
-                {followsStatus === "unknown" && (
-                  <Button className="mt-3" onClick={() => void fetchFollows()}>Try again</Button>
-                )}
-              </div>
+              <ListState
+                state={followListState(followsStatus)}
+                loadingLabel="Loading the people you follow…"
+                empty="Not following anyone yet."
+                what="the list of people you follow"
+                onRetry={() => void fetchFollows()}
+              />
             )}
             {/* Keyed by account: one account's kept rows must not outlive a switch or a sign-out. */}
             <FollowingRows key={pubkey ?? ""} follows={follows} followers={followersSet} />

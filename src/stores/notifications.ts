@@ -3,6 +3,7 @@ import { NDKEvent } from "@nostr-dev-kit/ndk";
 import { fetchMentions } from "../lib/nostr";
 import { dbSaveNotifications, dbLoadNotifications, dbMarkNotificationRead } from "../lib/db";
 import { debug } from "../lib/debug";
+import { fetchMark, wentUnanswered, type LoadOutcome } from "../lib/listLoad";
 
 const DM_SEEN_KEY = "wrystr_dm_last_seen";
 const LEGACY_READ_KEY = "wrystr_notif_read_ids";
@@ -13,6 +14,11 @@ interface NotificationsState {
   unreadCount: number;
   readIds: Set<string>;
   loading: boolean;
+  /**
+   * How the last fetch ended. "unreachable" means nothing came back and no
+   * relay answered, so an empty list is not known to be empty.
+   */
+  fetchOutcome: LoadOutcome;
   currentPubkey: string | null;
   dmLastSeen: Record<string, number>;
   dmUnreadCount: number;
@@ -73,6 +79,7 @@ export const useNotificationsStore = create<NotificationsState>((set, get) => ({
   unreadCount: 0,
   readIds: migrateLegacyReadIds(),
   loading: false,
+  fetchOutcome: "pending",
   currentPubkey: null,
   dmLastSeen: loadDMLastSeen(),
   dmUnreadCount: 0,
@@ -121,6 +128,7 @@ export const useNotificationsStore = create<NotificationsState>((set, get) => ({
       set({ notifications: [], currentPubkey: pubkey });
     }
     set({ loading: true });
+    const mark = fetchMark();
     try {
       const since = Math.floor(Date.now() / 1000) - 7 * 86400;
       let events = await fetchMentions(pubkey, since, MAX_NOTIFICATIONS);
@@ -137,6 +145,7 @@ export const useNotificationsStore = create<NotificationsState>((set, get) => ({
 
       // Don't overwrite existing notifications with empty results (relay timeout/disconnect)
       const { readIds, notifications: existing } = get();
+      set({ fetchOutcome: others.length === 0 && wentUnanswered(mark) ? "unreachable" : "answered" });
       if (others.length === 0 && existing.length > 0) {
         debug.warn("notif:fetch empty result, keeping", existing.length, "existing");
         return;
@@ -162,7 +171,8 @@ export const useNotificationsStore = create<NotificationsState>((set, get) => ({
       debug.log("notif:set", merged.length, "notifications,", unreadCount, "unread");
       set({ notifications: merged, unreadCount });
     } catch {
-      // Non-critical — keep existing notifications on error
+      // Keep what is already on screen. With nothing on screen, the view says the load failed.
+      set({ fetchOutcome: "error" });
     } finally {
       set({ loading: false });
     }

@@ -16,6 +16,8 @@ import { EmojiPicker } from "../shared/EmojiPicker";
 import { ViewHeader } from "../shared/ViewHeader";
 import { Button } from "../shared/Button";
 import { Check } from "lucide-react";
+import { ListState } from "../shared/ListState";
+import { fetchMark, wentUnanswered } from "../../lib/listLoad";
 
 export function ThreadView() {
   const { selectedNote, goBack } = useUIStore();
@@ -27,6 +29,8 @@ export function ThreadView() {
   const [tree, setTree] = useState<ThreadNode | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  // The network did not answer the replies fetch: with none to show, "No replies yet." would be a guess.
+  const [repliesUnanswered, setRepliesUnanswered] = useState(false);
   // The focused note is shown at once, so `loading` is false long before the
   // replies arrive. Without this, "No replies yet." showed while they loaded.
   const [repliesLoading, setRepliesLoading] = useState(true);
@@ -50,6 +54,7 @@ export function ThreadView() {
     async function loadThread() {
       setLoadError(null);
       setRepliesLoading(true);
+      setRepliesUnanswered(false);
       setTree(null);
       setAncestors([]);
       setRootEvent(null);
@@ -96,7 +101,10 @@ export function ThreadView() {
 
         logDiag({ ts: new Date().toISOString(), action: "thread_replies_start", details: `rootId=${root.id}` });
         const t1 = Date.now();
+        const mark = fetchMark();
         const events = await fetchThreadEvents(root.id);
+        // Only read when there are no replies to show.
+        if (!cancelled && wentUnanswered(mark)) setRepliesUnanswered(true);
         logDiag({ ts: new Date().toISOString(), action: "thread_replies_done", durationMs: Date.now() - t1, details: `count=${events.length}` });
         if (cancelled) return;
 
@@ -257,9 +265,13 @@ export function ThreadView() {
 
             {/* Thread tree (children of root) */}
             {tree.children.length === 0 && !showRootReply && !(loadError && !repliesLoading) && (
-              <div className="px-4 py-6 text-text-dim text-body text-center">
-                {repliesLoading ? "Loading replies…" : "No replies yet."}
-              </div>
+              <ListState
+                state={repliesLoading ? "loading" : repliesUnanswered ? "unreachable" : "empty"}
+                loadingLabel="Loading replies…"
+                empty="No replies yet."
+                what="replies"
+                onRetry={() => setRetryCount((c) => c + 1)}
+              />
             )}
 
             {tree.children

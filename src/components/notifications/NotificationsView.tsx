@@ -6,6 +6,7 @@ import { NoteCard } from "../feed/NoteCard";
 import { SkeletonNoteList } from "../shared/Skeleton";
 import { ViewHeader } from "../shared/ViewHeader";
 import { Button } from "../shared/Button";
+import { ListState, stateWithoutRows } from "../shared/ListState";
 
 export function NotificationsView() {
   const { pubkey, loggedIn } = useUserStore();
@@ -13,14 +14,18 @@ export function NotificationsView() {
     notifications,
     unreadCount,
     loading,
+    fetchOutcome,
     fetchNotifications,
     markAllRead,
     markRead,
     isRead,
   } = useNotificationsStore();
   const { mutedPubkeys, contentMatchesMutedKeyword } = useMuteStore();
-  const filteredNotifications = notifications.filter(
-    (e) => e.kind !== 3 && e.pubkey !== pubkey && !mutedPubkeys.includes(e.pubkey) && !contentMatchesMutedKeyword(e.content)
+  // What this view lists at all. The store also holds follower events (kind 3)
+  // for the People badge, and those are never rows here.
+  const mentions = notifications.filter((e) => e.kind !== 3 && e.pubkey !== pubkey);
+  const filteredNotifications = mentions.filter(
+    (e) => !mutedPubkeys.includes(e.pubkey) && !contentMatchesMutedKeyword(e.content)
   );
 
   useEffect(() => {
@@ -49,15 +54,18 @@ export function NotificationsView() {
       />
 
       <div className="flex-1 overflow-y-auto content-column">
-        {loading && notifications.length === 0 && (
-          <SkeletonNoteList count={4} />
-        )}
-
-        {!loading && filteredNotifications.length === 0 && (
-          <div className="px-4 py-12 text-center space-y-2">
-            <p className="text-text-dim text-body">No mentions yet.</p>
-            <p className="text-text-dim text-caption">When someone mentions you, it will appear here.</p>
-          </div>
+        {/* With rows already on screen (from the local cache), a fetch that
+            failed changes nothing. With none, it must not read as "no mentions". */}
+        {filteredNotifications.length === 0 && (!loading || mentions.length === 0) && (
+          <ListState
+            state={stateWithoutRows(loading, mentions.length, fetchOutcome)}
+            loadingLabel="Loading notifications…"
+            loading={<SkeletonNoteList count={4} />}
+            empty="No mentions yet."
+            emptyHint="When someone mentions you, it will appear here."
+            what="your notifications"
+            onRetry={() => { if (pubkey) void fetchNotifications(pubkey); }}
+          />
         )}
 
         {filteredNotifications.map((event) => {

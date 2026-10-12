@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { fetchBookmarkList, fetchBookmarkListFull, publishBookmarkListFull } from "../lib/nostr";
+import { fetchMark, wentUnanswered, type LoadOutcome } from "../lib/listLoad";
 
 // Debounce bookmark publishing to avoid race conditions with replaceable events
 let publishTimer: ReturnType<typeof setTimeout> | null = null;
@@ -56,6 +57,13 @@ interface BookmarkState {
   bookmarkedArticleAddrs: string[]; // "30023:<pubkey>:<d-tag>" format
   readArticleAddrs: string[];
   fetchBookmarks: (pubkey: string) => Promise<void>;
+  /**
+   * How the last fetch of the bookmark list ended. "unreachable" means no
+   * relay answered, so "nothing saved" is not known.
+   */
+  listOutcome: LoadOutcome;
+  /** The account `listOutcome` is about. */
+  listFor: string | null;
   addBookmark: (eventId: string) => Promise<void>;
   removeBookmark: (eventId: string) => Promise<void>;
   isBookmarked: (eventId: string) => boolean;
@@ -73,9 +81,19 @@ export const useBookmarkStore = create<BookmarkState>((set, get) => ({
   bookmarkedArticleAddrs: loadArticleAddrs(),
   readArticleAddrs: loadReadAddrs(),
 
+  listOutcome: "pending",
+  listFor: null,
+
   fetchBookmarks: async (pubkey: string) => {
+    // Not known until asked: for another account, or again after a load that
+    // got no answer. An answer already given for this account stands while
+    // the list is asked for again, so reopening Bookmarks does not flash a
+    // skeleton where "nothing saved" was already known.
+    if (get().listFor !== pubkey || get().listOutcome !== "answered") set({ listOutcome: "pending", listFor: pubkey });
+    const mark = fetchMark();
     try {
       const { eventIds, articleAddrs } = await fetchBookmarkListFull(pubkey);
+      set({ listOutcome: eventIds.length === 0 && articleAddrs.length === 0 && wentUnanswered(mark) ? "unreachable" : "answered" });
       const localIds = get().bookmarkedIds;
       const localAddrs = get().bookmarkedArticleAddrs;
       const mergedIds = Array.from(new Set([...eventIds, ...localIds]));
@@ -87,12 +105,15 @@ export const useBookmarkStore = create<BookmarkState>((set, get) => ({
       // Fallback to old format
       try {
         const ids = await fetchBookmarkList(pubkey);
+        set({ listOutcome: ids.length === 0 && wentUnanswered(mark) ? "unreachable" : "answered" });
         if (ids.length === 0) return;
         const local = get().bookmarkedIds;
         const merged = Array.from(new Set([...ids, ...local]));
         set({ bookmarkedIds: merged });
         saveLocal(merged);
-      } catch { /* ignore */ }
+      } catch {
+        set({ listOutcome: "error" });
+      }
     }
   },
 

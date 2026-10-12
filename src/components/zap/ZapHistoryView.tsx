@@ -7,6 +7,8 @@ import { useProfile } from "../../hooks/useProfile";
 import { timeAgo, shortenPubkey, profileName } from "../../lib/utils";
 import { ViewHeader } from "../shared/ViewHeader";
 import { Tabs, tabPanelProps } from "../shared/Tabs";
+import { ListState } from "../shared/ListState";
+import { fetchMark, wentUnanswered } from "../../lib/listLoad";
 
 // ── Parsing helpers ──────────────────────────────────────────────────────────
 
@@ -158,22 +160,34 @@ export function ZapHistoryView() {
   const [sent, setSent] = useState<NDKEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // The network did not answer this load: "no zaps yet" on a tab with no rows would be a guess.
+  const [unanswered, setUnanswered] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
     if (!pubkey) { setLoading(false); return; }
+    let cancelled = false;
     setLoading(true);
     setError(null);
+    setUnanswered(false);
+    const mark = fetchMark();
     Promise.all([
       fetchZapsReceived(pubkey, 50),
       fetchZapsSent(pubkey, 50),
     ])
       .then(([rec, snt]) => {
+        if (cancelled) return;
         setReceived(rec);
         setSent(snt);
+        // Not "and nothing came back": whether the network answered is already
+        // what the totals say. Rows from the built-in relay alone on one tab
+        // do not make the other tab's emptiness known.
+        setUnanswered(wentUnanswered(mark));
       })
-      .catch((err) => setError(String(err)))
-      .finally(() => setLoading(false));
-  }, [pubkey]);
+      .catch((err) => { if (!cancelled) setError(err instanceof Error ? err.message : String(err)); })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, [pubkey, reloadKey]);
 
   if (!loggedIn || !pubkey) {
     return (
@@ -203,12 +217,13 @@ export function ZapHistoryView() {
       {/* The sidebar calls this view Zaps. It is a top-level view, so no Back. */}
       <ViewHeader
         title="Zaps"
-        actions={
+        // Totals only once they are known: not "0 in, 0 out" beside a history that could not be read.
+        actions={loading || error !== null || (unanswered && received.length === 0 && sent.length === 0) ? undefined : (
           <div className="text-text-dim text-caption flex gap-4">
             <span>⚡ {totalReceived.toLocaleString()} in</span>
             <span>⚡ {totalSent.toLocaleString()} out</span>
           </div>
-        }
+        )}
       />
       <Tabs
         label="Zaps"
@@ -223,16 +238,15 @@ export function ZapHistoryView() {
 
       {/* Body */}
       <div {...tabPanelProps("zaps-panel", tab)} className="flex-1 overflow-y-auto content-column">
-        {loading && (
-          <div className="px-4 py-8 text-text-dim text-body text-center">Loading zap history…</div>
-        )}
-        {error && (
-          <div className="px-4 py-3 text-danger text-body border-b border-border-subtle">{error}</div>
-        )}
-        {!loading && activeEvents.length === 0 && (
-          <div className="px-4 py-8 text-text-dim text-body text-center">
-            {tab === "received" ? "No zaps received yet." : "No zaps sent yet."}
-          </div>
+        {(loading || activeEvents.length === 0) && (
+          <ListState
+            state={loading ? "loading" : error !== null ? "error" : unanswered ? "unreachable" : "empty"}
+            loadingLabel="Loading zap history…"
+            empty={tab === "received" ? "No zaps received yet." : "No zaps sent yet."}
+            what="your zap history"
+            error={error ?? undefined}
+            onRetry={() => setReloadKey((n) => n + 1)}
+          />
         )}
         {!loading &&
           activeEvents.map((event) => {

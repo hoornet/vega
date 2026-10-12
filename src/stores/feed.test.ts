@@ -1,9 +1,11 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { NDKEvent } from "@nostr-dev-kit/ndk";
+
 
 // Mock the nostr module
 vi.mock("../lib/nostr", () => ({
   connectToRelays: vi.fn(),
+  ensureConnected: vi.fn().mockResolvedValue(true),
   fetchGlobalFeed: vi.fn(),
   fetchTrendingCandidates: vi.fn(),
   fetchBatchEngagement: vi.fn(),
@@ -18,6 +20,12 @@ vi.mock("../lib/db", () => ({
 
 import { useFeedStore } from "./feed";
 import { fetchTrendingCandidates, fetchBatchEngagement, fetchGlobalFeed } from "../lib/nostr";
+import { recordFetchOutcome } from "../lib/nostr/fetchTotals";
+
+/** The relays answered, with these notes. */
+const answering = (notes: NDKEvent[]) => async () => { recordFetchOutcome(true); return notes; };
+/** The fetch ran out of time with nothing collected. */
+const timingOut = async () => { recordFetchOutcome(false); return [] as NDKEvent[]; };
 
 function makeMockNote(id: string, created_at: number): NDKEvent {
   const event = { id, created_at, content: "test", kind: 1, pubkey: "pk", tags: [], sig: "", rawEvent: () => ({ id, created_at, content: "test", kind: 1, pubkey: "pk", tags: [], sig: "" }) } as unknown as NDKEvent;
@@ -32,7 +40,7 @@ describe("useFeedStore - loadTrendingFeed", () => {
       trendingLoading: false,
       loading: false,
       connected: false,
-      error: null,
+      outcome: { global: "answered", trending: "answered" },
       focusedNoteIndex: -1,
     });
     vi.clearAllMocks();
@@ -207,5 +215,154 @@ describe("loadOlderNotes: one empty answer is not the end of history", () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+});
+
+
+describe("loadTrendingFeed: how the load ended", () => {
+  const onScreen = [makeMockNote("old-1", 1000), makeMockNote("old-2", 900)];
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.mocked(fetchTrendingCandidates).mockReset();
+    vi.mocked(fetchBatchEngagement).mockReset().mockResolvedValue(new Map());
+    localStorage.clear();
+    useFeedStore.setState({ trendingNotes: onScreen, trendingLoading: false, outcome: { global: "pending", trending: "pending" } });
+  });
+  afterEach(() => { vi.useRealTimers(); });
+
+  const refresh = async () => {
+    const done = useFeedStore.getState().loadTrendingFeed(true);
+    await vi.advanceTimersByTimeAsync(3100); // the retry after an empty answer
+    await done;
+  };
+
+  // A refresh emptied the list before asking, so an unanswered refresh left
+  // "No trending notes right now" where notes had been.
+  it("keeps the notes on screen while a refresh is under way", async () => {
+    let seenDuring: number | undefined;
+    vi.mocked(fetchTrendingCandidates).mockImplementation(async () => {
+      seenDuring = useFeedStore.getState().trendingNotes.length;
+      recordFetchOutcome(true);
+      return [makeMockNote("new", 2000)];
+    });
+    await refresh();
+    expect(seenDuring).toBe(2);
+    expect(useFeedStore.getState().trendingNotes.map((n) => n.id)).toEqual(["new"]);
+  });
+
+  it("is unreachable, with the old notes kept, when nobody answered", async () => {
+    vi.mocked(fetchTrendingCandidates).mockImplementation(timingOut);
+    await refresh();
+    const s = useFeedStore.getState();
+    expect(s.outcome.trending).toBe("unreachable");
+    expect(s.trendingNotes).toBe(onScreen);
+    expect(s.trendingLoading).toBe(false);
+  });
+
+  it("is empty when a relay answered a refresh with nothing", async () => {
+    vi.mocked(fetchTrendingCandidates).mockImplementation(answering([]));
+    await refresh();
+    const s = useFeedStore.getState();
+    expect(s.outcome.trending).toBe("answered");
+    expect(s.trendingNotes).toEqual([]);
+  });
+
+  it("is an error, with the old notes kept, when the load throws", async () => {
+    vi.mocked(fetchTrendingCandidates).mockRejectedValue(new Error("boom"));
+    await refresh();
+    const s = useFeedStore.getState();
+    expect(s.outcome.trending).toBe("error");
+    expect(s.trendingNotes).toBe(onScreen);
+    expect(s.trendingLoading).toBe(false);
+  });
+
+  it("goes back to answered once a load succeeds", async () => {
+    useFeedStore.setState({ outcome: { global: "answered", trending: "unreachable" } });
+    vi.mocked(fetchTrendingCandidates).mockImplementation(answering([makeMockNote("new", 2000)]));
+    await refresh();
+    expect(useFeedStore.getState().outcome.trending).toBe("answered");
+  });
+
+  it("leaves the other tab's outcome alone", async () => {
+    useFeedStore.setState({ outcome: { global: "error", trending: "pending" } });
+    vi.mocked(fetchTrendingCandidates).mockImplementation(timingOut);
+    await refresh();
+    expect(useFeedStore.getState().outcome).toEqual({ global: "error", trending: "unreachable" });
+  });
+});
+
+describe("loadFeed: how the load ended", () => {
+  const onScreen = [makeMockNote("old", 1000)];
+
+  beforeEach(() => {
+    vi.mocked(fetchGlobalFeed).mockReset();
+    useFeedStore.setState({ notes: onScreen, loading: false, outcome: { global: "pending", trending: "pending" }, lastUpdated: {} });
+  });
+
+  it("starts as not asked: nothing is known until a load has ended", () => {
+    expect(useFeedStore.getInitialState().outcome).toEqual({ global: "pending", trending: "pending" });
+  });
+
+  it("is unreachable, with the notes kept, when nobody answered", async () => {
+    vi.mocked(fetchGlobalFeed).mockImplementation(timingOut);
+    await useFeedStore.getState().loadFeed();
+    const s = useFeedStore.getState();
+    expect(s.outcome.global).toBe("unreachable");
+    expect(s.notes.map((n) => n.id)).toEqual(["old"]);
+    expect(s.loading).toBe(false);
+  });
+
+  // "just now" in the header, beside notes that are from before.
+  it("does not move the time of the last update when nobody answered", async () => {
+    useFeedStore.setState({ lastUpdated: { global: 1234 } });
+    vi.mocked(fetchGlobalFeed).mockImplementation(timingOut);
+    await useFeedStore.getState().loadFeed();
+    expect(useFeedStore.getState().lastUpdated.global).toBe(1234);
+  });
+
+  it("moves the time of the last update when a relay answered, even with nothing", async () => {
+    useFeedStore.setState({ lastUpdated: { global: 1234 } });
+    vi.mocked(fetchGlobalFeed).mockImplementation(answering([]));
+    await useFeedStore.getState().loadFeed();
+    expect(useFeedStore.getState().lastUpdated.global).toBeGreaterThan(1234);
+  });
+
+  it("is answered when a relay answered with nothing", async () => {
+    vi.mocked(fetchGlobalFeed).mockImplementation(answering([]));
+    await useFeedStore.getState().loadFeed();
+    expect(useFeedStore.getState().outcome.global).toBe("answered");
+  });
+
+  it("is answered, and merges, when notes came back", async () => {
+    useFeedStore.setState({ outcome: { global: "unreachable", trending: "answered" } });
+    vi.mocked(fetchGlobalFeed).mockImplementation(answering([makeMockNote("new", 2000)]));
+    await useFeedStore.getState().loadFeed();
+    const s = useFeedStore.getState();
+    expect(s.outcome.global).toBe("answered");
+    expect(s.notes.map((n) => n.id)).toEqual(["new", "old"]);
+  });
+
+  // Notes came back, so relays are reachable, whatever else timed out meanwhile.
+  it("is answered when notes came back although another fetch went unanswered", async () => {
+    vi.mocked(fetchGlobalFeed).mockImplementation(async () => { recordFetchOutcome(false); return [makeMockNote("new", 2000)]; });
+    await useFeedStore.getState().loadFeed();
+    expect(useFeedStore.getState().outcome.global).toBe("answered");
+  });
+
+  it("is an error, with the notes kept and loading over, when the load throws", async () => {
+    vi.mocked(fetchGlobalFeed).mockRejectedValue(new Error("boom"));
+    await useFeedStore.getState().loadFeed();
+    const s = useFeedStore.getState();
+    expect(s.outcome.global).toBe("error");
+    expect(s.notes.map((n) => n.id)).toEqual(["old"]);
+    expect(s.loading).toBe(false);
+  });
+
+  it("leaves the other tab's outcome alone", async () => {
+    useFeedStore.setState({ outcome: { global: "answered", trending: "unreachable" } });
+    vi.mocked(fetchGlobalFeed).mockRejectedValue(new Error("boom"));
+    await useFeedStore.getState().loadFeed();
+    expect(useFeedStore.getState().outcome).toEqual({ global: "error", trending: "unreachable" });
   });
 });
