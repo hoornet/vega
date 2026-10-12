@@ -12,6 +12,7 @@ import { useRelayHealthStore } from "../../stores/relayHealth";
 import { useUserStore, useCanSign } from "../../stores/user";
 import type { RelayHealthResult } from "../../lib/nostr/relayHealth";
 import { ViewHeader } from "./ViewHeader";
+import { Switch } from "./Switch";
 
 function statusColor(status: RelayHealthResult["status"]): string {
   switch (status) {
@@ -432,28 +433,20 @@ function RelayReachToggle() {
 
   return (
     <div className="mt-6 pt-4 border-t border-border-subtle">
-      <label className="flex items-center gap-3 cursor-pointer">
-        <button
-          onClick={toggle}
-          disabled={applying}
-          className={`w-9 h-5 rounded-full transition-colors relative shrink-0 disabled:opacity-40 ${
-            enabled ? "bg-accent" : "bg-border-strong"
-          }`}
-        >
-          <span
-            className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-bg transition-transform ${
-              enabled ? "translate-x-4" : "translate-x-0"
-            }`}
-          />
-        </button>
-        <span className="text-text text-body">Also use relays that people you follow publish to</span>
-      </label>
-      <p className="text-text-dim text-caption mt-1.5 ml-12">
-        {enabled
-          ? "Better reach, but Vega connects to many relays beyond the ones listed above."
-          : "Vega connects only to the relays listed above. Some notes from people you follow may not load."}
-        {applying && " Reconnecting…"}
-      </p>
+      <Switch
+        checked={enabled}
+        onChange={() => toggle()}
+        busy={applying}
+        label="Also use relays that people you follow publish to"
+        hint={
+          <>
+            {enabled
+              ? "Better reach, but Vega connects to many relays beyond the ones listed above."
+              : "Vega connects only to the relays listed above. Some notes from people you follow may not load."}
+            {applying && " Reconnecting…"}
+          </>
+        }
+      />
     </div>
   );
 }

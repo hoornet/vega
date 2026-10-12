@@ -1,8 +1,9 @@
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback, useEffect, useId, useRef } from "react";
 import { usePodcastStore } from "../../stores/podcast";
 import { useV4VStore } from "../../stores/v4v";
 import { useUIStore } from "../../stores/ui";
 import { startStreaming, stopStreaming, boost } from "../../lib/podcast/v4v";
+import { SwitchControl } from "../shared/Switch";
 
 const NWC_KEY = "wrystr_nwc_uri";
 
@@ -10,6 +11,7 @@ const NWC_KEY = "wrystr_nwc_uri";
 const nudgedGuids = new Set<string>();
 
 export function V4VIndicator() {
+  const streamId = useId();
   const [open, setOpen] = useState(false);
   const [boostAmount, setBoostAmount] = useState("100");
   const [boosting, setBoosting] = useState(false);
@@ -184,19 +186,8 @@ export function V4VIndicator() {
             <>
               {/* Toggle */}
               <div className="flex items-center justify-between mb-2">
-                <span className="text-caption text-text-muted">Stream sats</span>
-                <button
-                  onClick={toggleStreaming}
-                  className={`w-8 h-4 rounded-full transition-colors relative ${
-                    v4vStreaming ? "bg-accent" : "bg-border-strong"
-                  }`}
-                >
-                  <span
-                    className={`absolute top-0.5 w-3 h-3 rounded-full bg-bg transition-transform ${
-                      v4vStreaming ? "left-4" : "left-0.5"
-                    }`}
-                  />
-                </button>
+                <label id={`${streamId}-label`} htmlFor={streamId} className="text-caption text-text-muted cursor-pointer">Stream sats</label>
+                <SwitchControl id={streamId} size="sm" checked={v4vStreaming} onChange={() => toggleStreaming()} aria-labelledby={`${streamId}-label`} />
               </div>
 
               {/* Recipients */}

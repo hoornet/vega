@@ -334,6 +334,19 @@ Views start with `ViewHeader` (`src/components/shared/ViewHeader.tsx`), and a vi
 - **Give tabs a `panel` id and spread `tabPanelProps(panel, value)` on the content they switch**, so a screen reader can go from the tab to what it controls.
 - **Not on the shared header, on purpose**: the article editor (a writing surface: its bar holds "← Drafts", the save status, Write/Preview and Publish), the conversation bar in Messages (a person, not a view), and the onboarding screens. The emoji picker's groups and the onboarding login's segments are tab-like but are compact controls inside a popover or a form, not a view's tabs.
 
+## Switches
+
+An on/off setting is a `Switch` (`src/components/shared/Switch.tsx`). Before October 2026 the same switch was written out ten times with two knob implementations, each a bare `<button>` with no role and no state, so a screen reader could not say whether a setting was on. Two of the ten had no name either.
+
+- **`Switch` brings its label; `SwitchControl` is the switch alone.** Use `Switch` wherever the label sits beside the control. `SwitchControl` is for a row that lays out its own label (label left, switch right). It does not compile without `aria-labelledby` or `aria-label`, and it takes an `id` so the row's `<label htmlFor>` toggles it. A call site like that gets its own test (`V4VSettings.test.tsx`): the name is a reference between two elements, and nothing else notices when one side is renamed.
+- **On and off is said one way.** Not a button whose label is the state: the easy-read font setting was a button reading "Off", which could have been what it is or what pressing it does. Segments are for a choice between named options (font size, relay authentication), where neither option is "off".
+- **The label says what turning it on does, and does not change with the state.** What on and off each mean goes in `hint`, which may change. A hint must not open with the state ("Off. Turn on only if..."): it is read out straight after "switch, off".
+- **The hint is outside the label, and the label is only as wide as its text.** Clicking the label toggles. A paragraph of explanation must not, and neither must the empty space beside a short label: a full-width label put a strip across the whole Settings pane that restarted every relay connection when clicked. The hint is tied to the switch with `aria-describedby`, and is `text-muted` because it is where the consequence of the setting is explained.
+- **`busy` while a change is applied, `disabled` when the setting cannot be used.** A switch that disables itself on Space drops keyboard focus to the page, and the next Space does nothing. `busy` keeps focus, ignores clicks and sets `aria-busy` (relay reach, while connections restart). `disabled` is for "not available": say why in the hint, and say the true reason. "Follow some people first." was shown while the follow list was still loading.
+- **The off track is `bg-border-strong`**, the field-edge colour, which the theme tests hold at 3:1 on the canvas and on raised surfaces. It is not held there on a hovered row.
+- **`onChange` receives the new state.** A store action that takes no argument is wrapped (`onChange={() => toggle()}`), never passed bare, or it is called with a boolean it does not expect.
+- **Focus is drawn with an outline and an offset, not a ring with an offset colour.** The gap of an outline is transparent, so it is right on any surface, and it survives forced-colours mode.
+
 ## Type scale
 
 Seven steps, defined as `--text-*` tokens in `src/index.css` and used as `text-micro` to `text-display`. Each sets a size and a line height. Before October 2026 there were 726 hard-coded sizes, 656 of them 12px or smaller, and the note body was 13px.

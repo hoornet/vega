@@ -1,4 +1,6 @@
+import { useId } from "react";
 import { useV4VStore } from "../../stores/v4v";
+import { SwitchControl } from "../shared/Switch";
 
 const RATE_OPTIONS = [5, 10, 21, 50, 100];
 
@@ -11,6 +13,7 @@ function InfoIcon({ title }: { title: string }) {
 }
 
 export function V4VSettings() {
+  const autoId = useId();
   const autoEnabled = useV4VStore((s) => s.autoEnabled);
   const perEpisodeCap = useV4VStore((s) => s.perEpisodeCap);
   const weeklyBudget = useV4VStore((s) => s.weeklyBudget);
@@ -25,23 +28,12 @@ export function V4VSettings() {
       <section>
         <div className="flex items-center justify-between">
           <div className="flex items-center">
-            <span className="text-body text-text font-medium">Auto-stream</span>
+            <label id={`${autoId}-label`} htmlFor={autoId} className="text-body text-text font-medium cursor-pointer">Auto-stream</label>
             <InfoIcon title="When enabled, V4V streaming starts automatically for every episode that supports it. Requires per-episode cap and weekly budget to be set." />
           </div>
-          <button
-            onClick={() => setAutoEnabled(!autoEnabled)}
-            className={`w-9 h-5 rounded-full transition-colors relative ${
-              autoEnabled ? "bg-accent" : "bg-border-strong"
-            }`}
-          >
-            <span
-              className={`absolute top-0.5 w-4 h-4 rounded-full bg-bg transition-transform ${
-                autoEnabled ? "left-4.5" : "left-0.5"
-              }`}
-            />
-          </button>
+          <SwitchControl id={autoId} checked={autoEnabled} onChange={setAutoEnabled} aria-labelledby={`${autoId}-label`} aria-describedby={`${autoId}-hint`} />
         </div>
-        <p className="text-caption text-text-dim mt-1">
+        <p id={`${autoId}-hint`} className="text-caption text-text-dim mt-1">
           Automatically stream sats to creators when playing V4V-enabled episodes.
         </p>
         {autoEnabled && (

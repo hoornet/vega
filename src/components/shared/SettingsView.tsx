@@ -25,6 +25,7 @@ import { refreshProxySettingsCache, type ProxySettings } from "../../lib/proxy";
 import { NWCWizard } from "./NWCWizard";
 import { getNotificationSettings, saveNotificationSettings, ensurePermission } from "../../lib/notifications";
 import { ViewHeader } from "./ViewHeader";
+import { Switch } from "./Switch";
 import {
   isLocalRelayEnabled,
   setLocalRelayEnabled,
@@ -91,27 +92,19 @@ function ArticlesSection() {
       <h2 className="text-text text-micro font-medium uppercase tracking-widest mb-2 text-text-dim">
         Articles
       </h2>
-      <label className="flex items-center gap-3 cursor-pointer group">
-        <button
-          onClick={() => setHideRss(!hideRss)}
-          className={`w-9 h-5 rounded-full transition-colors relative shrink-0 ${
-            hideRss ? "bg-accent" : "bg-border-strong"
-          }`}
-        >
-          <span
-            className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-bg transition-transform ${
-              hideRss ? "translate-x-4" : "translate-x-0"
-            }`}
-          />
-        </button>
-        <span className="text-text text-body">Hide RSS reposts in Latest</span>
-      </label>
-      <p className="text-text-dim text-caption mt-1.5 ml-12">
-        {hideRss
-          ? "Bridges that republish news sites as long-form posts are left out of the Latest tab."
-          : "Bridges that republish news sites as long-form posts show in the Latest tab."}
-        {" "}Latest always leaves out accounts without a profile; muted authors and keywords apply on both tabs, and people you follow are never filtered this way.
-      </p>
+      <Switch
+        checked={hideRss}
+        onChange={() => setHideRss(!hideRss)}
+        label="Hide RSS reposts in Latest"
+        hint={
+          <>
+            {hideRss
+              ? "Bridges that republish news sites as long-form posts are left out of the Latest tab."
+              : "Bridges that republish news sites as long-form posts show in the Latest tab."}
+            {" "}Latest always leaves out accounts without a profile; muted authors and keywords apply on both tabs, and people you follow are never filtered this way.
+          </>
+        }
+      />
     </section>
   );
 }
@@ -186,8 +179,15 @@ function MutedKeywordsSection() {
 
 function WoTSection() {
   const { enabled, wotSet, loading, setEnabled, buildWoT } = useWoTStore();
-  const { pubkey, follows } = useUserStore();
+  const { pubkey, follows, followsStatus } = useUserStore();
+  // An empty list means "follows nobody" only once it has loaded. Until then
+  // the switch cannot be used, and must not blame the user for it.
   const noFollows = follows.length === 0;
+  const whyNot = !noFollows ? undefined
+    : !pubkey ? "Sign in first."
+    : followsStatus === "loaded" ? "Follow some people first."
+    : followsStatus === "unknown" ? "Your follow list could not be loaded."
+    : "Loading your follow list…";
 
   const toggle = () => {
     const next = !enabled;
@@ -212,25 +212,13 @@ function WoTSection() {
         Hide notes, reactions, and zaps from outside your social graph
         (people you follow + people they follow).
       </p>
-      <label className={`flex items-center gap-3 ${noFollows ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}>
-        <button
-          onClick={noFollows ? undefined : toggle}
-          disabled={noFollows}
-          className={`w-9 h-5 rounded-full transition-colors relative shrink-0 ${
-            enabled && !noFollows ? "bg-accent" : "bg-border-strong"
-          }`}
-        >
-          <span
-            className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-bg transition-transform ${
-              enabled && !noFollows ? "translate-x-4" : "translate-x-0"
-            }`}
-          />
-        </button>
-        <span className="text-text text-body">WoT feed filter</span>
-      </label>
-      {noFollows && (
-        <p className="text-text-dim text-caption mt-1.5 ml-12">Follow some people first.</p>
-      )}
+      <Switch
+        checked={enabled && !noFollows}
+        onChange={() => toggle()}
+        disabled={noFollows}
+        label="WoT feed filter"
+        hint={whyNot}
+      />
       {enabled && !noFollows && (
         <div className="mt-2 ml-12 space-y-1">
           {loading ? (
@@ -433,21 +421,12 @@ function NotificationSection() {
       </p>
       <div className="space-y-2">
         {items.map(({ key, label }) => (
-          <label key={key} className="flex items-center gap-3 cursor-pointer group">
-            <button
-              onClick={() => toggle(key)}
-              className={`w-9 h-5 rounded-full transition-colors relative shrink-0 ${
-                settings[key] ? "bg-accent" : "bg-border-strong"
-              }`}
-            >
-              <span
-                className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-bg transition-transform ${
-                  settings[key] ? "translate-x-4" : "translate-x-0"
-                }`}
-              />
-            </button>
-            <span className="text-text text-body">{label}</span>
-          </label>
+          <Switch
+            key={key}
+            checked={settings[key]}
+            onChange={() => toggle(key)}
+            label={label}
+          />
         ))}
       </div>
     </section>
@@ -534,22 +513,13 @@ function ProxySection() {
       <p className="text-text-dim text-caption mb-3">
         Route Vega's in-app network traffic through an HTTP or SOCKS5 proxy.
       </p>
-      <label className="flex items-center gap-3 cursor-pointer group mb-3">
-        <button
-          onClick={toggle}
-          disabled={status === "loading"}
-          className={`w-9 h-5 rounded-full transition-colors relative shrink-0 disabled:opacity-50 ${
-            settings.enabled ? "bg-accent" : "bg-border-strong"
-          }`}
-        >
-          <span
-            className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-bg transition-transform ${
-              settings.enabled ? "translate-x-4" : "translate-x-0"
-            }`}
-          />
-        </button>
-        <span className="text-text text-body">Use proxy for connections</span>
-      </label>
+      <Switch
+        checked={settings.enabled}
+        onChange={() => toggle()}
+        disabled={status === "loading"}
+        label="Use proxy for connections"
+        className="mb-3"
+      />
       <div className="flex gap-2 ml-12">
         <input
           value={settings.url}
@@ -730,24 +700,12 @@ function EasyReadFontSection() {
       <h2 className="text-text text-micro font-medium uppercase tracking-widest mb-2 text-text-dim">
         Easy-Read Font
       </h2>
-      <div className="flex flex-wrap items-center gap-2">
-        <button
-          onClick={() => setEasyReadFont(!easyReadFont)}
-          className={`px-3 py-1.5 text-ui border transition-colors ${
-            easyReadFont
-              ? "border-accent text-accent"
-              : "border-border text-text-muted hover:text-text hover:border-accent/40"
-          } rounded-sm`}
-        >
-          {easyReadFont ? "On" : "Off"}
-        </button>
-      </div>
-      <p className="text-text-dim text-caption mt-2 px-1">
-        Switches the UI to Atkinson Hyperlegible — a font designed by the
-        Braille Institute for legibility. Helps dyslexic readers and anyone
-        reading long sessions; slightly wider letter-spacing and line-height
-        applied per evidence-based guidance.
-      </p>
+      <Switch
+        checked={easyReadFont}
+        onChange={setEasyReadFont}
+        label="Easier-to-read font"
+        hint="Uses Atkinson Hyperlegible, a font designed by the Braille Institute, with slightly looser spacing and taller lines. Helpful for dyslexia and long reading sessions."
+      />
     </section>
   );
 }
@@ -781,28 +739,20 @@ function RelayReachSection() {
       <h2 className="text-text text-micro font-medium uppercase tracking-widest mb-2 text-text-dim">
         Relay reach
       </h2>
-      <label className="flex items-center gap-3 cursor-pointer group">
-        <button
-          onClick={toggle}
-          disabled={restarting}
-          className={`w-9 h-5 rounded-full transition-colors relative shrink-0 disabled:opacity-40 ${
-            enabled ? "bg-accent" : "bg-border-strong"
-          }`}
-        >
-          <span
-            className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-bg transition-transform ${
-              enabled ? "translate-x-4" : "translate-x-0"
-            }`}
-          />
-        </button>
-        <span className="text-text text-body">Use authors' relays (NIP-65)</span>
-      </label>
-      <p className="text-text-dim text-caption mt-1.5 ml-12">
-        {enabled
-          ? "Vega may connect to relays your follows publish to, beyond your own list. Better reach, many more connections."
-          : "Vega connects only to the relays you have configured. Some notes from people you follow may not load."}
-        {restarting && " Reconnecting…"}
-      </p>
+      <Switch
+        checked={enabled}
+        onChange={() => toggle()}
+        busy={restarting}
+        label="Use authors' relays (NIP-65)"
+        hint={
+          <>
+            {enabled
+              ? "Vega may connect to relays your follows publish to, beyond your own list. Better reach, many more connections."
+              : "Vega connects only to the relays you have configured. Some notes from people you follow may not load."}
+            {restarting && " Reconnecting…"}
+          </>
+        }
+      />
     </section>
   );
 }
@@ -840,24 +790,12 @@ function ExperimentalSection() {
       <p className="text-text-dim text-caption mb-3">
         Features under development. May change or be removed.
       </p>
-      <label className="flex items-center gap-3 cursor-pointer group">
-        <button
-          onClick={toggle}
-          className={`w-9 h-5 rounded-full transition-colors relative shrink-0 ${
-            enabled ? "bg-accent" : "bg-border-strong"
-          }`}
-        >
-          <span
-            className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-bg transition-transform ${
-              enabled ? "translate-x-4" : "translate-x-0"
-            }`}
-          />
-        </button>
-        <span className="text-text text-body">Personal relay</span>
-      </label>
-      <p className="text-text-dim text-caption mt-1.5 ml-12">
-        Run a local Nostr relay for offline access and faster reads.
-      </p>
+      <Switch
+        checked={enabled}
+        onChange={() => toggle()}
+        label="Personal relay"
+        hint="Run a local Nostr relay for offline access and faster reads."
+      />
       {enabled && (port || stats) && (
         <div className="text-text-dim text-caption mt-2 ml-12 space-y-0.5">
           {port && <p>Running on port {port}</p>}
@@ -891,26 +829,14 @@ function DiagnosticsSection() {
       <h2 className="text-text text-micro font-medium uppercase tracking-widest mb-2 text-text-dim">
         Diagnostics
       </h2>
-      <label className="flex items-center gap-3 cursor-pointer group">
-        <button
-          onClick={toggle}
-          className={`w-9 h-5 rounded-full transition-colors relative shrink-0 ${
-            enabled ? "bg-accent" : "bg-border-strong"
-          }`}
-        >
-          <span
-            className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-bg transition-transform ${
-              enabled ? "translate-x-4" : "translate-x-0"
-            }`}
-          />
-        </button>
-        <span className="text-text text-body">Write diagnostics log</span>
-      </label>
-      <p className="text-text-dim text-caption mt-1.5 ml-12">
-        {enabled
+      <Switch
+        checked={enabled}
+        onChange={() => toggle()}
+        label="Write diagnostics log"
+        hint={enabled
           ? "Recording relay and memory samples twice a second. Turn this off when you're done — it's only useful while reproducing a problem."
-          : "Off. Turn on only if asked to, while reproducing a bug — then send the file with your report."}
-      </p>
+          : "Turn on only if asked to, while reproducing a bug — then send the file with your report."}
+      />
       {enabled && logPath && (
         <p className="text-text-dim text-micro mt-1 ml-12 font-mono break-all">{logPath}</p>
       )}
