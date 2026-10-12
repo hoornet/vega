@@ -8,6 +8,33 @@ const PROFILE_CACHE_MAX = 500;
 const profileCache = new Map<string, any>();
 const pendingRequests = new Map<string, Promise<any>>();
 
+/**
+ * Accounts a fetch found nothing for, and when to ask again.
+ *
+ * "Nothing" is far more often a relay that was slow, or a network that was
+ * down for a moment, than an account with no profile. This used to be cached
+ * as `null` for the life of the session: every name fetched while the
+ * network was off stayed a key until the app was restarted. Now it is a
+ * miss, asked again after half a minute, then two, then every ten.
+ */
+const misses = new Map<string, { tries: number; retryAt: number }>();
+const MISS_RETRY_MS = [30_000, 120_000, 600_000];
+function recordMiss(pubkey: string): void {
+  const tries = (misses.get(pubkey)?.tries ?? 0) + 1;
+  const wait = MISS_RETRY_MS[Math.min(tries, MISS_RETRY_MS.length) - 1];
+  misses.set(pubkey, { tries, retryAt: Date.now() + wait });
+  // Bounded like the cache: a long session meets many accounts with no profile.
+  // The oldest records go first (a Map keeps insertion order).
+  for (const key of misses.keys()) {
+    if (misses.size <= PROFILE_CACHE_MAX) break;
+    misses.delete(key);
+  }
+}
+const missDue = (pubkey: string): boolean => {
+  const miss = misses.get(pubkey);
+  return !miss || Date.now() >= miss.retryAt;
+};
+
 // Hard cap on concurrent NDK profile fetches.
 // Without this, rendering 200 cached notes triggers 200 simultaneous
 // user.fetchProfile() calls (each creates an NDK subscription) → OOM.
@@ -62,6 +89,7 @@ const storedReads = new Map<string, Promise<NDKUserProfile | null>>();
 export function primeProfileCache(pubkey: string, profile: NDKUserProfile | null | undefined, from: "relay" | "published" = "relay"): void {
   if (!profile) return;
   if (from === "relay" && olderProfile(profile, profileCache.get(pubkey) as NDKUserProfile | null | undefined)) return;
+  misses.delete(pubkey);
   profileCache.set(pubkey, profile);
   pruneProfileCache();
   dbSaveProfile(pubkey, JSON.stringify(profile));
@@ -72,10 +100,9 @@ export function primeProfileCache(pubkey: string, profile: NDKUserProfile | null
  * cache, then SQLite. `undefined` means neither has it.
  */
 export async function peekCachedProfile(pubkey: string): Promise<NDKUserProfile | null | undefined> {
-  // A cached null means one earlier single-profile fetch came back empty or
-  // timed out; the hook stores it so cards stop retrying. For callers that
-  // decide visibility on it, that is not "known to have no profile", so it is
-  // reported as unknown and they ask the relays again in their batch.
+  // A miss (a fetch that came back empty or timed out) is not "known to have
+  // no profile": it is reported as unknown, and callers that decide
+  // visibility on it ask the relays again in their batch.
   const inMemory = profileCache.get(pubkey);
   if (inMemory) return inMemory as NDKUserProfile;
   return (await storedProfile(pubkey)) ?? undefined;
@@ -87,6 +114,12 @@ export function useProfile(pubkey: string) {
   useEffect(() => {
     if (profileCache.has(pubkey)) {
       setProfile(profileCache.get(pubkey));
+      return;
+    }
+    // Asked lately and found nothing: not again yet. The next card mounted
+    // for this account after the wait asks.
+    if (!missDue(pubkey) && !pendingRequests.has(pubkey)) {
+      setProfile(null);
       return;
     }
 
@@ -108,9 +141,14 @@ export function useProfile(pubkey: string) {
               // back into a key when a slow relay sent nothing, and a fetch
               // that was out while the owner saved brought the old one back.
               const kept = olderProfile(arrived, known) ? known : arrived;
-              profileCache.set(pubkey, kept);
-              pruneProfileCache();
-              if (kept && kept === arrived) dbSaveProfile(pubkey, JSON.stringify(arrived));
+              if (kept) {
+                misses.delete(pubkey);
+                profileCache.set(pubkey, kept);
+                pruneProfileCache();
+                if (kept === arrived) dbSaveProfile(pubkey, JSON.stringify(arrived));
+              } else {
+                recordMiss(pubkey);
+              }
               resolve(kept);
             })
             // The fetch failed (a profile on the relays that cannot be read
