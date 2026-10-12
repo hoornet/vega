@@ -30,6 +30,7 @@ import { useUIStore } from "./ui";
 import { useNotificationsStore } from "./notifications";
 import { useFeedStore } from "./feed";
 import { usePodcastStore } from "./podcast";
+import { useBackupStore } from "./backup";
 import { startNotificationPoller, stopNotificationPoller } from "../lib/notificationPoller";
 import { dbLoadProfile } from "../lib/db";
 import { debug } from "../lib/debug";
@@ -118,10 +119,17 @@ export async function readSecretKey(pubkey: string): Promise<SecretKey | null> {
 const keychainToast = (pubkey: string) => `keychain:${pubkey}`;
 
 /** Copy an account's secret key, or say there is none here to copy. The key never passes through a toast. */
-async function copySecretKey(pubkey: string): Promise<void> {
+export async function copySecretKey(pubkey: string, { quiet = false } = {}): Promise<boolean> {
   const key = await readSecretKey(pubkey);
-  if (key) await copyText(key.nsec, "Secret key copied.");
-  else useToastStore.getState().addToast("No key for this account is on this computer.", "error");
+  if (!key) {
+    useToastStore.getState().addToast("No key for this account is on this computer.", "error");
+    return false;
+  }
+  // `quiet`: the button that was pressed says it was copied (see "Toasts").
+  if (!(await copyText(key.nsec, quiet ? undefined : "Secret key copied."))) return false;
+  // Copied out once: the reminder to back it up has done its work.
+  useBackupStore.getState().clearPending(pubkey);
+  return true;
 }
 const _nip46SignerCache = new Map<string, NDKNip46Signer>();
 
@@ -332,6 +340,8 @@ interface UserState {
   loggedIn: boolean;
   loginError: string | null;
   accounts: SavedAccount[];
+  /** The saved session is being restored at startup: who is signed in is not known yet. */
+  restoring: boolean;
 
   loginWithNsec: (nsec: string) => Promise<void>;
   loginWithPubkey: (pubkey: string) => Promise<void>;
@@ -362,6 +372,115 @@ export function useCanSign(): boolean {
   });
 }
 
+
+/** What `restoreSession` does: sign in with what this computer saved, if anything. */
+async function restoreSavedSession(set: (next: Partial<UserState>) => void, get: () => UserState): Promise<void> {
+  // Pre-populate signer cache for ALL nsec accounts so switchAccount
+  // always hits the fast path (no keychain round-trip on every switch).
+  const accounts = get().accounts;
+  for (const acct of accounts) {
+    if (acct.loginType !== "nsec" || _signerCache.has(acct.pubkey)) continue;
+    try {
+      const nsec = await invoke<string | null>("load_nsec", { pubkey: acct.pubkey });
+      if (nsec) {
+        let privkey: string;
+        if (nsec.startsWith("nsec1")) {
+          const decoded = nip19.decode(nsec);
+          privkey = decoded.data as string;
+        } else {
+          privkey = nsec;
+        }
+        _signerCache.set(acct.pubkey, new NDKPrivateKeySigner(privkey));
+      }
+    } catch (err) {
+      debug.warn(`Failed to load nsec for ${acct.npub} from keychain:`, err);
+    }
+  }
+
+  // Restore NIP-46 signers from saved payloads
+  for (const acct of accounts) {
+    if (acct.loginType !== "remote-signer" || !acct.signerPayload || _nip46SignerCache.has(acct.pubkey)) continue;
+    try {
+      const signer = await NDKNip46Signer.fromPayload(acct.signerPayload, getNDK());
+      // fromPayload restores the bunker:// secret, so the reconnect below
+      // re-sends it and bunkers that echo it back need the same normalization
+      // fresh login gets. Without this, restart is permanently read-only (#47).
+      acceptSecretEchoAsAck(signer);
+      _nip46SignerCache.set(acct.pubkey, signer);
+    } catch (err) {
+      debug.warn(`Failed to restore NIP-46 session for ${acct.npub}:`, err);
+    }
+  }
+
+  // Now restore the active account
+  const savedPubkey = localStorage.getItem("wrystr_pubkey");
+  const savedLoginType = localStorage.getItem("wrystr_login_type");
+  if (!savedPubkey) return;
+
+  if (savedLoginType === "pubkey") {
+    await get().loginWithPubkey(savedPubkey);
+    return;
+  }
+
+  if (savedLoginType === "remote-signer") {
+    const cachedSigner = _nip46SignerCache.get(savedPubkey);
+    if (cachedSigner) {
+      try {
+        await connectWithTimeout(cachedSigner);
+        getNDK().signer = cachedSigner;
+        const npub = nip19.npubEncode(savedPubkey);
+        set({ pubkey: savedPubkey, npub, profile: profileOnBecoming(savedPubkey), loggedIn: true, loginError: null });
+        localStorage.setItem("wrystr_pubkey", savedPubkey);
+        localStorage.setItem("wrystr_login_type", "remote-signer");
+        useLightningStore.getState().loadNwcForAccount(savedPubkey);
+        get().fetchOwnProfile();
+        get().fetchFollows();
+        useMuteStore.getState().fetchMuteList(savedPubkey);
+        useNotificationsStore.getState().fetchNotifications(savedPubkey);
+        startNotificationPoller(savedPubkey);
+      usePodcastStore.getState().setActiveAccount(savedPubkey);
+      usePodcastStore.getState().hydrateSubscriptions(savedPubkey);
+      } catch (err) {
+        // Stay on the account but read-only rather than silently looking
+        // logged out — and say why, so the user isn't left guessing at a
+        // sidebar that quietly dropped half its items (#47).
+        debug.warn("Failed to restore NIP-46 session:", err);
+        const npub = nip19.npubEncode(savedPubkey);
+        // Read-only from here. Whatever key is in place by now is not this
+        // account's: the wait for the signer can be half a minute, and
+        // someone may have signed in to another account meanwhile.
+        getNDK().signer = undefined;
+        dropAuthenticatedSessions();
+        set({ pubkey: savedPubkey, npub, profile: profileOnBecoming(savedPubkey), loggedIn: false, loginError: nip46RestoreError(err) });
+        useToastStore.getState().addToast(nip46RestoreError(err), "warning", 8000);
+        // Read-only, but this account all the same: its podcasts, not the signed-out list.
+        usePodcastStore.getState().setActiveAccount(savedPubkey);
+      }
+    }
+    return;
+  }
+
+  if (savedLoginType === "nsec") {
+    const cachedSigner = _signerCache.get(savedPubkey);
+    if (cachedSigner) {
+      getNDK().signer = cachedSigner;
+      const npub = nip19.npubEncode(savedPubkey);
+      set({ pubkey: savedPubkey, npub, profile: profileOnBecoming(savedPubkey), loggedIn: true, loginError: null });
+      localStorage.setItem("wrystr_pubkey", savedPubkey);
+      localStorage.setItem("wrystr_login_type", "nsec");
+      useLightningStore.getState().loadNwcForAccount(savedPubkey);
+      get().fetchOwnProfile();
+      get().fetchFollows();
+      useMuteStore.getState().fetchMuteList(savedPubkey);
+      useNotificationsStore.getState().fetchNotifications(savedPubkey);
+      startNotificationPoller(savedPubkey);
+      usePodcastStore.getState().setActiveAccount(savedPubkey);
+      usePodcastStore.getState().hydrateSubscriptions(savedPubkey);
+    }
+    // No keychain entry → stay logged out, user re-enters nsec once.
+  }
+}
+
 export const useUserStore = create<UserState>((set, get) => ({
   pubkey: null,
   npub: null,
@@ -371,6 +490,7 @@ export const useUserStore = create<UserState>((set, get) => ({
   loggedIn: false,
   loginError: null,
   accounts: loadSavedAccounts(),
+  restoring: false,
 
   loginWithNsec: async (nsecInput: string) => {
     try {
@@ -593,109 +713,11 @@ export const useUserStore = create<UserState>((set, get) => ({
   },
 
   restoreSession: async () => {
-    // Pre-populate signer cache for ALL nsec accounts so switchAccount
-    // always hits the fast path (no keychain round-trip on every switch).
-    const accounts = get().accounts;
-    for (const acct of accounts) {
-      if (acct.loginType !== "nsec" || _signerCache.has(acct.pubkey)) continue;
-      try {
-        const nsec = await invoke<string | null>("load_nsec", { pubkey: acct.pubkey });
-        if (nsec) {
-          let privkey: string;
-          if (nsec.startsWith("nsec1")) {
-            const decoded = nip19.decode(nsec);
-            privkey = decoded.data as string;
-          } else {
-            privkey = nsec;
-          }
-          _signerCache.set(acct.pubkey, new NDKPrivateKeySigner(privkey));
-        }
-      } catch (err) {
-        debug.warn(`Failed to load nsec for ${acct.npub} from keychain:`, err);
-      }
-    }
-
-    // Restore NIP-46 signers from saved payloads
-    for (const acct of accounts) {
-      if (acct.loginType !== "remote-signer" || !acct.signerPayload || _nip46SignerCache.has(acct.pubkey)) continue;
-      try {
-        const signer = await NDKNip46Signer.fromPayload(acct.signerPayload, getNDK());
-        // fromPayload restores the bunker:// secret, so the reconnect below
-        // re-sends it and bunkers that echo it back need the same normalization
-        // fresh login gets. Without this, restart is permanently read-only (#47).
-        acceptSecretEchoAsAck(signer);
-        _nip46SignerCache.set(acct.pubkey, signer);
-      } catch (err) {
-        debug.warn(`Failed to restore NIP-46 session for ${acct.npub}:`, err);
-      }
-    }
-
-    // Now restore the active account
-    const savedPubkey = localStorage.getItem("wrystr_pubkey");
-    const savedLoginType = localStorage.getItem("wrystr_login_type");
-    if (!savedPubkey) return;
-
-    if (savedLoginType === "pubkey") {
-      await get().loginWithPubkey(savedPubkey);
-      return;
-    }
-
-    if (savedLoginType === "remote-signer") {
-      const cachedSigner = _nip46SignerCache.get(savedPubkey);
-      if (cachedSigner) {
-        try {
-          await connectWithTimeout(cachedSigner);
-          getNDK().signer = cachedSigner;
-          const npub = nip19.npubEncode(savedPubkey);
-          set({ pubkey: savedPubkey, npub, profile: profileOnBecoming(savedPubkey), loggedIn: true, loginError: null });
-          localStorage.setItem("wrystr_pubkey", savedPubkey);
-          localStorage.setItem("wrystr_login_type", "remote-signer");
-          useLightningStore.getState().loadNwcForAccount(savedPubkey);
-          get().fetchOwnProfile();
-          get().fetchFollows();
-          useMuteStore.getState().fetchMuteList(savedPubkey);
-          useNotificationsStore.getState().fetchNotifications(savedPubkey);
-          startNotificationPoller(savedPubkey);
-        usePodcastStore.getState().setActiveAccount(savedPubkey);
-        usePodcastStore.getState().hydrateSubscriptions(savedPubkey);
-        } catch (err) {
-          // Stay on the account but read-only rather than silently looking
-          // logged out — and say why, so the user isn't left guessing at a
-          // sidebar that quietly dropped half its items (#47).
-          debug.warn("Failed to restore NIP-46 session:", err);
-          const npub = nip19.npubEncode(savedPubkey);
-          // Read-only from here. Whatever key is in place by now is not this
-          // account's: the wait for the signer can be half a minute, and
-          // someone may have signed in to another account meanwhile.
-          getNDK().signer = undefined;
-          dropAuthenticatedSessions();
-          set({ pubkey: savedPubkey, npub, profile: profileOnBecoming(savedPubkey), loggedIn: false, loginError: nip46RestoreError(err) });
-          useToastStore.getState().addToast(nip46RestoreError(err), "warning", 8000);
-          // Read-only, but this account all the same: its podcasts, not the signed-out list.
-          usePodcastStore.getState().setActiveAccount(savedPubkey);
-        }
-      }
-      return;
-    }
-
-    if (savedLoginType === "nsec") {
-      const cachedSigner = _signerCache.get(savedPubkey);
-      if (cachedSigner) {
-        getNDK().signer = cachedSigner;
-        const npub = nip19.npubEncode(savedPubkey);
-        set({ pubkey: savedPubkey, npub, profile: profileOnBecoming(savedPubkey), loggedIn: true, loginError: null });
-        localStorage.setItem("wrystr_pubkey", savedPubkey);
-        localStorage.setItem("wrystr_login_type", "nsec");
-        useLightningStore.getState().loadNwcForAccount(savedPubkey);
-        get().fetchOwnProfile();
-        get().fetchFollows();
-        useMuteStore.getState().fetchMuteList(savedPubkey);
-        useNotificationsStore.getState().fetchNotifications(savedPubkey);
-        startNotificationPoller(savedPubkey);
-        usePodcastStore.getState().setActiveAccount(savedPubkey);
-        usePodcastStore.getState().hydrateSubscriptions(savedPubkey);
-      }
-      // No keychain entry → stay logged out, user re-enters nsec once.
+    set({ restoring: true });
+    try {
+      await restoreSavedSession(set, get);
+    } finally {
+      set({ restoring: false });
     }
   },
 
@@ -813,6 +835,8 @@ export const useUserStore = create<UserState>((set, get) => ({
 
   removeAccount: (pubkey: string) => {
     try { localStorage.removeItem(CONTACT_LIST_CACHE_PREFIX + pubkey); } catch { /* nothing to remove */ }
+    // No key here any more: nothing left to remind about.
+    useBackupStore.getState().clearPending(pubkey);
     // Delete keychain entry (best-effort)
     invoke<void>("delete_nsec", { pubkey }).catch(() => {});
     // And the copies this session holds. "This deletes the secret key stored

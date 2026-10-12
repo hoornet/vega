@@ -17,12 +17,14 @@ const readSecretKey = vi.hoisted(() => vi.fn());
 vi.mock("../../stores/user", () => ({ useUserStore: () => store, readSecretKey }));
 const openProfile = vi.hoisted(() => vi.fn());
 const openView = vi.hoisted(() => vi.fn());
-vi.mock("../../stores/ui", () => ({ useUIStore: () => ({ openProfile, openView }) }));
+const openSignup = vi.hoisted(() => vi.fn());
+vi.mock("../../stores/ui", () => ({ useUIStore: Object.assign(() => ({ openProfile, openView }), { getState: () => ({ openProfile, openView, openSignup }) }) }));
 const loginProps = vi.hoisted(() => ({ last: null as null | { returnFocus?: { current: HTMLElement | null } } }));
 vi.mock("../shared/LoginModal", () => ({ LoginModal: (props: { returnFocus?: { current: HTMLElement | null } }) => { loginProps.last = props; return <div>login dialog</div>; } }));
 
 import { AccountSwitcher } from "./AccountSwitcher";
 import { useToastStore } from "../../stores/toast";
+import { useBackupStore } from "../../stores/backup";
 
 const writeText = vi.fn();
 
@@ -98,6 +100,19 @@ describe("removing an account", () => {
     await waitFor(() => expect(writeText).toHaveBeenCalledWith("nsec1thekey"));
     expect(readSecretKey).toHaveBeenCalledWith(ME);
     expect(await screen.findByText(/Copied/)).toBeTruthy();
+    expect(store.removeAccount).not.toHaveBeenCalled();
+  });
+
+  // Copied here, then the removal cancelled: the key is out, so the reminder
+  // to back it up has done its work.
+  it("ends the backup reminder once the key is copied, even if the removal is then cancelled", async () => {
+    readSecretKey.mockResolvedValue({ nsec: "nsec1thekey", stored: true });
+    useBackupStore.setState({ pending: [ME] });
+    openMenu();
+    fireEvent.click(screen.getByText("Remove from this computer…"));
+    fireEvent.click(screen.getByText("Copy secret key first"));
+    await waitFor(() => expect(useBackupStore.getState().pending).toEqual([]));
+    fireEvent.click(screen.getByText("Cancel"));
     expect(store.removeAccount).not.toHaveBeenCalled();
   });
 
@@ -285,5 +300,17 @@ describe("your places in the menu", () => {
     reopen();
     fireEvent.click(screen.getByText("Zap history"));
     expect(openView).toHaveBeenCalledWith("zaps");
+  });
+});
+
+// Signed out, with or without accounts saved here.
+describe("signed out", () => {
+  it("offers to create an account, through the sign-up flow, and to sign in", () => {
+    store.pubkey = null;
+    render(<AccountSwitcher />);
+    fireEvent.click(screen.getByRole("button", { name: "Create account" }));
+    expect(openSignup).toHaveBeenCalledWith("create");
+    fireEvent.click(screen.getByRole("button", { name: "Sign in" }));
+    expect(screen.getByText("login dialog")).toBeTruthy();
   });
 });

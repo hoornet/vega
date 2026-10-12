@@ -2,6 +2,7 @@ import { useCallback, useRef, useState, useEffect } from "react";
 import { useUserStore, SavedAccount, readSecretKey } from "../../stores/user";
 import { useUIStore } from "../../stores/ui";
 import { ChevronsUpDown, LogIn, UserRound, Users, Zap } from "lucide-react";
+import { useBackupStore } from "../../stores/backup";
 import { LoginModal } from "../shared/LoginModal";
 import { nameOf, ownName } from "../../lib/utils";
 import { AvatarInitial } from "../shared/AvatarInitial";
@@ -61,7 +62,10 @@ export function RemoveAccountConfirm({ account, name, onCancel, onConfirm }: {
     // this session: an account the keychain never took still has one here.
     const key = await readSecretKey(account.pubkey);
     if (!key) { setCopyState("failed"); return; }
-    setCopyState((await copyText(key.nsec)) ? "copied" : "idle");
+    const copied = await copyText(key.nsec);
+    // Copied out once, even if the removal is then cancelled: the reminder to back it up has done its work.
+    if (copied) useBackupStore.getState().clearPending(account.pubkey);
+    setCopyState(copied ? "copied" : "idle");
   };
 
   return (
@@ -105,7 +109,7 @@ export function CollapsedAccount() {
         </button>
       ) : (
         <>
-          <Button square variant="ghost" onClick={() => setShowLogin(true)} aria-label="Log in" title="Log in"><LogIn /></Button>
+          <Button square variant="ghost" onClick={() => setShowLogin(true)} aria-label="Sign in" title="Sign in"><LogIn /></Button>
           {showLogin && <LoginModal onClose={() => setShowLogin(false)} />}
         </>
       )}
@@ -179,7 +183,8 @@ export function AccountSwitcher() {
               <div className="border-t border-border-subtle my-1" />
             </div>
           )}
-          <Button className="w-full" onClick={() => setShowAddLogin(true)}>Login</Button>
+          <Button variant="primary" className="w-full mb-1.5" onClick={() => useUIStore.getState().openSignup("create")}>Create account</Button>
+          <Button className="w-full" onClick={() => setShowAddLogin(true)}>Sign in</Button>
         </div>
         {showAddLogin && <LoginModal onClose={() => setShowAddLogin(false)} />}
       </>
