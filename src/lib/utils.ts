@@ -8,6 +8,23 @@ export function timeAgo(timestamp: number): string {
   return `${Math.floor(seconds / 604800)}w`;
 }
 
+/**
+ * Cut someone else's words to `max` characters, with an ellipsis when cut.
+ *
+ * Counted in characters as read, not UTF-16 units: a cut through the middle
+ * of an emoji leaves a broken glyph. A display name, a relay's error or a
+ * signer's can be any length, and in a sentence of ours they get a limit.
+ */
+export function clipText(text: string, max: number): string {
+  const chars = Array.from(text);
+  return chars.length > max ? `${chars.slice(0, max - 1).join("").trimEnd()}…` : text;
+}
+
+/** End a sentence that ends in someone else's words: a full stop, unless they brought their own ending. Not "…." and not "!.". */
+export function endSentence(text: string): string {
+  return /[.…!?]$/.test(text) ? text : `${text}.`;
+}
+
 export function shortenPubkey(pubkey: string): string {
   return pubkey.slice(0, 8) + "…" + pubkey.slice(-4);
 }

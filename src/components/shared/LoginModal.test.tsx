@@ -12,6 +12,7 @@ vi.mock("../../stores/user", () => ({ useUserStore: Object.assign(() => store, {
 
 import { LoginModal } from "./LoginModal";
 import { HelpModal } from "./HelpModal";
+import { useToastStore } from "../../stores/toast";
 
 const onClose = vi.fn();
 beforeEach(() => { vi.clearAllMocks(); store.loginError = null; store.loginWithNsec.mockResolvedValue(undefined); store.loginWithPubkey.mockResolvedValue(undefined); });
@@ -67,6 +68,44 @@ describe("LoginModal", () => {
     const { rerender } = render(<><button ref={arrow}>Switch account</button><LoginModal onClose={onClose} returnFocus={arrow} /></>);
     rerender(<><button ref={arrow}>Switch account</button></>);
     expect(document.activeElement).toBe(arrow.current);
+  });
+});
+
+describe("LoginModal: copying a new account's secret key", () => {
+  const writeText = vi.fn();
+  const original = Object.getOwnPropertyDescriptor(navigator, "clipboard");
+  beforeEach(() => {
+    writeText.mockReset().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "clipboard", { value: { writeText }, configurable: true });
+    useToastStore.setState({ toasts: [] });
+  });
+  afterEach(() => {
+    if (original) Object.defineProperty(navigator, "clipboard", original);
+    else delete (navigator as { clipboard?: unknown }).clipboard;
+  });
+  const openNewAccount = () => {
+    render(<LoginModal onClose={onClose} />);
+    fireEvent.click(screen.getByRole("tab", { name: /New account/i }));
+  };
+
+  it("says Copied once the key is on the clipboard", async () => {
+    openNewAccount();
+    fireEvent.click(screen.getByRole("button", { name: "Copy key" }));
+    expect(await screen.findByRole("button", { name: "Copied" })).toBeTruthy();
+    expect(writeText.mock.calls[0][0]).toMatch(/^nsec1/);
+    expect(useToastStore.getState().toasts).toEqual([]);
+  });
+
+  // Believing the key was copied when it was not is how a key gets lost.
+  it("does not say Copied when the key could not be copied, and says why", async () => {
+    writeText.mockRejectedValue(new Error("NotAllowedError"));
+    openNewAccount();
+    fireEvent.click(screen.getByRole("button", { name: "Copy key" }));
+    await waitFor(() => expect(useToastStore.getState().toasts).toHaveLength(1));
+    expect(useToastStore.getState().toasts[0].type).toBe("error");
+    expect(screen.queryByRole("button", { name: "Copied" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Copy key" })).toBeTruthy();
+    expect(JSON.stringify(useToastStore.getState().toasts)).not.toContain("nsec1");
   });
 });
 

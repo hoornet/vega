@@ -11,12 +11,16 @@ import { useBookmarkStore } from "../../stores/bookmark";
 import { useMuteStore } from "../../stores/mute";
 import { repostKey, useRepostedStore } from "../../stores/reposted";
 import { useToastStore } from "../../stores/toast";
-import { publishReaction, publishRepost } from "../../lib/nostr";
+import { publishReaction } from "../../lib/nostr";
 import { profileName } from "../../lib/utils";
 import { explainPublishError } from "../../lib/publishErrors";
 import { measureRoom, pickSide, type Side } from "../../lib/popoverPlacement";
 import { ZapModal } from "../zap/ZapModal";
 import { QuoteModal } from "./QuoteModal";
+import { setFollowing, setMuted } from "../../lib/socialToasts";
+import { copyText } from "../../lib/clipboard";
+import { repostNote } from "../../lib/repost";
+import { currentAccount, stillAccount } from "../../lib/currentAccount";
 
 const REACTION_EMOJIS = ["❤️", "🤙", "🔥", "😂", "🫡", "👀", "⚡"];
 
@@ -90,17 +94,11 @@ export function NoteActions({ event, onReplyToggle, showReply, enabled = true }:
   const ownPubkey = useUserStore((s) => s.pubkey);
   const isFollowing = useUserStore((s) => s.follows.includes(event.pubkey));
   const followsLoaded = useUserStore((s) => s.followsStatus === "loaded");
-  const follow = useUserStore((s) => s.follow);
-  const unfollow = useUserStore((s) => s.unfollow);
   const isMuted = useMuteStore((s) => s.mutedPubkeys.includes(event.pubkey));
-  const mute = useMuteStore((s) => s.mute);
-  const unmute = useMuteStore((s) => s.unmute);
   const isBookmarked = useBookmarkStore((s) => s.bookmarkedIds.includes(event.id!));
   const addBookmark = useBookmarkStore((s) => s.addBookmark);
   const removeBookmark = useBookmarkStore((s) => s.removeBookmark);
   const repostState = useRepostedStore((s) => s.byKey[repostKey(ownPubkey, event.id!)]);
-  const beginRepost = useRepostedStore((s) => s.begin);
-  const finishRepost = useRepostedStore((s) => s.finish);
   const reposted = repostState === "done";
   const reposting = repostState === "pending";
   const addToast = useToastStore((s) => s.addToast);
@@ -192,42 +190,33 @@ export function NoteActions({ event, onReplyToggle, showReply, enabled = true }:
     else closePopover();
     if (!canSign || reacting || myReactions.has(emoji)) return;
     setReacting(true);
+    const me = currentAccount(); // before the await: see `forThisAccount`
     try {
       await publishReaction(event.id, event.pubkey, emoji);
-      addReaction(emoji);
+      if (stillAccount(me)) addReaction(emoji);
     } catch (err) {
       // It used to fail in silence: the picker closed and nothing changed.
-      addToast(explainPublishError(err, "Your reaction was not sent."), "warning", 6000);
+      // No "Try again" here: the emoji is one press away on the row, and a
+      // retry from the toast would run this render's idea of what has been
+      // reacted with, and send the reaction twice. Nothing at all if the
+      // account changed meanwhile: it is not the new account's to hear.
+      if (stillAccount(me)) addToast(explainPublishError(err, "Your reaction was not sent."), "error");
     } finally {
       setReacting(false);
     }
   };
 
-  const handleRepost = async () => {
+  const handleRepost = () => {
     closePopover(true);
     // The claim is in a store, not in this row's state: a row scrolled out of
     // the virtual list and back is a new component, and it must still know a
-    // repost of this note is on its way.
-    if (!ownPubkey || !beginRepost(ownPubkey, event.id!)) return;
-    let published = false;
-    try {
-      await publishRepost(event);
-      published = true;
-    } catch (err) {
-      addToast(explainPublishError(err, "Nothing was reposted."), "warning", 6000);
-    } finally {
-      finishRepost(ownPubkey, event.id!, published);
-    }
+    // repost of this note is on its way. See `lib/repost.ts`.
+    if (ownPubkey) void repostNote(ownPubkey, event);
   };
 
-  const copy = async (text: string, done: string) => {
+  const copy = (text: string, done: string) => {
     closePopover(true);
-    try {
-      await navigator.clipboard.writeText(text);
-      addToast(done, "success", 2500);
-    } catch {
-      addToast("Couldn't copy to the clipboard.", "warning", 4000);
-    }
+    void copyText(text, done);
   };
 
   // Sort emoji groups: most popular first
@@ -395,7 +384,8 @@ export function NoteActions({ event, onReplyToggle, showReply, enabled = true }:
                     {(isFollowing || followsLoaded) && (
                       <MenuItem
                         icon={isFollowing ? <UserMinus size={14} /> : <UserPlus size={14} />}
-                        onClick={() => { closePopover(true); void (isFollowing ? unfollow(event.pubkey) : follow(event.pubkey)); }}
+                        // The menu closes and nothing on the note changes, so this says how it went.
+                        onClick={() => { closePopover(true); void setFollowing(event.pubkey, name, !isFollowing); }}
                       >
                         {isFollowing ? "Unfollow" : "Follow"} {name}
                       </MenuItem>
@@ -403,7 +393,7 @@ export function NoteActions({ event, onReplyToggle, showReply, enabled = true }:
                     <MenuItem
                       danger={!isMuted}
                       icon={<VolumeX size={14} />}
-                      onClick={() => { closePopover(true); void (isMuted ? unmute(event.pubkey) : mute(event.pubkey)); }}
+                      onClick={() => { closePopover(true); setMuted(event.pubkey, name, !isMuted); }}
                     >
                       {isMuted ? "Unmute" : "Mute"} {name}
                     </MenuItem>
@@ -441,16 +431,8 @@ export function LoggedOutStats({ event, enabled = true }: { event: NDKEvent; ena
   const [reactionsData] = useReactions(event.id, enabled);
   const [replyCount] = useReplyCount(event.id, enabled);
   const zapData = useZapCount(event.id, enabled);
-  const addToast = useToastStore((s) => s.addToast);
 
-  const handleCopy = async () => {
-    try {
-      await navigator.clipboard.writeText(noteReference(event));
-      addToast("Note ID copied.", "success", 2500);
-    } catch {
-      addToast("Couldn't copy to the clipboard.", "warning", 4000);
-    }
-  };
+  const handleCopy = () => void copyText(noteReference(event), "Note ID copied.");
 
   const sortedGroups = reactionsData
     ? Array.from(reactionsData.groups.entries()).sort((a, b) => b[1] - a[1])

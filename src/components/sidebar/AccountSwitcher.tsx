@@ -1,12 +1,12 @@
 import { useCallback, useRef, useState } from "react";
-import { invoke } from "@tauri-apps/api/core";
-import { useUserStore, SavedAccount } from "../../stores/user";
+import { useUserStore, SavedAccount, readSecretKey } from "../../stores/user";
 import { useUIStore } from "../../stores/ui";
 import { LoginModal } from "../shared/LoginModal";
 import { shortenPubkey } from "../../lib/utils";
 import { useEscapeToClose } from "../../hooks/useEscapeToClose";
 import { usePopoverDismiss, type DismissReason } from "../../hooks/usePopoverDismiss";
 import { Button } from "../shared/Button";
+import { copyText } from "../../lib/clipboard";
 
 function Avatar({ account, size = "w-6 h-6", textSize = "text-[10px]" }: { account: SavedAccount; size?: string; textSize?: string }) {
   const initial = (account.name || account.npub || "?").charAt(0).toUpperCase();
@@ -50,14 +50,14 @@ function RemoveAccountConfirm({ account, name, onCancel, onConfirm }: {
   useEscapeToClose(onCancel);
 
   const copyKey = async () => {
-    try {
-      const nsec = await invoke<string | null>("load_nsec", { pubkey: account.pubkey });
-      if (!nsec) throw new Error("no key stored");
-      await navigator.clipboard.writeText(nsec);
-      setCopyState("copied");
-    } catch {
-      setCopyState("failed");
-    }
+    // Two things can fail, and they are not the same. The key may not be on
+    // this computer at all, or the clipboard may refuse it. Both used to read
+    // "Couldn't read the key. Copy it from Settings.", which was wrong about
+    // a clipboard failure. The key is looked for in the keychain and then in
+    // this session: an account the keychain never took still has one here.
+    const key = await readSecretKey(account.pubkey);
+    if (!key) { setCopyState("failed"); return; }
+    setCopyState((await copyText(key.nsec)) ? "copied" : "idle");
   };
 
   return (
@@ -72,7 +72,7 @@ function RemoveAccountConfirm({ account, name, onCancel, onConfirm }: {
       </p>
       {holdsKey && (
         <Button wrap className="w-full mb-1.5" onClick={copyKey}>
-          {copyState === "copied" ? "Copied. Paste it somewhere safe." : copyState === "failed" ? "Couldn't read the key. Copy it from Settings." : "Copy secret key first"}
+          {copyState === "copied" ? "Copied. Paste it somewhere safe." : copyState === "failed" ? "No key for this account is on this computer." : "Copy secret key first"}
         </Button>
       )}
       <Button variant="primary" tone="danger" className="w-full mb-1.5" onClick={onConfirm}>Remove account</Button>

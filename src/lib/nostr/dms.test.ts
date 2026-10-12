@@ -9,6 +9,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
  */
 
 const addToast = vi.fn();
+const openedView = vi.hoisted(() => ({ last: null as string | null }));
 
 // Stubbed rather than real: dms.ts reaches for a signer, the DB and the relay
 // pool on every path, none of which is under test here.
@@ -37,6 +38,7 @@ vi.mock("@nostr-dev-kit/ndk", async (importOriginal) => ({
   NDKRelaySet: { fromRelayUrls },
 }));
 vi.mock("../../stores/toast", () => ({
+  openView: (view: string) => () => { openedView.last = view; },
   useToastStore: { getState: () => ({ addToast }) },
 }));
 
@@ -201,11 +203,16 @@ describe("fetchGiftWraps", () => {
     currentSub.emit("closed", STRANGER, "auth-required: identify yourself");
 
     expect(addToast).toHaveBeenCalledTimes(1);
-    const [message, type] = addToast.mock.calls[0];
+    const [message, type, options] = addToast.mock.calls[0];
     // Host in the message so the toast store's message-dedup distinguishes
     // relays rather than collapsing them into one notice.
     expect(message).toContain("stranger.example.invalid");
     expect(type).toBe("warning");
+    // It leads to the view where it can be dealt with, and stays long enough to be read.
+    expect(options.action.label).toBe("Relays");
+    expect(options.autoCloseMs).toBe(12000);
+    options.action.run();
+    expect(openedView.last).toBe("relays");
 
     // And it must not stall: we are not waiting for a handshake we declined.
     await vi.advanceTimersByTimeAsync(8000);

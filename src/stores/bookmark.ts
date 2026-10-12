@@ -1,15 +1,72 @@
 import { create } from "zustand";
 import { fetchBookmarkList, fetchBookmarkListFull, publishBookmarkListFull } from "../lib/nostr";
 import { fetchMark, wentUnanswered, type LoadOutcome } from "../lib/listLoad";
+import { useToastStore } from "./toast";
+import { forThisAccount } from "../lib/toastActions";
+import { currentAccount, stillAccount } from "../lib/currentAccount";
 
 // Debounce bookmark publishing to avoid race conditions with replaceable events
 let publishTimer: ReturnType<typeof setTimeout> | null = null;
-function debouncedPublish(get: () => BookmarkState) {
+let batchRemoves = false;
+let batchAccount: string | null = null;
+const FAILED = "publish:bookmarks";
+function debouncedPublish(get: () => BookmarkState, removed = false) {
+  // Whose list this is. Read now: by the time the pause is over the account
+  // may have changed, and the list would be signed by whoever is there then.
+  const account = currentAccount();
+  // A batch belongs to one account. What the one before it did (a removal)
+  // must not word the failure of this one's bookmark.
+  if (account !== batchAccount) batchRemoves = false;
+  batchAccount = account;
+  batchRemoves ||= removed;
   if (publishTimer) clearTimeout(publishTimer);
   publishTimer = setTimeout(() => {
-    const { bookmarkedIds, bookmarkedArticleAddrs } = get();
-    publishBookmarkListFull(bookmarkedIds, bookmarkedArticleAddrs).catch(() => {});
+    const removes = batchRemoves;
+    batchRemoves = false;
+    publishBookmarks(get, { removes, account });
   }, 1000);
+}
+
+/**
+ * Publish the bookmark list as it stands now. A bookmark is kept on this
+ * device either way, but a failure used to be swallowed: the icon stayed
+ * filled for something that had not reached any relay, and nothing said so.
+ *
+ * What is true of a failed bookmark is not true of a failed removal. The
+ * next load merges the relays' list with this device's, so something removed
+ * only here comes back. The message says which.
+ */
+function publishBookmarks(get: () => BookmarkState, { removes, account, retry = false }: { removes: boolean; account: string | null; retry?: boolean }): void {
+  // The account changed during the pause: this list is not the new account's
+  // to sign, and would replace theirs.
+  if (!stillAccount(account)) return;
+  const { bookmarkedIds, bookmarkedArticleAddrs } = get();
+  publishBookmarkListFull(bookmarkedIds, bookmarkedArticleAddrs).then(
+    (published) => {
+      if (!stillAccount(account)) return;
+      const toasts = useToastStore.getState();
+      if (!published) {
+        // No key to sign with: nothing went out. A retry that ends like this
+        // must not just close its toast and say nothing.
+        if (retry) toasts.addToast("Couldn't publish your bookmarks: you are not signed in with a key that can sign.", "error", { key: FAILED });
+        return;
+      }
+      // The list is out, so an earlier "couldn't publish" is no longer true.
+      toasts.removeByKey(FAILED);
+      // A retry that works must say so: the toast is gone and nothing else on screen changes.
+      if (retry) toasts.addToast("Bookmarks published.", "success");
+    },
+    () => {
+      if (!stillAccount(account)) return; // not the new account's failure to hear
+      useToastStore.getState().addToast(
+        removes
+          ? "Couldn't publish your bookmarks. The removal is on this device only, and may be undone the next time your list is loaded."
+          : "Couldn't publish your bookmarks. The new one is saved on this device only.",
+        "error",
+        { key: FAILED, action: forThisAccount("Try again", () => publishBookmarks(get, { removes, account, retry: true }), account) },
+      );
+    },
+  );
 }
 
 const STORAGE_KEY = "wrystr_bookmarks";
@@ -130,7 +187,7 @@ export const useBookmarkStore = create<BookmarkState>((set, get) => ({
     const updated = get().bookmarkedIds.filter((id) => id !== eventId);
     set({ bookmarkedIds: updated });
     saveLocal(updated);
-    debouncedPublish(get);
+    debouncedPublish(get, true);
   },
 
   isBookmarked: (eventId: string) => {
@@ -150,7 +207,7 @@ export const useBookmarkStore = create<BookmarkState>((set, get) => ({
     const updated = get().bookmarkedArticleAddrs.filter((a) => a !== addr);
     set({ bookmarkedArticleAddrs: updated });
     saveArticleAddrs(updated);
-    debouncedPublish(get);
+    debouncedPublish(get, true);
   },
 
   isArticleBookmarked: (addr: string) => {

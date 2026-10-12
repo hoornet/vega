@@ -1,5 +1,8 @@
 import { create } from "zustand";
 import { fetchMuteList, publishMuteList } from "../lib/nostr";
+import { useToastStore } from "./toast";
+import { forThisAccount } from "../lib/toastActions";
+import { currentAccount, stillAccount } from "../lib/currentAccount";
 
 const STORAGE_KEY = "wrystr_mutes";
 const KEYWORDS_KEY = "wrystr_muted_keywords";
@@ -53,6 +56,73 @@ interface MuteState {
   contentMatchesMutedKeyword: (content: string) => boolean;
 }
 
+// One publish for changes made in quick succession. Mute then Undo within a
+// second made two lists with the same timestamp, and which of two such events
+// a relay keeps is decided by their ids, not by which came last.
+let publishTimer: ReturnType<typeof setTimeout> | null = null;
+let batchUnmutes = false;
+let batchAccount: string | null = null;
+const FAILED = "publish:mutes";
+
+function schedulePublish(get: () => MuteState, unmuted: boolean): void {
+  // Whose list this is. Read now: by the time the pause is over the account
+  // may have changed, and the list would be signed by whoever is there then.
+  const account = currentAccount();
+  // A batch belongs to one account. What the one before it did (an unmute)
+  // must not word the failure of this one's mute.
+  if (account !== batchAccount) batchUnmutes = false;
+  batchAccount = account;
+  batchUnmutes ||= unmuted;
+  if (publishTimer) clearTimeout(publishTimer);
+  publishTimer = setTimeout(() => {
+    const unmutes = batchUnmutes;
+    batchUnmutes = false;
+    publishTimer = null;
+    publishMutes(get, { unmutes, account });
+  }, 1000);
+}
+
+/**
+ * Publish the mute list as it stands now. Muting already works on this
+ * device, so a failure changes nothing here, but it used to be swallowed:
+ * the mute never reached the user's other devices and nothing said so.
+ *
+ * What is true of a failed mute is not true of a failed unmute. The next
+ * load merges the relays' list with this device's, so someone unmuted only
+ * here is muted again by it. The message says which.
+ */
+function publishMutes(get: () => MuteState, { unmutes, account, retry = false }: { unmutes: boolean; account: string | null; retry?: boolean }): void {
+  // The account changed during the pause: this list is not the new account's
+  // to sign, and would replace theirs.
+  if (!stillAccount(account)) return;
+  publishMuteList(get().mutedPubkeys).then(
+    (published) => {
+      if (!stillAccount(account)) return;
+      const toasts = useToastStore.getState();
+      if (!published) {
+        // No key to sign with: nothing went out. A retry that ends like this
+        // must not just close its toast and say nothing.
+        if (retry) toasts.addToast("Couldn't publish your mute list: you are not signed in with a key that can sign.", "error", { key: FAILED });
+        return;
+      }
+      // The list is out, so an earlier "couldn't publish" is no longer true.
+      toasts.removeByKey(FAILED);
+      // A retry that works must say so: the toast is gone and nothing else on screen changes.
+      if (retry) toasts.addToast("Mute list published.", "success");
+    },
+    () => {
+      if (!stillAccount(account)) return; // not the new account's failure to hear
+      useToastStore.getState().addToast(
+        unmutes
+          ? "Couldn't publish your mute list. The unmute is on this device only, and may be undone the next time your list is loaded."
+          : "Couldn't publish your mute list. The mute is on this device only.",
+        "error",
+        { key: FAILED, action: forThisAccount("Try again", () => publishMutes(get, { unmutes, account, retry: true }), account) },
+      );
+    },
+  );
+}
+
 export const useMuteStore = create<MuteState>((set, get) => ({
   mutedPubkeys: loadLocal(),
   mutedKeywords: loadKeywords(),
@@ -76,14 +146,14 @@ export const useMuteStore = create<MuteState>((set, get) => ({
     const updated = [...mutedPubkeys, pubkey];
     set({ mutedPubkeys: updated });
     saveLocal(updated);
-    publishMuteList(updated).catch(() => {});
+    schedulePublish(get, false);
   },
 
   unmute: async (pubkey: string) => {
     const updated = get().mutedPubkeys.filter((p) => p !== pubkey);
     set({ mutedPubkeys: updated });
     saveLocal(updated);
-    publishMuteList(updated).catch(() => {});
+    schedulePublish(get, true);
   },
 
   addKeyword: (keyword: string) => {

@@ -172,7 +172,8 @@ export function Feed() {
     else void loadFeed();
   };
 
-  const filteredNotes = activeNotes.filter((event) => {
+  /** Whether this tab's filters let a note through. */
+  const shows = (event: NDKEvent) => {
     if (mutedPubkeys.includes(event.pubkey)) return false;
     if (contentMatchesMutedKeyword(event.content)) return false;
     if (wotEnabled && wotSet.size > 0 && !wotSet.has(event.pubkey)) return false;
@@ -183,7 +184,8 @@ export function Feed() {
     if (c.startsWith("nlogpost:") || c.startsWith("T1772")) return false;
     if (!matchesScriptFilter(event.tags, c, feedLanguageFilter)) return false;
     return true;
-  });
+  };
+  const filteredNotes = activeNotes.filter(shows);
 
   // Virtualized feed list: only ~25 note cards stay mounted in the DOM at any
   // time regardless of feed length. This is the structural fix for the WebKit
@@ -331,7 +333,15 @@ export function Feed() {
 
       {/* Compose */}
       {loggedIn && !!getNDK().signer && (
-        <ComposeBox onPublished={isFollowing ? undefined : loadFeed} onNoteInjected={isFollowing ? (event) => setFollowNotes((prev) => [event, ...prev]) : undefined} />
+        <ComposeBox
+          onPublished={isFollowing ? undefined : loadFeed}
+          onNoteInjected={isFollowing ? (event) => setFollowNotes((prev) => [event, ...prev]) : undefined}
+          // Trending is ranked and will not show a new note. On the other tabs
+          // the note goes to the top of the list, unless this tab's own
+          // filters hide it: a note that starts with "[", a muted word, the
+          // script filter. Then too the box emptied and nothing else changed.
+          confirmPosted={(event) => isTrending || !shows(event)}
+        />
       )}
 
       {/* Error + new-notes banners — pinned above the scroll area so they never

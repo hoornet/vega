@@ -6,6 +6,7 @@ const SHORTCUTS = [
   { key: "j", desc: "Next note in feed" },
   { key: "k", desc: "Previous note in feed" },
   { key: "Esc", desc: "Go back, or close what is open" },
+  { key: "F6", desc: "Go to the latest message in the corner" },
   { key: "?", desc: "This help" },
 ];
 

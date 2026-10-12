@@ -32,6 +32,9 @@ import { usePodcastStore } from "./podcast";
 import { startNotificationPoller, stopNotificationPoller } from "../lib/notificationPoller";
 import { dbLoadProfile } from "../lib/db";
 import { debug } from "../lib/debug";
+import { copyText } from "../lib/clipboard";
+import { setCurrentAccount } from "../lib/currentAccount";
+import { shortenPubkey, clipText } from "../lib/utils";
 
 /**
  * Bounce every relay currently holding an authenticated session.
@@ -66,6 +69,53 @@ export interface SavedAccount {
 // This means the keychain is only ever consulted at startup (restoreSession),
 // not on every switch, eliminating the "read-only after switch" class of bugs.
 const _signerCache = new Map<string, NDKPrivateKeySigner>();
+
+/** Accounts whose key the keychain refused in this session: known not to be stored. */
+const _unsaved = new Set<string>();
+
+export interface SecretKey {
+  nsec: string;
+  /**
+   * Whether the key is in the keychain. `false`: it is only in this session's
+   * memory and gone when Vega closes. `null`: the keychain could not be read
+   * (locked, or no secret service), so it cannot be told.
+   */
+  stored: boolean | null;
+}
+
+/**
+ * The secret key of an account that holds one on this computer.
+ *
+ * From the keychain when it is there. When it is not (the write failed, or
+ * there is no secret service, which on Linux is an ordinary setup) the signer
+ * of this session still has it. Reading the keychain alone left such an
+ * account with no key row in Settings and nothing to copy before removing it,
+ * exactly when a copy is the only thing that can save the account.
+ *
+ * A keychain that could not be read is not a keychain without the key: a
+ * locked one may well hold it. Only "no entry", or a write that failed in
+ * this session, is `stored: false`.
+ */
+export async function readSecretKey(pubkey: string): Promise<SecretKey | null> {
+  let readable = true;
+  try {
+    const nsec = await invoke<string | null>("load_nsec", { pubkey });
+    if (nsec) return { nsec, stored: true };
+  } catch { readable = false; }
+  const held = _signerCache.get(pubkey);
+  if (!held) return null;
+  return { nsec: held.nsec, stored: readable || _unsaved.has(pubkey) ? false : null };
+}
+
+/** The toast that says a key could not be saved. One per account. */
+const keychainToast = (pubkey: string) => `keychain:${pubkey}`;
+
+/** Copy an account's secret key, or say there is none here to copy. The key never passes through a toast. */
+async function copySecretKey(pubkey: string): Promise<void> {
+  const key = await readSecretKey(pubkey);
+  if (key) await copyText(key.nsec, "Secret key copied.");
+  else useToastStore.getState().addToast("No key for this account is on this computer.", "error");
+}
 const _nip46SignerCache = new Map<string, NDKNip46Signer>();
 
 /**
@@ -74,7 +124,8 @@ const _nip46SignerCache = new Map<string, NDKNip46Signer>();
  * reads "undefined" to the user.
  */
 function nip46RestoreError(err: unknown): string {
-  const reason = err instanceof Error ? err.message : typeof err === "string" ? err : "";
+  // A signer's own words, of any length: they get a limit in a sentence of ours.
+  const reason = clipText(err instanceof Error ? err.message : typeof err === "string" ? err : "", 140);
   return `Remote signer didn't reconnect${reason ? `: ${reason}` : ""} — you're read-only until it does.`;
 }
 
@@ -97,6 +148,19 @@ function upsertAccount(accounts: SavedAccount[], entry: SavedAccount): SavedAcco
 }
 
 export type FollowsStatus = "idle" | "loading" | "loaded" | "unknown";
+
+/**
+ * How a follow or unfollow ended.
+ * - "done": the list on the relays now says so (or already did).
+ * - "failed": nothing was changed, and a toast has said why.
+ * - "dropped": it was never tried, because the account changed or there is
+ *   no key to sign with. Nothing is said: it was the other account's.
+ *
+ * Callers must go by this and not by looking at `follows` afterwards. After
+ * a failed publish the list is put back to what the relays hold, and that
+ * may already contain the person: it would read as a follow that worked.
+ */
+export type FollowOutcome = "done" | "failed" | "dropped";
 
 // The newest contact list known for the active account in this session, either
 // fetched from a relay or published by us. It is the only thing a follow or
@@ -194,8 +258,9 @@ interface UserState {
   removeAccount: (pubkey: string) => void;
   fetchOwnProfile: () => Promise<void>;
   fetchFollows: () => Promise<void>;
-  follow: (pubkey: string) => Promise<void>;
-  unfollow: (pubkey: string) => Promise<void>;
+  /** Follow, and say how it ended: see `FollowOutcome`. A failure has already been reported in a toast. */
+  follow: (pubkey: string) => Promise<FollowOutcome>;
+  unfollow: (pubkey: string) => Promise<FollowOutcome>;
 }
 
 /** Returns true iff the active account can sign events (has a signer attached). */
@@ -260,12 +325,31 @@ export const useUserStore = create<UserState>((set, get) => ({
       // signed out. For someone who created the account here and chose to
       // back up later, that would be the end of the account, so it must be
       // said out loud, not left in a development-only log.
-      invoke<void>("store_nsec", { pubkey, nsec: nsecInput }).catch((err) => {
+      invoke<void>("store_nsec", { pubkey, nsec: nsecInput }).then(() => {
+        // Saved after all (signed in again once the keychain was back): a
+        // warning from an earlier try is no longer true.
+        _unsaved.delete(pubkey);
+        useToastStore.getState().removeByKey(keychainToast(pubkey));
+      }, (err) => {
         debug.warn("Failed to store nsec in OS keychain:", err);
+        _unsaved.add(pubkey);
+        // It stays until dismissed, and copies the key itself. It used to go
+        // away after twenty seconds, read or not, and send the user to
+        // Settings, which read only the keychain: the key row was not there.
+        // Settings now falls back to this session (`readSecretKey`), so the
+        // key can still be copied after this is closed. It names the account
+        // because it outlives an account switch.
         useToastStore.getState().addToast(
-          "Vega couldn't save your secret key to this computer's keychain. You will be signed out when Vega closes. Copy your key now from Settings, under Identity.",
-          "warning",
-          20000,
+          `Vega couldn't save the secret key for ${shortenPubkey(npub)} to this computer's keychain. That account will be signed out when Vega closes, and without the key there is no way back in. Copy it now, or from Settings before Vega closes, and keep it somewhere safe.`,
+          "error",
+          {
+            sticky: true,
+            key: keychainToast(pubkey),
+            // Kept open: a copy that failed must be possible to try again.
+            // The key is read when the button is pressed, not held by the
+            // toast: once the account is removed there is nothing to copy.
+            action: { label: "Copy key", keepOpen: true, run: () => void copySecretKey(pubkey) },
+          },
         );
       });
 
@@ -611,6 +695,14 @@ export const useUserStore = create<UserState>((set, get) => ({
     try { localStorage.removeItem(CONTACT_LIST_CACHE_PREFIX + pubkey); } catch { /* nothing to remove */ }
     // Delete keychain entry (best-effort)
     invoke<void>("delete_nsec", { pubkey }).catch(() => {});
+    // And the copies this session holds. "This deletes the secret key stored
+    // on this computer" was not true until Vega closed: the signer stayed in
+    // memory, and with it a way to read the key back (Settings, once the
+    // same account was added again read-only) and to go on signing as it.
+    _signerCache.delete(pubkey);
+    _nip46SignerCache.delete(pubkey);
+    _unsaved.delete(pubkey);
+    useToastStore.getState().removeByKey(keychainToast(pubkey));
 
     const accounts = get().accounts.filter((a) => a.pubkey !== pubkey);
     persistAccounts(accounts);
@@ -728,6 +820,17 @@ export const useUserStore = create<UserState>((set, get) => ({
   unfollow: (pubkey: string) => changeFollow({ remove: pubkey }),
 }));
 
+// A toast's "Undo" or "Try again" is about what the account then signed in
+// did. Pressed under another account it would follow, repost or publish as
+// the wrong person, so when the account changes those toasts go. Others stay:
+// the keychain warning is about a key that still has to be saved, and
+// "Relays" on a sign-in notice is about no account in particular.
+useUserStore.subscribe((state, previous) => {
+  if (state.pubkey === previous.pubkey) return;
+  setCurrentAccount(state.pubkey);
+  useToastStore.getState().dropAccountToasts();
+});
+
 /**
  * Queue one follow or unfollow.
  *
@@ -735,12 +838,12 @@ export const useUserStore = create<UserState>((set, get) => ({
  * real work runs in `applyFollowChange`, one change at a time, and corrects the
  * display if it turns out differently.
  */
-function changeFollow(change: { add: string } | { remove: string }): Promise<void> {
+function changeFollow(change: { add: string } | { remove: string }): Promise<FollowOutcome> {
   const { getState: get, setState: set } = useUserStore;
   // Runtime guard — UI should already prevent this, but belt-and-suspenders
-  if (!getNDK().signer) return Promise.resolve();
+  if (!getNDK().signer) return Promise.resolve("dropped");
   const me = get().pubkey;
-  if (!me) return Promise.resolve();
+  if (!me) return Promise.resolve("dropped");
 
   // Reached before fetchFollows ran for this account (every login path calls
   // it, but nothing guarantees it won the race with a click): whatever the
@@ -757,7 +860,7 @@ function changeFollow(change: { add: string } | { remove: string }): Promise<voi
   }
 
   const run = _followChain.then(() => applyFollowChange(me, change));
-  _followChain = run.catch(() => undefined);
+  _followChain = run.then(() => undefined, () => undefined);
   return run;
 }
 
@@ -772,9 +875,9 @@ function changeFollow(change: { add: string } | { remove: string }): Promise<voi
  * Before this, a list that had failed to load looked exactly like an empty one,
  * and a single Follow click overwrote it.
  */
-async function applyFollowChange(me: string, change: { add: string } | { remove: string }): Promise<void> {
+async function applyFollowChange(me: string, change: { add: string } | { remove: string }): Promise<FollowOutcome> {
   const { getState: get, setState: set } = useUserStore;
-  if (get().pubkey !== me || !getNDK().signer) return; // the account changed while this waited its turn
+  if (get().pubkey !== me || !getNDK().signer) return "dropped"; // the account changed while this waited its turn
 
   const adding = "add" in change;
   const target = adding ? change.add : change.remove;
@@ -784,9 +887,9 @@ async function applyFollowChange(me: string, change: { add: string } | { remove:
   // already shows the change.
   if (known && contactPubkeys(known.tags).includes(target) === adding) {
     set({ follows: contactPubkeys(known.tags) });
-    return;
+    return "done";
   }
-  if (!known && !adding && _noListConfirmedFor === me) return;
+  if (!known && !adding && _noListConfirmedFor === me) return "done";
 
   let result: ContactListResult;
   try {
@@ -795,7 +898,7 @@ async function applyFollowChange(me: string, change: { add: string } | { remove:
   } catch {
     result = { status: "unknown" };
   }
-  if (get().pubkey !== me) return; // the account changed while we waited
+  if (get().pubkey !== me) return "dropped"; // the account changed while we waited
 
   if (result.status === "none" && !known) _noListConfirmedFor = me;
   const base = result.status === "found" ? newerContactList(known, result.list) : known;
@@ -805,10 +908,9 @@ async function applyFollowChange(me: string, change: { add: string } | { remove:
     set({ follows: [], followsStatus: "unknown" });
     useToastStore.getState().addToast(
       "Couldn't load your follow list, so nothing was changed. Check your relays and try again.",
-      "warning",
-      8000,
+      "error",
     );
-    return;
+    return "failed";
   }
 
   const tags = nextContactTags(base?.tags ?? [], change);
@@ -820,14 +922,17 @@ async function applyFollowChange(me: string, change: { add: string } | { remove:
   try {
     await publishContactList(tags, content);
     saveCachedContactList(me, next);
+    return "done";
   } catch {
-    if (get().pubkey === me) {
-      // Back to the list as the relays have it, which may itself be newer than
-      // what this device knew before the attempt.
-      _contactBase = base ? { pubkey: me, list: base } : null;
-      if (base) saveCachedContactList(me, base);
-      set({ follows: base ? contactPubkeys(base.tags) : [], followsStatus: "loaded" });
-    }
-    useToastStore.getState().addToast("Couldn't publish your follow list. Nothing was changed.", "warning", 8000);
+    // The account changed while it was on its way: not the new account's
+    // list to put back, and not its failure to hear.
+    if (get().pubkey !== me) return "dropped";
+    // Back to the list as the relays have it, which may itself be newer than
+    // what this device knew before the attempt.
+    _contactBase = base ? { pubkey: me, list: base } : null;
+    if (base) saveCachedContactList(me, base);
+    set({ follows: base ? contactPubkeys(base.tags) : [], followsStatus: "loaded" });
+    useToastStore.getState().addToast("Couldn't publish your follow list. Nothing was changed.", "error");
+    return "failed";
   }
 }

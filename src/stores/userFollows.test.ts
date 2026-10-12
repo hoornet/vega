@@ -29,6 +29,8 @@ import { fetchContactList, publishContactList } from "../lib/nostr";
 import type { ContactListResult, ContactListSnapshot } from "../lib/contacts";
 import { useUserStore } from "./user";
 import { useToastStore } from "./toast";
+import { currentAccount } from "../lib/currentAccount";
+import { forThisAccount } from "../lib/toastActions";
 
 const ME = "11".repeat(32);
 const OTHER = "22".repeat(32);
@@ -293,6 +295,122 @@ describe("follow / unfollow", () => {
     fetchMock.mockResolvedValue(found(rich()));
     await state().follow(C);
     expect(publishMock).not.toHaveBeenCalled();
+  });
+});
+
+describe("how a follow ended", () => {
+  // The caller that confirms a follow in a toast goes by this. It used to
+  // look at the list afterwards, and after a failed publish the list is put
+  // back to what the relays hold, which may already have the person.
+  it("is done when the list was published", async () => {
+    fetchMock.mockResolvedValue(found(rich()));
+    await state().fetchFollows();
+    expect(await state().follow(C)).toBe("done");
+    expect(await state().unfollow(C)).toBe("done");
+  });
+
+  it("is done, with nothing published, for someone already followed", async () => {
+    fetchMock.mockResolvedValue(found(rich()));
+    await state().fetchFollows();
+    expect(await state().follow(A)).toBe("done");
+    expect(publishMock).not.toHaveBeenCalled();
+  });
+
+  it("is failed when the list could not be loaded", async () => {
+    fetchMock.mockResolvedValue(UNKNOWN);
+    expect(await state().follow(A)).toBe("failed");
+    expect(toastMessages().join(" ")).toMatch(/couldn't load your follow list/i);
+  });
+
+  it("is failed when the list could not be published", async () => {
+    fetchMock.mockResolvedValue(found(rich()));
+    await state().fetchFollows();
+    publishMock.mockRejectedValueOnce(new Error("relays refused"));
+    expect(await state().follow(C)).toBe("failed");
+  });
+
+  // The relays hold a newer list that already has her, and the publish fails.
+  // The list is put back to that copy, so she is in it: a caller looking at
+  // the list would announce "Following" on top of "Couldn't publish".
+  it("is failed even when the list it was put back to has the person in it", async () => {
+    fetchMock.mockResolvedValue(found({ tags: [["p", A]], content: "", createdAt: 100 }));
+    await state().fetchFollows();
+    fetchMock.mockResolvedValue(found({ tags: [["p", A], ["p", C]], content: "", createdAt: 200 }));
+    publishMock.mockRejectedValueOnce(new Error("relays refused"));
+
+    expect(await state().follow(C)).toBe("failed");
+
+    expect(state().follows).toContain(C);
+    expect(toastMessages().join(" ")).toMatch(/couldn't publish/i);
+  });
+
+  it("is dropped without a key to sign with", async () => {
+    ndk.signer = undefined;
+    expect(await state().follow(C)).toBe("dropped");
+    expect(toastMessages()).toEqual([]);
+  });
+
+  // Queued behind another change, and the account changed before its turn.
+  it("is dropped when the account changed while it waited its turn", async () => {
+    fetchMock.mockResolvedValue(found({ tags: [["p", A]], content: "", createdAt: 100 }));
+    await state().fetchFollows();
+    const first = state().follow(B);
+    const second = state().follow(C);
+    loginAs(OTHER);
+    const outcomes = await Promise.all([first, second]);
+    expect(outcomes[1]).toBe("dropped");
+    expect(publishMock).not.toHaveBeenCalledWith(expect.arrayContaining([["p", C]]), expect.anything());
+  });
+
+  // The publish failed after the account changed. The list on screen is the
+  // new account's and is left alone, and so is the new account: "Couldn't
+  // publish your follow list" would be about a list it never touched.
+  it("is dropped, and says nothing, when its publish fails after the account changed", async () => {
+    fetchMock.mockResolvedValue(found({ tags: [["p", A]], content: "", createdAt: 100 }));
+    await state().fetchFollows();
+    let fail: (err: Error) => void = () => {};
+    publishMock.mockImplementationOnce(() => new Promise<never>((_, reject) => { fail = reject; }));
+    const following = state().follow(B);
+    await vi.waitFor(() => expect(publishMock).toHaveBeenCalled());
+    loginAs(OTHER);
+    useToastStore.setState({ toasts: [] });
+    fail(new Error("relays refused"));
+    expect(await following).toBe("dropped");
+    expect(toastMessages()).toEqual([]);
+  });
+
+  it("the failures have said why with an error, not a warning", async () => {
+    fetchMock.mockResolvedValue(UNKNOWN);
+    await state().follow(A);
+    expect(useToastStore.getState().toasts.map((t) => t.type)).toEqual(["error"]);
+  });
+});
+
+describe("when the account changes", () => {
+  // "Undo" and "Try again" were about what the other account did: pressed
+  // under the new one they would follow, repost or publish as the wrong person.
+  it("drops the toasts whose action was that account's, keeps the rest, and tells the rest of the app who is signed in", async () => {
+    useToastStore.getState().addToast("Following Alice.", "success", { action: forThisAccount("Undo", () => {}) });
+    useToastStore.getState().addToast("Connection lost.", "warning");
+    // "Relays", "View": about no account in particular.
+    useToastStore.getState().addToast("A relay refused Vega's sign-in.", "warning", { action: { label: "Relays", run: () => {} } });
+    loginAs(OTHER);
+    expect(toastMessages()).toEqual(["Connection lost.", "A relay refused Vega's sign-in."]);
+    expect(currentAccount()).toBe(OTHER);
+  });
+
+  it("does nothing of the kind when something else about the user changes", async () => {
+    useToastStore.getState().addToast("Following Alice.", "success", { action: forThisAccount("Undo", () => {}) });
+    useUserStore.setState({ follows: [A] });
+    expect(toastMessages()).toEqual(["Following Alice."]);
+    expect(currentAccount()).toBe(ME);
+  });
+
+  it("signing out counts", async () => {
+    useToastStore.getState().addToast("Couldn't repost.", "error", { action: forThisAccount("Try again", () => {}) });
+    state().logout();
+    expect(toastMessages()).toEqual([]);
+    expect(currentAccount()).toBeNull();
   });
 });
 

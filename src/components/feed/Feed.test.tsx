@@ -15,7 +15,7 @@ const mute = vi.hoisted(() => ({ mutedPubkeys: [] as string[], contentMatchesMut
 vi.mock("../../lib/nostr", () => ({
   fetchFollowFeed: vi.fn(),
   ensureConnected: vi.fn().mockResolvedValue(true),
-  getNDK: () => ({ signer: null, pool: { relays: new Map() } }),
+  getNDK: () => ({ signer: {}, pool: { relays: new Map() } }),
 }));
 vi.mock("../../lib/db", () => ({ dbLoadFeed: vi.fn().mockResolvedValue([]), dbSaveNotes: vi.fn() }));
 vi.mock("../../lib/feedDiagnostics", () => ({
@@ -39,7 +39,8 @@ vi.mock("@tanstack/react-virtual", () => ({
 }));
 vi.mock("./NoteCard", () => ({ NoteCard: ({ event }: { event: NDKEvent }) => <article>{event.content}</article> }));
 vi.mock("../article/ArticleCard", () => ({ ArticleCard: ({ event }: { event: NDKEvent }) => <article>{event.content}</article> }));
-vi.mock("./ComposeBox", () => ({ ComposeBox: () => null }));
+const compose = vi.hoisted(() => ({ confirmPosted: undefined as undefined | boolean | ((event: unknown) => boolean) }));
+vi.mock("./ComposeBox", () => ({ ComposeBox: (props: { confirmPosted?: boolean | ((event: unknown) => boolean) }) => { compose.confirmPosted = props.confirmPosted; return null; } }));
 vi.mock("./RelayStatusBadge", () => ({ RelayStatusBadge: () => null }));
 
 import { Feed } from "./Feed";
@@ -386,3 +387,43 @@ describe("Feed: Global and Trending", () => {
     expect(screen.queryByRole("alert")).toBeNull();
   });
 });
+
+describe("Feed: whether a note just posted needs saying", () => {
+  /** What the feed tells the compose box about a note posted on this tab. */
+  const needsSaying = (event: NDKEvent) => (typeof compose.confirmPosted === "function" ? compose.confirmPosted(event) : compose.confirmPosted);
+  const mine = (content: string) => ({ ...note("mine", "me"), content }) as unknown as NDKEvent;
+
+  beforeEach(() => { vi.mocked(fetchFollowFeed).mockImplementation(answering([])); });
+
+  // Trending is ranked, not newest first: the box emptied and nothing else changed.
+  it("does on Trending, whatever the note", async () => {
+    await shown("trending");
+    expect(needsSaying(mine("hello nostr"))).toBe(true);
+  });
+
+  // It goes to the top of the list: that is the confirmation.
+  it("does not on Following or Global for a note the tab will show", async () => {
+    await shown("following");
+    expect(needsSaying(mine("hello nostr"))).toBe(false);
+    cleanup();
+    await shown("global");
+    expect(needsSaying(mine("hello nostr"))).toBe(false);
+  });
+
+  // The feed drops anything that starts with "[" or "{". "[Thread] why relays
+  // matter" was posted, the box emptied, and nothing appeared.
+  it("does when the tab's own filters would hide the note", async () => {
+    await shown("following");
+    expect(needsSaying(mine("[Thread] why relays matter"))).toBe(true);
+    cleanup();
+    await shown("global");
+    expect(needsSaying(mine("{not json, just a brace"))).toBe(true);
+  });
+
+  it("does when the note is by someone the tab mutes", async () => {
+    mute.mutedPubkeys = ["me"];
+    await shown("global");
+    expect(needsSaying(mine("hello nostr"))).toBe(true);
+  });
+});
+

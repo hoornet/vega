@@ -18,7 +18,7 @@ import {
   setOwnDMRelayUrls,
   shouldAuthenticate,
 } from "./relayAuth";
-import { useToastStore } from "../../stores/toast";
+import { useToastStore, openView } from "../../stores/toast";
 import { debug } from "../debug";
 
 /**
@@ -236,9 +236,9 @@ export async function fetchGiftWraps(myPubkey: string, limit: number, timeoutMs:
           _authNoticeShown.add(relay.url);
           const host = hostOf(relay.url);
           useToastStore.getState().addToast(
-            `${host} wants to know who you are before showing your messages. Add it to your relays, or allow any relay in Settings → Relay authentication.`,
+            `${host} wants to know who you are before showing your messages. Add it to your relays, or allow any relay under Relay authentication.`,
             "warning",
-            8000,
+            { autoCloseMs: 12000, action: { label: "Relays", run: openView("relays") } },
           );
         }
         return;

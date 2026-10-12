@@ -130,7 +130,7 @@ export async function publishRepost(event: NDKEvent): Promise<void> {
   await repost.publish();
 }
 
-export async function publishQuote(content: string, quotedEvent: NDKEvent): Promise<void> {
+export async function publishQuote(content: string, quotedEvent: NDKEvent): Promise<NDKEvent> {
   const instance = getNDK();
   if (!instance.signer) throw new Error("Not logged in");
 
@@ -145,6 +145,7 @@ export async function publishQuote(content: string, quotedEvent: NDKEvent): Prom
     ["p", quotedEvent.pubkey],
   ];
   await note.publish();
+  return note;
 }
 
 const THREAD_EVENT_LIMIT = 300; // hard cap to prevent OOM on viral threads

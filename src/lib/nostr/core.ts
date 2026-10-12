@@ -1,7 +1,8 @@
 import NDK, { NDKEvent, NDKFilter, NDKRelay, NDKRelaySet, NDKSubscription, NDKSubscriptionCacheUsage, tryNormalizeRelayUrl } from "@nostr-dev-kit/ndk";
 import { debug } from "../debug";
+import { clipText } from "../utils";
 import { recordFetchOutcome } from "./fetchTotals";
-import { useToastStore } from "../../stores/toast";
+import { useToastStore, openView } from "../../stores/toast";
 import {
   beginAuthAttempt,
   clearPendingAuthRelay,
@@ -612,24 +613,36 @@ function attachAuthListeners(instance: NDK): void {
   // permission to sign kind 22242. Bunker46's default permission set covers
   // kinds 0, 1, 3, 4 and 7 and nothing else, so this is the *default* outcome
   // for a fresh bunker connection, not an edge case.
-  watchRelayAuthFailures(instance, (relay, err) => {
-    if (_authFailureNotified.has(relay.url)) return;
-    _authFailureNotified.add(relay.url);
+  watchRelayAuthFailures(instance, announceAuthFailure);
+}
 
-    const detail = describeAuthFailure(err);
-    const host = relayHost(relay.url);
-    debug.warn(`[Vega] AUTH to ${relay.url} failed:`, err);
+/**
+ * Say that a relay did not accept Vega's sign-in: once per relay per session,
+ * in words about what it costs the user, with a way to the Relays view.
+ * Exported for its test.
+ */
+export function announceAuthFailure(relay: { url: string }, err: unknown): void {
+  if (_authFailureNotified.has(relay.url)) return;
+  _authFailureNotified.add(relay.url);
 
-    // Lead with what it means for the user. The relay's own words follow,
-    // attributed and trimmed: they are useless to most people and exactly
-    // what a bug report needs, and the debug logger is silent in release
-    // builds, so this toast is the only place they can be read.
-    const said = detail.replace(/^error:\s*/i, "").slice(0, 90);
-    const message = looksLikeSignerRefusal(detail)
-      ? `Your signer refused to sign you in to ${host}${said ? ` (${said})` : ""}. Remote signers often need permission to sign in to relays (kind 22242). Check it for a pending approval.`
-      : `${host} didn't accept Vega's sign-in, so private messages stored only there may be missing.${said ? ` The relay said: "${said}".` : ""}`;
+  const detail = describeAuthFailure(err);
+  const host = relayHost(relay.url);
+  debug.warn(`[Vega] AUTH to ${relay.url} failed:`, err);
 
-    useToastStore.getState().addToast(message, "warning", 9000);
+  // Lead with what it means for the user. The relay's own words follow,
+  // attributed and trimmed: they are useless to most people and exactly
+  // what a bug report needs, and the debug logger is silent in release
+  // builds, so this toast is the only place they can be read.
+  const said = clipText(detail.replace(/^error:\s*/i, ""), 90);
+  const message = looksLikeSignerRefusal(detail)
+    ? `Your signer refused to sign you in to ${host}${said ? ` (${said})` : ""}. Remote signers often need permission to sign in to relays (kind 22242). Check it for a pending approval.`
+    : `${host} didn't accept Vega's sign-in, so private messages stored only there may be missing.${said ? ` The relay said: "${said}".` : ""}`;
+
+  // The Relays view is where this can be acted on: it lists the relay and
+  // holds the "Relay authentication" switch. A long message, so it stays long.
+  useToastStore.getState().addToast(message, "warning", {
+    autoCloseMs: 12000,
+    action: { label: "Relays", run: openView("relays") },
   });
 }
 

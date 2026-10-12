@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
 
 vi.mock("../lib/nostr", () => ({
@@ -8,7 +8,9 @@ vi.mock("../lib/nostr", () => ({
 }));
 
 import { useBookmarkStore } from "./bookmark";
-import { fetchBookmarkList, fetchBookmarkListFull } from "../lib/nostr";
+import { fetchBookmarkList, fetchBookmarkListFull, publishBookmarkListFull } from "../lib/nostr";
+import { useToastStore } from "./toast";
+import { setCurrentAccount } from "../lib/currentAccount";
 import { recordFetchOutcome } from "../lib/nostr/fetchTotals";
 
 const NOTHING = { eventIds: [] as string[], articleAddrs: [] as string[] };
@@ -128,4 +130,192 @@ describe("fetchBookmarks: what is known while it is asking", () => {
       expect(await during("me")).toBe("pending");
     });
   }
+});
+
+describe("bookmarks and the relays", () => {
+  const toasts = () => useToastStore.getState().toasts;
+  /** Past the one-second pause before the list is published, and the publish itself. */
+  const published = async () => { await vi.advanceTimersByTimeAsync(1100); };
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.mocked(publishBookmarkListFull).mockReset().mockResolvedValue(true);
+    useToastStore.setState({ toasts: [] });
+    setCurrentAccount("me");
+  });
+  afterEach(() => { vi.useRealTimers(); setCurrentAccount(null); });
+
+  it("saves on this device at once and publishes the list a second later", async () => {
+    await useBookmarkStore.getState().addBookmark("a");
+    expect(useBookmarkStore.getState().bookmarkedIds).toEqual(["a"]);
+    expect(publishBookmarkListFull).not.toHaveBeenCalled();
+    await published();
+    expect(publishBookmarkListFull).toHaveBeenCalledWith(["a"], []);
+    expect(toasts()).toEqual([]);
+  });
+
+  it("publishes once for several changes made in quick succession", async () => {
+    await useBookmarkStore.getState().addBookmark("a");
+    await useBookmarkStore.getState().addBookmark("b");
+    await useBookmarkStore.getState().addArticleBookmark("30023:pk:d");
+    await published();
+    expect(vi.mocked(publishBookmarkListFull).mock.calls).toEqual([[["a", "b"], ["30023:pk:d"]]]);
+  });
+
+  // It used to be swallowed: the icon stayed filled for something no relay had, and nothing said so.
+  it("says so when the list could not be published, and keeps the bookmark here", async () => {
+    vi.mocked(publishBookmarkListFull).mockRejectedValue(new Error("Not enough relays received the event"));
+    await useBookmarkStore.getState().addBookmark("a");
+    await published();
+    expect(useBookmarkStore.getState().bookmarkedIds).toEqual(["a"]);
+    expect(toasts().map((t) => [t.type, t.message])).toEqual([["error", "Couldn't publish your bookmarks. The new one is saved on this device only."]]);
+  });
+
+  // "They are saved on this device" was not true of a removal: the next load
+  // merges the relays' list back in, and the bookmark is there again.
+  it("says something different, and true, when a removal could not be published", async () => {
+    useBookmarkStore.setState({ bookmarkedIds: ["a"] });
+    vi.mocked(publishBookmarkListFull).mockRejectedValue(new Error("boom"));
+    await useBookmarkStore.getState().removeBookmark("a");
+    await published();
+    expect(toasts().map((t) => t.message)).toEqual(["Couldn't publish your bookmarks. The removal is on this device only, and may be undone the next time your list is loaded."]);
+  });
+
+  it("uses the removal wording for a removed article too, and for a batch that held one", async () => {
+    useBookmarkStore.setState({ bookmarkedArticleAddrs: ["30023:pk:d"] });
+    vi.mocked(publishBookmarkListFull).mockRejectedValue(new Error("boom"));
+    await useBookmarkStore.getState().removeArticleBookmark("30023:pk:d");
+    await useBookmarkStore.getState().addBookmark("a");
+    await published();
+    expect(toasts()[0].message).toContain("The removal is on this device only");
+  });
+
+  // One list, one toast: the second failure takes the place of the first, with the words that are true now.
+  it("is one toast for a failed bookmark and then a failed removal", async () => {
+    vi.mocked(publishBookmarkListFull).mockRejectedValue(new Error("boom"));
+    await useBookmarkStore.getState().addBookmark("a");
+    await published();
+    await useBookmarkStore.getState().removeBookmark("a");
+    await published();
+    expect(toasts().map((t) => t.message)).toEqual(["Couldn't publish your bookmarks. The removal is on this device only, and may be undone the next time your list is loaded."]);
+    expect(toasts()[0].key).toBe("publish:bookmarks");
+  });
+
+  it("does not carry an earlier batch's removal into the next one", async () => {
+    useBookmarkStore.setState({ bookmarkedIds: ["a"] });
+    await useBookmarkStore.getState().removeBookmark("a");
+    await published();
+    vi.mocked(publishBookmarkListFull).mockRejectedValue(new Error("boom"));
+    await useBookmarkStore.getState().addArticleBookmark("30023:pk:d");
+    await published();
+    expect(toasts()[0].message).toContain("The new one is saved on this device only.");
+  });
+
+  // The list as it stands at the retry, not as it stood when the first try failed.
+  it("Try again publishes the list as it stands now, without waiting", async () => {
+    vi.mocked(publishBookmarkListFull).mockRejectedValueOnce(new Error("boom")).mockResolvedValue(true);
+    await useBookmarkStore.getState().addBookmark("a");
+    await published();
+    useBookmarkStore.setState({ bookmarkedIds: ["a", "b"] });
+    expect(toasts()[0].action?.label).toBe("Try again");
+    const [failed] = toasts();
+    useToastStore.getState().removeToast(failed.id);
+    failed.action?.run();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(vi.mocked(publishBookmarkListFull).mock.calls).toEqual([[["a"], []], [["a", "b"], []]]);
+    // The toast is gone and nothing else on screen changes: a retry that worked must say so.
+    expect(toasts().map((t) => [t.type, t.message])).toEqual([["success", "Bookmarks published."]]);
+  });
+
+  // It would publish this device's list under whoever is signed in by then.
+  it("Try again does nothing, and says so, once the account has changed", async () => {
+    vi.mocked(publishBookmarkListFull).mockRejectedValueOnce(new Error("boom")).mockResolvedValue(true);
+    await useBookmarkStore.getState().addBookmark("a");
+    await published();
+    const retry = toasts()[0].action;
+    setCurrentAccount("someone-else");
+    retry?.run();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(publishBookmarkListFull).toHaveBeenCalledTimes(1);
+    expect(toasts().map((t) => t.message)).toContain("That was for another account, so nothing was done.");
+  });
+
+  // No key to sign with (a read-only account): nothing went out. The retry
+  // used to close its toast and say nothing at all.
+  it("says why when a retry had nothing to sign with, and not that it worked", async () => {
+    vi.mocked(publishBookmarkListFull).mockRejectedValueOnce(new Error("boom")).mockResolvedValue(false);
+    await useBookmarkStore.getState().addBookmark("a");
+    await published();
+    const [failed] = toasts();
+    useToastStore.getState().removeToast(failed.id);
+    failed.action?.run();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(publishBookmarkListFull).toHaveBeenCalledTimes(2);
+    expect(toasts().map((t) => [t.type, t.message])).toEqual([["error", "Couldn't publish your bookmarks: you are not signed in with a key that can sign."]]);
+  });
+
+  it("says nothing when the first try had nothing to sign with", async () => {
+    vi.mocked(publishBookmarkListFull).mockResolvedValue(false);
+    await useBookmarkStore.getState().addBookmark("a");
+    await published();
+    expect(toasts()).toEqual([]);
+  });
+
+  // "Saved on this device only" stayed up after the list had gone out with the next change.
+  it("takes the failure down when the list goes out with a later change", async () => {
+    vi.mocked(publishBookmarkListFull).mockRejectedValueOnce(new Error("boom")).mockResolvedValue(true);
+    await useBookmarkStore.getState().addBookmark("a");
+    await published();
+    expect(toasts()).toHaveLength(1);
+    await useBookmarkStore.getState().addBookmark("b");
+    await published();
+    expect(toasts()).toEqual([]);
+  });
+
+  // What the account before it did must not word this one's failure.
+  it("does not word one account's failed bookmark as the removal the account before it made", async () => {
+    useBookmarkStore.setState({ bookmarkedIds: ["a"] });
+    vi.mocked(publishBookmarkListFull).mockRejectedValue(new Error("boom"));
+    await useBookmarkStore.getState().removeBookmark("a");
+    setCurrentAccount("someone-else");
+    await useBookmarkStore.getState().addBookmark("b");
+    await published();
+    expect(toasts().map((t) => t.message)).toEqual(["Couldn't publish your bookmarks. The new one is saved on this device only."]);
+  });
+
+  // The list waits a second before it goes out. Signed by whoever is there
+  // by then, it would replace the other account's bookmarks with these.
+  it("does not publish when the account changes during the pause", async () => {
+    await useBookmarkStore.getState().addBookmark("a");
+    setCurrentAccount("someone-else");
+    await published();
+    expect(publishBookmarkListFull).not.toHaveBeenCalled();
+    expect(toasts()).toEqual([]);
+  });
+
+  // A failure that comes back after the switch is not the new account's to hear.
+  it("does not tell the next account about a publish that failed for the one before", async () => {
+    let fail: (err: Error) => void = () => {};
+    vi.mocked(publishBookmarkListFull).mockReturnValue(new Promise((_, reject) => { fail = reject; }));
+    await useBookmarkStore.getState().addBookmark("a");
+    await published();
+    setCurrentAccount("someone-else");
+    fail(new Error("boom"));
+    await vi.advanceTimersByTimeAsync(0);
+    expect(toasts()).toEqual([]);
+  });
+
+  it("does not tell the next account that the retry of the one before worked", async () => {
+    let done: (published: boolean) => void = () => {};
+    vi.mocked(publishBookmarkListFull).mockRejectedValueOnce(new Error("boom")).mockReturnValue(new Promise((resolve) => { done = resolve; }));
+    await useBookmarkStore.getState().addBookmark("a");
+    await published();
+    const [failed] = toasts();
+    useToastStore.getState().removeToast(failed.id);
+    failed.action?.run();
+    setCurrentAccount("someone-else");
+    done(true);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(toasts()).toEqual([]);
+  });
 });

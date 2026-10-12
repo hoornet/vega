@@ -9,6 +9,7 @@ import { EmojiPicker } from "../shared/EmojiPicker";
 import { useAutoResize } from "../../hooks/useAutoResize";
 import { Button } from "../shared/Button";
 import { Check } from "lucide-react";
+import { tellPublish } from "../../lib/publishFeedback";
 
 interface ThreadNodeProps {
   node: ThreadNodeType;
@@ -39,18 +40,18 @@ function InlineThreadReply({ replyTo, rootEvent, onPublished }: {
   const handleSubmit = async () => {
     if (!text.trim() || replying) return;
     setReplying(true);
-    try {
-      const rootArg = replyTo.id !== rootEvent.id
-        ? { id: rootEvent.id, pubkey: rootEvent.pubkey }
-        : undefined;
-      const reply = await publishReply(text.trim(), { id: replyTo.id, pubkey: replyTo.pubkey }, rootArg);
-      setText("");
-      setSent(true);
-      onPublished(reply);
-      setTimeout(() => setSent(false), 2000);
-    } finally {
-      setReplying(false);
-    }
+    const rootArg = replyTo.id !== rootEvent.id
+      ? { id: rootEvent.id, pubkey: rootEvent.pubkey }
+      : undefined;
+    // No toast when it works: the reply appears in the thread. There was no
+    // catch: the button came back and nothing said the reply had not gone out.
+    const told = await tellPublish(() => publishReply(text.trim(), { id: replyTo.id, pubkey: replyTo.pubkey }, rootArg), { kept: "Your reply is still in the box." });
+    setReplying(false);
+    if (!told.ok) return;
+    setText("");
+    setSent(true);
+    onPublished(told.value);
+    setTimeout(() => setSent(false), 2000);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {

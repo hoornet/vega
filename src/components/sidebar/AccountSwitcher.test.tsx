@@ -1,6 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
-import { invoke } from "@tauri-apps/api/core";
 import type { SavedAccount } from "../../stores/user";
 
 const ME = "11".repeat(32);
@@ -14,13 +13,15 @@ const store = {
   removeAccount: vi.fn(),
   logout: vi.fn(),
 };
-vi.mock("../../stores/user", () => ({ useUserStore: () => store }));
+const readSecretKey = vi.hoisted(() => vi.fn());
+vi.mock("../../stores/user", () => ({ useUserStore: () => store, readSecretKey }));
 const openProfile = vi.hoisted(() => vi.fn());
 vi.mock("../../stores/ui", () => ({ useUIStore: () => ({ openProfile }) }));
 const loginProps = vi.hoisted(() => ({ last: null as null | { returnFocus?: { current: HTMLElement | null } } }));
 vi.mock("../shared/LoginModal", () => ({ LoginModal: (props: { returnFocus?: { current: HTMLElement | null } }) => { loginProps.last = props; return <div>login dialog</div>; } }));
 
 import { AccountSwitcher } from "./AccountSwitcher";
+import { useToastStore } from "../../stores/toast";
 
 const writeText = vi.fn();
 
@@ -87,26 +88,62 @@ describe("removing an account", () => {
     expect(store.removeAccount).toHaveBeenCalledWith(ME);
   });
 
-  it("offers the secret key first, and copies it from the keychain", async () => {
-    vi.mocked(invoke).mockResolvedValue("nsec1thekey");
+  it("offers the secret key first, and copies it", async () => {
+    readSecretKey.mockResolvedValue({ nsec: "nsec1thekey", stored: true });
     openMenu();
     fireEvent.click(screen.getByText("Remove from this computer…"));
     fireEvent.click(screen.getByText("Copy secret key first"));
 
     await waitFor(() => expect(writeText).toHaveBeenCalledWith("nsec1thekey"));
-    expect(invoke).toHaveBeenCalledWith("load_nsec", { pubkey: ME });
+    expect(readSecretKey).toHaveBeenCalledWith(ME);
     expect(await screen.findByText(/Copied/)).toBeTruthy();
     expect(store.removeAccount).not.toHaveBeenCalled();
   });
 
-  it("says so when the key cannot be read, instead of pretending it was copied", async () => {
-    vi.mocked(invoke).mockResolvedValue(null);
+  // The keychain never took it (no secret service): this session's copy is
+  // the only one there is, and removing the account is what destroys it.
+  it("copies a key that is only in this session", async () => {
+    readSecretKey.mockResolvedValue({ nsec: "nsec1onlyhere", stored: false });
+    openMenu();
+    fireEvent.click(screen.getByText("Remove from this computer…"));
+    fireEvent.click(screen.getByText("Copy secret key first"));
+    await waitFor(() => expect(writeText).toHaveBeenCalledWith("nsec1onlyhere"));
+    expect(await screen.findByText(/Copied/)).toBeTruthy();
+  });
+
+  it("copies the key of the account being removed, not of the one signed in", async () => {
+    readSecretKey.mockResolvedValue({ nsec: "nsec1zeppo", stored: true });
+    openMenu();
+    fireEvent.click(screen.getByLabelText("Remove Zeppo from this computer"));
+    fireEvent.click(screen.getByText("Copy secret key first"));
+    await waitFor(() => expect(readSecretKey).toHaveBeenCalledWith(OTHER));
+  });
+
+  it("says so when there is no key to copy, instead of pretending it was copied", async () => {
+    readSecretKey.mockResolvedValue(null);
     openMenu();
     fireEvent.click(screen.getByText("Remove from this computer…"));
     fireEvent.click(screen.getByText("Copy secret key first"));
 
-    expect(await screen.findByText(/Couldn't read the key/)).toBeTruthy();
+    const said = await screen.findByText("No key for this account is on this computer.");
+    expect(said.textContent).not.toContain("Settings");
     expect(writeText).not.toHaveBeenCalled();
+  });
+
+  // A clipboard that refuses is not a key that cannot be read. It used to be
+  // reported as one, and sent the user to Settings, where the same clipboard would refuse.
+  it("says the copy failed, and lets it be tried again, when the clipboard refuses", async () => {
+    readSecretKey.mockResolvedValue({ nsec: "nsec1thekey", stored: true });
+    writeText.mockRejectedValue(new Error("NotAllowedError"));
+    useToastStore.setState({ toasts: [] });
+    openMenu();
+    fireEvent.click(screen.getByText("Remove from this computer…"));
+    fireEvent.click(screen.getByText("Copy secret key first"));
+    await waitFor(() => expect(useToastStore.getState().toasts.map((t) => [t.type, t.message])).toEqual([["error", "Couldn't copy to the clipboard."]]));
+    expect(screen.queryByText(/No key for this account/)).toBeNull();
+    expect(screen.queryByText(/Copied\./)).toBeNull();
+    expect(screen.getByText("Copy secret key first")).toBeTruthy();
+    expect(JSON.stringify(useToastStore.getState().toasts)).not.toContain("nsec1thekey");
   });
 
   it("does not talk about a secret key for an account that has none here", () => {
