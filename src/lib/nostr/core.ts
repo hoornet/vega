@@ -3,6 +3,7 @@ import { debug } from "../debug";
 import { clipText } from "../utils";
 import { recordFetchOutcome } from "./fetchTotals";
 import { useToastStore, openView } from "../../stores/toast";
+import { guardIncomingEvents } from "./authentic";
 import {
   beginAuthAttempt,
   clearPendingAuthRelay,
@@ -693,7 +694,7 @@ export function getNDK(): NDK {
     // the relay pool from 7 to 40+ and flooding startLiveFeed() with a firehose of
     // events from all those relays simultaneously → OOM crash. Disabling it takes an
     // explicit `enableOutboxModel: false`; see ndkOptions().
-    ndk = new NDK(ndkOptions());
+    ndk = guardIncomingEvents(new NDK(ndkOptions()));
     ndkCreatedAt = Date.now();
     attachAuthListeners(ndk);
   }
@@ -789,7 +790,7 @@ export async function resetNDK(): Promise<void> {
   }
 
   // Create fresh instance with only the stored relay URLs
-  ndk = new NDK({ ...ndkOptions(), explicitRelayUrls: storedUrls });
+  ndk = guardIncomingEvents(new NDK({ ...ndkOptions(), explicitRelayUrls: storedUrls }));
   ndkCreatedAt = Date.now();
   attachAuthListeners(ndk);
 
