@@ -16,7 +16,7 @@ import { useBookmarkStore } from "../../stores/bookmark";
 import { getStoredRelayUrls } from "../../lib/nostr";
 import { isDiagLogEnabled, setDiagLogEnabled, getDiagLogPath } from "../../lib/feedDiagnostics";
 import { useProfile } from "../../hooks/useProfile";
-import { profileName, shortenPubkey } from "../../lib/utils";
+import { nameOf } from "../../lib/utils";
 import { refreshProxySettingsCache, type ProxySettings } from "../../lib/proxy";
 import { NWCWizard } from "./NWCWizard";
 import { getNotificationSettings, saveNotificationSettings, ensurePermission } from "../../lib/notifications";
@@ -37,7 +37,7 @@ import { copyText } from "../../lib/clipboard";
 
 function MutedRow({ pubkey, onUnmute }: { pubkey: string; onUnmute: () => void }) {
   const profile = useProfile(pubkey);
-  const name = profileName(profile, pubkey.slice(0, 12) + "…");
+  const name = nameOf(profile, pubkey);
   return (
     <div className="flex items-center gap-3 px-3 py-2 border border-border text-ui group rounded-lg">
       {profile?.picture && (
@@ -381,7 +381,7 @@ function RemoveAccountSection() {
   const trigger = useRef<HTMLButtonElement>(null);
   const current = accounts.find((a) => a.pubkey === pubkey) ?? null;
   if (!current) return null;
-  const name = current.name || shortenPubkey(current.npub);
+  const name = nameOf(current, current.npub);
   // Cancel unmounts the confirmation: focus goes back to the button that opened it, not to the page.
   const cancel = () => { setAsking(false); requestAnimationFrame(() => trigger.current?.focus()); };
   return (

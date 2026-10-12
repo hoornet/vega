@@ -12,7 +12,7 @@ import { useMuteStore } from "../../stores/mute";
 import { repostKey, useRepostedStore } from "../../stores/reposted";
 import { useToastStore } from "../../stores/toast";
 import { publishReaction } from "../../lib/nostr";
-import { profileName } from "../../lib/utils";
+import { nameOf } from "../../lib/utils";
 import { explainPublishError } from "../../lib/publishErrors";
 import { measureRoom, pickSide, type Side } from "../../lib/popoverPlacement";
 import { ZapModal } from "../zap/ZapModal";
@@ -86,8 +86,7 @@ interface NoteActionsProps {
 
 export function NoteActions({ event, onReplyToggle, showReply, enabled = true }: NoteActionsProps) {
   const profile = useProfile(event.pubkey);
-  const name = profileName(profile, event.pubkey.slice(0, 8) + "…");
-  const avatar = typeof profile?.picture === "string" ? profile.picture : undefined;
+  const name = nameOf(profile, event.pubkey);
   const canSign = useCanSign();
   // Selectors that return a boolean: a row re-renders when *its* answer
   // changes, not whenever any follow, mute or bookmark does.
@@ -416,8 +415,6 @@ export function NoteActions({ event, onReplyToggle, showReply, enabled = true }:
       {showQuote && (
         <QuoteModal
           event={event}
-          authorName={name}
-          authorAvatar={avatar}
           onClose={() => setShowQuote(false)}
           returnFocus={triggerRef}
         />

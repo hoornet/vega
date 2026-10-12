@@ -67,6 +67,17 @@ describe("FollowsView: Followers", () => {
     expect(tab(/Followers/)).toBe("Followers");
   });
 
+  // The button around the picture had a letter for its only content. With
+  // no name and no picture it now has a drawing, which says nothing aloud.
+  it("names the way to a follower's profile, for one with no name and no picture too", async () => {
+    vi.mocked(fetchFollowers).mockImplementation(answering([A]));
+    render(<FollowsView />);
+    await settle();
+    const toProfile = screen.getByRole("button", { name: /^View profile of npub1.+…/ });
+    expect(toProfile.textContent).toBe("");
+    expect(toProfile.querySelector("svg")).not.toBeNull();
+  });
+
   it("asks again on Try again, and lists what that finds", async () => {
     vi.mocked(fetchFollowers).mockImplementationOnce(timingOut).mockImplementationOnce(timingOut).mockImplementation(answering([A]));
     render(<FollowsView />);

@@ -3,9 +3,12 @@ import { NDKPrivateKeySigner } from "@nostr-dev-kit/ndk";
 import { useUserStore } from "../../stores/user";
 import { useUIStore } from "../../stores/ui";
 import { setBrowseOnly } from "../../lib/browseOnly";
+import { ensureConnected } from "../../lib/nostr";
 import { Button } from "../shared/Button";
-import { ArrowLeft, ArrowRight } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, Copy } from "lucide-react";
 import { copyText } from "../../lib/clipboard";
+import { publishFailureReason } from "../../lib/publishErrors";
+import { shortNpub, endSentence } from "../../lib/utils";
 
 type Step = "welcome" | "create" | "backup" | "interests" | "login";
 
@@ -55,8 +58,9 @@ function Heading({ children }: { children: React.ReactNode }) {
   return <h1 className="text-text text-heading font-medium mb-3 leading-snug">{children}</h1>;
 }
 
+// `text-muted`, not `text-dim`: these are sentences a new user has to read.
 function Body({ children }: { children: React.ReactNode }) {
-  return <p className="text-text-dim text-body leading-relaxed mb-6">{children}</p>;
+  return <p className="text-text-muted text-body leading-relaxed mb-6">{children}</p>;
 }
 
 // ─── Interest topics ─────────────────────────────────────────────────────────
@@ -84,7 +88,7 @@ const INTEREST_TOPICS = [
 
 // ─── Step: Interests ─────────────────────────────────────────────────────────
 
-function InterestsStep({ onComplete }: { onComplete: () => void }) {
+function InterestsStep({ notice, onComplete }: { notice: string | null; onComplete: () => void }) {
   const [selected, setSelected] = useState<Set<string>>(new Set());
 
   const toggle = (tag: string) =>
@@ -103,6 +107,10 @@ function InterestsStep({ onComplete }: { onComplete: () => void }) {
     <Shell step={2} totalSteps={3}>
       <Heading>What are you into?</Heading>
       <Body>Pick a few topics — we'll suggest them as hashtags to explore.</Body>
+
+      {/* What the step before could not do. Said here and not in a toast: a
+          toast sits over this step's buttons, and is gone before it is read. */}
+      {notice && <p role="alert" className="text-danger text-caption leading-relaxed mb-5">{notice}</p>}
 
       <div className="grid grid-cols-3 gap-2 mb-7">
         {INTEREST_TOPICS.map(({ emoji, label, tag }) => {
@@ -137,33 +145,57 @@ function WelcomeStep({ onCreateNew, onHaveKey, onBrowse }: { onCreateNew: () => 
     <Shell>
       <Heading>Welcome to Vega.</Heading>
       <Body>
-        Vega is a Nostr client — a social platform where you own your identity,
-        your content, and your social graph. No company can delete your account or
-        censor your posts.
+        A desktop home for Nostr, the open social network. Read and write notes and
+        long-form articles, follow podcasts, and tip people directly.
       </Body>
       <Body>
-        To get started, you need a key pair. Think of it like a username and password
-        combined into one — except you control it completely.
+        No company sits in the middle. Your account is a key that only you hold, and
+        Vega creates one for you in a few seconds.
       </Body>
       <div className="space-y-3">
-        <Button variant="primary" size="lg" className="w-full" onClick={onCreateNew}>Create a new identity</Button>
-        <Button size="lg" className="w-full" onClick={onHaveKey}>I already have a key</Button>
+        <Button variant="primary" size="lg" className="w-full" onClick={onCreateNew}>Create my account</Button>
+        <Button size="lg" className="w-full" onClick={onHaveKey}>I already have a Nostr key</Button>
         {/* Deliberately quieter than the two above: creating or restoring an
-            identity stays the main path, this is the escape hatch. */}
+            account stays the main path, this is the escape hatch. */}
         <Button variant="ghost" size="lg" className="w-full" onClick={onBrowse}>Look around first</Button>
       </div>
-      <p className="text-text-dim text-caption mt-2 text-center">
-        You can read Nostr without an identity. You'll need one to post, reply, or follow.
+      <p className="text-text-muted text-caption mt-3 text-center">
+        You can read without an account. You'll need one to post, reply, or follow.
+      </p>
+      <p className="text-text-dim text-caption mt-1 text-center">
+        Free and open source. Your key stays on this computer.
       </p>
     </Shell>
   );
 }
 
-// ─── Step: Create key ────────────────────────────────────────────────────────
+// ─── Step: Name ──────────────────────────────────────────────────────────────
 
-function CreateStep({ onNext }: { onNext: (signer: NDKPrivateKeySigner) => void }) {
-  const [signer] = useState(() => NDKPrivateKeySigner.generate());
+/** Longer than any name, short enough that a paste of the wrong thing is cut. */
+const NAME_MAX = 50;
+
+// This step used to show the new account's public key: 63 characters the
+// user could do nothing with, on a screen of its own, while no step asked
+// what to be called. The account then went out as "npub1ksj…" and its first
+// note was published under a key. Now the step asks for a name, and the
+// public address is one quiet line.
+function NameStep({ signer, name, onName, onNext, onBack }: {
+  signer: NDKPrivateKeySigner;
+  name: string;
+  onName: (name: string) => void;
+  onNext: () => void;
+  onBack: () => void;
+}) {
   const [copied, setCopied] = useState(false);
+
+  // A head start. Nothing has connected to a relay yet, and a publish gives
+  // each relay two and a half seconds to connect and accept: enough for most,
+  // and with this the slower ones are up too by the time the name goes out
+  // two steps on. `ensureConnected` gives up by itself and does nothing when
+  // a relay is already up, so coming back to this step does not dial again.
+  useEffect(() => {
+    void ensureConnected().catch(() => { /* publishing connects again, and says so if it cannot */ });
+  }, []);
 
   const handleCopy = async () => {
     if (!(await copyText(signer.npub))) return;
@@ -173,37 +205,84 @@ function CreateStep({ onNext }: { onNext: (signer: NDKPrivateKeySigner) => void 
 
   return (
     <Shell step={0} totalSteps={3}>
-      <Heading>Your identity is ready.</Heading>
+      <Heading>What should people call you?</Heading>
       <Body>
-        We generated a unique key pair for you. Your <strong className="text-text">public key</strong> is
-        your identity on Nostr — like a username, but cryptographically yours. Share it freely.
+        Your name is shown next to everything you write. A nickname is fine, and you
+        can change it whenever you like.
       </Body>
 
-      <div className="border border-border mb-2 rounded-lg">
-        <div className="px-3 py-1.5 border-b border-border-subtle">
-          <span className="text-text-dim text-micro uppercase tracking-widest">Your public key (npub)</span>
-        </div>
-        <div className="flex items-center gap-2 px-3 py-2">
-          <span title={signer.npub} className="text-text font-mono text-caption truncate flex-1 select-all">{signer.npub}</span>
-          <button
-            onClick={handleCopy}
-            aria-label="Copy public key"
-            className="text-caption text-text-dim hover:text-accent transition-colors shrink-0"
-          >
-            {copied ? "copied ✓" : "copy"}
-          </button>
-        </div>
-      </div>
-      <p className="text-text-dim text-caption mb-6">Safe to share with anyone. This is how people find you on Nostr.</p>
+      <label htmlFor="onboarding-name" className="block text-text-muted text-caption mb-1.5">Name</label>
+      <input
+        id="onboarding-name"
+        value={name}
+        onChange={(e) => onName(e.target.value)}
+        // Not while a name is being composed (Japanese, Chinese, Korean and
+        // more): there Enter picks a candidate, it does not finish the field.
+        // WebKit ends the composition before it sends this key, so there it
+        // is told by the key code alone.
+        onKeyDown={(e) => { if (e.key === "Enter" && !e.nativeEvent.isComposing && e.nativeEvent.keyCode !== 229) onNext(); }}
+        maxLength={NAME_MAX}
+        autoComplete="off"
+        spellCheck={false}
+        placeholder="Your name"
+        aria-describedby="onboarding-name-hint"
+        autoFocus
+        className="w-full bg-bg border border-border-strong px-3 py-2 text-text text-body focus:outline-none focus:border-accent placeholder:text-text-dim mb-1.5 rounded-lg"
+        style={{ WebkitUserSelect: "text", userSelect: "text" } as React.CSSProperties}
+      />
+      <p id="onboarding-name-hint" className="text-text-dim text-caption mb-6">
+        You can leave it empty and add a name later.
+      </p>
 
-      <Button variant="primary" size="lg" className="w-full" onClick={() => onNext(signer)}>Next: back up your secret key<ArrowRight /></Button>
+      <div className="flex items-center gap-2 mb-1">
+        <span className="text-text-muted text-caption">Your public address:</span>
+        <span title={signer.npub} className="text-text-muted font-mono text-caption">{shortNpub(signer.npub)}</span>
+        <Button variant="ghost" size="sm" onClick={handleCopy} aria-label="Copy public address">
+          {copied ? <Check /> : <Copy />}{copied ? "Copied" : "Copy"}
+        </Button>
+      </div>
+      <p className="text-text-dim text-caption mb-6">This is how people find you. It is safe to share.</p>
+
+      <div className="space-y-2">
+        <Button variant="primary" size="lg" className="w-full" onClick={onNext}>Next: save your secret key<ArrowRight /></Button>
+        <Button variant="ghost" size="lg" className="w-full" onClick={onBack}><ArrowLeft />Back</Button>
+      </div>
     </Shell>
   );
 }
 
+/**
+ * Publish the new account's name as its first profile. Returns what to tell
+ * the user when it could not be, or null when the name is out.
+ *
+ * Only ever for a key made in this flow a moment ago: a profile replaces the
+ * whole one before it, and this one holds nothing but a name.
+ *
+ * When no relay takes it, the account still works and the name is added from
+ * the profile. There is deliberately no "Try again" that would publish it
+ * later: by then the account may have a fuller profile, and this would
+ * replace it with a name alone.
+ */
+async function publishName(name: string, pubkey: string): Promise<string | null> {
+  try {
+    // No time limit of its own: with a key on this computer the publish
+    // settles within the two and a half seconds each relay is given.
+    await useUserStore.getState().saveProfile({ name, display_name: name }, pubkey);
+    return null;
+  } catch (err) {
+    const why = publishFailureReason(err);
+    return `${endSentence(`Your name was not published${why ? `: ${why}` : ""}`)} Your account works without it, and you can add your name from your profile.`;
+  }
+}
+
 // ─── Step: Backup nsec ───────────────────────────────────────────────────────
 
-function BackupStep({ signer, onComplete }: { signer: NDKPrivateKeySigner; onComplete: () => void }) {
+function BackupStep({ signer, name, onComplete }: {
+  signer: NDKPrivateKeySigner;
+  name: string;
+  /** Called once signed in, with what could not be done on the way, if anything. */
+  onComplete: (notice: string | null) => void;
+}) {
   const { loginWithNsec, loginError } = useUserStore();
   const [confirmed, setConfirmed] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -216,12 +295,22 @@ function BackupStep({ signer, onComplete }: { signer: NDKPrivateKeySigner; onCom
     setTimeout(() => setCopied(false), 3000);
   };
 
-  const handleStart = async () => {
-    if (!confirmed) return;
+  // Sign in with the new key, then give the account its name. Both ways out
+  // of this step end here.
+  const finish = async () => {
     setSaving(true);
     await loginWithNsec(signer.nsec);
+    // Not signed in: stay, with the reason shown above the button. This used
+    // to go on to the next step regardless.
+    if (useUserStore.getState().loginError) { setSaving(false); return; }
+    const notice = name ? await publishName(name, signer.pubkey) : null;
     setSaving(false);
-    onComplete();
+    onComplete(notice);
+  };
+
+  const handleStart = () => {
+    if (!confirmed) return;
+    void finish();
   };
 
   // "Back up later" escape hatch — runs the SAME login as confirming (this is
@@ -229,12 +318,7 @@ function BackupStep({ signer, onComplete }: { signer: NDKPrivateKeySigner; onCom
   // checkbox gate. The key stays retrievable via Settings → Identity: from the
   // keychain, or from this session when the keychain did not take it, in
   // which case `loginWithNsec` says so and Settings repeats it.
-  const handleSkipBackup = async () => {
-    setSaving(true);
-    await loginWithNsec(signer.nsec);
-    setSaving(false);
-    onComplete();
-  };
+  const handleSkipBackup = () => void finish();
 
   return (
     <Shell step={1} totalSteps={3}>
@@ -393,12 +477,20 @@ function LoginStep({ onBack, onComplete }: { onBack: () => void; onComplete: () 
 export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
   const [step, setStep] = useState<Step>("welcome");
   const setFeedTab = useUIStore((s) => s.setFeedTab);
+  // The key and the name live here, not in a step: going back and forward
+  // must not make a second key. From the backup step on, the first may
+  // already be saved in a password manager.
   const [generatedSigner, setGeneratedSigner] = useState<NDKPrivateKeySigner | null>(null);
+  const [name, setName] = useState("");
+  const [notice, setNotice] = useState<string | null>(null);
 
   if (step === "welcome") {
     return (
       <WelcomeStep
-        onCreateNew={() => setStep("create")}
+        onCreateNew={() => {
+          setGeneratedSigner((made) => made ?? NDKPrivateKeySigner.generate());
+          setStep("create");
+        }}
         onHaveKey={() => setStep("login")}
         onBrowse={() => {
           setBrowseOnly(true);
@@ -412,27 +504,46 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
     );
   }
 
-  if (step === "create") {
+  if (step === "create" && generatedSigner) {
     return (
-      <CreateStep
-        onNext={(signer) => {
-          setGeneratedSigner(signer);
-          setStep("backup");
-        }}
+      <NameStep
+        signer={generatedSigner}
+        name={name}
+        onName={setName}
+        onNext={() => setStep("backup")}
+        onBack={() => setStep("welcome")}
       />
     );
   }
 
   if (step === "backup" && generatedSigner) {
-    return <BackupStep signer={generatedSigner} onComplete={() => setStep("interests")} />;
+    return (
+      <BackupStep
+        signer={generatedSigner}
+        name={name.trim()}
+        onComplete={(problem) => {
+          setNotice(problem);
+          setStep("interests");
+        }}
+      />
+    );
   }
 
   if (step === "interests") {
-    return <InterestsStep onComplete={onComplete} />;
+    return <InterestsStep notice={notice} onComplete={onComplete} />;
   }
 
   if (step === "login") {
-    return <LoginStep onBack={() => setStep("welcome")} onComplete={onComplete} />;
+    return (
+      <LoginStep
+        onBack={() => {
+          // A failed try here must not be shown on the backup step of a new account.
+          useUserStore.setState({ loginError: null });
+          setStep("welcome");
+        }}
+        onComplete={onComplete}
+      />
+    );
   }
 
   return null;

@@ -1,4 +1,5 @@
 import { fetchMentions, fetchZapsReceived, fetchNewFollowers, fetchNewDMs, fetchProfile, ensureConnected } from "./nostr";
+import { nameOf, shortNpub } from "./utils";
 import { notifyMention, notifyZap, notifyFollower, notifyDM, getNotificationSettings } from "./notifications";
 import { useNotificationsStore } from "../stores/notifications";
 import { dbSaveNotifications, dbNewestNotificationTs } from "./db";
@@ -33,12 +34,9 @@ export function setDmHighWater(pubkey: string, ts: number): void {
 
 async function getProfileName(pubkey: string): Promise<string> {
   try {
-    const p = await fetchProfile(pubkey);
-    if (p) {
-      return (p as Record<string, unknown>).display_name as string || (p as Record<string, unknown>).name as string || pubkey.slice(0, 8) + "…";
-    }
+    return nameOf(await fetchProfile(pubkey), pubkey);
   } catch { /* ignore */ }
-  return pubkey.slice(0, 8) + "…";
+  return shortNpub(pubkey);
 }
 
 async function pollOnce(pubkey: string) {

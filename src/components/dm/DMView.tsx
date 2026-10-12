@@ -8,10 +8,11 @@ import { fetchDMConversations, fetchDMThread, sendDM, decryptDM, getNDK, ensureC
 import { useProfile } from "../../hooks/useProfile";
 import { useAutoResize } from "../../hooks/useAutoResize";
 import { useToastFloor } from "../../hooks/useToastFloor";
-import { timeAgo, shortenPubkey, profileName } from "../../lib/utils";
+import { timeAgo, shortNpub, nameOf } from "../../lib/utils";
+import { AvatarInitial } from "../shared/AvatarInitial";
 import { debug } from "../../lib/debug";
 import { parseContent } from "../../lib/parsing";
-import { tryHandleUrlInternally, tryOpenNostrEntity } from "../feed/TextSegments";
+import { tryHandleUrlInternally, tryOpenNostrEntity, MentionName } from "../feed/TextSegments";
 import { ViewHeader } from "../shared/ViewHeader";
 import { Button } from "../shared/Button";
 import { Plus, MessageSquarePlus } from "lucide-react";
@@ -56,7 +57,7 @@ function ConvRow({
   onSelect: () => void;
 }) {
   const profile = useProfile(partnerPubkey);
-  const name = profileName(profile, shortenPubkey(partnerPubkey));
+  const name = nameOf(profile, partnerPubkey);
   const time = lastEvent.created_at ? timeAgo(lastEvent.created_at) : "";
 
   return (
@@ -71,7 +72,7 @@ function ConvRow({
           onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
       ) : (
         <div className="w-8 h-8 rounded-full bg-bg-raised border border-border flex items-center justify-center text-text-dim text-xs shrink-0">
-          {name.charAt(0).toUpperCase()}
+          <AvatarInitial profile={profile} />
         </div>
       )}
       <div className="flex-1 min-w-0">
@@ -126,7 +127,9 @@ function DMText({ text }: { text: string }) {
               className="text-accent hover:text-accent-hover cursor-pointer underline-offset-2"
               onClick={() => tryOpenNostrEntity(seg.value)}
             >
-              {seg.type === "naddr" ? "🔗 " : "@"}{String(seg.display ?? seg.value).slice(0, 20)}…
+              {seg.type === "naddr"
+                ? <>🔗 {seg.value.slice(0, 20)}…</>
+                : <>@<MentionName pubkey={seg.mentionPubkey} fallback={String(seg.display ?? seg.value)} /></>}
             </span>
           );
         }
@@ -209,7 +212,7 @@ export function ThreadPanel({
 }) {
   const { openProfile } = useUIStore();
   const profile = useProfile(partnerPubkey);
-  const name = profileName(profile, shortenPubkey(partnerPubkey));
+  const name = nameOf(profile, partnerPubkey);
 
   const [messages, setMessages] = useState<NDKEvent[]>([]);
   const [loading, setLoading] = useState(true);
@@ -509,9 +512,9 @@ export function DMView() {
                   selectedPubkey === partner ? "bg-accent/10 border-l-2 border-accent" : "hover:bg-bg-hover border-l-2 border-transparent"
                 }`}
               >
-                <div className="w-8 h-8 rounded-full bg-bg-raised border border-border flex items-center justify-center text-text-dim text-xs shrink-0">?</div>
+                <div className="w-8 h-8 rounded-full bg-bg-raised border border-border flex items-center justify-center text-text-dim text-xs shrink-0"><AvatarInitial profile={null} /></div>
                 <div className="flex-1 min-w-0">
-                  <span className="text-text text-body font-medium truncate block">{shortenPubkey(partner)}</span>
+                  <span className="text-text text-body font-medium truncate block">{shortNpub(partner)}</span>
                   <span className="text-text-dim text-caption">New conversation</span>
                 </div>
               </button>

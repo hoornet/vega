@@ -1,4 +1,5 @@
 import { nip19 } from "@nostr-dev-kit/ndk";
+import { shortNpub } from "./utils";
 
 // Regex patterns
 const URL_REGEX = /https?:\/\/[^\s<>"')\]]+/g;
@@ -133,8 +134,12 @@ export function parseContent(content: string): ContentSegment[] {
       const decoded = nip19.decode(raw);
       if (decoded.type === "npub") {
         mentionPubkey = decoded.data as string;
+        display = shortNpub(mentionPubkey);
       } else if (decoded.type === "nprofile") {
         mentionPubkey = (decoded.data as { pubkey: string }).pubkey;
+        // The account's address, as everywhere else: not the start of the
+        // longer "nprofile1…", which is the same account under another name.
+        display = shortNpub(mentionPubkey);
       } else if (decoded.type === "note") {
         // Always treat note1 references as inline quotes
         isQuote = true;

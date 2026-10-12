@@ -7,6 +7,7 @@ const publishQuote = vi.fn();
 vi.mock("../../lib/nostr", () => ({ publishQuote: (...args: unknown[]) => publishQuote(...args) }));
 vi.mock("../../stores/user", () => ({ useCanSign: () => true }));
 vi.mock("../shared/LoginModal", () => ({ LoginModal: () => null }));
+vi.mock("../../hooks/useProfile", () => ({ useProfile: () => ({ name: "Alice" }) }));
 
 import { QuoteModal } from "./QuoteModal";
 import { useToastStore } from "../../stores/toast";
@@ -14,7 +15,7 @@ import { useUIStore } from "../../stores/ui";
 
 const note = { id: "n1", pubkey: "p1", content: "the note being quoted" } as unknown as NDKEvent;
 const onClose = vi.fn();
-const open = () => render(<QuoteModal event={note} authorName="Alice" onClose={onClose} />);
+const open = () => render(<QuoteModal event={note} onClose={onClose} />);
 const dialog = () => screen.getByRole("dialog", { name: "Quote note" });
 const field = () => screen.getByPlaceholderText("Add your comment…") as HTMLTextAreaElement;
 const pressBackdrop = () => { fireEvent.pointerDown(dialog()); fireEvent.click(dialog()); };
@@ -77,7 +78,7 @@ describe("QuoteModal", () => {
   // "Quote…" is a menu item, gone by the time this closes. The row names the button that opened the menu.
   it("returns focus to the element it was given", () => {
     const repost = createRef<HTMLButtonElement>();
-    const { rerender } = render(<><button ref={repost}>Repost or quote</button><QuoteModal event={note} authorName="Alice" onClose={onClose} returnFocus={repost} /></>);
+    const { rerender } = render(<><button ref={repost}>Repost or quote</button><QuoteModal event={note} onClose={onClose} returnFocus={repost} /></>);
     expect(document.activeElement).toBe(field());
     rerender(<><button ref={repost}>Repost or quote</button></>);
     expect(document.activeElement).toBe(repost.current);

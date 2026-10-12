@@ -1,13 +1,13 @@
 import { NDKEvent, NDKFilter, NDKKind, NDKUserProfile, profileFromEvent } from "@nostr-dev-kit/ndk";
 import { fetchReplaceableList, relaysToAsk } from "./lists";
 export { relaysToAsk };
-import { getNDK, fetchWithTimeout, FEED_TIMEOUT, publishToNetwork } from "./core";
+import { getNDK, fetchWithTimeout, fetchFromRelay, builtInRelayTest, FEED_TIMEOUT, publishToNetwork } from "./core";
 import {
   type ContactListResult,
   type ContactListSnapshot,
 } from "../contacts";
 
-export async function publishProfile(fields: {
+export interface ProfileFields {
   name?: string;
   display_name?: string;
   about?: string;
@@ -16,14 +16,32 @@ export async function publishProfile(fields: {
   website?: string;
   nip05?: string;
   lud16?: string;
-}): Promise<void> {
+}
+
+/**
+ * Publish `pubkey`'s profile, and return it as the app holds profiles.
+ *
+ * Signed with the key for `pubkey` or not at all. The signature is whoever is
+ * signed in when it is made, and a profile is the one event that says who an
+ * account is: published under the wrong key it gives another account this
+ * one's name. So the key is checked first and the event is signed with that
+ * very signer, not with whichever one is in place a moment later.
+ *
+ * What comes back is what the relays now hold, so the caller can show it
+ * without asking them: a fetch straight after a publish can come back empty
+ * (see "Contact list (kind 3) and NDK's early EOSE" in CLAUDE.md).
+ */
+export async function publishProfile(fields: ProfileFields, pubkey: string): Promise<NDKUserProfile> {
   const instance = getNDK();
-  if (!instance.signer) throw new Error("Not logged in");
+  const signer = instance.signer;
+  if (!signer || (await signer.user()).pubkey !== pubkey) throw new Error("Not logged in");
 
   const event = new NDKEvent(instance);
   event.kind = 0;
   event.content = JSON.stringify(fields);
+  await event.sign(signer);
   await publishToNetwork(event);
+  return profileFromEvent(event);
 }
 
 /** How long a relay gets to answer for the contact list before its silence counts. */
@@ -74,8 +92,90 @@ export async function publishContactList(tags: string[][], content: string): Pro
 export async function fetchProfile(pubkey: string) {
   const instance = getNDK();
   const user = instance.getUser({ pubkey });
-  await user.fetchProfile();
+  // NDK hands an event to every open subscription that matches it the moment
+  // it is published, before any relay has answered, and its own profile fetch
+  // is such a subscription. Without this a profile that no relay took came
+  // back from a fetch that was on its way, and was shown as the account's:
+  // a name "not published" by the toast and in the sidebar all the same.
+  await user.fetchProfile({ skipOptimisticPublishEvent: true });
   return user.profile ?? null;
+}
+
+/** What the relays hold as an account's profile. The three answers must stay distinct, as for the contact list. */
+export type ProfileRead =
+  /** `fromNetwork`: whether a relay on the network answered. With only the built-in relay's copy, the network is still to be read. */
+  | { status: "found"; profile: NDKUserProfile; fromNetwork: boolean }
+  /** Every relay on the network that was asked answered, and none holds a profile. */
+  | { status: "none" }
+  /** Not every relay answered and none returned one: it cannot be told. */
+  | { status: "unknown" };
+
+/**
+ * Whether `a` replaces `b` as the newest of two replaceable events: later,
+ * or of the same second and the lower id, as NIP-01 has it. Without the
+ * tie-break, two profiles published in one second would swap from one read
+ * to the next, by whichever relay answered first.
+ */
+function newerEvent(a: { created_at?: number; id: string }, b: { created_at?: number; id: string } | null): boolean {
+  if (!b) return true;
+  const at = a.created_at ?? 0;
+  const bt = b.created_at ?? 0;
+  return at > bt || (at === bt && a.id < b.id);
+}
+
+/** How long a relay gets to answer for a profile before its silence counts. */
+const OWN_PROFILE_TIMEOUT = 6000;
+
+/**
+ * An account's profile, asked of each relay on its own, newest wins.
+ *
+ * For the account's own profile, where "the newest there is" matters: it is
+ * what the edit form opens on and what the next save is made from. One fetch
+ * over several relays is cut short by NDK once most have answered (see
+ * "Contact list (kind 3) and NDK's early EOSE" in CLAUDE.md), so a profile
+ * saved a minute ago and held by one slower relay lost to the previous one
+ * held by three quick ones. Asked one at a time, each relay is waited for.
+ *
+ * `fetchProfile` stays the way to read anyone else's: one grouped request
+ * for a screen of cards, where a slightly old name does no harm.
+ */
+export async function fetchProfileFromEachRelay(
+  pubkey: string,
+  opts: { maxWaitMs?: number; onFound?: (profile: NDKUserProfile) => void } = {},
+): Promise<ProfileRead> {
+  const instance = getNDK();
+  const relays = await relaysToAsk(instance, opts.maxWaitMs);
+  if (relays.length === 0) return { status: "unknown" };
+
+  const filter: NDKFilter = { kinds: [NDKKind.Metadata], authors: [pubkey] };
+  const builtIn = builtInRelayTest();
+  type Newest = { profile: NDKUserProfile; id: string };
+  let newest: Newest | null = null;
+  const answers = await Promise.all(
+    relays.map(async (relay) => {
+      const { events, answered } = await fetchFromRelay(instance, relay, filter, OWN_PROFILE_TIMEOUT);
+      for (const event of events) {
+        if (event.kind !== NDKKind.Metadata || event.pubkey !== pubkey) continue;
+        let profile: NDKUserProfile;
+        // A profile whose content is not valid JSON is passed over.
+        try { profile = profileFromEvent(event); } catch { continue; }
+        if (!newerEvent({ created_at: profile.created_at, id: event.id }, newest && { created_at: newest.profile.created_at, id: newest.id })) continue;
+        newest = { profile, id: event.id };
+        // Said as each relay answers, newest so far: one relay that never
+        // answers must not hold the profile back for its whole time limit.
+        opts.onFound?.(profile);
+      }
+      return { answered, builtIn: builtIn(relay.url) };
+    }),
+  );
+  const network = answers.filter((a) => !a.builtIn);
+  const got = newest as Newest | null;
+  if (got) return { status: "found", profile: got.profile, fromNetwork: network.some((a) => a.answered) };
+
+  // The built-in relay answers at once with the network gone: its copy of a
+  // profile counts above, and its silence proves nothing here.
+  if (network.length > 0 && network.every((a) => a.answered)) return { status: "none" };
+  return { status: "unknown" };
 }
 
 /**

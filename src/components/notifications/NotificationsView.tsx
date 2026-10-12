@@ -5,7 +5,7 @@ import { useUIStore } from "../../stores/ui";
 import { useMuteStore } from "../../stores/mute";
 import { useNotificationsStore, notificationKind, type NotificationKind } from "../../stores/notifications";
 import { useProfile } from "../../hooks/useProfile";
-import { timeAgo, shortenPubkey, profileName } from "../../lib/utils";
+import { timeAgo, nameOf } from "../../lib/utils";
 import { NoteCard } from "../feed/NoteCard";
 import { ZapRow, parseReceipt } from "../zap/ZapRow";
 import { FollowRow } from "../follows/FollowRow";
@@ -28,7 +28,7 @@ function actorOf(e: NDKEvent): string | null {
 /** The line above each item that says what happened. "New" is said in words too, for a screen reader. */
 function Reason({ event, actor, isNew }: { event: NDKEvent; actor: string | null; isNew: boolean }) {
   const profile = useProfile(actor ?? "");
-  const name = actor ? profileName(profile, shortenPubkey(actor)) : "Someone";
+  const name = actor ? nameOf(profile, actor) : "Someone";
   const kind = notificationKind(event);
   // A kind 1 with an `e` tag is a reply in a thread you are tagged in, not necessarily to your note.
   const text = kind === "zap"

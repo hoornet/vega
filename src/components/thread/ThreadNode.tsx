@@ -4,7 +4,7 @@ import type { ThreadNode as ThreadNodeType } from "../../lib/threadTree";
 import { NoteCard } from "../feed/NoteCard";
 import { publishReply } from "../../lib/nostr";
 import { useProfile } from "../../hooks/useProfile";
-import { shortenPubkey, profileName } from "../../lib/utils";
+import { nameOf } from "../../lib/utils";
 import { EmojiPicker } from "../shared/EmojiPicker";
 import { useAutoResize } from "../../hooks/useAutoResize";
 import { Button } from "../shared/Button";
@@ -29,7 +29,7 @@ function InlineThreadReply({ replyTo, rootEvent, onPublished }: {
   onPublished: (reply: NDKEvent) => void;
 }) {
   const profile = useProfile(replyTo.pubkey);
-  const name = profileName(profile, shortenPubkey(replyTo.pubkey));
+  const name = nameOf(profile, replyTo.pubkey);
   const [text, setText] = useState("");
   const [replying, setReplying] = useState(false);
   const [sent, setSent] = useState(false);

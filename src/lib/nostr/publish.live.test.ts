@@ -212,6 +212,22 @@ describe.skipIf(!ready)("what counts as published, with real NDK and real relays
     expect(Array.from(loaded).map((e) => e.id)).not.toContain(event.id);
   }, 30000);
 
+  // The same for a profile, which is fetched by NDK's own code. A new account
+  // whose name no relay took was told so in a toast, and shown under that
+  // name all the same once the fetch that was out at the time came back.
+  it("a profile no relay took is not what a profile fetch on its way comes back with", async () => {
+    const { ndk } = await start(DEAD, { builtIn: false });
+    const social = await import("./social");
+    const me = (await ndk.signer!.user()).pubkey;
+    // What NDK does when not told otherwise.
+    const plain = ndk.getUser({ pubkey: me }).fetchProfile();
+    const loading = social.fetchProfile(me);
+    await sleep(200);
+    await expect(social.publishProfile({ name: "never published" }, me)).rejects.toThrow(/Not enough relays/);
+    expect((await plain)?.name, "NDK's own behaviour, which is why the option is needed").toBe("never published");
+    expect(await loading).toBeNull();
+  }, 40000);
+
   // The message wraps go to a set of their own. The same rule holds for it.
   it("a set of its own: the network's answer, not the built-in relay's", async () => {
     const { core, ndk, note } = await start(DEAD, { builtIn: true });

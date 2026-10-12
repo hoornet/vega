@@ -5,7 +5,8 @@ import { useProfile } from "../../hooks/useProfile";
 import { useUIStore } from "../../stores/ui";
 import { useCanSign } from "../../stores/user";
 import { useBookmarkStore } from "../../stores/bookmark";
-import { shortenPubkey, profileName } from "../../lib/utils";
+import { nameOf } from "../../lib/utils";
+import { AvatarInitial } from "../shared/AvatarInitial";
 import { articleAddr, articleNaddr, cardSummary, getTag, getTags, publishedAt, readingMinutes } from "../../lib/article";
 import { Button } from "../shared/Button";
 
@@ -56,7 +57,7 @@ export const ArticleCard = memo(function ArticleCard({ event, showAuthor = true,
   const when = publishedAt(event);
   const naddr = articleNaddr(event);
 
-  const authorName = profileName(profile, shortenPubkey(event.pubkey));
+  const authorName = nameOf(profile, event.pubkey);
   const date = when
     ? new Date(when * 1000).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" })
     : null;
@@ -97,7 +98,7 @@ export const ArticleCard = memo(function ArticleCard({ event, showAuthor = true,
                 />
               ) : (
                 <span className="w-5 h-5 rounded-full bg-bg-raised border border-border flex items-center justify-center text-text-dim text-micro" aria-hidden>
-                  {authorName.charAt(0).toUpperCase()}
+                  <AvatarInitial profile={profile} />
                 </span>
               )}
             </button>

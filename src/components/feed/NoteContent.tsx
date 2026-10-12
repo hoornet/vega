@@ -3,7 +3,7 @@ import { NDKEvent } from "@nostr-dev-kit/ndk";
 import { useUIStore } from "../../stores/ui";
 import { fetchNoteById } from "../../lib/nostr";
 import { useProfile } from "../../hooks/useProfile";
-import { shortenPubkey } from "../../lib/utils";
+import { ownName, shortNpub } from "../../lib/utils";
 import { ImageLightbox } from "../shared/ImageLightbox";
 import { parseContent } from "../../lib/parsing";
 import { renderTextSegments } from "./TextSegments";
@@ -108,8 +108,7 @@ function QuotePreview({ eventId }: { eventId: string }) {
     fetchNoteById(eventId).then(setEvent);
   }, [eventId]);
 
-  const rawName = profile?.displayName || profile?.name;
-  const name = (typeof rawName === "string" ? rawName : null) || (event ? shortenPubkey(event.pubkey) : "");
+  const name = ownName(profile) ?? (event ? shortNpub(event.pubkey) : "");
   const preview = event ? event.content.slice(0, 160) + (event.content.length > 160 ? "…" : "") : "";
 
   // Fixed-height box, reserved whether or not the quoted note has resolved.
