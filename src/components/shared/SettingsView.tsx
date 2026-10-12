@@ -3,7 +3,7 @@ import { save } from "@tauri-apps/plugin-dialog";
 import { writeTextFile } from "@tauri-apps/plugin-fs";
 import { invoke } from "@tauri-apps/api/core";
 import { relaunch } from "@tauri-apps/plugin-process";
-import { useUserStore } from "../../stores/user";
+import { useUserStore, readSecretKey, type SecretKey } from "../../stores/user";
 import { useUIStore } from "../../stores/ui";
 import { useWoTStore } from "../../stores/wot";
 import { themes } from "../../lib/themes";
@@ -37,6 +37,7 @@ import {
 } from "../../lib/localRelay";
 import { Button } from "./Button";
 import { Check } from "lucide-react";
+import { copyText } from "../../lib/clipboard";
 
 function MutedRow({ pubkey, onUnmute }: { pubkey: string; onUnmute: () => void }) {
   const profile = useProfile(pubkey);
@@ -232,18 +233,25 @@ function WoTSection() {
   );
 }
 
-function IdentitySection() {
+export function IdentitySection() {
   const { npub, loggedIn, pubkey } = useUserStore();
   const [copied, setCopied] = useState(false);
-  const [nsec, setNsec] = useState<string | null>(null);
+  const [secret, setSecret] = useState<SecretKey | null>(null);
+  const nsec = secret?.nsec ?? null;
   const [revealed, setRevealed] = useState(false);
   const [nsecCopied, setNsecCopied] = useState(false);
 
-  // Load the secret key from the OS keychain. Returns null for read-only
-  // (npub) and remote-signer (bunker) accounts — the nsec row is hidden then.
+  // The secret key: from the OS keychain, or from this session when the
+  // keychain has none. Null for read-only (npub) and remote-signer (bunker)
+  // accounts — the nsec row is hidden then. Only the newest read counts: an
+  // account switch must not leave the previous account's key in the row.
   useEffect(() => {
+    setSecret(null);
+    setRevealed(false);
     if (!pubkey) return;
-    invoke<string | null>("load_nsec", { pubkey }).then(setNsec).catch(() => setNsec(null));
+    let current = true;
+    readSecretKey(pubkey).then((key) => { if (current) setSecret(key); });
+    return () => { current = false; };
   }, [pubkey]);
 
   if (!loggedIn || !npub) {
@@ -255,19 +263,16 @@ function IdentitySection() {
     );
   }
 
-  const handleCopy = () => {
-    navigator.clipboard.writeText(npub).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    });
+  const handleCopy = async () => {
+    if (!(await copyText(npub))) return;
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
   };
 
-  const handleCopyNsec = () => {
-    if (!nsec) return;
-    navigator.clipboard.writeText(nsec).then(() => {
-      setNsecCopied(true);
-      setTimeout(() => setNsecCopied(false), 2000);
-    });
+  const handleCopyNsec = async () => {
+    if (!nsec || !(await copyText(nsec))) return;
+    setNsecCopied(true);
+    setTimeout(() => setNsecCopied(false), 2000);
   };
 
   return (
@@ -308,6 +313,17 @@ function IdentitySection() {
           <p className="text-text-dim text-caption mt-1 px-1">
             Your secret key — the only way to recover this account. Never share it. Back it up somewhere safe.
           </p>
+          {secret?.stored === false && (
+            <p role="alert" className="text-danger text-caption mt-1 px-1">
+              This key is not saved in this computer's keychain. It is gone when Vega closes, and you will be signed out. Copy it now and keep it somewhere safe.
+            </p>
+          )}
+          {/* A locked keychain may well hold the key: "not saved" would be a guess. */}
+          {secret?.stored === null && (
+            <p role="alert" className="text-danger text-caption mt-1 px-1">
+              Vega could not read this computer's keychain, so it cannot tell whether this key is saved there. If it is not, the key is gone when Vega closes. Copy it now and keep it somewhere safe.
+            </p>
+          )}
         </>
       )}
     </section>

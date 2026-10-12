@@ -8,9 +8,10 @@ interface Spies {
   onOutside: () => void;
   onInside: () => void;
   onDialog: () => void;
+  onToast: () => void;
 }
 
-function Harness({ open, hidden, onClose, onOutside, onInside, onDialog }: Spies & { open: boolean; hidden?: boolean }) {
+function Harness({ open, hidden, onClose, onOutside, onInside, onDialog, onToast }: Spies & { open: boolean; hidden?: boolean }) {
   const ref = useRef<HTMLDivElement>(null);
   usePopoverDismiss(ref, open, onClose);
   return (
@@ -28,12 +29,16 @@ function Harness({ open, hidden, onClose, onOutside, onInside, onDialog }: Spies
       <div role="dialog">
         <button onClick={onDialog}>in the dialog</button>
       </div>
+      {/* Stands in for the stack of toasts. */}
+      <div data-toast-stack>
+        <div data-toast="t1"><button onClick={onToast}>Undo</button></div>
+      </div>
     </div>
   );
 }
 
 function setup(props: { open?: boolean; hidden?: boolean } = {}) {
-  const spies = { onClose: vi.fn(), onOutside: vi.fn(), onInside: vi.fn(), onDialog: vi.fn() };
+  const spies = { onClose: vi.fn(), onOutside: vi.fn(), onInside: vi.fn(), onDialog: vi.fn(), onToast: vi.fn() };
   render(<Harness open={props.open ?? true} hidden={props.hidden} {...spies} />);
   return spies;
 }
@@ -108,5 +113,15 @@ describe("usePopoverDismiss", () => {
     fireEvent.click(screen.getByText("outside"));
     expect(s.onClose).toHaveBeenCalledTimes(1);
     expect(s.onOutside).toHaveBeenCalledTimes(1);
+  });
+
+  // A toast raised while a menu is open ("Muted …" as the menu closes is the
+  // usual order, but a failure can arrive at any time). Its "Undo" took two
+  // presses: the first only closed the menu.
+  it("closes on a click on a toast, and lets that click through", () => {
+    const s = setup();
+    fireEvent.click(screen.getByText("Undo"));
+    expect(s.onClose).toHaveBeenCalledWith("outside");
+    expect(s.onToast).toHaveBeenCalledTimes(1);
   });
 });

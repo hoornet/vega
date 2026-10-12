@@ -22,10 +22,11 @@ export type DismissReason = "escape" | "outside";
  * listeners on the same node. On `document`, clicking away onto a link closed
  * the menu *and* opened the browser.
  *
- * Two cases close without swallowing, because the click belongs to something
- * that appeared after the popover opened: the popover's view was hidden (the
- * feed is hidden, not unmounted, when a shortcut changes view), or a dialog
- * was opened over it from the keyboard.
+ * Three cases close without swallowing, because the click belongs to
+ * something that appeared after the popover opened: the popover's view was
+ * hidden (the feed is hidden, not unmounted, when a shortcut changes view), a
+ * dialog was opened over it from the keyboard, or the click is on a toast,
+ * whose "Undo" would otherwise take two presses.
  */
 export function usePopoverDismiss(
   ref: RefObject<HTMLElement | null>,
@@ -43,7 +44,8 @@ export function usePopoverDismiss(
       if (el && target && el.contains(target)) return;
       const dialog = target?.closest("[role='dialog']");
       const overlaid = !!dialog && !(el && dialog.contains(el));
-      if (!el || overlaid || isHidden(el)) {
+      const onToast = !!target?.closest("[data-toast-stack]");
+      if (!el || overlaid || onToast || isHidden(el)) {
         onClose("outside");
         return;
       }

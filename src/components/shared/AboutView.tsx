@@ -5,6 +5,7 @@ import pkg from "../../../package.json";
 import { ViewHeader } from "./ViewHeader";
 import { Button } from "./Button";
 import { Zap } from "lucide-react";
+import { copyText } from "../../lib/clipboard";
 
 // react-qr-code ships CommonJS. Under the app's bundler (Vite 8 / Rolldown) the
 // default import can resolve to the module namespace object ({ QRCode, default })
@@ -25,8 +26,8 @@ const GITHUB_SPONSORS_URL = "https://github.com/sponsors/hoornet";
 
 function CopyButton({ text }: { text: string }) {
   const [copied, setCopied] = useState(false);
-  const handle = () => {
-    navigator.clipboard.writeText(text);
+  const handle = async () => {
+    if (!(await copyText(text))) return;
     setCopied(true);
     setTimeout(() => setCopied(false), 1500);
   };

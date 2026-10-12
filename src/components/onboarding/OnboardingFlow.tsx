@@ -5,6 +5,7 @@ import { useUIStore } from "../../stores/ui";
 import { setBrowseOnly } from "../../lib/browseOnly";
 import { Button } from "../shared/Button";
 import { ArrowLeft, ArrowRight } from "lucide-react";
+import { copyText } from "../../lib/clipboard";
 
 type Step = "welcome" | "create" | "backup" | "interests" | "login";
 
@@ -164,11 +165,10 @@ function CreateStep({ onNext }: { onNext: (signer: NDKPrivateKeySigner) => void 
   const [signer] = useState(() => NDKPrivateKeySigner.generate());
   const [copied, setCopied] = useState(false);
 
-  const handleCopy = () => {
-    navigator.clipboard.writeText(signer.npub).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    });
+  const handleCopy = async () => {
+    if (!(await copyText(signer.npub))) return;
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
   };
 
   return (
@@ -210,11 +210,10 @@ function BackupStep({ signer, onComplete }: { signer: NDKPrivateKeySigner; onCom
   const [revealed, setRevealed] = useState(false);
   const [saving, setSaving] = useState(false);
 
-  const handleCopy = () => {
-    navigator.clipboard.writeText(signer.nsec).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 3000);
-    });
+  const handleCopy = async () => {
+    if (!(await copyText(signer.nsec))) return;
+    setCopied(true);
+    setTimeout(() => setCopied(false), 3000);
   };
 
   const handleStart = async () => {
@@ -227,7 +226,9 @@ function BackupStep({ signer, onComplete }: { signer: NDKPrivateKeySigner; onCom
 
   // "Back up later" escape hatch — runs the SAME login as confirming (this is
   // what saves the key to the keychain and signs in); it only skips the
-  // checkbox gate. The key stays retrievable via Settings → Identity.
+  // checkbox gate. The key stays retrievable via Settings → Identity: from the
+  // keychain, or from this session when the keychain did not take it, in
+  // which case `loginWithNsec` says so and Settings repeats it.
   const handleSkipBackup = async () => {
     setSaving(true);
     await loginWithNsec(signer.nsec);

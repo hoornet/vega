@@ -31,9 +31,10 @@ export async function fetchBookmarkListFull(pubkey: string): Promise<{ eventIds:
   return { eventIds, articleAddrs };
 }
 
-export async function publishBookmarkListFull(eventIds: string[], articleAddrs: string[]): Promise<void> {
+/** Publishes the bookmark list. False when there is no key to sign with: nothing was published, and nothing failed. */
+export async function publishBookmarkListFull(eventIds: string[], articleAddrs: string[]): Promise<boolean> {
   const instance = getNDK();
-  if (!instance.signer) return;
+  if (!instance.signer) return false;
   const event = new NDKEvent(instance);
   event.kind = 10003 as NDKKind;
   event.content = "";
@@ -42,4 +43,5 @@ export async function publishBookmarkListFull(eventIds: string[], articleAddrs: 
     ...articleAddrs.map((addr) => ["a", addr]),
   ];
   await event.publish();
+  return true;
 }

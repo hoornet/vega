@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { render, cleanup, fireEvent } from "@testing-library/react";
+import { render, cleanup, fireEvent, act, screen } from "@testing-library/react";
 
 const ui = {
   currentView: "feed",
@@ -16,6 +16,8 @@ vi.mock("../stores/ui", () => ({ useUIStore: Object.assign(() => ui, { getState:
 vi.mock("../stores/feed", () => ({ useFeedStore: () => feed }));
 
 import { useKeyboardShortcuts } from "./useKeyboardShortcuts";
+import { ToastContainer } from "../components/shared/ToastContainer";
+import { useToastStore } from "../stores/toast";
 
 function App() { useKeyboardShortcuts(); return <button>somewhere</button>; }
 const press = (key: string, init: KeyboardEventInit = {}) => fireEvent.keyDown(document.activeElement ?? document.body, { key, ...init });
@@ -97,5 +99,103 @@ describe("app-wide shortcuts", () => {
       window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
       expect(ui.goBack).not.toHaveBeenCalled();
     });
+  });
+});
+
+describe("F6: the newest message in the corner", () => {
+  // Its "Undo" is behind every control on the page in Tab order, with a few seconds to get there.
+  const stack = (toasts: string) => float(`<div data-toast-stack>${toasts}</div>`);
+  const toast = (id: string, buttons: string) => `<div data-toast="${id}">${buttons}</div>`;
+
+  it("moves focus to the newest toast's action", () => {
+    render(<App />);
+    stack(toast("old", `<button>Dismiss old</button>`) + toast("new", `<button>Undo</button><button>Dismiss</button>`));
+    press("F6");
+    expect(document.activeElement?.textContent).toBe("Undo");
+  });
+
+  it("goes to Dismiss when the newest toast has no action", () => {
+    render(<App />);
+    stack(toast("old", `<button>Undo</button><button>Dismiss old</button>`) + toast("new", `<button>Dismiss new</button>`));
+    press("F6");
+    expect(document.activeElement?.textContent).toBe("Dismiss new");
+  });
+
+  it("works from a text field", () => {
+    render(<App />);
+    stack(toast("new", `<button>Undo</button>`));
+    const field = float(`<textarea></textarea>`).querySelector("textarea") as HTMLTextAreaElement;
+    field.focus();
+    press("F6");
+    expect(document.activeElement?.textContent).toBe("Undo");
+  });
+
+  // A failure raised while a dialog is open: Tab is kept inside the dialog, so this is the way to it.
+  it("works with a dialog open", () => {
+    render(<App />);
+    float(`<div role="dialog" aria-modal="true"><button>in the dialog</button></div>`);
+    stack(toast("new", `<button>Try again</button>`));
+    press("F6");
+    expect(document.activeElement?.textContent).toBe("Try again");
+  });
+
+  it("does nothing, and leaves focus alone, when there is no toast", () => {
+    render(<App />);
+    const somewhere = document.querySelector("button") as HTMLButtonElement;
+    somewhere.focus();
+    press("F6");
+    expect(document.activeElement).toBe(somewhere);
+    expect(ui.setView).not.toHaveBeenCalled();
+  });
+});
+
+// The tests above stand in for the stack with markup of their own. This one
+// is the real thing: if the container's markup and the shortcut's selector
+// drift apart, F6 does nothing and nothing else would say so.
+describe("F6 and the real stack of toasts", () => {
+  const add = (...args: Parameters<ReturnType<typeof useToastStore.getState>["addToast"]>) => act(() => useToastStore.getState().addToast(...args));
+  beforeEach(() => { act(() => useToastStore.setState({ toasts: [] })); });
+
+  it("goes to the action of the toast raised last, although that one is drawn on top", () => {
+    render(<><App /><ToastContainer /></>);
+    add("Couldn't repost.", "error", { key: "repost:a", action: { label: "Try again", run: () => {} } });
+    add("Muted Alice.", "success", { action: { label: "Undo", run: () => {} } });
+    press("F6");
+    expect(document.activeElement).toBe(screen.getByRole("button", { name: "Undo" }));
+  });
+
+  it("goes to Dismiss when the newest has no action", () => {
+    render(<><App /><ToastContainer /></>);
+    add("Muted Alice.", "success", { action: { label: "Undo", run: () => {} } });
+    add("Link copied.", "success");
+    press("F6");
+    expect(document.activeElement?.getAttribute("aria-label")).toBe("Dismiss");
+    expect(document.activeElement?.closest("[data-toast]")?.textContent).toContain("Link copied.");
+  });
+
+  // Reached with F6, the toast is held like any other with focus in it, and
+  // Escape puts it away and gives focus back to where F6 was pressed.
+  it("holds the toast it went to, and Escape there gives focus back without going anywhere", () => {
+    vi.useFakeTimers();
+    render(<><App /><ToastContainer /></>);
+    const somewhere = screen.getByRole("button", { name: "somewhere" });
+    act(() => { somewhere.focus(); });
+    add("Muted Alice.", "success", { action: { label: "Undo", run: () => {} } });
+    press("F6");
+    act(() => { vi.advanceTimersByTime(60000); });
+    expect(screen.getByRole("button", { name: "Undo" })).toBeTruthy();
+    press("Escape");
+    expect(screen.queryByRole("button", { name: "Undo" })).toBeNull();
+    expect(document.activeElement).toBe(somewhere);
+    expect(ui.goBack).not.toHaveBeenCalled();
+    vi.useRealTimers();
+  });
+
+  it("does nothing when the stack is there and empty", () => {
+    render(<><App /><ToastContainer /></>);
+    const somewhere = screen.getByRole("button", { name: "somewhere" });
+    act(() => { somewhere.focus(); });
+    press("F6");
+    expect(document.activeElement).toBe(somewhere);
   });
 });

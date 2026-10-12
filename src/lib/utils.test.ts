@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { timeAgo, shortenPubkey } from "./utils";
+import { timeAgo, shortenPubkey, clipText, endSentence } from "./utils";
 
 describe("timeAgo", () => {
   afterEach(() => {
@@ -45,5 +45,39 @@ describe("shortenPubkey", () => {
 
   it("handles short strings gracefully", () => {
     expect(shortenPubkey("abcd")).toBe("abcd…abcd");
+  });
+});
+
+// Someone else's words, in a sentence of ours: a display name, a relay's error, a signer's.
+describe("clipText", () => {
+  it("leaves text that fits as it is", () => {
+    expect(clipText("Alice", 40)).toBe("Alice");
+    expect(clipText("x".repeat(40), 40)).toBe("x".repeat(40));
+  });
+
+  it("cuts what does not fit to the limit, ellipsis included", () => {
+    const cut = clipText("x".repeat(41), 40);
+    expect(cut).toBe(`${"x".repeat(39)}…`);
+    expect(Array.from(cut)).toHaveLength(40);
+  });
+
+  // Cut in UTF-16 units, the last emoji was halved and shown as a broken glyph.
+  it("cuts between characters, never through one", () => {
+    expect(clipText("😀".repeat(50), 40)).toBe(`${"😀".repeat(39)}…`);
+  });
+
+  it("does not leave a space before the ellipsis", () => {
+    expect(clipText(`${"z".repeat(38)} and more`, 40)).toBe(`${"z".repeat(38)}…`);
+  });
+});
+
+describe("endSentence", () => {
+  it("adds a full stop to words that have no ending", () => {
+    expect(endSentence("rate-limited")).toBe("rate-limited.");
+  });
+
+  // Not "slow down…." and not "Stop!."
+  it("leaves words that bring their own ending", () => {
+    for (const said of ["blocked.", "slow down…", "Stop!", "why?"]) expect(endSentence(said)).toBe(said);
   });
 });

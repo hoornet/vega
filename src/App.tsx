@@ -35,6 +35,7 @@ import { getTheme, applyTheme } from "./lib/themes";
 import { useUpdater } from "./hooks/useUpdater";
 import { useKeyboardShortcuts } from "./hooks/useKeyboardShortcuts";
 import { renderMarkdown } from "./lib/markdown";
+import { copyText } from "./lib/clipboard";
 
 // The updater's release body is a cumulative changelog: a `## Vega vX` header
 // followed by a `### vX — title` section per version, newest first. For the
@@ -91,7 +92,7 @@ function UpdateBanner() {
             </button>
           ) : kind === "pacman" ? (
             <button
-              onClick={() => navigator.clipboard.writeText(aurCmd).then(() => setCopied(true)).catch(() => {})}
+              onClick={async () => { if (await copyText(aurCmd)) setCopied(true); }}
               className="text-accent hover:text-accent-hover transition-colors"
             >
               {copied ? "Copied" : "Copy command"}
@@ -197,7 +198,15 @@ function App() {
   }, []);
 
   if (!onboardingDone) {
-    return <OnboardingFlow onComplete={() => setOnboardingDone(true)} />;
+    // Toasts here too. Onboarding is where a secret key is first copied and
+    // first saved: a copy that failed, or a keychain that refused the key,
+    // was raised into a stack that nothing on this screen drew.
+    return (
+      <>
+        <OnboardingFlow onComplete={() => setOnboardingDone(true)} />
+        <ToastContainer />
+      </>
+    );
   }
 
   return (

@@ -23,6 +23,7 @@ import { FollowButton } from "../shared/FollowButton";
 import { Mail, VolumeX, Zap } from "lucide-react";
 import { ListState, emptyOr } from "../shared/ListState";
 import { useLoadedList } from "../../hooks/useLoadedList";
+import { copyText } from "../../lib/clipboard";
 
 function TopFollowerAvatar({ pubkey }: { pubkey: string }) {
   const profile = useProfile(pubkey);
@@ -231,9 +232,8 @@ export function ProfileView() {
                   <p className="text-text-dim text-body mt-2 italic">No bio yet — click "edit profile" to add one.</p>
                 )}
                 <button
-                  onClick={() => {
-                    const npub = nip19.npubEncode(pubkey);
-                    navigator.clipboard.writeText(npub);
+                  onClick={async () => {
+                    if (!(await copyText(nip19.npubEncode(pubkey)))) return;
                     setNpubCopied(true);
                     setTimeout(() => setNpubCopied(false), 2000);
                   }}

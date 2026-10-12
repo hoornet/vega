@@ -10,10 +10,25 @@ import { open } from "@tauri-apps/plugin-dialog";
 import { readFile } from "@tauri-apps/plugin-fs";
 import { EmojiPicker } from "../shared/EmojiPicker";
 import { Button } from "../shared/Button";
+import { explainPublishError } from "../../lib/publishErrors";
+import { useToastStore } from "../../stores/toast";
+import { useUIStore } from "../../stores/ui";
 
 const COMPOSE_DRAFT_KEY = "wrystr_compose_draft";
 
-export function ComposeBox({ onPublished, onNoteInjected }: { onPublished?: () => void; onNoteInjected?: (event: import("@nostr-dev-kit/ndk").NDKEvent) => void }) {
+interface ComposeBoxProps {
+  onPublished?: () => void;
+  onNoteInjected?: (event: import("@nostr-dev-kit/ndk").NDKEvent) => void;
+  /**
+   * Whether the list on screen will fail to show the new note: Trending is
+   * ranked, not newest first, and a tab's filters can hide it. The box used
+   * to empty and nothing else changed, so say that it was posted and offer
+   * to open it. A function is asked about the note that was posted.
+   */
+  confirmPosted?: boolean | ((event: import("@nostr-dev-kit/ndk").NDKEvent) => boolean);
+}
+
+export function ComposeBox({ onPublished, onNoteInjected, confirmPosted = false }: ComposeBoxProps) {
   const canSign = useCanSign();
   const [text, setText] = useState(() => {
     try { return localStorage.getItem(COMPOSE_DRAFT_KEY) || ""; }
@@ -231,9 +246,12 @@ export function ComposeBox({ onPublished, onNoteInjected }: { onPublished?: () =
       setPollOptions(["", ""]);
       localStorage.removeItem(COMPOSE_DRAFT_KEY);
       textareaRef.current?.focus();
+      if (typeof confirmPosted === "function" ? confirmPosted(event) : confirmPosted) {
+        useToastStore.getState().addToast("Posted.", "success", { key: `posted:${event.id}`, action: { label: "View", run: () => useUIStore.getState().openThread(event) } });
+      }
       onPublished?.();
     } catch (err) {
-      setError(`Failed to publish: ${err}`);
+      setError(explainPublishError(err, "Your note is still here."));
     } finally {
       setPublishing(false);
     }

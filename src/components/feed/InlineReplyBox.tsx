@@ -10,6 +10,7 @@ import { open } from "@tauri-apps/plugin-dialog";
 import { readFile } from "@tauri-apps/plugin-fs";
 import { Button } from "../shared/Button";
 import { Check } from "lucide-react";
+import { explainPublishError } from "../../lib/publishErrors";
 
 interface InlineReplyBoxProps {
   event: NDKEvent;
@@ -145,7 +146,7 @@ export function InlineReplyBox({ event, name, rootEvent }: InlineReplyBoxProps) 
       adjustReplyCount(1);
       setTimeout(() => { setReplySent(false); }, 1500);
     } catch (err) {
-      setReplyError(`Failed: ${err}`);
+      setReplyError(explainPublishError(err, "Your reply is still here."));
     } finally {
       setReplying(false);
     }

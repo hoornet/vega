@@ -7,6 +7,7 @@ import { ImageField } from "./ImageField";
 import { Nip05Field } from "./Nip05Field";
 import { Button } from "../shared/Button";
 import { Check } from "lucide-react";
+import { explainPublishError } from "../../lib/publishErrors";
 
 export function EditProfileForm({ pubkey, onSaved }: { pubkey: string; onSaved: () => void }) {
   const canSign = useCanSign();
@@ -44,7 +45,7 @@ export function EditProfileForm({ pubkey, onSaved }: { pubkey: string; onSaved: 
       setSaved(true);
       setTimeout(onSaved, 1000);
     } catch (err) {
-      setError(`Failed to save: ${err}`);
+      setError(explainPublishError(err, "Your changes are still here."));
     } finally {
       setSaving(false);
     }

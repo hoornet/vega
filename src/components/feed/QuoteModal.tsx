@@ -6,6 +6,9 @@ import { useAutoResize } from "../../hooks/useAutoResize";
 import { LoginModal } from "../shared/LoginModal";
 import { Dialog } from "../shared/Dialog";
 import { Button } from "../shared/Button";
+import { useToastStore } from "../../stores/toast";
+import { useUIStore } from "../../stores/ui";
+import { explainPublishError } from "../../lib/publishErrors";
 
 interface QuoteModalProps {
   event: NDKEvent;
@@ -35,11 +38,14 @@ export function QuoteModal({ event, authorName, authorAvatar, onClose, onPublish
     setPublishing(true);
     setError(null);
     try {
-      await publishQuote(text.trim(), event);
+      const quote = await publishQuote(text.trim(), event);
+      // The dialog closes and the feed looks as it did. Say that it went out,
+      // and offer to open it: a toast outlives the dialog.
+      useToastStore.getState().addToast("Quote posted.", "success", { key: `posted:${quote.id}`, action: { label: "View", run: () => useUIStore.getState().openThread(quote) } });
       onPublished?.();
       onClose();
     } catch (err) {
-      setError(`Failed to publish: ${err}`);
+      setError(explainPublishError(err, "Your quote is still here."));
       setPublishing(false);
     }
   };

@@ -11,17 +11,23 @@ vi.mock("../../lib/nostr", () => ({
   ensureConnected: vi.fn().mockResolvedValue(true),
 }));
 vi.mock("../../lib/feedDiagnostics", () => ({ logDiag: vi.fn() }));
-vi.mock("../../stores/user", () => ({ useCanSign: () => false }));
+const account = vi.hoisted(() => ({ canSign: false }));
+vi.mock("../../stores/user", () => ({ useCanSign: () => account.canSign }));
 vi.mock("../../stores/mute", () => ({ useMuteStore: () => ({ mutedPubkeys: [] as string[], contentMatchesMutedKeyword: () => false }) }));
 vi.mock("../../hooks/useAutoResize", () => ({ useAutoResize: () => () => {} }));
 vi.mock("./AncestorChain", () => ({ AncestorChain: () => null }));
 vi.mock("./ThreadNode", () => ({ ThreadNodeComponent: ({ node }: { node: ThreadNode }) => <article>{node.event.content}</article> }));
-vi.mock("../feed/NoteCard", () => ({ NoteCard: ({ event }: { event: NDKEvent }) => <div data-testid="focused">{event.content}</div> }));
+vi.mock("../feed/NoteCard", () => ({
+  NoteCard: ({ event, onReplyInThread }: { event: NDKEvent; onReplyInThread?: () => void }) => (
+    <div><div data-testid="focused">{event.content}</div><button onClick={onReplyInThread}>reply to this</button></div>
+  ),
+}));
 vi.mock("../shared/EmojiPicker", () => ({ EmojiPicker: () => null }));
 
 import { ThreadView } from "./ThreadView";
 import { useUIStore } from "../../stores/ui";
-import { fetchThreadEvents } from "../../lib/nostr";
+import { fetchThreadEvents, publishReply } from "../../lib/nostr";
+import { useToastStore } from "../../stores/toast";
 import { recordFetchOutcome } from "../../lib/nostr/fetchTotals";
 
 const ROOT = { id: "root", content: "the note", created_at: 1000, kind: 1, pubkey: "author", tags: [] } as unknown as NDKEvent;
@@ -32,7 +38,10 @@ const settled = () => waitFor(() => expect(screen.queryByRole("status")).toBeNul
 const EMPTY = "No replies yet.";
 
 beforeEach(() => {
+  account.canSign = false;
   vi.mocked(fetchThreadEvents).mockReset();
+  vi.mocked(publishReply).mockReset();
+  useToastStore.setState({ toasts: [] });
   useUIStore.setState({ selectedNote: ROOT });
 });
 afterEach(cleanup);
@@ -80,5 +89,39 @@ describe("ThreadView: the replies under a note", () => {
     await waitFor(() => expect(screen.queryByRole("alert")).toBeNull());
     await settled();
     expect(screen.getByText(EMPTY)).toBeTruthy();
+  });
+});
+
+describe("ThreadView: replying to the note", () => {
+  const toasts = () => useToastStore.getState().toasts;
+  const writeReply = async (text: string) => {
+    account.canSign = true;
+    vi.mocked(fetchThreadEvents).mockImplementation(answering([]));
+    render(<ThreadView />);
+    await settled();
+    fireEvent.click(screen.getByRole("button", { name: "reply to this" }));
+    fireEvent.change(screen.getByPlaceholderText("Write a reply…"), { target: { value: text } });
+    fireEvent.click(screen.getByRole("button", { name: "Reply" }));
+    await waitFor(() => expect(vi.mocked(publishReply)).toHaveBeenCalled());
+  };
+
+  // There was no catch: the button came back and nothing said the reply had not gone out.
+  it("says so when the reply reached no relay, and keeps what was written", async () => {
+    vi.mocked(publishReply).mockRejectedValue(new Error("Not enough relays received the event (0 published, 1 required)"));
+    await writeReply("my reply");
+    await waitFor(() => expect(toasts()).toHaveLength(1));
+    expect(toasts()[0].type).toBe("error");
+    expect(toasts()[0].message).toContain("none of your relays accepted it");
+    expect(toasts()[0].message).toContain("Your reply is still in the box.");
+    expect((screen.getByPlaceholderText("Write a reply…") as HTMLTextAreaElement).value).toBe("my reply");
+    expect(screen.getByRole("button", { name: "Reply" }).getAttribute("aria-busy")).not.toBe("true");
+  });
+
+  // The reply appears in the thread: that is the confirmation.
+  it("says nothing more when the reply goes out", async () => {
+    vi.mocked(publishReply).mockResolvedValue(reply("mine"));
+    await writeReply("my reply");
+    expect(await screen.findByText("reply mine")).toBeTruthy();
+    expect(toasts()).toEqual([]);
   });
 });

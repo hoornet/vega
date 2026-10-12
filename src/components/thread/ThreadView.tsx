@@ -18,6 +18,7 @@ import { Button } from "../shared/Button";
 import { Check } from "lucide-react";
 import { ListState } from "../shared/ListState";
 import { fetchMark, wentUnanswered } from "../../lib/listLoad";
+import { tellPublish } from "../../lib/publishFeedback";
 
 export function ThreadView() {
   const { selectedNote, goBack } = useUIStore();
@@ -160,16 +161,16 @@ export function ThreadView() {
   const handleRootReply = async () => {
     if (!replyText.trim() || replying || !rootEvent) return;
     setReplying(true);
-    try {
-      const reply = await publishReply(replyText.trim(), { id: rootEvent.id, pubkey: rootEvent.pubkey });
-      setReplyText("");
-      setReplySent(true);
-      setShowRootReply(false);
-      handleReplyPublished(reply);
-      setTimeout(() => setReplySent(false), 2000);
-    } finally {
-      setReplying(false);
-    }
+    // No toast when it works: the reply appears in the thread. There was no
+    // catch: the button came back and nothing said the reply had not gone out.
+    const told = await tellPublish(() => publishReply(replyText.trim(), { id: rootEvent.id, pubkey: rootEvent.pubkey }), { kept: "Your reply is still in the box." });
+    setReplying(false);
+    if (!told.ok) return;
+    setReplyText("");
+    setReplySent(true);
+    setShowRootReply(false);
+    handleReplyPublished(told.value);
+    setTimeout(() => setReplySent(false), 2000);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {

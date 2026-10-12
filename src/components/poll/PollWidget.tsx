@@ -1,8 +1,14 @@
 import { memo } from "react";
 import { NDKEvent } from "@nostr-dev-kit/ndk";
-import { usePollVotes } from "../../hooks/usePollVotes";
+import { usePollVotes, usePendingVote, beginVote, endVote, takesTheVote } from "../../hooks/usePollVotes";
 import { useUserStore, useCanSign } from "../../stores/user";
 import { publishPollResponse } from "../../lib/nostr";
+import { tellPublish } from "../../lib/publishFeedback";
+import { withinTime } from "../../lib/timeLimit";
+import { currentAccount, stillAccount } from "../../lib/currentAccount";
+
+/** How long a vote may be on its way before it is given up on. */
+const VOTE_LIMIT_MS = 20000;
 
 interface PollOption {
   index: number;
@@ -28,6 +34,10 @@ export const PollWidget = memo(function PollWidget({ event }: { event: NDKEvent 
   const [pollData, addVote] = usePollVotes(event.id!);
   const canSign = useCanSign();
   const myPubkey = useUserStore((s) => s.pubkey);
+  // Every hook is above this line. A hook below an early return throws
+  // ("rendered more hooks") the first time the same card goes from a note
+  // with no options to one with some.
+  const pending = usePendingVote(event.id!);
 
   if (options.length === 0) return null;
 
@@ -41,12 +51,29 @@ export const PollWidget = memo(function PollWidget({ event }: { event: NDKEvent 
 
   const handleVote = async (optionIndex: number) => {
     if (showResults || !canSign) return;
-    addVote(optionIndex);
-    try {
-      await publishPollResponse(event.id!, event.pubkey, optionIndex);
-    } catch {
-      // Optimistic update already applied — relay failure is non-fatal
-    }
+    const pollId = event.id!;
+    const turn = beginVote(pollId, optionIndex);
+    if (turn === null) return;
+    const me = currentAccount();
+    const sent = publishPollResponse(pollId, event.pubkey, optionIndex);
+    // Counted on screen once it has gone out, not before. The vote used to be
+    // shown as cast at once and stayed that way when no relay took it: the
+    // poll then showed results, so it could not even be tried again. While it
+    // is on its way the chosen option says so. A signer that never answers
+    // must not leave the poll dead: after twenty seconds it is given up on.
+    const told = await tellPublish(
+      () => withinTime(sent, VOTE_LIMIT_MS, "no answer after 20 seconds"),
+      { kept: "Your vote was not counted.", verb: "send your vote" },
+    );
+    endVote(pollId);
+    // Under another account by now, it is not that account's vote to show.
+    // And not if a vote cast after this one is showing: the relays count the
+    // newest, whichever of the two went out first.
+    const count = () => { if (stillAccount(me) && takesTheVote(pollId, turn)) addVote(optionIndex); };
+    if (told.ok) count();
+    // Given up on, and it went out after all (a remote signer approved late):
+    // the relays have the vote, so the poll must not go on offering it.
+    else sent.then(count, () => {});
   };
 
   return (
@@ -61,7 +88,11 @@ export const PollWidget = memo(function PollWidget({ event }: { event: NDKEvent 
             key={opt.index}
             onClick={() => handleVote(opt.index)}
             disabled={showResults}
+            // Not `disabled` while a vote is on its way: that drops keyboard focus to the page.
+            aria-disabled={pending !== null || undefined}
+            aria-busy={pending === opt.index || undefined}
             className={`
+              ${pending !== null && pending !== opt.index ? "opacity-50" : ""}
               relative w-full text-left px-3 py-2 rounded-sm overflow-hidden
               transition-colors duration-200
               ${showResults
@@ -96,6 +127,7 @@ export const PollWidget = memo(function PollWidget({ event }: { event: NDKEvent 
                   {pct}% <span className="text-caption">({count})</span>
                 </span>
               )}
+              {pending === opt.index && <span className="text-text-muted text-caption shrink-0">Sending…</span>}
             </div>
           </button>
         );

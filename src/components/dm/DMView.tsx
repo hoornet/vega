@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { NDKEvent, NDKKind, nip19 } from "@nostr-dev-kit/ndk";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { useUserStore } from "../../stores/user";
@@ -7,6 +7,7 @@ import { useNotificationsStore } from "../../stores/notifications";
 import { fetchDMConversations, fetchDMThread, sendDM, decryptDM, getNDK, ensureConnected, isPoolSilent } from "../../lib/nostr";
 import { useProfile } from "../../hooks/useProfile";
 import { useAutoResize } from "../../hooks/useAutoResize";
+import { useToastFloor } from "../../hooks/useToastFloor";
 import { timeAgo, shortenPubkey, profileName } from "../../lib/utils";
 import { debug } from "../../lib/debug";
 import { parseContent } from "../../lib/parsing";
@@ -14,6 +15,7 @@ import { tryHandleUrlInternally, tryOpenNostrEntity } from "../feed/TextSegments
 import { ViewHeader } from "../shared/ViewHeader";
 import { Button } from "../shared/Button";
 import { ArrowRight } from "lucide-react";
+import { explainPublishError } from "../../lib/publishErrors";
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -194,7 +196,7 @@ function MessageBubble({ event, myPubkey }: { event: NDKEvent; myPubkey: string 
 
 // ── Thread panel ──────────────────────────────────────────────────────────────
 
-function ThreadPanel({
+export function ThreadPanel({
   partnerPubkey,
   myPubkey,
 }: {
@@ -215,15 +217,44 @@ function ThreadPanel({
   // DMs are where the longest messages get written, so allow more room to grow
   // than the reply boxes do. The messages pane above is flex-1, so it yields.
   const autoResize = useAutoResize(2, 14);
+  const composeBar = useToastFloor<HTMLDivElement>();
 
+  // Reads of the thread, numbered as they start. The box is free while a
+  // read is on its way, so a send's re-read can overtake the first load, and
+  // a second message's re-read the first's. A read may set the list only if
+  // none started after it has done so already: an older one that comes back
+  // last used to take the newer message off the screen. And loading is over
+  // when a read has been shown, or when none is left that could be: it used
+  // to follow one read only, and stuck when another overtook it.
+  const reads = useRef({ started: 0, shown: 0, waiting: 0 });
+
+  const readThread = useCallback(async () => {
+    const all = reads.current;
+    const read = ++all.started;
+    all.waiting++;
+    try {
+      const loaded = await fetchDMThread(myPubkey, partnerPubkey);
+      if (read > all.shown) {
+        all.shown = read;
+        setMessages(loaded);
+        setLoading(false);
+      }
+    } catch (err) {
+      debug.error("Failed to fetch DM thread:", err);
+    } finally {
+      all.waiting--;
+      if (all.waiting === 0) setLoading(false);
+    }
+  }, [myPubkey, partnerPubkey]);
+
+  // The panel is keyed by conversation where it is mounted, so this runs
+  // once: a late read or a late send from another conversation ends in a
+  // panel that is gone, not in this one.
   useEffect(() => {
     setLoading(true);
     setMessages([]);
-    fetchDMThread(myPubkey, partnerPubkey)
-      .then(setMessages)
-      .catch((err) => debug.error("Failed to fetch DM thread:", err))
-      .finally(() => setLoading(false));
-  }, [partnerPubkey, myPubkey]);
+    void readThread();
+  }, [readThread]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -242,17 +273,19 @@ function ThreadPanel({
       // Clear the inline height autoResize set, or the box stays as tall as the
       // message we just sent, now empty.
       if (textareaRef.current) textareaRef.current.style.height = "";
-      // Re-fetch thread to include the sent message
-      const updated = await fetchDMThread(myPubkey, partnerPubkey);
-      debug.log("[DM-UI] re-fetch got", updated.length, "messages");
-      setMessages(updated);
       textareaRef.current?.focus();
     } catch (err) {
       debug.error("[DM-UI] send failed:", err);
-      setSendError(String(err));
+      setSendError(explainPublishError(err, "Your message is still in the box.", "send"));
+      return;
     } finally {
       setSending(false);
     }
+    // Re-read the thread to include the sent message. Outside the send's
+    // `try`: when this failed, the box was already empty and the message was
+    // out, and it said "Couldn't send… still in the box". It was sent again.
+    // A read that fails says nothing here: the message went out.
+    await readThread();
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -290,8 +323,8 @@ function ThreadPanel({
         <div ref={bottomRef} />
       </div>
 
-      {/* Compose */}
-      <div className="border-t border-border-subtle px-4 py-3 shrink-0">
+      {/* Compose. Toasts start above it: Send is in the corner they are drawn in. */}
+      <div ref={composeBar} className="border-t border-border-subtle px-4 py-3 shrink-0">
         {sendError && <p className="text-danger text-caption mb-2">{sendError}</p>}
         <div className="flex gap-2">
           <textarea
@@ -574,7 +607,11 @@ export function DMView() {
 
       {/* Right: thread or empty state */}
       {selectedPubkey ? (
-        <ThreadPanel partnerPubkey={selectedPubkey} myPubkey={pubkey} />
+        // Keyed: each conversation is its own panel. One panel for all of
+        // them kept the text typed for one person in the box for the next,
+        // and a send that finished after a switch put the old conversation's
+        // messages under the new one's name.
+        <ThreadPanel key={`${pubkey}:${selectedPubkey}`} partnerPubkey={selectedPubkey} myPubkey={pubkey} />
       ) : (
         <div className="flex-1 flex items-center justify-center text-text-dim text-body">
           Select a conversation or start a new one.

@@ -15,6 +15,7 @@ import { ViewHeader } from "./ViewHeader";
 import { Switch } from "./Switch";
 import { Button } from "./Button";
 import { Trash2 } from "lucide-react";
+import { tellPublish } from "../../lib/publishFeedback";
 
 function statusColor(status: RelayHealthResult["status"]): string {
   switch (status) {
@@ -219,9 +220,9 @@ export function RelaysView() {
 
   const handleRepublish = async () => {
     setRepublishing(true);
-    try {
-      await publishRelayList(getStoredRelayUrls());
-    } catch { /* ignore */ }
+    // The button went busy and came back, whether the list had gone out or
+    // not: a failure was swallowed and a success looked the same.
+    await tellPublish(() => publishRelayList(getStoredRelayUrls()), { done: "Relay list published.", kept: "Your relays here are unchanged." });
     setRepublishing(false);
   };
 

@@ -82,16 +82,19 @@ export function useReactions(eventId: string, enabled = true): [GroupedReactions
   }, [cacheKey, enabled]);
 
   const addReaction = (emoji: string) => {
-    setData((prev) => {
-      const groups = new Map(prev?.groups ?? []);
-      groups.set(emoji, (groups.get(emoji) ?? 0) + 1);
-      const myReactions = new Set(prev?.myReactions ?? []);
-      myReactions.add(emoji);
-      const total = (prev?.total ?? 0) + 1;
-      const next: GroupedReactions = { groups, myReactions, total };
-      cache.set(cacheKey, next);
-      return next;
-    });
+    // Worked out from the cache and written to it here, not inside a state
+    // updater. A row scrolled out of the virtual list while its reaction was
+    // on its way is unmounted, and React never runs an updater for it: the
+    // reaction went unrecorded, and the row that scrolled back showed no
+    // pill and offered the same reaction again.
+    const prev = cache.get(cacheKey) ?? null;
+    const groups = new Map(prev?.groups ?? []);
+    groups.set(emoji, (groups.get(emoji) ?? 0) + 1);
+    const myReactions = new Set(prev?.myReactions ?? []);
+    myReactions.add(emoji);
+    const next: GroupedReactions = { groups, myReactions, total: (prev?.total ?? 0) + 1 };
+    cache.set(cacheKey, next);
+    setData(next);
   };
 
   return [data, addReaction];

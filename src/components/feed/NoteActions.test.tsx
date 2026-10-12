@@ -20,9 +20,9 @@ vi.mock("../../hooks/useReplyCount", () => ({ useReplyCount: () => [counts.repli
 vi.mock("../../hooks/useZapCount", () => ({ useZapCount: () => ({ totalSats: counts.sats }) }));
 vi.mock("../../stores/user", () => ({
   useCanSign: () => true,
-  useUserStore: (sel: (s: typeof user) => unknown) => sel(user),
+  useUserStore: Object.assign((sel: (s: typeof user) => unknown) => sel(user), { getState: () => user }),
 }));
-vi.mock("../../stores/mute", () => ({ useMuteStore: (sel: (s: typeof mute) => unknown) => sel(mute) }));
+vi.mock("../../stores/mute", () => ({ useMuteStore: Object.assign((sel: (s: typeof mute) => unknown) => sel(mute), { getState: () => mute }) }));
 vi.mock("../../stores/bookmark", () => ({ useBookmarkStore: (sel: (s: typeof bookmarks) => unknown) => sel(bookmarks) }));
 vi.mock("../../lib/nostr", () => ({ publishRepost: vi.fn().mockResolvedValue(undefined), publishReaction: vi.fn().mockResolvedValue(undefined) }));
 vi.mock("../zap/ZapModal", () => ({ ZapModal: () => <div>zap dialog</div> }));
@@ -32,6 +32,7 @@ vi.mock("./QuoteModal", () => ({ QuoteModal: (props: { returnFocus?: { current: 
 import { publishReaction, publishRepost } from "../../lib/nostr";
 import { repostKey, useRepostedStore } from "../../stores/reposted";
 import { useToastStore } from "../../stores/toast";
+import { setCurrentAccount } from "../../lib/currentAccount";
 import { LoggedOutStats, NoteActions } from "./NoteActions";
 
 const event = { id: "e".repeat(64), pubkey: AUTHOR, content: "hello nostr", tags: [] } as unknown as NDKEvent;
@@ -62,6 +63,7 @@ beforeEach(() => {
   vi.mocked(publishRepost).mockResolvedValue(undefined as never);
   vi.mocked(publishReaction).mockResolvedValue(undefined as never);
   user.pubkey = ME;
+  setCurrentAccount(ME);
   user.follows = [];
   user.followsStatus = "loaded";
   mute.mutedPubkeys = [];
@@ -160,6 +162,7 @@ describe("repost", () => {
     cleanup();
 
     user.pubkey = OTHER_ACCOUNT;
+    setCurrentAccount(OTHER_ACCOUNT);
     renderRow();
     expect(repostTrigger().getAttribute("aria-label")).toBe("Repost or quote");
     fireEvent.click(repostTrigger());
@@ -174,7 +177,8 @@ describe("repost", () => {
     fireEvent.click(repostTrigger());
     fireEvent.click(item("Repost"));
     await waitFor(() => expect(toasts().length).toBe(1));
-    expect(toasts()[0].type).toBe("warning");
+    // The thing just asked for did not happen: an error, not a warning.
+    expect(toasts()[0].type).toBe("error");
     expect(toasts()[0].message).toContain("none of your relays accepted it");
     expect(toasts()[0].message).toContain("Nothing was reposted");
     expect(useRepostedStore.getState().byKey[repostKey(ME, event.id!)]).toBeUndefined();
@@ -182,6 +186,27 @@ describe("repost", () => {
     fireEvent.click(repostTrigger());
     fireEvent.click(item("Repost"));
     await waitFor(() => expect(publishRepost).toHaveBeenCalledTimes(2));
+  });
+
+  it("offers to try a failed repost again from the toast itself", async () => {
+    vi.mocked(publishRepost).mockRejectedValueOnce(NO_RELAYS);
+    renderRow();
+    fireEvent.click(repostTrigger());
+    fireEvent.click(item("Repost"));
+    await waitFor(() => expect(toasts().length).toBe(1));
+    expect(toasts()[0].action?.label).toBe("Try again");
+    toasts()[0].action?.run();
+    await waitFor(() => expect(useRepostedStore.getState().byKey[repostKey(ME, event.id!)]).toBe("done"));
+    expect(publishRepost).toHaveBeenCalledTimes(2);
+  });
+
+  // The button turns green where it was pressed: that is the confirmation.
+  it("says nothing more when a repost works", async () => {
+    renderRow();
+    fireEvent.click(repostTrigger());
+    fireEvent.click(item("Repost"));
+    await waitFor(() => expect(useRepostedStore.getState().byKey[repostKey(ME, event.id!)]).toBe("done"));
+    expect(toasts()).toEqual([]);
   });
 
   it("opens the quote dialog from the menu without publishing", () => {
@@ -212,7 +237,37 @@ describe("reactions", () => {
     fireEvent.click(screen.getByLabelText("React with emoji"));
     fireEvent.click(screen.getByLabelText("React with 🔥"));
     await waitFor(() => expect(toasts().length).toBe(1));
+    expect(toasts()[0].type).toBe("error");
     expect(toasts()[0].message).toContain("Your reaction was not sent");
+    expect(addReaction).not.toHaveBeenCalled();
+    // No "Try again": the emoji is one press away, and a retry from the toast
+    // ran an old render's idea of what had been reacted with and sent it twice.
+    expect(toasts()[0].action).toBeUndefined();
+  });
+
+  // The publish takes seconds. What comes back after a switch is not the new account's.
+  it("says nothing, and counts nothing, when the account changed while a reaction was on its way", async () => {
+    const reactBusy = () => screen.getByLabelText("React with emoji").getAttribute("aria-busy") === "true";
+    let fail: (err: Error) => void = () => {};
+    vi.mocked(publishReaction).mockImplementationOnce(() => new Promise<never>((_, reject) => { fail = reject; }));
+    renderRow();
+    fireEvent.click(screen.getByLabelText("React with emoji"));
+    fireEvent.click(screen.getByLabelText("React with 🔥"));
+    await waitFor(() => expect(reactBusy()).toBe(true));
+    setCurrentAccount(OTHER_ACCOUNT);
+    fail(NO_RELAYS);
+    await waitFor(() => expect(reactBusy()).toBe(false));
+    expect(toasts()).toEqual([]);
+
+    let finish: () => void = () => {};
+    vi.mocked(publishReaction).mockImplementationOnce(() => new Promise<never>((resolve) => { finish = () => resolve(undefined as never); }));
+    setCurrentAccount(ME);
+    fireEvent.click(screen.getByLabelText("React with emoji"));
+    fireEvent.click(screen.getByLabelText("React with 🔥"));
+    await waitFor(() => expect(reactBusy()).toBe(true));
+    setCurrentAccount(OTHER_ACCOUNT);
+    finish();
+    await waitFor(() => expect(reactBusy()).toBe(false));
     expect(addReaction).not.toHaveBeenCalled();
   });
 
@@ -295,19 +350,47 @@ describe("the More menu", () => {
     expect(Array.from(screen.getAllByRole("menuitem")).map((i) => i.textContent)).toEqual(["Copy note ID", "Copy text", "Follow Alice", "Mute Alice"]);
   });
 
-  it("follows and unfollows", () => {
+  // The menu closes and nothing on the note changes, so a toast says how it went.
+  it("follows, says so, and offers to undo it", async () => {
+    user.follow.mockResolvedValue("done");
+    user.unfollow.mockResolvedValue("done");
     renderRow();
     fireEvent.click(screen.getByLabelText("More actions"));
     fireEvent.click(item("Follow Alice"));
     expect(user.follow).toHaveBeenCalledWith(AUTHOR);
     expect(screen.queryByRole("menu")).toBeNull();
-    cleanup();
+    await waitFor(() => expect(toasts().map((t) => t.message)).toEqual(["Following Alice."]));
+    expect(toasts()[0].type).toBe("success");
+    expect(toasts()[0].action?.label).toBe("Undo");
+    toasts()[0].action?.run();
+    expect(user.unfollow).toHaveBeenCalledWith(AUTHOR);
+    // The same toast, now saying what the undo did, with no undo of the undo.
+    await waitFor(() => expect(toasts().map((t) => t.message)).toEqual(["Unfollowed Alice."]));
+    expect(toasts()[0].action).toBeUndefined();
+  });
 
+  it("unfollows, says so, and offers to undo it", async () => {
+    user.follow.mockResolvedValue("done");
+    user.unfollow.mockResolvedValue("done");
     user.follows = [AUTHOR];
     renderRow();
     fireEvent.click(screen.getByLabelText("More actions"));
     fireEvent.click(item("Unfollow Alice"));
     expect(user.unfollow).toHaveBeenCalledWith(AUTHOR);
+    await waitFor(() => expect(toasts().map((t) => t.message)).toEqual(["Unfollowed Alice."]));
+    toasts()[0].action?.run();
+    expect(user.follow).toHaveBeenCalledWith(AUTHOR);
+  });
+
+  // The store puts the list back and says why. A second toast claiming it worked would be a lie.
+  it("says nothing of its own when the follow did not take", async () => {
+    user.follow.mockResolvedValue("failed"); // the store put the list back and said why
+    renderRow();
+    fireEvent.click(screen.getByLabelText("More actions"));
+    fireEvent.click(item("Follow Alice"));
+    await waitFor(() => expect(user.follow).toHaveBeenCalled());
+    await new Promise((r) => setTimeout(r, 0));
+    expect(toasts()).toEqual([]);
   });
 
   // An empty follow list that has not loaded proves nothing: offering
@@ -325,18 +408,29 @@ describe("the More menu", () => {
     expect(item("Unfollow Alice")).toBeTruthy();
   });
 
-  it("mutes and unmutes", () => {
+  // A muted person's notes simply vanish. The toast says why, and is the way back.
+  it("mutes, says so, and offers to undo it", () => {
     renderRow();
     fireEvent.click(screen.getByLabelText("More actions"));
     fireEvent.click(item("Mute Alice"));
     expect(mute.mute).toHaveBeenCalledWith(AUTHOR);
-    cleanup();
+    expect(toasts().map((t) => t.message)).toEqual(["Muted Alice."]);
+    expect(toasts()[0].action?.label).toBe("Undo");
+    toasts()[0].action?.run();
+    expect(mute.unmute).toHaveBeenCalledWith(AUTHOR);
+    expect(toasts().map((t) => t.message)).toEqual(["Unmuted Alice."]);
+    expect(toasts()[0].action).toBeUndefined();
+  });
 
+  it("unmutes, says so, and offers to undo it", () => {
     mute.mutedPubkeys = [AUTHOR];
     renderRow();
     fireEvent.click(screen.getByLabelText("More actions"));
     fireEvent.click(item("Unmute Alice"));
     expect(mute.unmute).toHaveBeenCalledWith(AUTHOR);
+    expect(toasts().map((t) => t.message)).toEqual(["Unmuted Alice."]);
+    toasts()[0].action?.run();
+    expect(mute.mute).toHaveBeenCalledWith(AUTHOR);
   });
 
   // Mute had two hover colours and the stylesheet's order picked the plain one.

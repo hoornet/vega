@@ -46,7 +46,7 @@ export function FollowButton({ pubkey, size, className = "" }: FollowButtonProps
     } catch {
       // The store reports the failures it knows about and resolves. Anything
       // that reaches here is one it did not expect, and must not pass in silence.
-      useToastStore.getState().addToast(isFollowing ? "Couldn't unfollow. Nothing was changed." : "Couldn't follow. Nothing was changed.", "warning");
+      useToastStore.getState().addToast(isFollowing ? "Couldn't unfollow. Nothing was changed." : "Couldn't follow. Nothing was changed.", "error");
     } finally {
       setPending(false);
     }

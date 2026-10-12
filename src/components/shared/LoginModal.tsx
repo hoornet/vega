@@ -5,6 +5,7 @@ import { Tabs } from "./Tabs";
 import { Button } from "./Button";
 import { Dialog } from "./Dialog";
 import { Check, Copy } from "lucide-react";
+import { copyText } from "../../lib/clipboard";
 
 interface LoginModalProps {
   onClose: () => void;
@@ -21,8 +22,10 @@ function NewAccountTab({ onClose }: { onClose: () => void }) {
 
   const nsec = signer.nsec;
 
-  const handleCopy = () => {
-    navigator.clipboard.writeText(nsec);
+  // "Copied" only once it has been: this is the secret key, and believing it
+  // was copied when it was not is how a key gets lost.
+  const handleCopy = async () => {
+    if (!(await copyText(nsec))) return;
     setCopied(true);
     setTimeout(() => setCopied(false), 1500);
   };

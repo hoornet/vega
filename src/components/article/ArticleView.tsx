@@ -14,6 +14,8 @@ import { ImageLightbox } from "../shared/ImageLightbox";
 import { ViewHeader } from "../shared/ViewHeader";
 import { Button } from "../shared/Button";
 import { ArrowLeft, Bookmark, Check, Heart, Link, MessageCircle, Repeat2, Zap } from "lucide-react";
+import { copyText } from "../../lib/clipboard";
+import { tellPublish } from "../../lib/publishFeedback";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -209,11 +211,9 @@ export function ArticleView() {
   const handleReaction = async () => {
     if (!event?.id || reacted) return;
     setReacted(true);
-    try {
-      await publishReaction(event.id, event.pubkey);
-    } catch {
-      setReacted(false);
-    }
+    // The heart un-filled and nothing said why.
+    const told = await tellPublish(() => publishReaction(event.id, event.pubkey), { kept: "Your like was not sent." });
+    if (!told.ok) setReacted(false);
   };
 
   const handleBookmark = () => {
@@ -230,23 +230,27 @@ export function ArticleView() {
   const handleRepost = async () => {
     if (!event || reposted) return;
     setReposted(true);
-    try {
-      await publishRepost(event);
-    } catch {
-      setReposted(false);
-    }
+    const told = await tellPublish(() => publishRepost(event), { kept: "Nothing was reposted." });
+    if (!told.ok) setReposted(false);
   };
 
+  const commenting = useRef(false);
   const handleComment = async () => {
     if (!event || !commentText.trim()) return;
     const dTag = event.tags.find((t) => t[0] === "d")?.[1] ?? "";
     const naddrStr = nip19.naddrEncode({ identifier: dTag, pubkey: event.pubkey, kind: 30023 });
     const text = `${commentText.trim()}\n\nnostr:${naddrStr}`;
-    try {
-      await publishNote(text);
-      setCommentText("");
-      setShowComment(false);
-    } catch { /* ignore */ }
+    // The box closes and the article looks as it did. A comment is a note of
+    // its own, so say that it went out and offer to open it. A failure used
+    // to be ignored: the box stayed open and nothing said why.
+    // One at a time: a second press while the first was on its way posted the comment twice.
+    if (commenting.current) return;
+    commenting.current = true;
+    const told = await tellPublish(() => publishNote(text), { done: "Comment posted.", kept: "Your comment is still in the box.", view: (note) => note });
+    commenting.current = false;
+    if (!told.ok) return;
+    setCommentText("");
+    setShowComment(false);
   };
 
   return (
@@ -274,7 +278,7 @@ export function ArticleView() {
               <Button variant="ghost" aria-expanded={showComment} onClick={() => setShowComment(!showComment)}><MessageCircle />Comment</Button>
             )}
             {naddr && (
-              <Button variant="ghost" onClick={() => navigator.clipboard.writeText(`nostr:${naddr}`)} title="Copy nostr: link"><Link />Copy link</Button>
+              <Button variant="ghost" onClick={() => void copyText(`nostr:${naddr}`, "Link copied.")} title="Copy nostr: link"><Link />Copy link</Button>
             )}
           </>
         }

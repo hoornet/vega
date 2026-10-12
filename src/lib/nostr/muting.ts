@@ -10,12 +10,14 @@ export async function fetchMuteList(pubkey: string): Promise<string[]> {
   return event.tags.filter((t) => t[0] === "p" && t[1]).map((t) => t[1]);
 }
 
-export async function publishMuteList(pubkeys: string[]): Promise<void> {
+/** Publishes the mute list. False when there is no key to sign with: nothing was published, and nothing failed. */
+export async function publishMuteList(pubkeys: string[]): Promise<boolean> {
   const instance = getNDK();
-  if (!instance.signer) return;
+  if (!instance.signer) return false;
   const event = new NDKEvent(instance);
   event.kind = 10000 as NDKKind;
   event.content = "";
   event.tags = pubkeys.map((pk) => ["p", pk]);
   await event.publish();
+  return true;
 }
