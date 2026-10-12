@@ -1,5 +1,4 @@
-import { useEffect, useState } from "react";
-import { NDKEvent } from "@nostr-dev-kit/ndk";
+import { useState } from "react";
 import { fetchMediaFeed } from "../../lib/nostr";
 import { useMuteStore } from "../../stores/mute";
 import { parseContent, ContentSegment } from "../../lib/parsing";
@@ -7,6 +6,8 @@ import { NoteCard } from "../feed/NoteCard";
 import { SkeletonNoteList } from "../shared/Skeleton";
 import { ViewHeader } from "../shared/ViewHeader";
 import { Tabs, tabPanelProps } from "../shared/Tabs";
+import { ListState, emptyOr } from "../shared/ListState";
+import { useLoadedList } from "../../hooks/useLoadedList";
 
 type MediaTab = "all" | "videos" | "images" | "audio";
 
@@ -23,21 +24,10 @@ function hasMediaType(content: string, types: ContentSegment["type"][]): boolean
 }
 
 export function MediaFeed() {
-  const [allNotes, setAllNotes] = useState<NDKEvent[]>([]);
-  const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<MediaTab>("all");
   const { mutedPubkeys, contentMatchesMutedKeyword } = useMuteStore();
-
-  useEffect(() => {
-    setLoading(true);
-    fetchMediaFeed(500)
-      .then((notes) => {
-        const mediaNotes = notes.filter((n) => hasMediaType(n.content, MEDIA_TYPES.all));
-        setAllNotes(mediaNotes);
-      })
-      .catch(() => setAllNotes([]))
-      .finally(() => setLoading(false));
-  }, []);
+  const list = useLoadedList(async () => (await fetchMediaFeed(500)).filter((n) => hasMediaType(n.content, MEDIA_TYPES.all)), []);
+  const allNotes = list.items;
 
   const filtered = (tab === "all"
     ? allNotes
@@ -61,17 +51,18 @@ export function MediaFeed() {
       />
 
       <div {...tabPanelProps("media-panel", tab)} className="flex-1 overflow-y-auto content-column">
-        {loading && <SkeletonNoteList count={4} />}
-
-        {!loading && filtered.length === 0 && (
-          <div className="px-4 py-12 text-center space-y-2">
-            <p className="text-text-dim text-body">
-              No {tab === "all" ? "media" : tab} found.
-            </p>
-            <p className="text-text-dim text-caption">
-              Try switching tabs or check back later.
-            </p>
-          </div>
+        {/* "No images found" is only true once the notes have loaded: a tab with nothing in it, or a feed that never arrived, are different things. */}
+        {filtered.length === 0 && (
+          <ListState
+            state={emptyOr(list.status)}
+            loadingLabel="Loading media…"
+            loading={<SkeletonNoteList count={4} />}
+            empty={`No ${tab === "all" ? "media" : tab} found.`}
+            emptyHint="Try another tab, or check back later."
+            what="media"
+            error={list.message}
+            onRetry={list.reload}
+          />
         )}
 
         {filtered.map((event) => (

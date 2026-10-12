@@ -1,6 +1,7 @@
 import NDK, { NDKEvent, NDKFilter, NDKKind, NDKSubscriptionCacheUsage, NDKUser } from "@nostr-dev-kit/ndk";
 import { type ParsedSearch, matchesHasFilter } from "../search";
 import { getNDK, fetchWithTimeout, withTimeout, FEED_TIMEOUT } from "./core";
+import { recordFetchOutcome } from "./fetchTotals";
 import { debug } from "../debug";
 
 // Dedicated NIP-50 search relays — queried for full-text search regardless of user's relay list
@@ -28,23 +29,26 @@ const EMPTY_SET = new Set<NDKEvent>();
 
 /** Fetch events from all search relays independently, merge results. */
 async function searchFetch(filter: NDKFilter, timeoutMs = FEED_TIMEOUT): Promise<Set<NDKEvent>> {
-  const perRelay = SEARCH_RELAYS.map(async (relay) => {
+  // null: this relay did not finish in time, or could not be asked at all.
+  const perRelay = SEARCH_RELAYS.map(async (relay): Promise<Set<NDKEvent> | null> => {
     try {
       const ndk = await getSearchNDKFor(relay);
-      const events = await withTimeout(
+      return await withTimeout<Set<NDKEvent> | null>(
         ndk.fetchEvents(filter, { cacheUsage: NDKSubscriptionCacheUsage.ONLY_RELAY, groupable: false }),
         timeoutMs,
-        EMPTY_SET,
+        null,
       );
-      return events;
     } catch {
-      return EMPTY_SET;
+      return null;
     }
   });
   const results = await Promise.all(perRelay);
+  // One search relay that finished is an answer, even an empty one. None
+  // means the search was not carried out, which is not "no results".
+  recordFetchOutcome(results.some((set) => set !== null));
   const merged = new Set<NDKEvent>();
   for (const set of results) {
-    for (const e of set) merged.add(e);
+    for (const e of set ?? EMPTY_SET) merged.add(e);
   }
   return merged;
 }

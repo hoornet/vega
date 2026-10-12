@@ -1,5 +1,6 @@
 import NDK, { NDKEvent, NDKFilter, NDKRelay, NDKRelaySet, NDKSubscription, NDKSubscriptionCacheUsage, tryNormalizeRelayUrl } from "@nostr-dev-kit/ndk";
 import { debug } from "../debug";
+import { recordFetchOutcome } from "./fetchTotals";
 import { useToastStore } from "../../stores/toast";
 import {
   beginAuthAttempt,
@@ -84,6 +85,12 @@ let _silentFetchStreak = 0;
  * timeout with zero events already means nobody answered. Three in a row — at
  * FEED_TIMEOUT each — is roughly the cost of a single Messages open, which
  * issues exactly three parallel fetches.
+ *
+ * Not quite true, and worth knowing: one relay of two answering is not NDK's
+ * quorum for ending a subscription, so that fetch also times out with zero
+ * events and counts here as unanswered. The streak errs towards "silent".
+ * That is tolerable for deciding to reconnect and wrong for telling a user a
+ * list could not be loaded, so lists use the totals in `fetchTotals.ts`.
  */
 const SILENT_FETCH_LIMIT = 3;
 
@@ -119,6 +126,34 @@ function noteFetchUnanswered(): void {
   if (_silentFetchStreak === SILENT_FETCH_LIMIT) {
     debug.warn(`[Vega] ${SILENT_FETCH_LIMIT} fetches unanswered — treating the pool as silent despite relay.connected`);
   }
+}
+
+/**
+ * Whether a finished fetch heard from a relay that can speak for the network.
+ *
+ * The built-in relay cannot. It is on this machine and answers at once with
+ * the network gone, so its "I have nothing" says nothing about what the
+ * user's relays hold. It counts only when it is all there is: `known` is
+ * every relay in the pool, connected or not, the same test `ensureConnected`
+ * uses.
+ *
+ * `known` is deliberately not the set of relays the subscription was sent
+ * to. For a filter with authors and no outbox data, NDK sends it to the
+ * relays that are connected right now. With the network down that is the
+ * built-in relay alone, which then looked like "all that was asked" and was
+ * believed: measured with real NDK, a profile's notes came back "answered"
+ * in 6 ms with every remote relay unreachable.
+ *
+ * This is not the silent-pool streak above. That one decides whether to
+ * reconnect, and is reset by a subscription-level EOSE or by any event, the
+ * built-in relay's included. This one decides whether a list may say
+ * "nothing here". Neither is derived from the other.
+ */
+export function heardFromNetwork(heard: Iterable<string>, known: Iterable<string>): boolean {
+  const answered = Array.from(heard);
+  if (answered.length === 0) return false;
+  if (answered.some((url) => !isLocalRelayUrl(url))) return true;
+  return !Array.from(known).some((url) => !isLocalRelayUrl(url));
 }
 
 /** Fresh pool, fresh verdict — used after connect and after a reset. */
@@ -164,6 +199,8 @@ export function fetchWithTimeout(
   return new Promise((resolve) => {
     const start = () => {
       const events = new Set<NDKEvent>();
+      // Relays that sent an event. Those that sent EOSE are read off the subscription at the end.
+      const heard = new Set<string>();
       let settled = false;
       _activeFetchCount++;
 
@@ -177,6 +214,11 @@ export function fetchWithTimeout(
         // Only a timeout that collected nothing counts against reachability.
         if (answered || events.size > 0) noteRelayAnswered();
         else noteFetchUnanswered();
+        // Separately: did the network answer, for lists that must not call
+        // themselves empty on a guess. One relay's EOSE is an answer here even
+        // when NDK did not call the whole subscription done.
+        for (const relay of sub.eosesSeen ?? []) heard.add(relay.url);
+        recordFetchOutcome(heardFromNetwork(heard, instance.pool?.relays?.keys() ?? []));
         resolve(events);
         _runNextFetch();
       };
@@ -198,8 +240,14 @@ export function fetchWithTimeout(
         relaySet,
       );
 
-      sub.on("event", (event: NDKEvent) => {
-        if (!settled) events.add(event);
+      sub.on("event", (event: NDKEvent, relay?: NDKRelay) => {
+        if (settled) return;
+        events.add(event);
+        if (relay) heard.add(relay.url);
+      });
+      // A copy of something another relay sent first is still that relay talking.
+      sub.on("event:dup", (_event: unknown, relay?: NDKRelay) => {
+        if (!settled && relay) heard.add(relay.url);
       });
       sub.on("eose", () => finish(true));
 

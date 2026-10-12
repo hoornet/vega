@@ -12,8 +12,20 @@ import { ArticleCard } from "./ArticleCard";
 import { ViewHeader } from "../shared/ViewHeader";
 import { Tabs, tabPanelProps } from "../shared/Tabs";
 import { Button } from "../shared/Button";
+import { ListState, stateWithoutRows, followListState } from "../shared/ListState";
+import { fetchMark, wentUnanswered, type LoadOutcome } from "../../lib/listLoad";
 
 type ArticleTab = "latest" | "following";
+
+interface ArticleList {
+  /** What these are rows of: "latest", or the follow list they were asked for. */
+  key: string;
+  articles: NDKEvent[];
+  loading: boolean;
+  /** How the last relay fetch ended. "No articles" is only said when a relay answered. */
+  outcome: LoadOutcome;
+}
+const NOT_ASKED: ArticleList = { key: "", articles: [], loading: true, outcome: "pending" };
 
 // Latest is filtered hard (see articleFilters.ts), so ask for more than we
 // expect to show: of 80 sampled on 2026-10-11, 8 survived.
@@ -22,7 +34,7 @@ const FOLLOWING_LIMIT = 40;
 
 export function ArticleFeed() {
   const canSign = useCanSign();
-  const { loggedIn, follows } = useUserStore();
+  const { loggedIn, follows, followsStatus, fetchFollows } = useUserStore();
   const { setView } = useUIStore();
   const mutedPubkeyList = useMuteStore((s) => s.mutedPubkeys);
   const contentMatchesMutedKeyword = useMuteStore((s) => s.contentMatchesMutedKeyword);
@@ -31,8 +43,12 @@ export function ArticleFeed() {
   const wotEnabled = useWoTStore((s) => s.enabled);
   const wotSet = useWoTStore((s) => s.wotSet);
   const [tab, setTab] = useState<ArticleTab>("latest");
-  const [articles, setArticles] = useState<NDKEvent[]>([]);
-  const [loading, setLoading] = useState(true);
+  // The rows, with what they are rows of: a tab, and on Following a follow
+  // list. A load nobody answers keeps the rows it finds, so they must be this
+  // list's own: Latest's articles were once kept "from before" under
+  // Following, where the laxer filter also showed the spam Latest hides.
+  const [list, setList] = useState<ArticleList>(NOT_ASKED);
+  const [reloadKey, setReloadKey] = useState(0);
 
   // Author profiles for the Latest tab's "has a profile" rule. Kept in a ref
   // as well so the async resolver can see what is already known without
@@ -108,6 +124,9 @@ export function ArticleFeed() {
 
   // Track follows length to avoid re-fetching latest when follows change
   const followsKey = tab === "following" ? follows.join(",") : "latest";
+  // Read during render, so a tab switch shows the new tab as not asked at
+  // once, and never one frame of the other tab's rows, loading flag or outcome.
+  const { articles, loading, outcome } = list.key === followsKey ? list : NOT_ASKED;
 
   // Following needs an account. Signing out while on it left the selected tab
   // disabled, with nothing loading and no way back to Latest by keyboard.
@@ -119,7 +138,12 @@ export function ArticleFeed() {
     if (tab === "following" && follows.length === 0) return;
     let cancelled = false;
     const isCancelled = () => cancelled;
-    setLoading(true);
+    const key = followsKey;
+    /** Change this list. Another list's rows are dropped, not carried over. */
+    const put = (patch: Partial<ArticleList>) =>
+      setList((prev) => ({ ...(prev.key === key ? prev : NOT_ASKED), key, ...patch }));
+    put({ loading: true });
+    const mark = fetchMark();
 
     (async () => {
       // 1) Instant: load from SQLite cache (latest tab only — following is filtered)
@@ -132,8 +156,7 @@ export function ArticleFeed() {
             .filter((e): e is NDKEvent => e !== null)
             .sort((a, b) => (b.created_at ?? 0) - (a.created_at ?? 0));
           if (events.length > 0) {
-            setArticles(events);
-            setLoading(false);
+            put({ articles: events, loading: false });
             void resolveProfiles(events, isCancelled);
           }
         }
@@ -143,8 +166,13 @@ export function ArticleFeed() {
       const authors = tab === "following" ? follows : undefined;
       try {
         const result = await fetchArticleFeed(tab === "latest" ? LATEST_LIMIT : FOLLOWING_LIMIT, authors);
-        if (!cancelled) {
-          setArticles(result);
+        if (!cancelled && result.length === 0 && wentUnanswered(mark)) {
+          // Nobody answered. Whatever this list already shows stays there
+          // (the cache, or what an earlier load found): an empty result used
+          // to replace it, and the list went blank.
+          put({ outcome: "unreachable" });
+        } else if (!cancelled) {
+          put({ articles: result, outcome: "answered" });
           if (tab === "latest") {
             await resolveProfiles(result, isCancelled);
             if (cancelled) return;
@@ -160,14 +188,14 @@ export function ArticleFeed() {
           }
         }
       } catch {
-        if (!cancelled && articles.length === 0) setArticles([]);
+        if (!cancelled) put({ outcome: "error" });
       } finally {
-        if (!cancelled) setLoading(false);
+        if (!cancelled) put({ loading: false });
       }
     })();
 
     return () => { cancelled = true; };
-  }, [followsKey]);
+  }, [followsKey, reloadKey]);
 
   const mutedPubkeys = useMemo(() => new Set(mutedPubkeyList), [mutedPubkeyList]);
 
@@ -212,36 +240,36 @@ export function ArticleFeed() {
 
       {/* Articles list */}
       <div {...tabPanelProps("articles-panel", tab)} className="flex-1 overflow-y-auto content-column">
-        {showLoading && (
-          <div className="px-4 py-8 text-text-dim text-body text-center">Loading articles…</div>
+        {/* Following needs the follow list. Until it has loaded, "no articles from people you follow" is not known. */}
+        {tab === "following" && follows.length === 0 ? (
+          <ListState
+            state={followListState(followsStatus)}
+            loadingLabel="Loading the people you follow…"
+            empty="You're not following anyone yet."
+            emptyHint="Try the Latest tab to discover writers, then follow them."
+            what="the list of people you follow"
+            onRetry={() => void fetchFollows()}
+          />
+        ) : (showLoading || visible.length === 0) ? (
+          <ListState
+            state={stateWithoutRows(showLoading, articles.length, outcome)}
+            loadingLabel="Loading articles…"
+            empty={tab === "following"
+              ? "No articles from people you follow yet."
+              : articles.length > 0
+                ? "Nothing left after your filters."
+                : "No articles found on your relays."}
+            emptyHint={tab === "following"
+              ? "Try the Latest tab to discover writers, then follow them."
+              : articles.length > 0
+                ? `Latest leaves out muted authors and keywords, accounts without a profile${hideRssArticles ? ", and RSS reposts" : ""}. Adjust these in Settings.`
+                : undefined}
+            what="articles"
+            onRetry={() => setReloadKey((n) => n + 1)}
+          />
+        ) : (
+          visible.map((event) => <ArticleCard key={event.id} event={event} />)
         )}
-
-        {!showLoading && visible.length === 0 && (
-          <div className="px-4 py-8 text-center space-y-2">
-            <p className="text-text-dim text-body">
-              {tab === "following"
-                ? "No articles from people you follow yet."
-                : articles.length > 0
-                  ? "Nothing left after your filters."
-                  : "No articles found on your relays."}
-            </p>
-            {tab === "following" && (
-              <p className="text-text-dim text-caption">
-                Try the Latest tab to discover writers, then follow them.
-              </p>
-            )}
-            {tab === "latest" && articles.length > 0 && (
-              <p className="text-text-dim text-caption">
-                Latest leaves out muted authors and keywords, accounts without a profile
-                {hideRssArticles ? ", and RSS reposts" : ""}. Adjust these in Settings.
-              </p>
-            )}
-          </div>
-        )}
-
-        {!showLoading && visible.map((event) => (
-          <ArticleCard key={event.id} event={event} />
-        ))}
       </div>
     </div>
   );

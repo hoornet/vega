@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { NDKEvent, nip19 } from "@nostr-dev-kit/ndk";
+import { nip19 } from "@nostr-dev-kit/ndk";
 import { useUIStore } from "../../stores/ui";
 import { useUserStore, useCanSign } from "../../stores/user";
 import { useMuteStore } from "../../stores/mute";
@@ -21,6 +21,8 @@ import { Tabs, tabPanelProps } from "../shared/Tabs";
 import { Button } from "../shared/Button";
 import { FollowButton } from "../shared/FollowButton";
 import { Mail, VolumeX, Zap } from "lucide-react";
+import { ListState, emptyOr } from "../shared/ListState";
+import { useLoadedList } from "../../hooks/useLoadedList";
 
 function TopFollowerAvatar({ pubkey }: { pubkey: string }) {
   const profile = useProfile(pubkey);
@@ -62,10 +64,24 @@ export function ProfileView() {
   // show stale data until the user navigates away and back.
   const fetchedProfile = useProfile(pubkey);
   const profile = isOwn ? ownProfile : fetchedProfile;
-  const [notes, setNotes] = useState<NDKEvent[]>([]);
-  const [articles, setArticles] = useState<NDKEvent[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [articlesLoading, setArticlesLoading] = useState(false);
+  // Both lists are tied to the pubkey, so opening another profile from this
+  // one drops the rows at once. They used to stay: one person's notes under
+  // the next person's name while the new ones loaded, and their articles for
+  // good, because articles were only fetched while the list was empty. Asked
+  // twice when the first answer is empty: relays are often slow on the first ask.
+  const notesList = useLoadedList(() => fetchUserNotesNIP65(pubkey), [pubkey], { retryEmptyAfterMs: 3000 });
+  const notes = notesList.items;
+  // Articles are fetched the first time their tab is opened on this visit, and kept until the profile changes.
+  const [articlesWantedFor, setArticlesWantedFor] = useState<string | null>(null);
+  // Forgotten when the profile changes, and during render, not in an effect:
+  // coming back to a profile must not fetch its articles before the tab is opened.
+  const [shownPubkey, setShownPubkey] = useState(pubkey);
+  if (shownPubkey !== pubkey) {
+    setShownPubkey(pubkey);
+    setArticlesWantedFor(null);
+  }
+  const articlesList = useLoadedList(() => fetchAuthorArticles(pubkey), [pubkey], { retryEmptyAfterMs: 3000, enabled: articlesWantedFor === pubkey });
+  const articles = articlesList.items;
   const [editing, setEditing] = useState(false);
   const [showZap, setShowZap] = useState(false);
   const [profileTab, setProfileTab] = useState<"notes" | "articles" | "media">("notes");
@@ -88,8 +104,6 @@ export function ProfileView() {
   const lud16 = typeof profile?.lud16 === "string" ? profile.lud16 : undefined;
 
   useEffect(() => {
-    let cancelled = false;
-    setLoading(true);
     setProfileTab("notes");
     // Someone else's profile opened from inside the edit form (a mention in
     // the notes under it) must not open titled "Edit profile".
@@ -97,40 +111,7 @@ export function ProfileView() {
     setBannerLoaded(false);
     setBannerError(false);
     setWotExpanded(false);
-    fetchUserNotesNIP65(pubkey).then(async (events) => {
-      if (cancelled) return;
-      if (events.length === 0) {
-        // Relays may not be ready yet — retry once after a short delay
-        await new Promise((r) => setTimeout(r, 3000));
-        if (cancelled) return;
-        events = await fetchUserNotesNIP65(pubkey);
-      }
-      if (!cancelled) {
-        setNotes(events);
-        setLoading(false);
-      }
-    }).catch(() => { if (!cancelled) setLoading(false); });
-    return () => { cancelled = true; };
   }, [pubkey]);
-
-  useEffect(() => {
-    if (profileTab !== "articles" || articles.length > 0) return;
-    let cancelled = false;
-    setArticlesLoading(true);
-    (async () => {
-      let result = await fetchAuthorArticles(pubkey).catch(() => [] as typeof articles);
-      if (result.length === 0 && !cancelled) {
-        await new Promise((r) => setTimeout(r, 3000));
-        if (cancelled) return;
-        result = await fetchAuthorArticles(pubkey).catch(() => [] as typeof articles);
-      }
-      if (!cancelled) {
-        setArticles(result);
-        setArticlesLoading(false);
-      }
-    })();
-    return () => { cancelled = true; };
-  }, [profileTab, pubkey]);
 
   return (
     <div className="h-full flex flex-col">
@@ -322,14 +303,18 @@ export function ProfileView() {
             { id: "media", label: "Media" },
           ]}
           value={profileTab}
-          onChange={setProfileTab}
+          onChange={(tab) => {
+            setProfileTab(tab);
+            if (tab === "articles") setArticlesWantedFor(pubkey);
+          }}
         />
 
         <div {...tabPanelProps("profile-panel", profileTab)}>
           {profileTab === "notes" && (
             <>
-              {loading && <div className="px-4 py-8 text-text-dim text-body text-center">Loading notes…</div>}
-              {!loading && notes.length === 0 && <div className="px-4 py-8 text-text-dim text-body text-center">No notes found.</div>}
+              {notes.length === 0 && (
+                <ListState state={emptyOr(notesList.status)} loadingLabel="Loading notes…" empty="No notes found." what="these notes" error={notesList.message} onRetry={notesList.reload} />
+              )}
               {notes.map((event) => (
                 <NoteCard key={event.id} event={event} />
               ))}
@@ -338,8 +323,9 @@ export function ProfileView() {
 
           {profileTab === "articles" && (
             <>
-              {articlesLoading && <div className="px-4 py-8 text-text-dim text-body text-center">Loading articles…</div>}
-              {!articlesLoading && articles.length === 0 && <div className="px-4 py-8 text-text-dim text-body text-center">No articles found.</div>}
+              {articles.length === 0 && (
+                <ListState state={emptyOr(articlesList.status)} loadingLabel="Loading articles…" empty="No articles found." what="these articles" error={articlesList.message} onRetry={articlesList.reload} />
+              )}
               {articles.map((event) => (
                 <ArticleCard key={event.id} event={event} />
               ))}
@@ -347,7 +333,10 @@ export function ProfileView() {
           )}
 
           {profileTab === "media" && (
-            <ProfileMediaGallery notes={notes} loading={loading} />
+            // The gallery is drawn from the notes. Without them it must not say "no media".
+            notesList.status === "unreachable" || notesList.status === "error"
+              ? <ListState state={notesList.status} empty="" what="this person's media" error={notesList.message} onRetry={notesList.reload} />
+              : <ProfileMediaGallery notes={notes} loading={notesList.status === "loading"} />
           )}
         </div>
       </div>

@@ -13,6 +13,8 @@ import { ViewHeader } from "../shared/ViewHeader";
 import { Tabs, tabPanelProps } from "../shared/Tabs";
 import { Button } from "../shared/Button";
 import { FollowButton } from "../shared/FollowButton";
+import { ListState } from "../shared/ListState";
+import { fetchMark, wentUnanswered } from "../../lib/listLoad";
 
 interface ParsedUser {
   pubkey: string;
@@ -76,6 +78,8 @@ export function SearchView() {
   const [articleResults, setArticleResults] = useState<NDKEvent[]>([]);
   const [loading, setLoading] = useState(false);
   const [searched, setSearched] = useState(false);
+  // How the last search ended. "No results" is only said when a relay answered.
+  const [outcome, setOutcome] = useState<{ kind: "answered" } | { kind: "unreachable" } | { kind: "error"; message: string }>({ kind: "answered" });
   const [activeTab, setActiveTab] = useState<"notes" | "people" | "articles">("notes");
   const inputRef = useRef<HTMLInputElement>(null);
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
@@ -185,6 +189,8 @@ export function SearchView() {
     setNoteResults([]);
     setArticleResults([]);
     setUserResults([]);
+    setOutcome({ kind: "answered" });
+    const mark = fetchMark();
     try {
       const parsed = parseSearchQuery(q);
       const isAdvanced = parsed.authors.length > 0 || parsed.unresolvedNip05.length > 0 ||
@@ -201,6 +207,11 @@ export function SearchView() {
       setUserResults(results.users.map(parseUserEvent));
       setArticleResults(results.articles);
       setActiveTab(results.notes.length > 0 ? "notes" : results.articles.length > 0 ? "articles" : "people");
+      // Only read when there is nothing to show (see the zero-results state below).
+      if (wentUnanswered(mark)) setOutcome({ kind: "unreachable" });
+    } catch (err) {
+      // There was no catch: a search that threw ended as "No results" and an unhandled rejection.
+      setOutcome({ kind: "error", message: err instanceof Error ? err.message : String(err) });
     } finally {
       setLoading(false);
       setSearched(true);
@@ -399,14 +410,16 @@ export function SearchView() {
 
         {/* Zero results */}
         {searched && totalResults === 0 && (
-          <div className="px-4 py-8 text-center space-y-3">
-            <p className="text-text-dim text-body">
-              No results for <span className="text-text font-medium">{query}</span>.
-            </p>
-            <p className="text-text-dim text-caption">
-              Try different keywords, a #hashtag, or check your relay connections.
-            </p>
-          </div>
+          <ListState
+            state={outcome.kind === "answered" ? "empty" : outcome.kind}
+            empty={<>No results for <span className="text-text font-medium">{query}</span>.</>}
+            emptyHint="Try different keywords or a #hashtag."
+            // Text search goes to search relays that are not the user's own, so "your relays" would be wrong.
+            unreachable="No relay answered this search."
+            what="search results"
+            error={outcome.kind === "error" ? outcome.message : undefined}
+            onRetry={() => handleSearch()}
+          />
         )}
 
         {/* People tab — zero results hint */}

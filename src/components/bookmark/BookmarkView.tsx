@@ -9,6 +9,8 @@ import { ArticleCard } from "../article/ArticleCard";
 import { SkeletonNoteList } from "../shared/Skeleton";
 import { ViewHeader } from "../shared/ViewHeader";
 import { Tabs, tabPanelProps } from "../shared/Tabs";
+import { ListState, stateWithoutRows } from "../shared/ListState";
+import { fetchMark, wentUnanswered } from "../../lib/listLoad";
 
 type BookmarkTab = "notes" | "articles";
 
@@ -37,13 +39,20 @@ function ArticleCardWithReadStatus({ event }: { event: NDKEvent }) {
 }
 
 export function BookmarkView() {
-  const { bookmarkedIds, bookmarkedArticleAddrs, fetchBookmarks, unreadArticleCount } = useBookmarkStore();
+  const { bookmarkedIds, bookmarkedArticleAddrs, fetchBookmarks, unreadArticleCount, listOutcome } = useBookmarkStore();
   const { pubkey } = useUserStore();
   const [tab, setTab] = useState<BookmarkTab>("notes");
   const [notes, setNotes] = useState<NDKEvent[]>([]);
   const [articles, setArticles] = useState<NDKEvent[]>([]);
   const [loadingNotes, setLoadingNotes] = useState(false);
   const [loadingArticles, setLoadingArticles] = useState(false);
+  // Saved, asked for, and no relay answered. Different from "saved, and the relays do not have them".
+  const [notesUnanswered, setNotesUnanswered] = useState(false);
+  const [articlesUnanswered, setArticlesUnanswered] = useState(false);
+  // How many of the saved items the relays returned: null until they have been asked.
+  const [notesFetched, setNotesFetched] = useState<number | null>(null);
+  const [articlesFetched, setArticlesFetched] = useState<number | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
     if (pubkey) fetchBookmarks(pubkey);
@@ -57,6 +66,8 @@ export function BookmarkView() {
     }
     let cancelled = false;
     setLoadingNotes(true);
+    setNotesUnanswered(false);
+    setNotesFetched(null);
 
     (async () => {
       // 1) Instant: load from SQLite cache
@@ -86,6 +97,7 @@ export function BookmarkView() {
       }
 
       // 2) Background: batch fetch from relays (single filter is much faster than one-by-one)
+      const mark = fetchMark();
       try {
         const batchSize = 50;
         const allFetched: NDKEvent[] = [];
@@ -103,6 +115,8 @@ export function BookmarkView() {
           allFetched.push(...fallback.filter((e): e is NDKEvent => e !== null));
         }
         if (!cancelled) {
+          setNotesUnanswered(allFetched.length === 0 && wentUnanswered(mark));
+          setNotesFetched(allFetched.length);
           const fetched = allFetched;
           // Separate articles (kind 30023) bookmarked via e-tag from notes
           const fetchedNotes = fetched.filter((e) => e.kind !== 30023);
@@ -128,13 +142,16 @@ export function BookmarkView() {
             dbSaveBookmarkedNotes(fetched.map((e) => JSON.stringify(e.rawEvent())), pubkey);
           }
         }
+      } catch {
+        // Not "your relays did not have them": nobody got as far as saying so.
+        if (!cancelled) setNotesUnanswered(true);
       } finally {
         if (!cancelled) setLoadingNotes(false);
       }
     })();
 
     return () => { cancelled = true; };
-  }, [bookmarkedIds]);
+  }, [bookmarkedIds, reloadKey]);
 
   // Load bookmarked articles (no DB cache yet — articles are fetched by addr)
   useEffect(() => {
@@ -144,34 +161,50 @@ export function BookmarkView() {
     }
     let cancelled = false;
     setLoadingArticles(true);
+    setArticlesUnanswered(false);
+    setArticlesFetched(null);
 
     (async () => {
+      const mark = fetchMark();
       try {
         const results = await Promise.all(
           bookmarkedArticleAddrs.map((addr) => fetchByAddr(addr))
         );
         if (!cancelled) {
-          setArticles(
-            results
-              .filter((e): e is NDKEvent => e !== null)
-              .sort((a, b) => (b.created_at ?? 0) - (a.created_at ?? 0))
-          );
+          const found = results.filter((e): e is NDKEvent => e !== null);
+          const unanswered = found.length === 0 && wentUnanswered(mark);
+          setArticlesUnanswered(unanswered);
+          setArticlesFetched(found.length);
+          // Nobody answered: the articles already on screen stay.
+          if (!unanswered) setArticles(found.sort((a, b) => (b.created_at ?? 0) - (a.created_at ?? 0)));
         }
+      } catch {
+        if (!cancelled) setArticlesUnanswered(true);
       } finally {
         if (!cancelled) setLoadingArticles(false);
       }
     })();
 
     return () => { cancelled = true; };
-  }, [bookmarkedArticleAddrs]);
+  }, [bookmarkedArticleAddrs, reloadKey]);
 
   const totalCount = bookmarkedIds.length + bookmarkedArticleAddrs.length;
   const loading = tab === "notes" ? loadingNotes : loadingArticles;
   const items = tab === "notes" ? notes : articles;
+  const savedHere = tab === "notes" ? bookmarkedIds.length : bookmarkedArticleAddrs.length;
+  const unanswered = tab === "notes" ? notesUnanswered : articlesUnanswered;
+  const fetched = tab === "notes" ? notesFetched : articlesFetched;
+  // Saved, asked for, and the relays answered with none of them. Not the same
+  // as a tab with nothing to show: saved ids that turn out to be articles are
+  // found, and listed under Articles.
+  const missing = savedHere > 0 && fetched === 0 && !unanswered;
+  // Without an account there is no list to ask for: what this device holds is all there is.
+  const listKnown = pubkey ? listOutcome : "answered";
 
   return (
     <div className="h-full flex flex-col">
-      <ViewHeader title="Bookmarks" meta={`${totalCount} saved`} />
+      {/* No "0 saved" beside a list that could not be read. */}
+      <ViewHeader title="Bookmarks" meta={totalCount > 0 || listKnown === "answered" ? `${totalCount} saved` : undefined} />
       {/* The number on Articles is how many are still unread, not how many
           are saved, so it is a badge and not a quiet total. */}
       <Tabs
@@ -186,22 +219,29 @@ export function BookmarkView() {
       />
 
       <div {...tabPanelProps("bookmarks-panel", tab)} className="flex-1 overflow-y-auto content-column">
-        {loading && items.length === 0 && (
-          <SkeletonNoteList count={3} />
-        )}
-
-        {!loading && items.length === 0 && (
-          <div className="px-4 py-12 text-center space-y-2">
-            <p className="text-text-dim text-body">
-              {tab === "notes" ? "No bookmarked notes." : "No bookmarked articles."}
-            </p>
-            <p className="text-text-dim text-caption">
-              {tab === "notes"
-                ? <>Use the <span className="text-accent">save</span> button on any note to bookmark it here.</>
-                : <>Use the <span className="text-accent">save</span> button on any article to add it to your reading list.</>
-              }
-            </p>
-          </div>
+        {/* Three different things used to read "No bookmarked notes." under a
+            header that said "12 saved": nothing saved, saved but the relays
+            did not answer, and saved but the relays no longer have them. */}
+        {items.length === 0 && (
+          <ListState
+            state={savedHere > 0
+              ? loading || (fetched === null && !unanswered) ? "loading" : unanswered ? "unreachable" : "empty"
+              : stateWithoutRows(loading, 0, listKnown)}
+            loadingLabel="Loading bookmarks…"
+            loading={<SkeletonNoteList count={3} />}
+            empty={missing
+              ? `${savedHere} saved, but your relays did not have ${savedHere === 1 ? "it" : "any of them"}.`
+              : tab === "notes" ? "No bookmarked notes." : "No bookmarked articles."}
+            emptyHint={missing
+              ? "They may have been deleted, or be on a relay that is not in your list."
+              : savedHere > 0
+                ? "What you saved is under the other tab."
+                : tab === "notes"
+                  ? "Use the bookmark icon on any note to save it here."
+                  : "Use Save on any article to add it to your reading list."}
+            what={tab === "notes" ? "your saved notes" : "your saved articles"}
+            onRetry={() => { if (savedHere > 0) setReloadKey((n) => n + 1); else if (pubkey) void fetchBookmarks(pubkey); }}
+          />
         )}
 
         {tab === "notes" && notes.map((event) => (
