@@ -307,9 +307,9 @@ export function SearchView() {
               <h3 className="text-text-dim text-micro uppercase tracking-widest mb-2">Search modifiers</h3>
               <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-caption">
                 <span className="text-accent font-mono">by:user@domain</span>
-                <span className="text-text-dim">notes from NIP-05 author</span>
+                <span className="text-text-dim">notes by a verified address</span>
                 <span className="text-accent font-mono">by:npub1...</span>
-                <span className="text-text-dim">notes from pubkey</span>
+                <span className="text-text-dim">notes by a public key</span>
                 <span className="text-accent font-mono">#bitcoin</span>
                 <span className="text-text-dim">hashtag search</span>
                 <span className="text-accent font-mono">has:image</span>

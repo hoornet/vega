@@ -330,6 +330,8 @@ interface UserState {
   pubkey: string | null;
   npub: string | null;
   profile: any | null;
+  /** What the last read of the own profile from the relays said; "pending" until one has. */
+  ownProfileRead: "pending" | "found" | "none" | "unknown";
   follows: string[];
   /**
    * Whether `follows` reflects a contact list that actually loaded. An empty
@@ -485,6 +487,7 @@ export const useUserStore = create<UserState>((set, get) => ({
   pubkey: null,
   npub: null,
   profile: null,
+  ownProfileRead: "pending",
   follows: [],
   followsStatus: "idle",
   loggedIn: false,
@@ -705,7 +708,7 @@ export const useUserStore = create<UserState>((set, get) => ({
     localStorage.removeItem("wrystr_pubkey");
     localStorage.removeItem("wrystr_login_type");
     forgetContactList();
-    set({ pubkey: null, npub: null, profile: null, follows: [], followsStatus: "idle", loggedIn: false, loginError: null });
+    set({ pubkey: null, npub: null, profile: null, ownProfileRead: "pending", follows: [], followsStatus: "idle", loggedIn: false, loginError: null });
     // Signed out: what is subscribed to from here on is not that account's.
     // It went into its list all the same, and was published under its name
     // at the next sign-in.
@@ -818,6 +821,7 @@ export const useUserStore = create<UserState>((set, get) => ({
           loggedIn: false,
           loginError: failedReconnect ? nip46RestoreError(null) : null,
           profile: null,
+          ownProfileRead: "pending",
           follows: [],
           followsStatus: "idle",
         });
@@ -865,7 +869,7 @@ export const useUserStore = create<UserState>((set, get) => ({
       localStorage.removeItem("wrystr_pubkey");
       localStorage.removeItem("wrystr_login_type");
       forgetContactList();
-      set({ pubkey: null, npub: null, profile: null, follows: [], followsStatus: "idle", loggedIn: false, loginError: null });
+      set({ pubkey: null, npub: null, profile: null, ownProfileRead: "pending", follows: [], followsStatus: "idle", loggedIn: false, loginError: null });
       usePodcastStore.getState().setActiveAccount(null);
     }
   },
@@ -935,6 +939,7 @@ export const useUserStore = create<UserState>((set, get) => ({
     if (get().pubkey !== pubkey) return;
 
     // The count of tries starts again with any read that is not itself a try.
+    set({ ownProfileRead: read.status });
     if (read.status === "found" && read.fromNetwork) {
       take(read.profile);
     } else if (read.status === "found") {

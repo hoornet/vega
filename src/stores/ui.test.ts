@@ -373,3 +373,42 @@ describe("the theme the app starts with", () => {
     }
   });
 });
+
+// "Write a note" from an empty view: the feed, with the compose box asked for.
+describe("requestCompose", () => {
+  it("shows the feed with nothing to go back to, and counts the request", () => {
+    useUIStore.setState({ currentView: "notifications", viewStack: [{ view: "profile", selectedNote: null, selectedPubkey: "x" }] as never, composeRequest: 0 });
+    useUIStore.getState().requestCompose();
+    const s = useUIStore.getState();
+    expect(s.currentView).toBe("feed");
+    expect(s.viewStack).toEqual([]);
+    expect(s.composeRequest).toBe(1);
+    useUIStore.getState().requestCompose();
+    expect(useUIStore.getState().composeRequest).toBe(2);
+  });
+
+  // The list a new account can act on, not a zero under a different name.
+  it("opens People on the people you follow", async () => {
+    vi.resetModules();
+    const fresh = await import("./ui");
+    expect(fresh.useUIStore.getState().followsTab).toBe("following");
+  });
+});
+
+describe("openSettings and requestProfileEdit", () => {
+  it("shows Settings with the group to land on, and nothing to go back to", () => {
+    useUIStore.setState({ currentView: "zaps", viewStack: [{ view: "profile", selectedNote: null, selectedPubkey: "x" }] as never, pendingSettingsGroup: null });
+    useUIStore.getState().openSettings("wallet");
+    expect(useUIStore.getState().currentView).toBe("settings");
+    expect(useUIStore.getState().viewStack).toEqual([]);
+    expect(useUIStore.getState().pendingSettingsGroup).toBe("wallet");
+  });
+
+  it("opens the profile and names the account whose edit form is wanted", () => {
+    useUIStore.setState({ currentView: "zaps", viewStack: [], editProfileFor: null });
+    useUIStore.getState().openProfileEditor("me");
+    expect(useUIStore.getState().currentView).toBe("profile");
+    expect(useUIStore.getState().selectedPubkey).toBe("me");
+    expect(useUIStore.getState().editProfileFor).toBe("me");
+  });
+});

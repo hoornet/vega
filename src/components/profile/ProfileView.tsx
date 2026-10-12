@@ -6,7 +6,7 @@ import { useMuteStore } from "../../stores/mute";
 import { useProfile } from "../../hooks/useProfile";
 import { useReputation } from "../../hooks/useReputation";
 import { fetchUserNotesNIP65, fetchAuthorArticles } from "../../lib/nostr";
-import { shortNpub, nameOf } from "../../lib/utils";
+import { shortNpub, nameOf, ownName } from "../../lib/utils";
 import { AvatarInitial } from "../shared/AvatarInitial";
 import { NoteCard } from "../feed/NoteCard";
 import { ArticleCard } from "../article/ArticleCard";
@@ -55,9 +55,9 @@ function TopFollowerAvatar({ pubkey }: { pubkey: string }) {
 }
 
 export function ProfileView() {
-  const { selectedPubkey, goBack, openDM } = useUIStore();
+  const { selectedPubkey, goBack, openDM, editProfileFor } = useUIStore();
   const canSign = useCanSign();
-  const { pubkey: ownPubkey, profile: ownProfile } = useUserStore();
+  const { pubkey: ownPubkey, profile: ownProfile, ownProfileRead } = useUserStore();
   const pubkey = selectedPubkey!;
   const isOwn = pubkey === ownPubkey;
 
@@ -119,6 +119,15 @@ export function ProfileView() {
     setBannerError(false);
     setWotExpanded(false);
   }, [pubkey]);
+
+  // Opened in its edit form from elsewhere ("Add a Lightning address" in
+  // Zaps). After the reset above, which runs first in the same commit, and
+  // taken once, so a later visit does not open the form again.
+  useEffect(() => {
+    if (editProfileFor !== pubkey) return;
+    useUIStore.setState({ editProfileFor: null });
+    if (isOwn && canSign) setEditing(true);
+  }, [editProfileFor, pubkey, isOwn, canSign]);
 
   return (
     <div className="h-full flex flex-col">
@@ -237,7 +246,13 @@ export function ProfileView() {
                   </p>
                 )}
                 {isOwn && !about && (
-                  <p className="text-text-dim text-body mt-2 italic">No bio yet — click "edit profile" to add one.</p>
+                  // The offer to set one up waits until the relays have been
+                  // asked: a profile that has not loaded is not a missing one.
+                  ownName(profile)
+                    ? <p className="text-text-muted text-body mt-2">No bio yet.</p>
+                    : canSign && (profile || ownProfileRead === "none")
+                      ? <div className="mt-2"><Button variant="primary" onClick={() => setEditing(true)}>Set up your profile</Button></div>
+                      : null
                 )}
                 <button
                   onClick={async () => {
@@ -322,7 +337,15 @@ export function ProfileView() {
           {profileTab === "notes" && (
             <>
               {notes.length === 0 && (
-                <ListState state={emptyOr(notesList.status)} loadingLabel="Loading notes…" empty="No notes found." what="these notes" error={notesList.message} onRetry={notesList.reload} />
+                <ListState
+                  state={emptyOr(notesList.status)}
+                  loadingLabel="Loading notes…"
+                  empty={isOwn ? "You haven't posted yet." : "No notes yet."}
+                  emptyAction={isOwn && canSign ? <Button onClick={() => useUIStore.getState().requestCompose()}>Write your first note</Button> : undefined}
+                  what="these notes"
+                  error={notesList.message}
+                  onRetry={notesList.reload}
+                />
               )}
               {notes.map((event) => (
                 <NoteCard key={event.id} event={event} />
@@ -333,7 +356,7 @@ export function ProfileView() {
           {profileTab === "articles" && (
             <>
               {articles.length === 0 && (
-                <ListState state={emptyOr(articlesList.status)} loadingLabel="Loading articles…" empty="No articles found." what="these articles" error={articlesList.message} onRetry={articlesList.reload} />
+                <ListState state={emptyOr(articlesList.status)} loadingLabel="Loading articles…" empty="No articles yet." what="these articles" error={articlesList.message} onRetry={articlesList.reload} />
               )}
               {articles.map((event) => (
                 <ArticleCard key={event.id} event={event} showAuthor={false} />

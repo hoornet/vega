@@ -4,7 +4,8 @@ import type { NDKEvent } from "@nostr-dev-kit/ndk";
 
 vi.mock("../../lib/nostr", () => ({ fetchMentions: vi.fn(), fetchZapsReceived: vi.fn(async () => []), fetchNewFollowers: vi.fn(async () => []), fetchNoteById: vi.fn(async () => null) }));
 vi.mock("../../lib/db", () => ({ dbSaveNotifications: vi.fn(), dbLoadNotifications: vi.fn().mockResolvedValue([]), dbMarkNotificationRead: vi.fn(), dbNewestNotificationTs: vi.fn(async () => null) }));
-vi.mock("../../stores/user", () => ({ useUserStore: () => ({ pubkey: "me", loggedIn: true }), useCanSign: () => true }));
+const signer = vi.hoisted(() => ({ can: true }));
+vi.mock("../../stores/user", () => ({ useUserStore: () => ({ pubkey: "me", loggedIn: true }), useCanSign: () => signer.can }));
 const muted = vi.hoisted(() => ({ pubkeys: [] as string[] }));
 vi.mock("../../stores/mute", () => ({ useMuteStore: <T,>(pick: (s: { mutedPubkeys: string[]; contentMatchesMutedKeyword: () => boolean }) => T) => pick({ mutedPubkeys: muted.pubkeys, contentMatchesMutedKeyword: () => false }) }));
 vi.mock("../../hooks/useProfile", () => ({ useProfile: (pk: string) => (pk === "alice" ? { name: "Alice" } : pk === "bob" ? { name: "Bob" } : pk === "carol" ? { name: "Carol" } : null) }));
@@ -209,5 +210,34 @@ describe("NotificationsView: tabs and reasons", () => {
     fireEvent.click(screen.getByRole("button", { name: "Mark all read" }));
     expect(useNotificationsStore.getState().newFollowersCount).toBe(0);
     expect(screen.queryByRole("button", { name: "Mark all read" })).toBeNull();
+  });
+});
+
+// A new account meets this view empty. It says what will show up, and offers the first step.
+describe("NotificationsView: the next step", () => {
+  it("offers to write a note on All and Mentions, which shows the feed with the compose box asked for", async () => {
+    useUIStore.setState({ currentView: "notifications", composeRequest: 0 });
+    render(<NotificationsView />);
+    expect(await screen.findByText(EMPTY)).toBeTruthy();
+    tab(/^Zaps/);
+    expect(screen.queryByRole("button", { name: "Write a note" })).toBeNull();
+    tab(/^Mentions/);
+    expect(screen.getByRole("button", { name: "Write a note" })).toBeTruthy();
+    tab(/^All/);
+    fireEvent.click(screen.getByRole("button", { name: "Write a note" }));
+    expect(useUIStore.getState().currentView).toBe("feed");
+    expect(useUIStore.getState().composeRequest).toBe(1);
+  });
+});
+
+// A read-only account cannot write, so it is not asked to.
+describe("NotificationsView: read-only", () => {
+  it("offers nothing to write when the account cannot sign", async () => {
+    signer.can = false;
+    try {
+      render(<NotificationsView />);
+      expect(await screen.findByText(EMPTY)).toBeTruthy();
+      expect(screen.queryByRole("button", { name: "Write a note" })).toBeNull();
+    } finally { signer.can = true; }
   });
 });

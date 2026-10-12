@@ -45,7 +45,7 @@ export function FollowsView() {
   const [followersReload, setFollowersReload] = useState(0);
   // Load followers: DB cache first (instant), then relay fetch to merge new ones
   useEffect(() => {
-    if (followsTab !== "followers" || !pubkey || followersFetched) return;
+    if (!pubkey || followersFetched) return;
     let cancelled = false;
     setFollowersLoading(true);
     setFollowersError(null);
@@ -117,7 +117,8 @@ export function FollowsView() {
               <ListState
                 state={followersLoading ? "loading" : followersError !== null ? "error" : followersUnanswered ? "unreachable" : "empty"}
                 loadingLabel="Loading followers…"
-                empty="No followers found yet."
+                empty="No followers yet."
+                emptyHint="They'll appear here as people find you."
                 what="your followers"
                 error={followersError ?? undefined}
                 onRetry={() => { setFollowersFetched(false); setFollowersReload((n) => n + 1); }}
@@ -141,7 +142,8 @@ export function FollowsView() {
               <ListState
                 state={followListState(followsStatus)}
                 loadingLabel="Loading the people you follow…"
-                empty="Not following anyone yet."
+                empty="You're not following anyone yet."
+                emptyHint="Follow a few people and their notes make up your Following feed."
                 what="the list of people you follow"
                 onRetry={() => void fetchFollows()}
               />

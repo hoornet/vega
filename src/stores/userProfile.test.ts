@@ -220,6 +220,25 @@ describe("fetchOwnProfile", () => {
     });
   }
 
+  // The own profile view offers "Set up your profile" only after the relays
+  // said there is none; before that a slow start would have looked like no profile.
+  it("says what the read found", async () => {
+    signedInAs(ANA);
+    useUserStore.setState({ ownProfileRead: "pending" });
+    relaysHold(ON_RELAYS);
+    await useUserStore.getState().fetchOwnProfile();
+    expect(useUserStore.getState().ownProfileRead).toBe("found");
+    relaysHoldNone();
+    await useUserStore.getState().fetchOwnProfile();
+    expect(useUserStore.getState().ownProfileRead).toBe("none");
+    relaysCannotTell();
+    await useUserStore.getState().fetchOwnProfile();
+    expect(useUserStore.getState().ownProfileRead).toBe("unknown");
+    fetchProfileFromEachRelay.mockRejectedValue(new Error("offline"));
+    await useUserStore.getState().fetchOwnProfile();
+    expect(useUserStore.getState().ownProfileRead).toBe("unknown");
+  });
+
   it("keeps what is shown when the read failed", async () => {
     signedInAs(ANA, { name: "ana" }, [account(ANA, { name: "ana" })]);
     fetchProfileFromEachRelay.mockRejectedValue(new Error("offline"));

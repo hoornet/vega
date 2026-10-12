@@ -10,6 +10,7 @@ const ui = {
   goBack: vi.fn(),
   toggleHelp: vi.fn(),
   toggleDebugPanel: vi.fn(),
+  requestCompose: vi.fn(),
 };
 const feed = { focusedNoteIndex: 0, setFocusedNoteIndex: vi.fn(), notes: [1, 2, 3] };
 vi.mock("../stores/ui", () => ({ useUIStore: Object.assign(() => ui, { getState: () => ui }) }));
@@ -65,6 +66,13 @@ describe("app-wide shortcuts", () => {
     dialog.remove();
     press("/");
     expect(ui.setView).toHaveBeenCalledTimes(1);
+  });
+
+  it("n asks for the compose box the one way there is", () => {
+    render(<App />);
+    press("n");
+    expect(ui.requestCompose).toHaveBeenCalledTimes(1);
+    expect(ui.setView).not.toHaveBeenCalled();
   });
 
   it("leave typing alone", () => {

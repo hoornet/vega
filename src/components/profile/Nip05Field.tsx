@@ -36,7 +36,7 @@ export function Nip05Field({ value, onChange, pubkey }: { value: string; onChang
   return (
     <div>
       <div className="flex items-baseline gap-2 mb-1">
-        <label className="text-text-dim text-caption">NIP-05 verified name</label>
+        <label className="text-text-dim text-caption">Verified address (optional)</label>
         {badge}
       </div>
       <input
@@ -47,7 +47,7 @@ export function Nip05Field({ value, onChange, pubkey }: { value: string; onChang
         style={{ WebkitUserSelect: "text", userSelect: "text" } as React.CSSProperties}
       />
       <p className="text-text-dim text-caption mt-1">
-        Proves your identity via a domain you control.{" "}
+        Like an email address that proves this account is yours.{" "}
         <a
           href="https://nostr.how/en/guides/get-verified"
           target="_blank"

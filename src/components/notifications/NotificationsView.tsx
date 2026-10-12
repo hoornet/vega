@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import type { NDKEvent } from "@nostr-dev-kit/ndk";
-import { useUserStore } from "../../stores/user";
+import { useUserStore, useCanSign } from "../../stores/user";
 import { useUIStore } from "../../stores/ui";
 import { useMuteStore } from "../../stores/mute";
 import { useNotificationsStore, notificationKind, type NotificationKind } from "../../stores/notifications";
@@ -51,6 +51,7 @@ const EMPTY: Record<Tab, { text: string; hint: string }> = {
 };
 
 export function NotificationsView() {
+  const canSign = useCanSign();
   const { pubkey, loggedIn } = useUserStore();
   // Selectors: this view stays mounted behind Back, and must not render its rows for a DM count.
   const notifications = useNotificationsStore((s) => s.notifications);
@@ -155,6 +156,7 @@ export function NotificationsView() {
             loading={<SkeletonNoteList count={4} />}
             empty={EMPTY[tab].text}
             emptyHint={EMPTY[tab].hint}
+            emptyAction={canSign && (tab === "all" || tab === "mention") ? <Button onClick={() => useUIStore.getState().requestCompose()}>Write a note</Button> : undefined}
             what="your notifications"
             onRetry={() => { if (pubkey) void fetchNotifications(pubkey); }}
           />

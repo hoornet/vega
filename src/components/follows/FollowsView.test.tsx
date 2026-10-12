@@ -25,7 +25,7 @@ const fetchFollows = vi.fn();
 /** Lets the load run, including the three-second pause before it asks a second time. */
 const settle = async (ms = 3100) => { await act(async () => { await vi.advanceTimersByTimeAsync(ms); }); };
 const tab = (name: RegExp) => screen.getByRole("tab", { name }).textContent;
-const EMPTY = "No followers found yet.";
+const EMPTY = "No followers yet.";
 
 beforeEach(() => {
   vi.useFakeTimers();
@@ -54,6 +54,7 @@ describe("FollowsView: Followers", () => {
     render(<FollowsView />);
     await settle();
     expect(screen.getByText(EMPTY)).toBeTruthy();
+    expect(screen.getByText("They'll appear here as people find you.")).toBeTruthy();
     expect(tab(/Followers/)).toBe("Followers0");
   });
 
@@ -112,10 +113,21 @@ describe("FollowsView: Followers", () => {
 describe("FollowsView: Following", () => {
   beforeEach(() => { ui.followsTab = "following"; });
 
+  // Followers used to load only on their own tab. Opening on Following
+  // meant the "follows you" marks never appeared.
+  it("marks who follows back, with the followers read on this tab", async () => {
+    Object.assign(user, { follows: [A] });
+    vi.mocked(fetchFollowers).mockImplementation(answering([A]));
+    render(<FollowsView />);
+    await settle(100);
+    expect(screen.getByText("follows you")).toBeTruthy();
+  });
+
   it("says the account follows nobody only when the list loaded", async () => {
     render(<FollowsView />);
     await settle(0);
-    expect(screen.getByText("Not following anyone yet.")).toBeTruthy();
+    expect(screen.getByText("You're not following anyone yet.")).toBeTruthy();
+    expect(screen.getByText("Follow a few people and their notes make up your Following feed.")).toBeTruthy();
     expect(tab(/Following/)).toBe("Following0");
   });
 
@@ -124,7 +136,7 @@ describe("FollowsView: Following", () => {
     render(<FollowsView />);
     await settle(0);
     expect(screen.getByRole("alert").textContent).toContain("so the list of people you follow can't be loaded");
-    expect(screen.queryByText("Not following anyone yet.")).toBeNull();
+    expect(screen.queryByText("You're not following anyone yet.")).toBeNull();
     expect(tab(/Following/)).toBe("Following");
     fireEvent.click(screen.getByRole("button", { name: "Try again" }));
     expect(fetchFollows).toHaveBeenCalledTimes(1);

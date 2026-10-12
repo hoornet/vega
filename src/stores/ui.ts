@@ -88,6 +88,10 @@ interface UIState {
    * for a first launch.
    */
   signup: "create" | "login" | null;
+  /** Goes up each time something asks for the compose box ("Write a note"); the box takes focus when it changes. */
+  composeRequest: number;
+  /** The account whose profile should open in its edit form ("Add a Lightning address"); taken by the view once it has. */
+  editProfileFor: string | null;
   showDebugPanel: boolean;
   feedLanguageFilter: string | null;
   /** Hide RSS-bridge reposts on the Articles Latest tab. Default on. */
@@ -119,6 +123,10 @@ interface UIState {
   toggleSidebar: () => void;
   toggleHelp: () => void;
   openSignup: (step: "create" | "login") => void;
+  /** Show the feed with the compose box focused. */
+  requestCompose: () => void;
+  /** Show the account's profile with the edit form open. */
+  openProfileEditor: (pubkey: string) => void;
   closeSignup: () => void;
   toggleDebugPanel: () => void;
 }
@@ -190,7 +198,7 @@ function initialArticlesTab(): ArticlesTab {
   return localStorage.getItem("wrystr_pubkey") ? "following" : "latest";
 }
 
-export const useUIStore = create<UIState>((set, _get) => ({
+export const useUIStore = create<UIState>((set, get) => ({
   currentView: "feed",
   sidebarCollapsed: localStorage.getItem(SIDEBAR_KEY) === "true",
   selectedPubkey: null,
@@ -216,10 +224,14 @@ export const useUIStore = create<UIState>((set, _get) => ({
   pendingHashtag: null,
   showHelp: false,
   signup: null,
+  composeRequest: 0,
+  editProfileFor: null,
   showDebugPanel: false,
   feedLanguageFilter: localStorage.getItem(SCRIPT_FILTER_KEY) || null,
   hideRssArticles: localStorage.getItem(HIDE_RSS_ARTICLES_KEY) !== "false",
-  followsTab: "followers",
+  // People opens on the people you follow: the list a new account can act
+  // on, not a zero under a different name.
+  followsTab: "following",
   fontSize: parseInt(localStorage.getItem(FONT_SIZE_KEY) || "14", 10),
   easyReadFont: localStorage.getItem(EASY_READ_FONT_KEY) === "true",
   themeId: initialThemeId(),
@@ -234,6 +246,8 @@ export const useUIStore = create<UIState>((set, _get) => ({
     set({ articlesTab });
   },
   openSignup: (step) => set({ signup: step }),
+  requestCompose: () => set((s) => ({ currentView: "feed", viewStack: [], composeRequest: s.composeRequest + 1 })),
+  openProfileEditor: (pubkey) => { get().openProfile(pubkey); set({ editProfileFor: pubkey }); },
   closeSignup: () => set({ signup: null }),
   setFeedTab: (feedTab, opts) => {
     if (opts?.remember !== false) localStorage.setItem(FEED_TAB_KEY, feedTab);
