@@ -83,6 +83,7 @@ const ALLOWED: Record<string, number> = {
   "components/dm/DMView.tsx": 2, // conversation rows, tinted when selected
   "components/feed/ComposeBox.tsx": 1, // the dot that removes an attachment
   "components/feed/Feed.tsx": 2, // the "new notes" bar, and interest chips on the empty feed
+  "components/feed/StartHereCard.tsx": 1, // the same topic chips, on the first-run card
   "components/feed/InlineReplyBox.tsx": 1, // the dot that removes an attachment
   "components/feed/MediaCards.tsx": 1, // an audio card
   "components/feed/NoteActions.tsx": 1, // reaction pills

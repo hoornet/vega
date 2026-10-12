@@ -2,16 +2,18 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, fireEvent, cleanup, act } from "@testing-library/react";
 
 const user = vi.hoisted(() => ({ pubkey: "me", follows: [] as string[], followsStatus: "loaded" as "idle" | "loading" | "loaded" | "unknown", fetchFollows: (() => {}) as () => void }));
-const ui = vi.hoisted(() => ({ followsTab: "followers" as "followers" | "following", viewStack: [] as unknown[], goBack: () => {} }));
+const ui = vi.hoisted(() => ({ followsTab: "followers" as "followers" | "following" | "find", viewStack: [] as unknown[], goBack: () => {} }));
 
 vi.mock("../../lib/nostr", () => ({ fetchFollowers: vi.fn(), ensureConnected: vi.fn().mockResolvedValue(true) }));
 vi.mock("../../lib/db", () => ({ dbLoadFollowers: vi.fn().mockResolvedValue([]), dbSaveFollowers: vi.fn() }));
 vi.mock("../../stores/user", () => ({ useUserStore: () => user }));
-vi.mock("../../stores/ui", () => ({ useUIStore: () => ({ followsTab: ui.followsTab, setFollowsTab: (tab: "followers" | "following") => { ui.followsTab = tab; }, openProfile: () => {}, viewStack: ui.viewStack, goBack: ui.goBack }) }));
+vi.mock("../../stores/ui", () => ({ useUIStore: () => ({ followsTab: ui.followsTab, setFollowsTab: (tab: "followers" | "following" | "find") => { ui.followsTab = tab; }, openProfile: () => {}, viewStack: ui.viewStack, goBack: ui.goBack }) }));
 vi.mock("../../stores/notifications", () => ({ useNotificationsStore: <T,>(pick: (s: { newFollowerPubkeys: Set<string> }) => T) => pick({ newFollowerPubkeys: new Set<string>() }) }));
 vi.mock("../../hooks/useProfile", () => ({ useProfile: () => null }));
 vi.mock("../../hooks/useNip05Verified", () => ({ useNip05Verified: () => "unknown" }));
 vi.mock("../shared/FollowButton", () => ({ FollowButton: () => null }));
+vi.mock("../shared/PeopleToStartWith", () => ({ PeopleToStartWith: () => <p>people to start with</p> }));
+vi.mock("../shared/FindPeople", () => ({ FindPeople: () => <p>find people</p> }));
 
 import { FollowsView } from "./FollowsView";
 import { fetchFollowers } from "../../lib/nostr";
@@ -115,6 +117,38 @@ describe("FollowsView: Following", () => {
 
   // Followers used to load only on their own tab. Opening on Following
   // meant the "follows you" marks never appeared.
+  it("keeps the people to start with until the account follows three, above the rows each Follow adds", async () => {
+    Object.assign(user, { follows: [A] });
+    vi.mocked(fetchFollowers).mockImplementation(answering([]));
+    const { unmount } = render(<FollowsView />);
+    await settle(0);
+    const list = screen.getByText("people to start with");
+    const row = screen.getByRole("button", { name: /View profile of/ });
+    // A list that moved put the next person's Follow button under the pointer.
+    expect(list.compareDocumentPosition(row) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    unmount();
+    Object.assign(user, { follows: [A, "b".repeat(64), "c".repeat(64)] });
+    render(<FollowsView />);
+    await settle(0);
+    expect(screen.queryByText("people to start with")).toBeNull();
+    cleanup();
+    // Within one visit the list stays past the third follow: its leaving moved the rows up under the pointer.
+    Object.assign(user, { follows: [], followsStatus: "loaded" });
+    const { rerender } = render(<FollowsView />);
+    await settle(0);
+    expect(screen.getByText("people to start with")).toBeTruthy();
+    Object.assign(user, { follows: [A, "b".repeat(64), "c".repeat(64)] });
+    rerender(<FollowsView />);
+    await settle(0);
+    expect(screen.getByText("people to start with")).toBeTruthy();
+    cleanup();
+    // An empty list that has not loaded says nothing about whom the account follows.
+    Object.assign(user, { follows: [], followsStatus: "loading" });
+    render(<FollowsView />);
+    await settle(0);
+    expect(screen.queryByText("people to start with")).toBeNull();
+  });
+
   it("marks who follows back, with the followers read on this tab", async () => {
     Object.assign(user, { follows: [A] });
     vi.mocked(fetchFollowers).mockImplementation(answering([A]));
@@ -128,6 +162,7 @@ describe("FollowsView: Following", () => {
     await settle(0);
     expect(screen.getByText("You're not following anyone yet.")).toBeTruthy();
     expect(screen.getByText("Follow a few people and their notes make up your Following feed.")).toBeTruthy();
+    expect(screen.getByText("people to start with")).toBeTruthy();
     expect(tab(/Following/)).toBe("Following0");
   });
 
@@ -163,5 +198,16 @@ describe("FollowsView: the way back", () => {
     fireEvent.click(screen.getByRole("button", { name: "Back" }));
     expect(goBack).toHaveBeenCalledTimes(1);
     ui.viewStack = []; ui.goBack = () => {};
+  });
+});
+
+// People is where the hand went, twice over, to look for someone.
+describe("FollowsView: Find", () => {
+  it("is the third tab, and holds the people search", async () => {
+    ui.followsTab = "find";
+    render(<FollowsView />);
+    await settle(0);
+    expect(screen.getByRole("tab", { name: "Find" })).toBeTruthy();
+    expect(screen.getByText("find people")).toBeTruthy();
   });
 });

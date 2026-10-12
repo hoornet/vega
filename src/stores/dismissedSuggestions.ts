@@ -4,7 +4,9 @@ const STORAGE_KEY = "wrystr_dismissed_suggestions";
 
 function loadDismissed(): string[] {
   try {
-    return JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "[]");
+    const parsed: unknown = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "[]");
+    // A stored value that is not a list of keys used to throw in the render.
+    return Array.isArray(parsed) ? parsed.filter((p): p is string => typeof p === "string") : [];
   } catch {
     return [];
   }

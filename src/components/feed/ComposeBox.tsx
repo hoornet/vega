@@ -1,4 +1,6 @@
 import { useState, useRef, useEffect } from "react";
+import { afterPointerRelease } from "../../lib/pointer";
+import { markSaidHello } from "../../stores/firstRun";
 import { publishNote, publishPoll } from "../../lib/nostr";
 import { uploadImage, uploadBytes } from "../../lib/upload";
 import { PollCompose } from "../poll/PollCompose";
@@ -42,6 +44,7 @@ export function ComposeBox({ onPublished, onNoteInjected, confirmPosted = false 
   const [isPoll, setIsPoll] = useState(false);
   const [pollOptions, setPollOptions] = useState<string[]>(["", ""]);
   const [focused, setFocused] = useState(false);
+  const box = useRef<HTMLDivElement>(null);
   const autoResize = useAutoResize(3, 12);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   // "Write a note" from an empty view: the box opens and takes the keyboard.
@@ -240,6 +243,8 @@ export function ComposeBox({ onPublished, onNoteInjected, confirmPosted = false 
         const content = parts.join("\n");
         event = await publishNote(content);
       }
+      // The first-run card's "Say hello" is done with any note posted from here.
+      markSaidHello(event.pubkey);
       // Inject into feed immediately so the user sees their post
       if (onNoteInjected) {
         onNoteInjected(event);
@@ -287,12 +292,15 @@ export function ComposeBox({ onPublished, onNoteInjected, confirmPosted = false 
 
         {/* Input area */}
         <div
+          ref={box}
           className="flex-1 min-w-0"
           onFocus={() => setFocused(true)}
           onBlur={(e) => {
             // Keep expanded while focus moves to a child control (emoji,
-            // attach, poll, post); only collapse when focus truly leaves.
-            if (!e.currentTarget.contains(e.relatedTarget as Node)) setFocused(false);
+            // attach, poll, post); only collapse when focus truly leaves, and
+            // not under a pressed pointer: the collapse moves everything
+            // below the box, and the click being made would land elsewhere.
+            if (!e.currentTarget.contains(e.relatedTarget as Node)) afterPointerRelease(() => { if (!box.current?.contains(document.activeElement)) setFocused(false); });
           }}
         >
           <textarea

@@ -31,6 +31,7 @@ import { useNotificationsStore } from "./notifications";
 import { useFeedStore } from "./feed";
 import { usePodcastStore } from "./podcast";
 import { useBackupStore } from "./backup";
+import { endFirstRun } from "./firstRun";
 import { startNotificationPoller, stopNotificationPoller } from "../lib/notificationPoller";
 import { dbLoadProfile } from "../lib/db";
 import { debug } from "../lib/debug";
@@ -841,6 +842,7 @@ export const useUserStore = create<UserState>((set, get) => ({
     try { localStorage.removeItem(CONTACT_LIST_CACHE_PREFIX + pubkey); } catch { /* nothing to remove */ }
     // No key here any more: nothing left to remind about.
     useBackupStore.getState().clearPending(pubkey);
+    endFirstRun(pubkey);
     // Delete keychain entry (best-effort)
     invoke<void>("delete_nsec", { pubkey }).catch(() => {});
     // And the copies this session holds. "This deletes the secret key stored

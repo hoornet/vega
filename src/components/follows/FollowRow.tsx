@@ -1,3 +1,4 @@
+import { X } from "lucide-react";
 import { useUIStore } from "../../stores/ui";
 import { useProfile } from "../../hooks/useProfile";
 import { useNip05Verified } from "../../hooks/useNip05Verified";
@@ -10,10 +11,13 @@ export function FollowRow({
   pubkey,
   followsYou,
   isNew,
+  onDismiss,
 }: {
   pubkey: string;
   followsYou?: boolean;
   isNew?: boolean;
+  /** For a suggested person: "don't suggest again". */
+  onDismiss?: () => void;
 }) {
   const profile = useProfile(pubkey);
   const name = nameOf(profile, pubkey);
@@ -24,7 +28,7 @@ export function FollowRow({
   const { openProfile } = useUIStore();
 
   return (
-    <div className="flex items-center gap-3 px-4 py-2.5 hover:bg-bg-hover transition-colors">
+    <div className="group/row flex items-center gap-3 px-4 py-2.5 hover:bg-bg-hover transition-colors">
       <button className="shrink-0" aria-label={`View profile of ${name}`} onClick={() => openProfile(pubkey)}>
         {avatar ? (
           <img
@@ -64,6 +68,17 @@ export function FollowRow({
       </div>
 
       <FollowButton pubkey={pubkey} />
+      {onDismiss && (
+        <button
+          type="button"
+          onClick={onDismiss}
+          aria-label={`Don't suggest ${name} again`}
+          title="Don't suggest again"
+          className="shrink-0 w-8 h-8 flex items-center justify-center rounded-sm text-text-dim hover:text-danger opacity-0 group-hover/row:opacity-100 focus-visible:opacity-100 transition-opacity"
+        >
+          <X size={16} />
+        </button>
+      )}
     </div>
   );
 }

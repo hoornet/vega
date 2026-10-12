@@ -9,12 +9,14 @@ vi.mock("../../lib/nostr", () => ({
   fetchTrendingHashtags: vi.fn().mockResolvedValue([]),
   fetchNoteById: vi.fn().mockResolvedValue(null),
 }));
-vi.mock("../../stores/user", () => ({ useUserStore: () => ({ loggedIn: false, follows: [] as string[] }) }));
+const user = vi.hoisted(() => ({ loggedIn: false, follows: [] as string[], followsStatus: "loaded" as "idle" | "loading" | "loaded" | "unknown", canSign: true }));
+vi.mock("../../stores/user", () => ({ useUserStore: () => user, useCanSign: () => user.canSign }));
 vi.mock("../../stores/mute", () => ({ useMuteStore: () => ({ mutedPubkeys: [] as string[], contentMatchesMutedKeyword: () => false }) }));
 vi.mock("../../stores/dismissedSuggestions", () => ({ useDismissedSuggestionsStore: () => ({ dismissedPubkeys: [] as string[], dismiss: () => {} }) }));
 vi.mock("../feed/NoteCard", () => ({ NoteCard: ({ event }: { event: NDKEvent }) => <article>{event.content}</article> }));
 vi.mock("../article/ArticleCard", () => ({ ArticleCard: ({ event }: { event: NDKEvent }) => <article>{event.content}</article> }));
 vi.mock("../shared/FollowButton", () => ({ FollowButton: () => null }));
+vi.mock("../shared/PeopleToStartWith", () => ({ PeopleToStartWith: () => <p>people to start with</p> }));
 
 import { SearchView } from "./SearchView";
 import { useUIStore } from "../../stores/ui";
@@ -83,5 +85,43 @@ describe("SearchView: a search that finds nothing", () => {
     fireEvent.click(screen.getByRole("button", { name: "Try again" }));
     expect((await screen.findByText(/No results for/)).textContent).toBe("No results for vega.");
     expect(screen.queryByRole("alert")).toBeNull();
+  });
+});
+
+// Follows-of-follows needs follows. A new account used to see the "Discover
+// people" header with nothing under it.
+describe("SearchView: Discover people for an account that follows nobody", () => {
+  it("offers the people to start with, and says where they come from", async () => {
+    user.loggedIn = true;
+    user.follows = [];
+    try {
+      render(<SearchView />);
+      expect(await screen.findByText("people to start with")).toBeTruthy();
+      expect(screen.getByText("Posting lately. Follow a few and your Following feed fills up.")).toBeTruthy();
+      expect(screen.queryByText("Follow more people to see suggestions here.")).toBeNull();
+    } finally { user.loggedIn = false; }
+  });
+
+  it("offers nothing to a read-only account, which cannot follow", async () => {
+    user.loggedIn = true;
+    user.follows = [];
+    user.canSign = false;
+    try {
+      render(<SearchView />);
+      expect(screen.queryByText("people to start with")).toBeNull();
+      expect(screen.queryByText(/Posting lately/)).toBeNull();
+    } finally { user.loggedIn = false; user.canSign = true; }
+  });
+
+  it("offers nothing while the follow list has not loaded: an empty list that has not loaded says nothing", async () => {
+    user.loggedIn = true;
+    user.follows = [];
+    user.followsStatus = "unknown";
+    try {
+      render(<SearchView />);
+      expect(screen.getByText("Discover people")).toBeTruthy();
+      expect(screen.queryByText("people to start with")).toBeNull();
+      expect(screen.queryByText(/Posting lately/)).toBeNull();
+    } finally { user.loggedIn = false; user.followsStatus = "loaded"; }
   });
 });

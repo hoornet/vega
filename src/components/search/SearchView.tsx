@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { NDKEvent, nip19 } from "@nostr-dev-kit/ndk";
 import { fetchFollowSuggestions, fetchProfile, advancedSearch, fetchTrendingHashtags, fetchNoteById } from "../../lib/nostr";
 import { parseSearchQuery, describeSearch } from "../../lib/search";
-import { useUserStore } from "../../stores/user";
+import { useUserStore, useCanSign } from "../../stores/user";
 import { useMuteStore } from "../../stores/mute";
 import { useDismissedSuggestionsStore } from "../../stores/dismissedSuggestions";
 import { useUIStore } from "../../stores/ui";
@@ -14,6 +14,7 @@ import { ViewHeader } from "../shared/ViewHeader";
 import { Tabs, tabPanelProps } from "../shared/Tabs";
 import { Button } from "../shared/Button";
 import { FollowButton } from "../shared/FollowButton";
+import { PeopleToStartWith } from "../shared/PeopleToStartWith";
 import { ListState } from "../shared/ListState";
 import { fetchMark, wentUnanswered } from "../../lib/listLoad";
 
@@ -101,7 +102,10 @@ export function SearchView() {
     }).catch(() => {}).finally(() => setTrendingLoading(false));
   }, []);
 
-  const { loggedIn, follows } = useUserStore();
+  const { loggedIn, follows, followsStatus } = useUserStore();
+  // Only a loaded list says the account follows nobody: see the contact list section of CLAUDE.md.
+  const canSign = useCanSign();
+  const followsNobody = followsStatus === "loaded" && follows.length === 0;
   const { mutedPubkeys, contentMatchesMutedKeyword } = useMuteStore();
   const { dismissedPubkeys, dismiss } = useDismissedSuggestionsStore();
 
@@ -358,12 +362,17 @@ export function SearchView() {
         )}
 
         {/* Discover — follow suggestions */}
-        {!searched && !loading && loggedIn && (
+        {/* Suggestions are to be followed: nothing for a read-only account. */}
+        {!searched && !loading && loggedIn && canSign && (
           <div className="border-t border-border-subtle">
             <div className="px-4 py-2.5 border-b border-border-subtle">
               <h3 className="text-text text-body font-medium">Discover people</h3>
-              <p className="text-text-dim text-caption mt-0.5">Based on who your follows follow</p>
+              <p className="text-text-dim text-caption mt-0.5">{followsNobody ? "Posting lately. Follow a few and your Following feed fills up." : "Based on who your follows follow"}</p>
             </div>
+            {/* Follows-of-follows needs follows. Until there are some, the people to start with. */}
+            {followsNobody && (
+              <PeopleToStartWith heading={false} fallback={<div className="px-4 py-6 text-text-dim text-caption text-center">Follow a few people and suggestions based on them appear here.</div>} />
+            )}
             {suggestionsLoading && (
               <div className="px-4 py-6 text-text-dim text-caption text-center">Finding suggestions…</div>
             )}
@@ -401,7 +410,7 @@ export function SearchView() {
                 </button>
               </div>
             ))}
-            {suggestionsLoaded && visibleSuggestions.length === 0 && (
+            {!followsNobody && suggestionsLoaded && visibleSuggestions.length === 0 && (
               <div className="px-4 py-6 text-text-dim text-caption text-center">
                 Follow more people to see suggestions here.
               </div>

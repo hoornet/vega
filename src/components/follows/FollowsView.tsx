@@ -8,6 +8,9 @@ import { dbLoadFollowers, dbSaveFollowers } from "../../lib/db";
 import { ViewHeader } from "../shared/ViewHeader";
 import { Tabs, tabPanelProps } from "../shared/Tabs";
 import { FollowRow } from "./FollowRow";
+import { PeopleToStartWith } from "../shared/PeopleToStartWith";
+import { FindPeople } from "../shared/FindPeople";
+import { FOLLOWS_TO_START } from "../../stores/firstRun";
 import { ListState, followListState } from "../shared/ListState";
 import { fetchMark, wentUnanswered } from "../../lib/listLoad";
 
@@ -91,16 +94,27 @@ export function FollowsView() {
     })();
 
     return () => { cancelled = true; };
-  }, [followsTab, pubkey, followersReload]);
+  }, [pubkey, followersReload]);
 
   // Build followers set for "follows you" badge on Following tab
   const followersSet = new Set(followers);
 
-  const tabs: Array<{ id: "followers" | "following"; label: string; count?: number }> = [
+  // Whether to offer people to start with is decided once per visit: shown
+  // once the loaded list has fewer than a few, kept for the visit. A list
+  // that left at the third Follow moved the rows up under the pointer, and
+  // the second press of a double-click would unfollow someone.
+  const [startList, setStartList] = useState(false);
+  useEffect(() => {
+    if (followsStatus === "loaded" && follows.length < FOLLOWS_TO_START) setStartList(true);
+  }, [followsStatus, follows.length]);
+
+  const tabs: Array<{ id: "followers" | "following" | "find"; label: string; count?: number }> = [
     // No "0" beside a list that could not be read.
     { id: "followers", label: "Followers", count: followersFetched && !(followers.length === 0 && followersUnanswered) ? followers.length : undefined },
     // An empty list that has not loaded proves nothing: no "0" until it has.
     { id: "following", label: "Following", count: followsStatus === "loaded" ? follows.length : undefined },
+    // People is where the hand goes to look for someone, twice over in testing.
+    { id: "find", label: "Find", count: undefined },
   ];
 
   return (
@@ -138,6 +152,11 @@ export function FollowsView() {
 
         {followsTab === "following" && (
           <>
+            {/* Until there are a few: the card's "Follow a few people" leads here. First, above
+                the rows that each Follow adds, and for the whole visit: a list that moves, or
+                goes, puts the next person's button under the pointer, and a second press
+                would publish a kind 3. */}
+            {startList && <PeopleToStartWith />}
             {follows.length === 0 && (
               <ListState
                 state={followListState(followsStatus)}
@@ -152,6 +171,8 @@ export function FollowsView() {
             <FollowingRows key={pubkey ?? ""} follows={follows} followers={followersSet} />
           </>
         )}
+
+        {followsTab === "find" && <FindPeople />}
       </div>
     </div>
   );

@@ -13,6 +13,15 @@ export async function fetchTrendingCandidates(limit = 200, sinceHours = 24): Pro
   return Array.from(events).sort((a, b) => (b.created_at ?? 0) - (a.created_at ?? 0));
 }
 
+/**
+ * A word someone would write after "#": letters or digits in any script, with
+ * their combining marks (Devanagari, Thai), up to 24 of them. "Trending now" used to lead with a spam bot's
+ * "tlgblue-dm-45dda58cca595080acebc0b5".
+ */
+export function looksLikeHashtag(tag: string): boolean {
+  return /^[\p{L}\p{M}\p{N}_]{1,24}$/u.test(tag) && !/[0-9a-f]{12,}/i.test(tag);
+}
+
 export async function fetchTrendingHashtags(limit = 15): Promise<{ tag: string; count: number }[]> {
   const instance = getNDK();
   const since = Math.floor(Date.now() / 1000) - 24 * 60 * 60;
@@ -28,7 +37,7 @@ export async function fetchTrendingHashtags(limit = 15): Promise<{ tag: string; 
     for (const tag of event.tags) {
       if (tag[0] !== "t" || !tag[1]) continue;
       const normalized = tag[1].toLowerCase().trim();
-      if (normalized.length === 0) continue;
+      if (!looksLikeHashtag(normalized)) continue;
       counts.set(normalized, (counts.get(normalized) ?? 0) + 1);
     }
   }

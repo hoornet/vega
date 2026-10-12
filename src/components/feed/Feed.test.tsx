@@ -42,6 +42,8 @@ vi.mock("../article/ArticleCard", () => ({ ArticleCard: ({ event }: { event: NDK
 const compose = vi.hoisted(() => ({ confirmPosted: undefined as undefined | boolean | ((event: unknown) => boolean) }));
 vi.mock("./ComposeBox", () => ({ ComposeBox: (props: { confirmPosted?: boolean | ((event: unknown) => boolean) }) => { compose.confirmPosted = props.confirmPosted; return null; } }));
 vi.mock("./RelayStatusBadge", () => ({ RelayStatusBadge: () => null }));
+vi.mock("./StartHereCard", () => ({ StartHereCard: () => <p>start here card</p> }));
+vi.mock("../shared/PeopleToStartWith", () => ({ PeopleToStartWith: () => <p>people to start with</p> }));
 
 import { Feed } from "./Feed";
 import { useFeedStore } from "../../stores/feed";
@@ -92,6 +94,18 @@ beforeEach(() => {
   });
 });
 afterEach(cleanup);
+
+describe("Feed: the first-run card", () => {
+  it("is above the list, on every tab", async () => {
+    Element.prototype.scrollTo = vi.fn();
+    vi.mocked(fetchFollowFeed).mockImplementation(answering([note("a")]));
+    await shown("following");
+    expect(screen.getByText("start here card")).toBeTruthy();
+    cleanup();
+    await shown("trending");
+    expect(screen.getByText("start here card")).toBeTruthy();
+  });
+});
 
 describe("Feed: the Following tab", () => {
   it("shows the notes from the people you follow", async () => {
@@ -272,6 +286,7 @@ describe("Feed: the Following tab without a follow list", () => {
     user.followsStatus = "loaded";
     await shown("following");
     expect(screen.getByText("You're not following anyone yet.")).toBeTruthy();
+    expect(screen.getByText("people to start with")).toBeTruthy();
     expect(vi.mocked(fetchFollowFeed)).not.toHaveBeenCalled();
   });
 
