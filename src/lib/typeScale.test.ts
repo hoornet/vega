@@ -32,7 +32,7 @@ const ALLOWED: Record<string, number> = {
   "components/feed/MediaCards.tsx": 2,
   "components/feed/NoteActions.tsx": 3,
   "components/feed/NoteCard.tsx": 1,
-  "components/feed/QuoteModal.tsx": 2,
+  "components/feed/QuoteModal.tsx": 1,
   "components/feed/TextSegments.tsx": 1,
   "components/follows/FollowsView.tsx": 1,
   "components/onboarding/OnboardingFlow.tsx": 1,
@@ -44,9 +44,7 @@ const ALLOWED: Record<string, number> = {
   "components/profile/ProfileView.tsx": 2,
   "components/search/SearchView.tsx": 3,
   "components/shared/EmojiPicker.tsx": 1,
-  "components/shared/HelpModal.tsx": 1,
   "components/shared/ImageLightbox.tsx": 3,
-  "components/shared/LoginModal.tsx": 1,
   "components/shared/RelaysView.tsx": 1,
   "components/shared/SettingsView.tsx": 1,
   "components/sidebar/AccountSwitcher.tsx": 6,
@@ -56,7 +54,7 @@ const ALLOWED: Record<string, number> = {
   "components/thread/ThreadView.tsx": 1,
   "components/v4v/V4VSettings.tsx": 2,
   "components/zap/ZapHistoryView.tsx": 1,
-  "components/zap/ZapModal.tsx": 3,
+  "components/zap/ZapModal.tsx": 2,
 };
 
 function count(): Record<string, number> {

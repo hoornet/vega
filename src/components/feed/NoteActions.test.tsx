@@ -26,7 +26,8 @@ vi.mock("../../stores/mute", () => ({ useMuteStore: (sel: (s: typeof mute) => un
 vi.mock("../../stores/bookmark", () => ({ useBookmarkStore: (sel: (s: typeof bookmarks) => unknown) => sel(bookmarks) }));
 vi.mock("../../lib/nostr", () => ({ publishRepost: vi.fn().mockResolvedValue(undefined), publishReaction: vi.fn().mockResolvedValue(undefined) }));
 vi.mock("../zap/ZapModal", () => ({ ZapModal: () => <div>zap dialog</div> }));
-vi.mock("./QuoteModal", () => ({ QuoteModal: () => <div>quote dialog</div> }));
+const quoteProps = vi.hoisted(() => ({ last: null as null | { returnFocus?: { current: HTMLElement | null } } }));
+vi.mock("./QuoteModal", () => ({ QuoteModal: (props: { returnFocus?: { current: HTMLElement | null } }) => { quoteProps.last = props; return <div>quote dialog</div>; } }));
 
 import { publishReaction, publishRepost } from "../../lib/nostr";
 import { repostKey, useRepostedStore } from "../../stores/reposted";
@@ -188,6 +189,8 @@ describe("repost", () => {
     fireEvent.click(repostTrigger());
     fireEvent.click(item("Quote…"));
     expect(screen.getByText("quote dialog")).toBeTruthy();
+    // "Quote…" is gone by the time the dialog closes: it is told to give focus back to the button that opened the menu.
+    expect(quoteProps.last?.returnFocus?.current).toBe(screen.getByRole("button", { name: /Repost or quote/ }));
     expect(screen.queryByRole("menu")).toBeNull();
     expect(publishRepost).not.toHaveBeenCalled();
   });

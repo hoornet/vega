@@ -51,4 +51,31 @@ describe("useEscapeToClose", () => {
     pressEscape();
     expect(onClose).not.toHaveBeenCalled();
   });
+
+  // Its place in the order is where it opened. A new onClose on a later
+  // render must not lift it above something that opened after it.
+  it("does not jump the queue when its handler changes", () => {
+    const menuV1 = vi.fn();
+    const menuV2 = vi.fn();
+    const dialog = vi.fn();
+    function Two({ handler }: { handler: () => void }) {
+      return (<><Popover onClose={handler} /><Popover onClose={dialog} /></>);
+    }
+    const { rerender } = render(<Two handler={menuV1} />);
+    rerender(<Two handler={menuV2} />);
+    pressEscape();
+    expect(dialog).toHaveBeenCalledTimes(1);
+    expect(menuV1).not.toHaveBeenCalled();
+    expect(menuV2).not.toHaveBeenCalled();
+  });
+
+  it("calls the newest handler it was given", () => {
+    const first = vi.fn();
+    const second = vi.fn();
+    const { rerender } = render(<Popover onClose={first} />);
+    rerender(<Popover onClose={second} />);
+    pressEscape();
+    expect(first).not.toHaveBeenCalled();
+    expect(second).toHaveBeenCalledTimes(1);
+  });
 });

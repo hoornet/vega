@@ -1,12 +1,15 @@
-import { useState } from "react";
+import { useState, type RefObject } from "react";
 import { NDKPrivateKeySigner } from "@nostr-dev-kit/ndk";
 import { useUserStore } from "../../stores/user";
 import { Tabs } from "./Tabs";
 import { Button } from "./Button";
+import { Dialog } from "./Dialog";
 import { Check, Copy } from "lucide-react";
 
 interface LoginModalProps {
   onClose: () => void;
+  /** Where focus goes when this closes, if what opened it will be gone by then (a menu item). */
+  returnFocus?: RefObject<HTMLElement | null>;
 }
 
 function NewAccountTab({ onClose }: { onClose: () => void }) {
@@ -71,7 +74,7 @@ function NewAccountTab({ onClose }: { onClose: () => void }) {
   );
 }
 
-export function LoginModal({ onClose }: LoginModalProps) {
+export function LoginModal({ onClose, returnFocus }: LoginModalProps) {
   const [tab, setTab] = useState<"nsec" | "pubkey" | "bunker" | "new">("nsec");
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -98,100 +101,74 @@ export function LoginModal({ onClose }: LoginModalProps) {
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter") handleLogin();
-    if (e.key === "Escape") onClose();
   };
 
   return (
-    <div
-      className="fixed inset-0 bg-black/60 flex items-center justify-center z-50"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="login-modal-title"
-      onClick={onClose}
-      onKeyDown={(e) => { if (e.key === "Escape") onClose(); }}
-    >
-      <div
-        className="bg-bg-raised border border-border w-full max-w-md mx-4 rounded-lg"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Header */}
-        <div className="flex items-center justify-between px-4 py-3 border-b border-border-subtle">
-          <h2 id="login-modal-title" className="text-text text-title font-medium">Login</h2>
-          <button
-            onClick={onClose}
-            aria-label="Close login dialog"
-            className="text-text-dim hover:text-text text-lg leading-none"
-          >
-            ×
-          </button>
-        </div>
+    <Dialog title="Login" onClose={onClose} returnFocus={returnFocus}>
+      <Tabs
+        label="How to log in"
+        tabs={[
+          { id: "nsec", label: "Private key" },
+          { id: "pubkey", label: "Read-only" },
+          { id: "bunker", label: "Remote signer" },
+          { id: "new", label: "New account" },
+        ]}
+        value={tab}
+        onChange={(t) => { setTab(t); setInput(""); }}
+      />
 
-        <Tabs
-          label="How to log in"
-          tabs={[
-            { id: "nsec", label: "Private key" },
-            { id: "pubkey", label: "Read-only" },
-            { id: "bunker", label: "Remote signer" },
-            { id: "new", label: "New account" },
-          ]}
-          value={tab}
-          onChange={(t) => { setTab(t); setInput(""); }}
-        />
+      {/* Content */}
+      <div className="p-4">
+        {tab === "new" ? (
+          <NewAccountTab onClose={onClose} />
+        ) : (
+          <>
+            <label className="block text-text-muted text-caption mb-1.5">
+              {tab === "nsec"
+                ? "Paste your nsec or hex private key"
+                : tab === "pubkey"
+                  ? "Paste your npub or hex public key"
+                  : "Paste your bunker:// URI"}
+            </label>
+            <input
+              type={tab === "nsec" ? "password" : "text"}
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder={tab === "nsec" ? "nsec1…" : tab === "pubkey" ? "npub1…" : "bunker://…"}
+              className="w-full bg-bg border border-border-strong px-3 py-2 text-text text-ui font-mono placeholder:text-text-dim focus:outline-none focus:border-accent rounded-lg"
+            />
 
-        {/* Content */}
-        <div className="p-4">
-          {tab === "new" ? (
-            <NewAccountTab onClose={onClose} />
-          ) : (
-            <>
-              <label className="block text-text-muted text-caption mb-1.5">
-                {tab === "nsec"
-                  ? "Paste your nsec or hex private key"
-                  : tab === "pubkey"
-                    ? "Paste your npub or hex public key"
-                    : "Paste your bunker:// URI"}
-              </label>
-              <input
-                type={tab === "nsec" ? "password" : "text"}
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyDown={handleKeyDown}
-                placeholder={tab === "nsec" ? "nsec1…" : tab === "pubkey" ? "npub1…" : "bunker://…"}
-                autoFocus
-                className="w-full bg-bg border border-border-strong px-3 py-2 text-text text-ui font-mono placeholder:text-text-dim focus:outline-none focus:border-accent rounded-lg"
-              />
+            {tab === "nsec" && (
+              <p className="text-text-dim text-caption mt-1.5">
+                Your key stays local. Never sent to any server.
+              </p>
+            )}
 
-              {tab === "nsec" && (
-                <p className="text-text-dim text-caption mt-1.5">
-                  Your key stays local. Never sent to any server.
-                </p>
-              )}
+            {tab === "pubkey" && (
+              <p className="text-text-dim text-caption mt-1.5">
+                Read-only mode — you can browse but not post or zap.
+              </p>
+            )}
 
-              {tab === "pubkey" && (
-                <p className="text-text-dim text-caption mt-1.5">
-                  Read-only mode — you can browse but not post or zap.
-                </p>
-              )}
+            {tab === "bunker" && (
+              <p className="text-text-dim text-caption mt-1.5">
+                Connect to nsecBunker, Amber, or similar. Your keys never leave the signer.
+              </p>
+            )}
 
-              {tab === "bunker" && (
-                <p className="text-text-dim text-caption mt-1.5">
-                  Connect to nsecBunker, Amber, or similar. Your keys never leave the signer.
-                </p>
-              )}
+            {loginError && (
+              <p className="text-danger text-caption mt-2">{loginError}</p>
+            )}
 
-              {loginError && (
-                <p className="text-danger text-caption mt-2">{loginError}</p>
-              )}
-
-              <Button variant="primary" size="lg" className="w-full mt-3" onClick={handleLogin} disabled={!input.trim()} busy={loading}>
-                {loading
-                  ? (tab === "bunker" ? "Connecting…" : "Logging in…")
-                  : tab === "nsec" ? "Login" : tab === "pubkey" ? "View as read-only" : "Connect"}
-              </Button>
-            </>
-          )}
-        </div>
+            <Button variant="primary" size="lg" className="w-full mt-3" onClick={handleLogin} disabled={!input.trim()} busy={loading}>
+              {loading
+                ? (tab === "bunker" ? "Connecting…" : "Logging in…")
+                : tab === "nsec" ? "Login" : tab === "pubkey" ? "View as read-only" : "Connect"}
+            </Button>
+          </>
+        )}
       </div>
-    </div>
+    </Dialog>
   );
 }

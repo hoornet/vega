@@ -49,7 +49,7 @@ function MutedRow({ pubkey, onUnmute }: { pubkey: string; onUnmute: () => void }
       <span className="text-text truncate flex-1">{name}</span>
       <button
         onClick={onUnmute}
-        className="text-text-dim hover:text-accent text-caption opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
+        className="text-text-dim hover:text-accent text-caption opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity shrink-0"
       >
         unmute
       </button>
@@ -151,7 +151,7 @@ function MutedKeywordsSection() {
               <span className="text-text truncate flex-1">{kw}</span>
               <button
                 onClick={() => removeKeyword(kw)}
-                className="text-text-dim hover:text-danger text-caption opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
+                className="text-text-dim hover:text-danger text-caption opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity shrink-0"
               >
                 Remove
               </button>

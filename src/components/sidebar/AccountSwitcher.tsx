@@ -1,10 +1,11 @@
-import { useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { useUserStore, SavedAccount } from "../../stores/user";
 import { useUIStore } from "../../stores/ui";
 import { LoginModal } from "../shared/LoginModal";
 import { shortenPubkey } from "../../lib/utils";
 import { useEscapeToClose } from "../../hooks/useEscapeToClose";
+import { usePopoverDismiss, type DismissReason } from "../../hooks/usePopoverDismiss";
 import { Button } from "../shared/Button";
 
 function Avatar({ account, size = "w-6 h-6", textSize = "text-[10px]" }: { account: SavedAccount; size?: string; textSize?: string }) {
@@ -107,6 +108,21 @@ export function AccountSwitcher() {
 
   const confirmTarget = confirmRemove ? accounts.find((a) => a.pubkey === confirmRemove) ?? null : null;
 
+  // The menu closes on Escape and on a click outside it, like every other
+  // menu. It used to stay open until its own arrow was pressed again, across
+  // navigation. Not while the removal confirmation is up: there Escape backs
+  // out of the confirmation and nothing else (see RemoveAccountConfirm), and a
+  // stray click must not dismiss a question about deleting a key.
+  const menuRef = useRef<HTMLDivElement>(null);
+  const arrowRef = useRef<HTMLButtonElement>(null);
+  // Closed from the keyboard, focus goes back to the arrow that opened it.
+  // Otherwise the focused item unmounts and focus falls to the page.
+  const closeMenu = useCallback((reason: DismissReason) => {
+    setOpen(false);
+    if (reason === "escape") arrowRef.current?.focus();
+  }, []);
+  usePopoverDismiss(menuRef, open && !confirmTarget, closeMenu);
+
   const handleAddAccount = () => {
     setOpen(false);
     setShowAddLogin(true);
@@ -141,7 +157,7 @@ export function AccountSwitcher() {
 
   return (
     <>
-      <div className="border-t border-border-subtle shrink-0">
+      <div ref={menuRef} className="border-t border-border-subtle shrink-0">
         {/* Dropdown — other accounts + actions */}
         {open && confirmTarget && (
           <RemoveAccountConfirm
@@ -215,7 +231,7 @@ export function AccountSwitcher() {
           <div className="flex items-center gap-2">
             <div
               className="flex items-center gap-2 flex-1 min-w-0 cursor-pointer hover:opacity-80 transition-opacity"
-              onClick={() => openProfile(pubkey)}
+              onClick={() => { setOpen(false); openProfile(pubkey); }}
             >
               <Avatar account={current} size={loggedIn ? "w-11 h-11" : "w-8 h-8"} textSize={loggedIn ? "text-[16px]" : "text-[12px]"} />
               <span className={`font-medium truncate flex-1 ${loggedIn ? "text-body text-text" : "text-ui text-text-muted"}`}>{displayName(current)}</span>
@@ -223,7 +239,9 @@ export function AccountSwitcher() {
             <button
               onClick={() => { setConfirmRemove(null); setOpen((v) => !v); }}
               className="text-text-dim hover:text-text text-[14px] transition-colors px-1"
+              ref={arrowRef}
               title="Switch account"
+              aria-expanded={open}
             >
               {open ? "▲" : "▼"}
             </button>
@@ -231,7 +249,8 @@ export function AccountSwitcher() {
         </div>
       </div>
 
-      {showAddLogin && <LoginModal onClose={() => setShowAddLogin(false)} />}
+      {/* "Add account" is gone when the dialog closes, so focus is sent back to the arrow. */}
+      {showAddLogin && <LoginModal onClose={() => setShowAddLogin(false)} returnFocus={arrowRef} />}
     </>
   );
 }

@@ -1,5 +1,6 @@
 import { useEffect, useCallback } from "react";
 import { BodyPortal } from "./BodyPortal";
+import { useModal } from "../../hooks/useModal";
 
 interface ImageLightboxProps {
   images: string[];
@@ -12,14 +13,13 @@ export function ImageLightbox({ images, index, onClose, onNavigate }: ImageLight
   const hasPrev = index > 0;
   const hasNext = index < images.length - 1;
 
+  // Escape, and focus in, kept in and returned, are the same as for a dialog.
+  const { container } = useModal(onClose);
+
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
-    if (e.key === "Escape") {
-      e.stopImmediatePropagation();
-      onClose();
-    }
     if (e.key === "ArrowLeft" && hasPrev) onNavigate(index - 1);
     if (e.key === "ArrowRight" && hasNext) onNavigate(index + 1);
-  }, [onClose, onNavigate, index, hasPrev, hasNext]);
+  }, [onNavigate, index, hasPrev, hasNext]);
 
   useEffect(() => {
     document.addEventListener("keydown", handleKeyDown);
@@ -29,7 +29,9 @@ export function ImageLightbox({ images, index, onClose, onNavigate }: ImageLight
   return (
     <BodyPortal>
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm"
+      ref={container}
+      tabIndex={-1}
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm focus:outline-none"
       role="dialog"
       aria-modal="true"
       aria-label="Image viewer"
@@ -62,12 +64,12 @@ export function ImageLightbox({ images, index, onClose, onNavigate }: ImageLight
         </button>
       )}
 
-      {/* Image — click to close (same gesture as clicking the backdrop) */}
+      {/* A click on the picture closes too: it reaches the handler on the viewer itself. */}
       <img
         src={images[index]}
         alt={`Image ${index + 1} of ${images.length}`}
-        className="max-w-[90vw] max-h-[90vh] object-contain select-none cursor-zoom-out"
-        onClick={onClose}
+        // A share of the viewer, not of the viewport: inside the text-size zoom, 90vw was wider than the window.
+        className="max-w-[90%] max-h-[90%] object-contain select-none cursor-zoom-out"
         draggable={false}
       />
 
