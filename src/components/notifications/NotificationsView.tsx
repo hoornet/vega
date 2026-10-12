@@ -5,6 +5,7 @@ import { useNotificationsStore } from "../../stores/notifications";
 import { NoteCard } from "../feed/NoteCard";
 import { SkeletonNoteList } from "../shared/Skeleton";
 import { ViewHeader } from "../shared/ViewHeader";
+import { Button } from "../shared/Button";
 
 export function NotificationsView() {
   const { pubkey, loggedIn } = useUserStore();
@@ -43,12 +44,7 @@ export function NotificationsView() {
       <ViewHeader
         title="Notifications"
         actions={unreadCount > 0 ? (
-          <button
-              onClick={markAllRead}
-              className="text-ui text-text-dim hover:text-accent transition-colors"
-            >
-              Mark all read
-            </button>
+          <Button variant="ghost" onClick={markAllRead}>Mark all read</Button>
         ) : undefined}
       />
 

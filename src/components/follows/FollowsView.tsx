@@ -1,14 +1,17 @@
 import { useEffect, useState } from "react";
 import { useUIStore } from "../../stores/ui";
-import { useUserStore, useCanSign } from "../../stores/user";
+import { useUserStore } from "../../stores/user";
 import { useNotificationsStore } from "../../stores/notifications";
 import { useProfile } from "../../hooks/useProfile";
 import { useNip05Verified } from "../../hooks/useNip05Verified";
 import { fetchFollowers, ensureConnected } from "../../lib/nostr";
+import { keepUnfollowedRows } from "../../lib/contacts";
 import { dbLoadFollowers, dbSaveFollowers } from "../../lib/db";
 import { shortenPubkey, profileName } from "../../lib/utils";
 import { ViewHeader } from "../shared/ViewHeader";
 import { Tabs, tabPanelProps } from "../shared/Tabs";
+import { Button } from "../shared/Button";
+import { FollowButton } from "../shared/FollowButton";
 
 function FollowRow({
   pubkey,
@@ -25,11 +28,7 @@ function FollowRow({
   const nip05 = typeof profile?.nip05 === "string" ? profile.nip05 : undefined;
   const verified = useNip05Verified(pubkey, nip05);
 
-  const canSign = useCanSign();
-  const { follows, follow, unfollow, pubkey: ownPubkey } = useUserStore();
   const { openProfile } = useUIStore();
-  const isFollowing = follows.includes(pubkey);
-  const isSelf = pubkey === ownPubkey;
 
   return (
     <div className="flex items-center gap-3 px-4 py-2.5 hover:bg-bg-hover transition-colors">
@@ -71,19 +70,26 @@ function FollowRow({
         </div>
       </div>
 
-      {!isSelf && canSign && (
-        <button
-          onClick={() => isFollowing ? unfollow(pubkey) : follow(pubkey)}
-          className={`shrink-0 px-3 py-1 text-ui rounded-sm transition-colors ${
-            isFollowing
-              ? "text-text-dim border border-border hover:text-danger hover:border-danger"
-              : "bg-accent hover:bg-accent-hover text-accent-text"
-          }`}
-        >
-          {isFollowing ? "Unfollow" : "Follow"}
-        </button>
-      )}
+      <FollowButton pubkey={pubkey} />
     </div>
+  );
+}
+
+/**
+ * The people you follow. Someone unfollowed here keeps their row, now with a
+ * Follow button, until the view is left. See `keepUnfollowedRows`.
+ */
+function FollowingRows({ follows, followers }: { follows: string[]; followers: Set<string> }) {
+  const [rows, setRows] = useState(follows);
+  useEffect(() => {
+    setRows((shown) => keepUnfollowedRows(shown, follows));
+  }, [follows]);
+  return (
+    <>
+      {rows.map((pk) => (
+        <FollowRow key={pk} pubkey={pk} followsYou={followers.has(pk)} />
+      ))}
+    </>
   );
 }
 
@@ -207,18 +213,12 @@ export function FollowsView() {
                       : "Loading the people you follow…"}
                 </p>
                 {followsStatus === "unknown" && (
-                  <button
-                    onClick={() => void fetchFollows()}
-                    className="mt-3 px-3 py-1.5 text-ui border border-border text-text hover:border-accent/60 hover:text-accent transition-colors rounded-sm"
-                  >
-                    Try again
-                  </button>
+                  <Button className="mt-3" onClick={() => void fetchFollows()}>Try again</Button>
                 )}
               </div>
             )}
-            {follows.map((pk) => (
-              <FollowRow key={pk} pubkey={pk} followsYou={followersSet.has(pk)} />
-            ))}
+            {/* Keyed by account: one account's kept rows must not outlive a switch or a sign-out. */}
+            <FollowingRows key={pubkey ?? ""} follows={follows} followers={followersSet} />
           </>
         )}
       </div>

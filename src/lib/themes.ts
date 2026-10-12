@@ -15,8 +15,12 @@ interface ThemeColors {
   "accent-hover": string;
   "accent-text": string;
   zap: string;
+  /** A solid `zap` button under the pointer. Never `bg-zap/90`: that lets the surface show through, and on a light theme it lightens the fill under a light label. */
+  "zap-hover": string;
   "zap-text": string;
   danger: string;
+  /** A solid `danger` button under the pointer. */
+  "danger-hover": string;
   /** Text and icons drawn on a solid `danger` fill. Never assume white: most dark themes have a light danger. */
   "danger-text": string;
   warning: string;
@@ -47,8 +51,10 @@ export const themes: Theme[] = [
       "accent-hover": "#bba6fc",
       "accent-text": "#14111f",
       zap: "#f5b73d",
+      "zap-hover": "#d8a136",
       "zap-text": "#15161a",
       danger: "#ef5f6b",
+      "danger-hover": "#f27983",
       "danger-text": "#0d0e12",
       warning: "#f5b73d",
       success: "#4cc98a",
@@ -71,8 +77,10 @@ export const themes: Theme[] = [
       "accent-hover": "#5b21b6",
       "accent-text": "#ffffff",
       zap: "#bd3f0c",
+      "zap-hover": "#a6370b",
       "zap-text": "#ffffff",
       danger: "#b91c1c",
+      "danger-hover": "#a31919",
       "danger-text": "#ffffff",
       warning: "#ac4f09",
       success: "#147a3a",
@@ -95,8 +103,10 @@ export const themes: Theme[] = [
       "accent-hover": "#b4befe",
       "accent-text": "#1e1e2e",
       zap: "#f9e2af",
+      "zap-hover": "#dbc79a",
       "zap-text": "#1e1e2e",
       danger: "#f38ba8",
+      "danger-hover": "#d67a94",
       "danger-text": "#1e1e2e",
       warning: "#f9e2af",
       success: "#a6e3a1",
@@ -119,8 +129,10 @@ export const themes: Theme[] = [
       "accent-hover": "#ff9a45",
       "accent-text": "#282828",
       zap: "#fabd2f",
+      "zap-hover": "#dca629",
       "zap-text": "#282828",
       danger: "#fc7b6b",
+      "danger-hover": "#fc9083",
       "danger-text": "#282828",
       warning: "#fabd2f",
       success: "#b8bb26",
@@ -143,8 +155,10 @@ export const themes: Theme[] = [
       "accent-hover": "#81a1c1",
       "accent-text": "#2e3440",
       zap: "#ebcb8b",
+      "zap-hover": "#cfb37a",
       "zap-text": "#2e3440",
       danger: "#e09ca2",
+      "danger-hover": "#e5acb1",
       "danger-text": "#2e3440",
       warning: "#ebcb8b",
       success: "#a3be8c",
@@ -167,8 +181,10 @@ export const themes: Theme[] = [
       "accent-hover": "#4cf57a",
       "accent-text": "#050708",
       zap: "#f5e042",
+      "zap-hover": "#d8c53a",
       "zap-text": "#050708",
       danger: "#ff5050",
+      "danger-hover": "#ff6c6c",
       "danger-text": "#050708",
       warning: "#f5e042",
       success: "#18ff62",
@@ -191,8 +207,10 @@ export const themes: Theme[] = [
       "accent-hover": "#6d3711",
       "accent-text": "#faf3e5",
       zap: "#8d6018",
+      "zap-hover": "#7c5415",
       "zap-text": "#faf3e5",
       danger: "#b91c1c",
+      "danger-hover": "#a31919",
       "danger-text": "#ffffff",
       warning: "#8d6018",
       success: "#48750e",

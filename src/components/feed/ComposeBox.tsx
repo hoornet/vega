@@ -9,6 +9,7 @@ import { shortenPubkey, profileName } from "../../lib/utils";
 import { open } from "@tauri-apps/plugin-dialog";
 import { readFile } from "@tauri-apps/plugin-fs";
 import { EmojiPicker } from "../shared/EmojiPicker";
+import { Button } from "../shared/Button";
 
 const COMPOSE_DRAFT_KEY = "wrystr_compose_draft";
 
@@ -367,13 +368,9 @@ export function ComposeBox({ onPublished, onNoteInjected }: { onPublished?: () =
               >
                 &#9634;&#9634;
               </button>
-              <button
-                onClick={handlePublish}
-                disabled={!canPost}
-                className="px-3 py-1 text-ui bg-accent hover:bg-accent-hover text-accent-text rounded-sm transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-              >
+              <Button variant="primary" onClick={handlePublish} disabled={!canPost && !publishing} busy={publishing}>
                 {publishing ? "Posting…" : isPoll ? "Post poll" : "Post"}
-              </button>
+              </Button>
             </div>
           </div>
           )}

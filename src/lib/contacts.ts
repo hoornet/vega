@@ -112,3 +112,16 @@ export function parseStoredContactList(raw: string | null): ContactListSnapshot 
   }
 }
 
+/**
+ * The rows a list of "people you follow" should show after the list changed:
+ * everything that was on screen, in place, with anyone newly followed added at
+ * the end. Someone unfollowed keeps their row.
+ *
+ * A row that vanished on a press put the next person's button under the
+ * pointer, and a second press unfollowed them as well.
+ */
+export function keepUnfollowedRows(shown: string[], follows: string[]): string[] {
+  const onScreen = new Set(shown);
+  const added = follows.filter((pubkey) => !onScreen.has(pubkey));
+  return added.length === 0 ? shown : [...shown, ...added];
+}

@@ -2,6 +2,8 @@ import { useState } from "react";
 import { NDKPrivateKeySigner } from "@nostr-dev-kit/ndk";
 import { useUserStore } from "../../stores/user";
 import { Tabs } from "./Tabs";
+import { Button } from "./Button";
+import { Check, Copy } from "lucide-react";
 
 interface LoginModalProps {
   onClose: () => void;
@@ -44,12 +46,7 @@ function NewAccountTab({ onClose }: { onClose: () => void }) {
         {nsec}
       </div>
 
-      <button
-        onClick={handleCopy}
-        className="text-ui px-3 py-1 border border-border text-text-muted hover:text-accent hover:border-accent/40 transition-colors mb-4 rounded-sm"
-      >
-        {copied ? "copied ✓" : "copy key"}
-      </button>
+      <Button className="mb-4" onClick={handleCopy}>{copied ? <Check /> : <Copy />}{copied ? "Copied" : "Copy key"}</Button>
 
       <label className="flex items-start gap-2 cursor-pointer mb-4">
         <input
@@ -67,13 +64,9 @@ function NewAccountTab({ onClose }: { onClose: () => void }) {
         <p className="text-danger text-caption mb-2">{loginError}</p>
       )}
 
-      <button
-        onClick={handleConfirm}
-        disabled={!confirmed || logging}
-        className="w-full px-4 py-2 text-ui bg-accent hover:bg-accent-hover text-accent-text transition-colors disabled:opacity-30 disabled:cursor-not-allowed rounded-sm"
-      >
+      <Button variant="primary" size="lg" className="w-full" onClick={handleConfirm} disabled={!confirmed} busy={logging}>
         {logging ? "Logging in…" : "create account"}
-      </button>
+      </Button>
     </div>
   );
 }
@@ -190,15 +183,11 @@ export function LoginModal({ onClose }: LoginModalProps) {
                 <p className="text-danger text-caption mt-2">{loginError}</p>
               )}
 
-              <button
-                onClick={handleLogin}
-                disabled={!input.trim() || loading}
-                className="w-full mt-3 px-4 py-2 text-ui bg-accent hover:bg-accent-hover text-accent-text transition-colors disabled:opacity-30 disabled:cursor-not-allowed rounded-sm"
-              >
+              <Button variant="primary" size="lg" className="w-full mt-3" onClick={handleLogin} disabled={!input.trim()} busy={loading}>
                 {loading
                   ? (tab === "bunker" ? "Connecting…" : "Logging in…")
                   : tab === "nsec" ? "Login" : tab === "pubkey" ? "View as read-only" : "Connect"}
-              </button>
+              </Button>
             </>
           )}
         </div>

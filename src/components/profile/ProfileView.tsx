@@ -18,6 +18,9 @@ import { openUrl } from "@tauri-apps/plugin-opener";
 import { ProfileMediaGallery } from "./ProfileMediaGallery";
 import { ViewHeader } from "../shared/ViewHeader";
 import { Tabs, tabPanelProps } from "../shared/Tabs";
+import { Button } from "../shared/Button";
+import { FollowButton } from "../shared/FollowButton";
+import { Mail, VolumeX, Zap } from "lucide-react";
 
 function TopFollowerAvatar({ pubkey }: { pubkey: string }) {
   const profile = useProfile(pubkey);
@@ -50,7 +53,7 @@ function TopFollowerAvatar({ pubkey }: { pubkey: string }) {
 export function ProfileView() {
   const { selectedPubkey, goBack, openDM } = useUIStore();
   const canSign = useCanSign();
-  const { pubkey: ownPubkey, profile: ownProfile, follows, follow, unfollow } = useUserStore();
+  const { pubkey: ownPubkey, profile: ownProfile } = useUserStore();
   const pubkey = selectedPubkey!;
   const isOwn = pubkey === ownPubkey;
 
@@ -64,7 +67,6 @@ export function ProfileView() {
   const [loading, setLoading] = useState(true);
   const [articlesLoading, setArticlesLoading] = useState(false);
   const [editing, setEditing] = useState(false);
-  const [followPending, setFollowPending] = useState(false);
   const [showZap, setShowZap] = useState(false);
   const [profileTab, setProfileTab] = useState<"notes" | "articles" | "media">("notes");
   const [bannerLightbox, setBannerLightbox] = useState(false);
@@ -73,23 +75,9 @@ export function ProfileView() {
   const [wotExpanded, setWotExpanded] = useState(false);
   const [npubCopied, setNpubCopied] = useState(false);
 
-  const isFollowing = follows.includes(pubkey);
   const { mutedPubkeys, mute, unmute } = useMuteStore();
   const isMuted = mutedPubkeys.includes(pubkey);
   const reputation = useReputation(pubkey);
-
-  const handleFollowToggle = async () => {
-    setFollowPending(true);
-    try {
-      if (isFollowing) {
-        await unfollow(pubkey);
-      } else {
-        await follow(pubkey);
-      }
-    } finally {
-      setFollowPending(false);
-    }
-  };
 
   const name = profileName(profile, shortenPubkey(pubkey));
   const avatar = typeof profile?.picture === "string" ? profile.picture : undefined;
@@ -156,58 +144,23 @@ export function ProfileView() {
         actions={
           <>
             {editing && (
-              <button
-                onClick={() => setEditing(false)}
-                className="text-ui px-3 py-1 border border-border text-text-muted hover:text-text transition-colors rounded-sm"
-              >
-                Cancel
-              </button>
+              <Button variant="ghost" onClick={() => setEditing(false)}>Cancel</Button>
             )}
             {isOwn && !editing && canSign && (
-              <button
-                onClick={() => setEditing(true)}
-                className="text-ui px-3 py-1 border border-border text-text-muted hover:text-accent hover:border-accent/40 transition-colors rounded-sm"
-              >
-                Edit profile
-              </button>
+              <Button onClick={() => setEditing(true)}>Edit profile</Button>
             )}
             {!isOwn && canSign && (
               <>
-              {(lud16 || profile?.lud06) && (
-                <button
-                  onClick={() => setShowZap(true)}
-                  className="text-ui px-3 py-1 border border-border text-zap hover:border-zap/40 hover:bg-zap/5 transition-colors rounded-sm"
-                >
-                  ⚡ Zap
-                </button>
+              {isMuted ? (
+                <Button onClick={() => unmute(pubkey)}><VolumeX className="text-danger" />Unmute</Button>
+              ) : (
+                <Button variant="ghost" tone="danger" onClick={() => mute(pubkey)}>Mute</Button>
               )}
-              <button
-                onClick={handleFollowToggle}
-                disabled={followPending}
-                className={`text-ui px-3 py-1 border transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
-                  isFollowing
-                    ? "border-border text-text-muted hover:text-danger hover:border-danger/40"
-                    : "border-accent/60 text-accent hover:bg-accent hover:text-accent-text"
-                } rounded-sm`}
-              >
-                {followPending ? "…" : isFollowing ? "Unfollow" : "Follow"}
-              </button>
-              <button
-                onClick={() => isMuted ? unmute(pubkey) : mute(pubkey)}
-                className={`text-ui px-3 py-1 border transition-colors ${
-                  isMuted
-                    ? "border-danger/40 text-danger hover:bg-danger/5"
-                    : "border-border text-text-dim hover:text-danger hover:border-danger/40"
-                } rounded-sm`}
-              >
-                {isMuted ? "Unmute" : "Mute"}
-              </button>
-              <button
-                onClick={() => openDM(pubkey)}
-                className="text-ui px-3 py-1 border border-border text-text-muted hover:text-accent hover:border-accent/40 transition-colors rounded-sm"
-              >
-                ✉ Message
-              </button>
+              {(lud16 || profile?.lud06) && (
+                <Button onClick={() => setShowZap(true)}><Zap className="text-zap" />Zap</Button>
+              )}
+              <Button onClick={() => openDM(pubkey)}><Mail />Message</Button>
+              <FollowButton pubkey={pubkey} />
               </>
             )}
           </>

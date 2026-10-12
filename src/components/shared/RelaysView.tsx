@@ -13,6 +13,8 @@ import { useUserStore, useCanSign } from "../../stores/user";
 import type { RelayHealthResult } from "../../lib/nostr/relayHealth";
 import { ViewHeader } from "./ViewHeader";
 import { Switch } from "./Switch";
+import { Button } from "./Button";
+import { Trash2 } from "lucide-react";
 
 function statusColor(status: RelayHealthResult["status"]): string {
   switch (status) {
@@ -256,18 +258,7 @@ export function RelaysView() {
                 {new Date(lastChecked).toLocaleTimeString()}
               </span>
             )}
-            <button
-              onClick={checkAll}
-              disabled={checking}
-              className="px-3 py-1 text-ui border border-border text-text-muted hover:text-accent hover:border-accent/40 transition-colors disabled:opacity-40 rounded-sm"
-            >
-              {checking ? (
-                <span className="inline-flex items-center gap-1">
-                  <span className="w-3 h-3 border border-accent border-t-transparent rounded-full animate-spin" />
-                  checking…
-                </span>
-              ) : "Check all"}
-            </button>
+            <Button onClick={checkAll} busy={checking}>{checking ? "Checking…" : "Check all"}</Button>
           </>
         }
       />
@@ -282,20 +273,11 @@ export function RelaysView() {
             placeholder="wss://relay.example.com"
             className="flex-1 bg-bg border border-border-strong px-3 py-1.5 text-text text-ui font-mono focus:outline-none focus:border-accent placeholder:text-text-dim rounded-lg"
           />
-          <button
-            onClick={handleAddRelay}
-            className="px-3 py-1.5 text-ui border border-border text-text-muted hover:text-accent hover:border-accent/40 transition-colors shrink-0 rounded-sm"
-          >
-            Add
-          </button>
+          <Button onClick={handleAddRelay}>Add</Button>
           {canSign && (
-            <button
-              onClick={handleRepublish}
-              disabled={republishing}
-              className="px-3 py-1.5 text-ui border border-border text-text-muted hover:text-accent hover:border-accent/40 transition-colors disabled:opacity-40 shrink-0 rounded-sm"
-            >
+            <Button onClick={handleRepublish} busy={republishing}>
               {republishing ? "Publishing…" : "Publish list"}
-            </button>
+            </Button>
           )}
         </div>
         {addError && <p className="text-danger text-caption mt-1">{addError}</p>}
@@ -307,13 +289,9 @@ export function RelaysView() {
           <span className="text-danger text-caption">
             {deadRelays.length} relay{deadRelays.length > 1 ? "s" : ""} offline
           </span>
-          <button
-            onClick={handleRemoveDead}
-            disabled={removing}
-            className="px-3 py-1 text-ui border border-danger/30 text-danger hover:bg-danger/10 transition-colors disabled:opacity-40 rounded-sm"
-          >
-            {removing ? "Removing…" : "Remove dead"}
-          </button>
+          <Button onClick={handleRemoveDead} busy={removing}>
+            <Trash2 className="text-danger" />{removing ? "Removing…" : "Remove dead"}
+          </Button>
         </div>
       )}
 
@@ -483,18 +461,7 @@ function SuggestedRelays({ onAdded }: { onAdded: () => void }) {
           <h3 className="text-text text-micro font-medium uppercase tracking-widest text-text-dim">Suggested Relays</h3>
           <p className="text-text-dim text-caption mt-0.5">Based on relays your follows use</p>
         </div>
-        <button
-          onClick={handleDiscover}
-          disabled={loading || follows.length === 0}
-          className="px-3 py-1 text-ui border border-border text-text-muted hover:text-accent hover:border-accent/40 transition-colors disabled:opacity-40 disabled:cursor-not-allowed rounded-sm"
-        >
-          {loading ? (
-            <span className="inline-flex items-center gap-1">
-              <span className="w-3 h-3 border border-accent border-t-transparent rounded-full animate-spin" />
-              Discovering…
-            </span>
-          ) : "Discover relays"}
-        </button>
+        <Button onClick={handleDiscover} disabled={follows.length === 0} busy={loading}>{loading ? "Discovering…" : "Discover relays"}</Button>
       </div>
 
       {loaded && suggestions.length === 0 && (

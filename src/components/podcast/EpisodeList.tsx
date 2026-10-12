@@ -4,21 +4,16 @@ import { getEpisodes } from "../../lib/podcast";
 import { usePodcastStore } from "../../stores/podcast";
 import { stripHtmlTags } from "../../lib/utils";
 import { ViewHeader } from "../shared/ViewHeader";
+import { Button } from "../shared/Button";
+import { Check, Plus } from "lucide-react";
 
 function SubscribeButton({ show }: { show: PodcastShow }) {
   const subscribed = usePodcastStore((s) => s.isSubscribed(show.feedUrl));
   const { subscribe, unsubscribe } = usePodcastStore.getState();
   return (
-    <button
-      onClick={() => subscribed ? unsubscribe(show.feedUrl) : subscribe(show)}
-      className={`shrink-0 text-ui px-3 py-1 rounded-sm border transition-colors ${
-        subscribed
-          ? "border-accent/40 text-accent"
-          : "border-border text-text-muted hover:text-accent hover:border-accent/40"
-      }`}
-    >
-      {subscribed ? "subscribed" : "+ subscribe"}
-    </button>
+    <Button pressed={subscribed} onClick={() => subscribed ? unsubscribe(show.feedUrl) : subscribe(show)}>
+      {subscribed ? <Check /> : <Plus />}{subscribed ? "Subscribed" : "Subscribe"}
+    </Button>
   );
 }
 

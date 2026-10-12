@@ -12,6 +12,8 @@ import { debug } from "../../lib/debug";
 import { parseContent } from "../../lib/parsing";
 import { tryHandleUrlInternally, tryOpenNostrEntity } from "../feed/TextSegments";
 import { ViewHeader } from "../shared/ViewHeader";
+import { Button } from "../shared/Button";
+import { ArrowRight } from "lucide-react";
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -302,13 +304,7 @@ function ThreadPanel({
             className="flex-1 bg-bg border border-border-strong px-3 py-2 text-text text-body resize-none focus:outline-none focus:border-accent placeholder:text-text-dim rounded-lg"
             style={{ WebkitUserSelect: "text", userSelect: "text" } as React.CSSProperties}
           />
-          <button
-            onClick={handleSend}
-            disabled={!text.trim() || sending}
-            className="px-3 self-end py-2 text-ui bg-accent hover:bg-accent-hover text-accent-text transition-colors disabled:opacity-30 disabled:cursor-not-allowed shrink-0 focus-visible:ring-1 focus-visible:ring-accent rounded-sm"
-          >
-            {sending ? "…" : "Send"}
-          </button>
+          <Button variant="primary" onClick={handleSend} disabled={!text.trim() && !sending} busy={sending} className="self-end">Send</Button>
         </div>
         <p className="text-text-dim text-caption mt-1">Ctrl+Enter to send · gift-wrapped (NIP-17)</p>
       </div>
@@ -391,16 +387,15 @@ function NewConvInput({ onStart }: { onStart: (pubkey: string) => void }) {
           className="flex-1 min-w-0 bg-bg border border-border-strong px-2 py-1.5 text-text text-ui font-mono focus:outline-none focus:border-accent placeholder:text-text-dim rounded-lg"
           style={{ WebkitUserSelect: "text", userSelect: "text" } as React.CSSProperties}
         />
-        <button
+        <Button
           onMouseDown={(e) => e.preventDefault()} /* don't let onBlur close before the click lands */
           onClick={handleStart}
           disabled={!input.trim()}
           aria-label="Start conversation"
           title="Start conversation"
-          className="px-2 py-1.5 text-ui border border-border text-text-dim hover:text-accent hover:border-accent/40 transition-colors disabled:opacity-30 shrink-0 rounded-sm"
         >
-          →
-        </button>
+          <ArrowRight />
+        </Button>
       </div>
       {error && <p className="text-danger text-caption mt-1">{error}</p>}
     </div>
@@ -528,12 +523,7 @@ export function DMView() {
               <p className="text-text-dim text-caption mb-2">
                 Couldn't reach any relay, so your messages can't be loaded.
               </p>
-              <button
-                onClick={() => setReloadKey((n) => n + 1)}
-                className="text-accent text-ui hover:underline"
-              >
-                Try again
-              </button>
+              <Button onClick={() => setReloadKey((n) => n + 1)}>Try again</Button>
             </div>
           )}
           {!loading && !unreachable && conversations.size === 0 && (

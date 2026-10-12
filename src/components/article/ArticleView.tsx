@@ -12,6 +12,8 @@ import { profileName } from "../../lib/utils";
 import { ZapModal } from "../zap/ZapModal";
 import { ImageLightbox } from "../shared/ImageLightbox";
 import { ViewHeader } from "../shared/ViewHeader";
+import { Button } from "../shared/Button";
+import { ArrowLeft, Bookmark, Check, Heart, Link, MessageCircle, Repeat2, Zap } from "lucide-react";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -254,59 +256,25 @@ export function ArticleView() {
         actions={
           <>
             {event && canSign && (
-              <button
-                onClick={handleBookmark}
-                className={`text-ui px-3 py-1 border transition-colors ${
-                  bookmarked
-                    ? "border-accent/40 text-accent"
-                    : "border-border text-text-muted hover:text-accent hover:border-accent/40"
-                } rounded-sm`}
-                title={bookmarked ? "Remove bookmark" : "Bookmark article"}
-              >
-                {bookmarked ? "▪ Saved" : "▫ Save"}
-              </button>
+              <Button variant="ghost" pressed={bookmarked} onClick={handleBookmark} title={bookmarked ? "Remove bookmark" : "Bookmark article"}>
+                <Bookmark fill={bookmarked ? "currentColor" : "none"} />{bookmarked ? "Saved" : "Save"}
+              </Button>
             )}
             {event && canSign && (
-              <button
-                onClick={() => setShowZap(true)}
-                className="text-ui px-3 py-1 border border-border text-zap hover:border-zap/40 hover:bg-zap/5 transition-colors rounded-sm"
-              >
-                ⚡ zap {authorName}
-              </button>
+              <Button variant="ghost" onClick={() => setShowZap(true)}>
+                <Zap className="text-zap" />
+                {/* A name is as long as its owner made it. Untruncated, one button pushed the rest off the window. */}
+                <span className="max-w-48 truncate">Zap {authorName}</span>
+              </Button>
             )}
             {event && canSign && (
-              <button
-                onClick={handleRepost}
-                disabled={reposted}
-                className={`text-ui px-3 py-1 border transition-colors ${
-                  reposted
-                    ? "border-accent/40 text-accent"
-                    : "border-border text-text-muted hover:text-accent hover:border-accent/40"
-                } rounded-sm`}
-              >
-                {reposted ? "Reposted" : "Repost"}
-              </button>
+              <Button variant="ghost" disabled={reposted} onClick={handleRepost}>{reposted ? <Check /> : <Repeat2 />}{reposted ? "Reposted" : "Repost"}</Button>
             )}
             {event && canSign && (
-              <button
-                onClick={() => setShowComment(!showComment)}
-                className={`text-ui px-3 py-1 border transition-colors ${
-                  showComment
-                    ? "border-accent/40 text-accent"
-                    : "border-border text-text-muted hover:text-accent hover:border-accent/40"
-                } rounded-sm`}
-              >
-                Comment
-              </button>
+              <Button variant="ghost" aria-expanded={showComment} onClick={() => setShowComment(!showComment)}><MessageCircle />Comment</Button>
             )}
             {naddr && (
-              <button
-                onClick={() => navigator.clipboard.writeText(`nostr:${naddr}`)}
-                className="text-ui px-3 py-1 border border-border text-text-muted hover:text-accent hover:border-accent/40 transition-colors rounded-sm"
-                title="Copy nostr: link"
-              >
-                Copy link
-              </button>
+              <Button variant="ghost" onClick={() => navigator.clipboard.writeText(`nostr:${naddr}`)} title="Copy nostr: link"><Link />Copy link</Button>
             )}
           </>
         }
@@ -326,13 +294,7 @@ export function ArticleView() {
           />
           <div className="flex justify-between items-center mt-2">
             <span className="text-text-dim text-caption">Shift+Enter for new line</span>
-            <button
-              onClick={handleComment}
-              disabled={!commentText.trim()}
-              className="px-3 py-1.5 bg-accent/10 text-accent text-ui rounded-sm hover:bg-accent/20 transition-colors disabled:opacity-40"
-            >
-              Post
-            </button>
+            <Button variant="primary" onClick={handleComment} disabled={!commentText.trim()}>Post</Button>
           </div>
         </div>
       )}
@@ -424,64 +386,23 @@ export function ArticleView() {
               )}
 
               {/* Footer */}
-              <div className="mt-10 pt-6 border-t border-border-subtle flex items-center justify-between">
-                <button onClick={goBack} className="text-text-dim hover:text-text text-ui transition-colors">
-                  ← Back
-                </button>
-                <div className="flex items-center gap-2">
+              <div className="mt-10 pt-6 border-t border-border-subtle flex flex-wrap items-center justify-between gap-2">
+                <Button variant="ghost" className="-ml-3" onClick={goBack}><ArrowLeft />Back</Button>
+                <div className="flex flex-wrap items-center justify-end gap-2">
                   {canSign && (
-                    <button
-                      onClick={handleReaction}
-                      disabled={reacted}
-                      className={`text-ui px-3 py-1.5 border transition-colors disabled:cursor-not-allowed ${
-                        reacted
-                          ? "border-accent/40 text-accent"
-                          : "border-border text-text-muted hover:text-accent hover:border-accent/40"
-                      } rounded-sm`}
-                    >
-                      {reacted ? "♥ Liked" : "♡ Like"}
-                    </button>
+                    <Button disabled={reacted} onClick={handleReaction}><Heart fill={reacted ? "currentColor" : "none"} />{reacted ? "Liked" : "Like"}</Button>
                   )}
                   {canSign && (
-                    <button
-                      onClick={handleBookmark}
-                      className={`text-ui px-3 py-1.5 border transition-colors ${
-                        bookmarked
-                          ? "border-accent/40 text-accent"
-                          : "border-border text-text-muted hover:text-accent hover:border-accent/40"
-                      } rounded-sm`}
-                    >
-                      {bookmarked ? "▪ Saved" : "▫ Save"}
-                    </button>
+                    <Button pressed={bookmarked} onClick={handleBookmark}><Bookmark fill={bookmarked ? "currentColor" : "none"} />{bookmarked ? "Saved" : "Save"}</Button>
                   )}
                   {canSign && (
-                    <button
-                      onClick={handleRepost}
-                      disabled={reposted}
-                      className={`text-ui px-3 py-1.5 border transition-colors ${
-                        reposted
-                          ? "border-accent/40 text-accent"
-                          : "border-border text-text-muted hover:text-accent hover:border-accent/40"
-                      } rounded-sm`}
-                    >
-                      {reposted ? "Reposted" : "Repost"}
-                    </button>
+                    <Button disabled={reposted} onClick={handleRepost}>{reposted ? <Check /> : <Repeat2 />}{reposted ? "Reposted" : "Repost"}</Button>
                   )}
                   {canSign && (
-                    <button
-                      onClick={() => { setShowComment(true); scrollRef.current?.scrollTo({ top: 0, behavior: "smooth" }); }}
-                      className="text-ui px-3 py-1.5 border border-border text-text-muted hover:text-accent hover:border-accent/40 transition-colors rounded-sm"
-                    >
-                      Comment
-                    </button>
+                    <Button onClick={() => { setShowComment(true); scrollRef.current?.scrollTo({ top: 0, behavior: "smooth" }); }}><MessageCircle />Comment</Button>
                   )}
                   {canSign && (
-                    <button
-                      onClick={() => setShowZap(true)}
-                      className="text-ui px-4 py-1.5 bg-zap hover:bg-zap/90 text-zap-text transition-colors rounded-sm"
-                    >
-                      ⚡ Zap {authorName}
-                    </button>
+                    <Button variant="primary" tone="zap" onClick={() => setShowZap(true)}><Zap /><span className="max-w-48 truncate">Zap {authorName}</span></Button>
                   )}
                 </div>
               </div>

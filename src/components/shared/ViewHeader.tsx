@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { ArrowLeft } from "lucide-react";
 import { TabsInHeader } from "./Tabs";
+import { Button } from "./Button";
 
 // One header for every view.
 //
@@ -55,13 +56,7 @@ export function ViewHeader({ title, hiddenTitle, onBack, meta, tabs, children, a
       {lead && (
         <div className="min-h-12 min-w-0 flex items-center gap-3">
           {onBack && (
-            <button
-              onClick={onBack}
-              className="-ml-2 h-8 px-2 shrink-0 inline-flex items-center gap-1.5 rounded-sm text-ui text-text-muted hover:text-text hover:bg-bg-hover transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60"
-            >
-              <ArrowLeft size={16} strokeWidth={1.75} aria-hidden />
-              Back
-            </button>
+            <Button variant="ghost" className="-ml-3" onClick={onBack}><ArrowLeft aria-hidden />Back</Button>
           )}
           {given(title) && <h1 className="text-title font-medium text-text truncate min-w-0">{title}</h1>}
           {given(meta) && <div className="text-caption text-text-dim shrink-0">{meta}</div>}

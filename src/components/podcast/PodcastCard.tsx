@@ -1,6 +1,8 @@
 import type { PodcastShow } from "../../types/podcast";
 import { usePodcastStore } from "../../stores/podcast";
 import { stripHtmlTags } from "../../lib/utils";
+import { Button } from "../shared/Button";
+import { Check, Plus } from "lucide-react";
 
 interface PodcastCardProps {
   show: PodcastShow;
@@ -37,20 +39,12 @@ export function PodcastCard({ show, onClick }: PodcastCardProps) {
           </div>
         )}
       </button>
-      <button
-        onClick={(e) => {
-          e.stopPropagation();
-          if (subscribed) unsubscribe(show.feedUrl);
-          else subscribe(show);
-        }}
-        className={`shrink-0 text-caption px-2 py-1 rounded-sm border transition-colors ${
-          subscribed
-            ? "border-accent/40 text-accent"
-            : "border-border text-text-muted hover:text-accent hover:border-accent/40"
-        }`}
-      >
-        {subscribed ? "Subscribed" : "+ Subscribe"}
-      </button>
+      {/* The card hovers, and the accent tint is not held at 4.5:1 on a hovered surface: subscribed is a ghost, accent text and no fill. */}
+      {subscribed ? (
+        <Button size="sm" variant="ghost" pressed onClick={(e) => { e.stopPropagation(); unsubscribe(show.feedUrl); }}><Check />Subscribed</Button>
+      ) : (
+        <Button size="sm" pressed={false} onClick={(e) => { e.stopPropagation(); subscribe(show); }}><Plus />Subscribe</Button>
+      )}
     </div>
   );
 }

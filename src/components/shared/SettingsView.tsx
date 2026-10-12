@@ -35,6 +35,8 @@ import {
   getRelayStats,
   type RelayStats,
 } from "../../lib/localRelay";
+import { Button } from "./Button";
+import { Check } from "lucide-react";
 
 function MutedRow({ pubkey, onUnmute }: { pubkey: string; onUnmute: () => void }) {
   const profile = useProfile(pubkey);
@@ -165,12 +167,7 @@ function MutedKeywordsSection() {
           placeholder="Word or phrase to mute"
           className="flex-1 bg-bg border border-border-strong px-3 py-1.5 text-text text-ui focus:outline-none focus:border-accent placeholder:text-text-dim rounded-lg"
         />
-        <button
-          onClick={handleAdd}
-          className="px-3 py-1.5 text-ui border border-border text-text-muted hover:text-accent hover:border-accent/40 transition-colors shrink-0 rounded-sm"
-        >
-          Add
-</button>
+        <Button onClick={handleAdd}>Add</Button>
       </div>
       {error && <p className="text-danger text-caption mt-1">{error}</p>}
     </section>
@@ -226,12 +223,7 @@ function WoTSection() {
           ) : wotSet.size > 0 ? (
             <div className="flex items-center gap-3">
               <p className="text-text-dim text-caption">Trusted accounts: {wotSet.size}</p>
-              <button
-                onClick={handleRebuild}
-                className="text-caption text-text-dim hover:text-accent transition-colors"
-              >
-                Rebuild
-              </button>
+              <Button variant="ghost" size="sm" onClick={handleRebuild}>Rebuild</Button>
             </div>
           ) : null}
         </div>
@@ -377,13 +369,9 @@ function ExportSection() {
         Save your bookmarks, follows, and relay list to a JSON file. Your keys, your data.
       </p>
       <div className="flex items-center gap-3">
-        <button
-          onClick={handleExport}
-          disabled={status === "saving"}
-          className="px-3 py-1.5 text-ui border border-border text-text-muted hover:text-accent hover:border-accent/40 transition-colors disabled:opacity-40 disabled:cursor-not-allowed rounded-sm"
-        >
-          {status === "saving" ? "Exporting…" : status === "done" ? "Exported ✓" : "Export data"}
-        </button>
+        <Button onClick={handleExport} busy={status === "saving"}>
+          {status === "done" && <Check />}{status === "saving" ? "Exporting…" : status === "done" ? "Exported" : "Export data"}
+        </Button>
         <span className="text-text-dim text-caption">
           {bookmarkedIds.length} notes · {bookmarkedArticleAddrs.length} articles · {follows.length} follows · {getStoredRelayUrls().length} relays
         </span>
@@ -528,13 +516,9 @@ function ProxySection() {
           disabled={!settings.enabled || status === "loading"}
           className="flex-1 bg-bg border border-border-strong px-3 py-1.5 text-text text-ui focus:outline-none focus:border-accent placeholder:text-text-dim disabled:opacity-50 disabled:cursor-not-allowed font-mono rounded-lg"
         />
-        <button
-          onClick={saveSettings}
-          disabled={status === "saving" || status === "loading" || !!validationError || !dirty}
-          className="px-3 py-1.5 text-ui border border-border text-text-muted hover:text-accent hover:border-accent/40 transition-colors disabled:opacity-40 disabled:cursor-not-allowed shrink-0 rounded-sm"
-        >
-          {status === "saving" ? "Saving..." : "Save"}
-        </button>
+        <Button onClick={saveSettings} disabled={status === "loading" || !!validationError || !dirty} busy={status === "saving"}>
+          {status === "saving" ? "Saving…" : "Save"}
+        </Button>
       </div>
       <p className="text-text-dim text-caption mt-1.5 ml-12">
         Applies after restart. Example: socks5://127.0.0.1:9050
@@ -550,12 +534,7 @@ function ProxySection() {
       {savedNeedsRestart && (
         <div className="flex items-center gap-3 mt-2 ml-12">
           <p className="text-accent text-caption">Saved. Restart Vega to apply it to all connections.</p>
-          <button
-            onClick={() => relaunch()}
-            className="px-2 py-1 text-caption border border-accent/40 text-accent hover:bg-bg-hover transition-colors rounded-sm"
-          >
-            Restart now
-          </button>
+          <Button size="sm" onClick={() => relaunch()}>Restart now</Button>
         </div>
       )}
     </section>

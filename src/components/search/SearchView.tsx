@@ -11,6 +11,8 @@ import { NoteCard } from "../feed/NoteCard";
 import { ArticleCard } from "../article/ArticleCard";
 import { ViewHeader } from "../shared/ViewHeader";
 import { Tabs, tabPanelProps } from "../shared/Tabs";
+import { Button } from "../shared/Button";
+import { FollowButton } from "../shared/FollowButton";
 
 interface ParsedUser {
   pubkey: string;
@@ -35,22 +37,8 @@ function parseUserEvent(event: NDKEvent): ParsedUser {
 }
 
 function UserRow({ user }: { user: ParsedUser }) {
-  const { loggedIn, pubkey: myPubkey, follows, follow, unfollow } = useUserStore();
   const { openProfile: navToProfile } = useUIStore();
-  const isOwn = user.pubkey === myPubkey;
-  const isFollowing = follows.includes(user.pubkey);
-  const [pending, setPending] = useState(false);
   const displayName = user.displayName || user.name || shortenPubkey(user.pubkey);
-
-  const handleFollowToggle = async () => {
-    setPending(true);
-    try {
-      if (isFollowing) await unfollow(user.pubkey);
-      else await follow(user.pubkey);
-    } finally {
-      setPending(false);
-    }
-  };
 
   return (
     <div className="flex items-center gap-3 px-4 py-2.5 border-b border-border-subtle hover:bg-bg-hover transition-colors">
@@ -69,19 +57,7 @@ function UserRow({ user }: { user: ParsedUser }) {
         {user.nip05 && <div className="text-text-dim text-caption truncate">{user.nip05}</div>}
         {user.about && <div className="text-text-dim text-caption truncate mt-0.5">{user.about}</div>}
       </button>
-      {loggedIn && !isOwn && (
-        <button
-          onClick={handleFollowToggle}
-          disabled={pending}
-          className={`text-ui px-3 py-1 border transition-colors shrink-0 disabled:opacity-40 disabled:cursor-not-allowed ${
-            isFollowing
-              ? "border-border text-text-muted hover:text-danger hover:border-danger/40"
-              : "border-accent/60 text-accent hover:bg-accent hover:text-accent-text"
-          } rounded-sm`}
-        >
-          {pending ? "…" : isFollowing ? "Unfollow" : "Follow"}
-        </button>
-      )}
+      <FollowButton pubkey={user.pubkey} />
     </div>
   );
 }
@@ -90,38 +66,6 @@ interface Suggestion {
   pubkey: string;
   mutualCount: number;
   profile: ParsedUser | null;
-}
-
-function SuggestionFollowButton({ pubkey }: { pubkey: string }) {
-  const { loggedIn, follows, follow, unfollow } = useUserStore();
-  const isFollowing = follows.includes(pubkey);
-  const [pending, setPending] = useState(false);
-
-  if (!loggedIn) return null;
-
-  const handleClick = async () => {
-    setPending(true);
-    try {
-      if (isFollowing) await unfollow(pubkey);
-      else await follow(pubkey);
-    } finally {
-      setPending(false);
-    }
-  };
-
-  return (
-    <button
-      onClick={handleClick}
-      disabled={pending}
-      className={`text-ui px-3 py-1 border transition-colors shrink-0 disabled:opacity-40 disabled:cursor-not-allowed ${
-        isFollowing
-          ? "border-border text-text-muted hover:text-danger hover:border-danger/40"
-          : "border-accent/60 text-accent hover:bg-accent hover:text-accent-text"
-      } rounded-sm`}
-    >
-      {pending ? "…" : isFollowing ? "Unfollow" : "Follow"}
-    </button>
-  );
 }
 
 export function SearchView() {
@@ -283,13 +227,7 @@ export function SearchView() {
       <ViewHeader
         hiddenTitle="Search"
         actions={
-          <button
-            onClick={() => handleSearch()}
-            disabled={!query.trim() || loading}
-            className="text-ui px-3 py-1 border border-border text-text-muted hover:text-accent hover:border-accent/40 transition-colors disabled:opacity-30 disabled:cursor-not-allowed shrink-0 rounded-sm"
-          >
-            {loading ? "…" : "Search"}
-          </button>
+          <Button onClick={() => handleSearch()} disabled={!query.trim()} busy={loading}>Search</Button>
         }
       >
         <input
@@ -441,7 +379,7 @@ export function SearchView() {
                     <div className="text-text-dim text-caption truncate mt-0.5">{s.profile.about}</div>
                   )}
                 </button>
-                <SuggestionFollowButton pubkey={s.pubkey} />
+                <FollowButton pubkey={s.pubkey} />
                 <button
                   onClick={() => dismiss(s.pubkey)}
                   className="text-text-dim hover:text-danger text-[14px] opacity-0 group-hover/suggestion:opacity-100 transition-opacity shrink-0 px-1"

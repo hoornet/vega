@@ -6,6 +6,7 @@ import { PodcastCard } from "./PodcastCard";
 import { EpisodeList } from "./EpisodeList";
 import { ViewHeader } from "../shared/ViewHeader";
 import { Tabs, tabPanelProps } from "../shared/Tabs";
+import { Button } from "../shared/Button";
 
 type Tab = "subscriptions" | "trending" | "search";
 
@@ -59,7 +60,7 @@ export function PodcastsView() {
     <div className="h-full flex flex-col">
       <ViewHeader title="Podcasts">
         {/* The field and its button stay together, beside the title. */}
-        <div className="flex items-center gap-2 w-full max-w-lg">
+        <div className="flex gap-2 w-full max-w-lg">
           <input
             type="text"
             value={query}
@@ -68,13 +69,7 @@ export function PodcastsView() {
             placeholder="Search podcasts…"
             className="flex-1 min-w-0 bg-bg-raised border border-border-strong rounded-lg px-3 py-1.5 text-ui text-text placeholder:text-text-dim focus:outline-none focus:border-accent"
           />
-          <button
-            onClick={handleSearch}
-            disabled={!query.trim()}
-            className="px-3 py-1.5 bg-accent/10 text-accent text-ui rounded-sm hover:bg-accent/20 transition-colors disabled:opacity-40"
-          >
-            Search
-          </button>
+          <Button onClick={handleSearch} disabled={!query.trim()}>Search</Button>
         </div>
       </ViewHeader>
       <Tabs

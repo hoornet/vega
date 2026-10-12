@@ -8,6 +8,8 @@ import { useReplyCount } from "../../hooks/useReplyCount";
 import { EmojiPicker } from "../shared/EmojiPicker";
 import { open } from "@tauri-apps/plugin-dialog";
 import { readFile } from "@tauri-apps/plugin-fs";
+import { Button } from "../shared/Button";
+import { Check } from "lucide-react";
 
 interface InlineReplyBoxProps {
   event: NDKEvent;
@@ -236,13 +238,9 @@ export function InlineReplyBox({ event, name, rootEvent }: InlineReplyBoxProps) 
           )}
         </div>
         <span className="text-text-dim text-caption">Ctrl+Enter</span>
-        <button
-          onClick={handleReplySubmit}
-          disabled={(!replyText.trim() && attachments.length === 0) || replying || uploading}
-          className="px-2 py-0.5 text-caption bg-accent hover:bg-accent-hover text-accent-text transition-colors disabled:opacity-30 disabled:cursor-not-allowed rounded-sm"
-        >
-          {replySent ? "Replied ✓" : replying ? "Posting…" : "Reply"}
-        </button>
+        <Button variant="primary" size="sm" onClick={handleReplySubmit} disabled={!replying && ((!replyText.trim() && attachments.length === 0) || uploading)} busy={replying}>
+          {replySent && <Check />}{replySent ? "Replied" : replying ? "Posting…" : "Reply"}
+        </Button>
       </div>
     </div>
   );
