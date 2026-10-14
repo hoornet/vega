@@ -1,11 +1,10 @@
-import NDK, { NDKEvent, NDKFilter, NDKKind, NDKRelay, NDKUserProfile, profileFromEvent } from "@nostr-dev-kit/ndk";
-import { getNDK, fetchWithTimeout, fetchFromRelay, isLocalRelayUrl, FEED_TIMEOUT, publishToNetwork } from "./core";
+import { NDKEvent, NDKFilter, NDKKind, NDKUserProfile, profileFromEvent } from "@nostr-dev-kit/ndk";
+import { fetchReplaceableList, relaysToAsk } from "./lists";
+export { relaysToAsk };
+import { getNDK, fetchWithTimeout, FEED_TIMEOUT, publishToNetwork } from "./core";
 import {
-  summarizeContactAnswers,
-  newerContactList,
   type ContactListResult,
   type ContactListSnapshot,
-  type RelayContactAnswer,
 } from "../contacts";
 
 export async function publishProfile(fields: {
@@ -30,31 +29,6 @@ export async function publishProfile(fields: {
 /** How long a relay gets to answer for the contact list before its silence counts. */
 const CONTACT_LIST_TIMEOUT = 6000;
 
-/**
- * The relays worth asking right now: every connected one, after giving the pool
- * a moment to finish connecting.
- *
- * Login asks for the contact list before the first socket is open, so "whoever
- * is connected this instant" would be nobody. This waits until at least one
- * remote relay is up, then a short settle period for the rest, so a relay that
- * is merely a little slower to connect is still asked. A relay that never
- * connects is left out: it cannot answer, and counting its silence would mean
- * one dead relay in someone's list stops them ever following anyone.
- */
-export async function relaysToAsk(instance: NDK, maxWaitMs = 5000, settleMs = 1200): Promise<NDKRelay[]> {
-  const started = Date.now();
-  let firstRemoteUpAt: number | null = null;
-  for (;;) {
-    const all = Array.from(instance.pool?.relays?.values() ?? []);
-    const up = all.filter((r) => r.connected);
-    if (up.some((r) => !isLocalRelayUrl(r.url))) {
-      firstRemoteUpAt ??= Date.now();
-      if (up.length === all.length || Date.now() - firstRemoteUpAt >= settleMs) return up;
-    }
-    if (Date.now() - started >= maxWaitMs) return up;
-    await new Promise((resolve) => setTimeout(resolve, 100));
-  }
-}
 
 /**
  * Fetch `pubkey`'s contact list (kind 3) by asking every connected relay
@@ -77,31 +51,7 @@ export async function fetchContactList(
   pubkey: string,
   opts: { timeoutMs?: number; onFound?: (list: ContactListSnapshot) => void } = {},
 ): Promise<ContactListResult> {
-  const instance = getNDK();
-  const relays = await relaysToAsk(instance);
-  if (relays.length === 0) return { status: "unknown" };
-
-  const filter: NDKFilter = { kinds: [3 as NDKKind], authors: [pubkey] };
-  let newest: ContactListSnapshot | null = null;
-
-  const answers = await Promise.all(
-    relays.map(async (relay): Promise<RelayContactAnswer> => {
-      const { events, answered } = await fetchFromRelay(instance, relay, filter, opts.timeoutMs ?? CONTACT_LIST_TIMEOUT);
-      const lists = events
-        .filter((e) => e.kind === 3 && e.pubkey === pubkey)
-        .map((e): ContactListSnapshot => ({ tags: e.tags, content: e.content ?? "", createdAt: e.created_at ?? 0 }));
-      for (const list of lists) {
-        const next = newerContactList(newest, list);
-        if (next !== newest) {
-          newest = next;
-          opts.onFound?.(list);
-        }
-      }
-      return { lists, answered, local: isLocalRelayUrl(relay.url) };
-    }),
-  );
-
-  return summarizeContactAnswers(answers);
+  return fetchReplaceableList(3, pubkey, { timeoutMs: opts.timeoutMs ?? CONTACT_LIST_TIMEOUT, onFound: opts.onFound });
 }
 
 /**

@@ -356,7 +356,7 @@ describe("nothing publishes around it", () => {
   });
 
   it("the modules that publish use it", () => {
-    for (const name of ["articles", "bookmarks", "dms", "engagement", "muting", "notes", "podcasts", "polls", "relays", "social"]) {
+    for (const name of ["articles", "dms", "engagement", "lists", "notes", "podcasts", "polls", "relays", "social"]) {
       expect(sources[`/src/lib/nostr/${name}.ts`], name).toContain("publishToNetwork(");
     }
   });
