@@ -423,6 +423,7 @@ Before the October 2026 UI review the toast channel carried relay events and lit
 - **Known gaps.**
   - Still silent when it fails: sharing a podcast episode.
   - Still shown raw: a zap that fails (the wallet's own message), and image uploads (`Upload failed: Error: …`).
+  - **Value 4 Value counts a payment whose request went out** (`PayOutcome` in `src/lib/podcast/v4v.ts`): "paid" when the wallet confirmed, "sent" when it did not answer within NDK's 30 s (`NwcTimeoutError`), which is counted and shown as "sent, not yet confirmed by your wallet"; the sats had left while the counter said zero. A request no relay took, a wallet that refused, or an address that gave no invoice is "failed": not counted, named on the dashboard (`lastFailure`), and said in a toast once per episode and recipient. Bare `requestEvent.publish()` in `nwc.ts` now rejects the wait when nothing took it, so a publish failure is not mistaken for a slow wallet.
   - The mute and bookmark lists are still rebuilt from what this device holds and published whole, which can overwrite a longer list on the relays: the contact-list class, not fixed here.
   - A reply containing one of the user's own muted words is filtered out of the thread it was posted to, with no toast.
   - A toast said again with the same key is read out again but does not replay its entrance.

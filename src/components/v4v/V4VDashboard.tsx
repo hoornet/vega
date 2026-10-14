@@ -40,6 +40,8 @@ export function V4VDashboard() {
   const weeklyBudget = useV4VStore((s) => s.weeklyBudget);
   const defaultRate = useV4VStore((s) => s.defaultRate);
   const currentEpisodeSats = useV4VStore((s) => s.currentEpisodeSats);
+  const unconfirmedSats = useV4VStore((s) => s.unconfirmedSats);
+  const lastFailure = useV4VStore((s) => s.lastFailure);
   const capReachedReason = useV4VStore((s) => s.capReachedReason);
   const history = useV4VStore((s) => s.history);
   const weeklySpent = useV4VStore((s) => s.weeklySpent)();
@@ -74,7 +76,11 @@ export function V4VDashboard() {
             <div className="text-caption text-text-muted truncate">{episode.title}</div>
             <div className="text-caption text-text-dim mt-1">
               {v4vTotalStreamed} sats this session · {episode.value?.length} recipients
+              {unconfirmedSats > 0 && <span> ({unconfirmedSats} sent, not yet confirmed by your wallet)</span>}
             </div>
+            {lastFailure && (
+              <p role="status" className="text-danger text-caption mt-1">Couldn't pay {lastFailure.recipient}: {lastFailure.reason}.</p>
+            )}
           </div>
         ) : capReachedReason ? (
           <div className="bg-danger/5 border border-danger/20 rounded-lg p-3">
@@ -85,7 +91,11 @@ export function V4VDashboard() {
             <div className="text-caption text-text-muted truncate">{episode.title}</div>
             <div className="text-caption text-text-dim mt-1">
               {currentEpisodeSats} sats streamed to {episode.value?.length} recipients
+              {unconfirmedSats > 0 && <span className="text-text-dim"> ({unconfirmedSats} sent, not yet confirmed by your wallet)</span>}
             </div>
+            {lastFailure && (
+              <p role="status" className="text-danger text-caption mt-1">Couldn't pay {lastFailure.recipient}: {lastFailure.reason}.</p>
+            )}
           </div>
         ) : (
           <div className="text-body text-text-dim">

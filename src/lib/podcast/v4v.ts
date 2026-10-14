@@ -1,6 +1,7 @@
 import { fetchWithProxy as fetch } from "../proxy";
 import type { PodcastEpisode, V4VRecipient } from "../../types/podcast";
-import { payInvoiceViaNWC, payKeysendViaNWC } from "../lightning/nwc";
+import { payInvoiceViaNWC, payKeysendViaNWC, NwcTimeoutError } from "../lightning/nwc";
+import { clipText } from "../utils";
 import { useV4VStore } from "../../stores/v4v";
 import { useToastStore } from "../../stores/toast";
 
@@ -41,21 +42,43 @@ function getRecipients(episode: PodcastEpisode): V4VRecipient[] {
   return [];
 }
 
+/**
+ * How a payment ended. "sent": the request reached the wallet's relay and the
+ * wallet did not answer in time; the sats have most likely left, so it is
+ * counted. Until October 2026 it was a failure, and the counter stayed at zero
+ * while 1-sat payments were arriving.
+ */
+export type PayOutcome = { outcome: "paid" | "sent" } | { outcome: "failed"; reason: string };
+
+function describeFailure(err: unknown): string {
+  const text = err instanceof Error ? err.message : String(err);
+  return clipText(text.replace(/^Error:\s*/i, ""), 90) || "no reason given";
+}
+
+async function settle(request: Promise<unknown>): Promise<PayOutcome> {
+  try {
+    await request;
+    return { outcome: "paid" };
+  } catch (err) {
+    if (err instanceof NwcTimeoutError) return { outcome: "sent" };
+    return { outcome: "failed", reason: describeFailure(err) };
+  }
+}
+
 async function payRecipient(
   recipient: V4VRecipient,
   amountMsats: number,
   nwcUri: string,
-): Promise<boolean> {
-  if (!recipient.address) return false;
+): Promise<PayOutcome> {
+  if (!recipient.address) return { outcome: "failed", reason: "the recipient has no address" };
 
   const isLnAddress = recipient.address.includes("@");
   const isNodePubkey = /^[0-9a-f]{66}$/i.test(recipient.address);
 
   if (isLnAddress) {
     const invoice = await fetchLnurlPayInvoice(recipient.address, amountMsats);
-    if (!invoice) return false;
-    await payInvoiceViaNWC(nwcUri, invoice);
-    return true;
+    if (!invoice) return { outcome: "failed", reason: `no invoice came from ${recipient.address}` };
+    return settle(payInvoiceViaNWC(nwcUri, invoice));
   }
 
   if (isNodePubkey) {
@@ -66,11 +89,20 @@ async function payRecipient(
         value: recipient.customValue,
       });
     }
-    await payKeysendViaNWC(nwcUri, recipient.address, amountMsats, tlvRecords);
-    return true;
+    return settle(payKeysendViaNWC(nwcUri, recipient.address, amountMsats, tlvRecords));
   }
 
-  return false;
+  return { outcome: "failed", reason: "the address is neither a Lightning address nor a node key" };
+}
+
+/** Once per episode and recipient: a payment that did not go out, on the dashboard and in a toast. */
+let failedThisEpisode = new Set<string>();
+function reportFailure(recipient: V4VRecipient, reason: string): void {
+  const name = recipient.name || recipient.address || "a recipient";
+  useV4VStore.getState().setLastFailure({ recipient: name, reason });
+  if (failedThisEpisode.has(name)) return;
+  failedThisEpisode.add(name);
+  useToastStore.getState().addToast(`Couldn't pay ${clipText(name, 40)}: ${reason}. Streaming goes on.`, "warning", { key: `v4v:${name}` });
 }
 
 let streamingInterval: number | null = null;
@@ -91,6 +123,7 @@ export function startStreaming(
   accumulatedMinutes = 0;
   currentStreamingEpisode = episode;
   sessionRecipientSats = {};
+  failedThisEpisode = new Set();
   const recipients = getRecipients(episode);
 
   if (recipients.length === 0) return -1;
@@ -101,7 +134,12 @@ export function startStreaming(
   // Normalize splits to sum to 100
   const totalSplit = recipients.reduce((sum, r) => sum + r.split, 0);
 
+  // One round of payments at a time: a wallet that takes its 30 s per
+  // recipient can still be paying when the next minute fires, and two rounds
+  // at once paid twice.
+  let paying = false;
   streamingInterval = window.setInterval(async () => {
+    if (paying) return;
     // Check budget caps before accumulating
     const v4v = useV4VStore.getState();
     if (v4v.isCapReached()) {
@@ -124,22 +162,26 @@ export function startStreaming(
     accumulatedSats = 0;
     accumulatedMinutes = 0;
 
+    paying = true;
+    try {
     for (const recipient of recipients) {
       const share = totalSplit > 0 ? recipient.split / totalSplit : 1 / recipients.length;
       const recipientSats = Math.max(1, Math.round(satsToSend * share));
       const amountMsats = recipientSats * 1000;
 
-      try {
-        const success = await payRecipient(recipient, amountMsats, nwcUri);
-        if (success) {
-          onPayment(recipientSats);
-          useV4VStore.getState().addCurrentEpisodeSats(recipientSats);
-          const key = recipient.name || recipient.address || "unknown";
-          sessionRecipientSats[key] = (sessionRecipientSats[key] || 0) + recipientSats;
-        }
-      } catch {
-        // Payment failed — silently continue
+      const result = await payRecipient(recipient, amountMsats, nwcUri);
+      if (result.outcome === "failed") {
+        reportFailure(recipient, result.reason);
+        continue;
       }
+      // Paid, or sent without the wallet's answer: the sats left either way.
+      onPayment(recipientSats);
+      useV4VStore.getState().addCurrentEpisodeSats(recipientSats, result.outcome === "sent");
+      const key = recipient.name || recipient.address || "unknown";
+      sessionRecipientSats[key] = (sessionRecipientSats[key] || 0) + recipientSats;
+    }
+    } finally {
+      paying = false;
     }
   }, 60000); // Every 60 seconds
 
@@ -199,12 +241,12 @@ export async function boost(
     const recipientSats = Math.max(1, Math.round(totalSats * share));
     const amountMsats = recipientSats * 1000;
 
-    try {
-      const success = await payRecipient(recipient, amountMsats, nwcUri);
-      if (success) paid += recipientSats;
-    } catch {
-      // continue
+    const result = await payRecipient(recipient, amountMsats, nwcUri);
+    if (result.outcome === "failed") {
+      reportFailure(recipient, result.reason);
+      continue;
     }
+    paid += recipientSats;
   }
 
   return paid;

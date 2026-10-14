@@ -29,6 +29,17 @@ export function isValidNwcUri(uri: string): boolean {
   }
 }
 
+/**
+ * The wallet did not answer within the wait. The request went out, so the
+ * payment may well have been made: callers count it as sent, not failed.
+ */
+export class NwcTimeoutError extends Error {
+  constructor(what: string) {
+    super(`${what} timed out (30s)`);
+    this.name = "NwcTimeoutError";
+  }
+}
+
 export async function payKeysendViaNWC(
   nwcUri: string,
   pubkey: string,
@@ -87,7 +98,7 @@ export async function payKeysendViaNWC(
   return new Promise((resolve, reject) => {
     const timeout = setTimeout(() => {
       sub.stop();
-      reject(new Error("NWC keysend timed out (30s)"));
+      reject(new NwcTimeoutError("NWC keysend"));
     }, 30000);
 
     const filter: NDKFilter = {
@@ -114,7 +125,12 @@ export async function payKeysendViaNWC(
       }
     });
 
-    requestEvent.publish();
+    // A request no relay took is a failure, not a wallet that did not answer.
+    requestEvent.publish().catch((err: unknown) => {
+      clearTimeout(timeout);
+      sub.stop();
+      reject(err instanceof Error ? err : new Error(String(err)));
+    });
   });
 }
 
@@ -164,7 +180,7 @@ export async function payInvoiceViaNWC(nwcUri: string, bolt11: string): Promise<
   return new Promise((resolve, reject) => {
     const timeout = setTimeout(() => {
       sub.stop();
-      reject(new Error("NWC payment timed out (30s)"));
+      reject(new NwcTimeoutError("NWC payment"));
     }, 30000);
 
     const filter: NDKFilter = {
@@ -191,6 +207,11 @@ export async function payInvoiceViaNWC(nwcUri: string, bolt11: string): Promise<
       }
     });
 
-    requestEvent.publish();
+    // A request no relay took is a failure, not a wallet that did not answer.
+    requestEvent.publish().catch((err: unknown) => {
+      clearTimeout(timeout);
+      sub.stop();
+      reject(err instanceof Error ? err : new Error(String(err)));
+    });
   });
 }
