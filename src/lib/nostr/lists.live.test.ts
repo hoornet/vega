@@ -67,18 +67,18 @@ async function start(configured: string[], secret: string) {
   return { ndk, pubkey, signer, useMuteStore };
 }
 
-/** A list on B only, for the account of `secret`: content and a tag of another kind, from a moment ago. */
-async function seedList(secret: string): Promise<void> {
+/** A list for the account of `secret` on one relay: content and a tag of another kind, from `agoSeconds` ago. */
+async function seedList(secret: string, { url = B!, tags = [["p", "a".repeat(64)], ["t", "spam"]], agoSeconds = 5 }: { url?: string; tags?: string[][]; agoSeconds?: number } = {}): Promise<void> {
   vi.resetModules();
   const { getNDK } = await import("./core");
   const signer = new NDKPrivateKeySigner(secret);
   const event = new NDKEvent(getNDK());
   event.kind = 10000;
   event.content = "private-mutes";
-  event.tags = [["p", "a".repeat(64)], ["t", "spam"]];
-  event.created_at = Math.floor(Date.now() / 1000) - 5;
+  event.tags = tags;
+  event.created_at = Math.floor(Date.now() / 1000) - agoSeconds;
   await event.sign(signer);
-  await seed(B!, event.rawEvent());
+  await seed(url, event.rawEvent());
 }
 
 describe.skipIf(!ready)("the mute list, with real NDK and real relays", () => {
@@ -121,5 +121,33 @@ describe.skipIf(!ready)("the mute list, with real NDK and real relays", () => {
     } finally {
       process.kill(pid, "SIGCONT");
     }
+  }, 40000);
+
+  // The gap that remains, pinned so that it is known and so that an
+  // improvement shows up here: an answering relay holds an older copy, the
+  // relay with the newer one stays silent. The newer one was never seen by
+  // this device, so there is nothing to compare against; the change goes
+  // out on the older copy, and the newer list loses to it once the silent
+  // relay wakes. The contact list has the same gap. Fixing it means asking
+  // what a silent relay holds, which cannot be done while it is silent.
+  it.skipIf(!process.env.VEGA_LISTS_B_PID)("open gap: a newer list on a relay that stays silent loses to a change made on an older copy", async () => {
+    const pid = Number(process.env.VEGA_LISTS_B_PID);
+    const secret = "9".repeat(60) + Date.now().toString(16).slice(-4);
+    await seedList(secret, { url: A!, tags: [["p", "a".repeat(64)]], agoSeconds: 100 });
+    await seedList(secret, { url: B!, tags: [["p", "a".repeat(64)], ["p", "z".repeat(64)]], agoSeconds: 5 });
+    const { pubkey, useMuteStore } = await start([A!, B!], secret);
+    process.kill(pid, "SIGSTOP");
+    try {
+      await useMuteStore.getState().fetchMuteList(pubkey);
+      expect(useMuteStore.getState().mutedPubkeys, "the older copy is all that answered").toEqual(["a".repeat(64)]);
+      await useMuteStore.getState().mute("c".repeat(64));
+      await sleep(8000);
+      expect(await held(A!, pubkey, 10000), "published on the older copy").toEqual({ tags: [["p", "a".repeat(64)], ["p", "c".repeat(64)]], content: "private-mutes" });
+    } finally {
+      process.kill(pid, "SIGCONT");
+    }
+    await sleep(500);
+    // B, awake again, now holds the newer event: z is gone.
+    expect(await held(B!, pubkey, 10000)).toEqual({ tags: [["p", "a".repeat(64)], ["p", "c".repeat(64)]], content: "private-mutes" });
   }, 40000);
 });
