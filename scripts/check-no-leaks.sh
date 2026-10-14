@@ -86,9 +86,12 @@ check "Internal .local/.internal host" \
 # Known limitation: exclusions are line-wise, so a real IP sharing a line with
 # an excluded one (e.g. a 203.0.113.x doc example) is missed. Traded for a low
 # false-positive rate, because a hook people bypass protects nothing.
+# The private ranges are anchored to the start of an address: "10\.[0-9]"
+# anywhere in the line let 203.10.5.6 through, because its second octet read
+# as the start of 10/8.
 check "Public IP address" \
   "\b([0-9]{1,3}\.){3}[0-9]{1,3}\b" \
-  "\b127\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\b|0\.0\.0\.0|255\.255|10\.[0-9]|192\.168\.|172\.(1[6-9]|2[0-9]|3[01])\.|169\.254\.|224\.0\.0|203\.0\.113|198\.51\.100|192\.0\.2\.|[0-9]+\.[0-9]+\.[0-9]+[\"',)\`]|version|@[0-9]"
+  "\b127\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\b|0\.0\.0\.0|255\.255|(^|[^0-9.])10\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\b|(^|[^0-9.])192\.168\.|(^|[^0-9.])172\.(1[6-9]|2[0-9]|3[01])\.|(^|[^0-9.])169\.254\.|224\.0\.0|203\.0\.113|198\.51\.100|192\.0\.2\.|[0-9]+\.[0-9]+\.[0-9]+[\"',)\`]|version|@[0-9]"
 
 # ── Files that should never be tracked at all. ──────────────────────────────
 if [ "$MODE" = "--all" ]; then
