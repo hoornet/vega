@@ -49,14 +49,22 @@ export function ThreadView() {
   // before a reply was sent does not have it.
   const publishedHere = useRef<{ note: string | null; replies: NDKEvent[] }>({ note: null, replies: [] });
 
-  // Guard AFTER all hooks to satisfy React rules of hooks
-  if (!selectedNote) { goBack(); return null; }
+  // No note to show (the stack was cleared under this view): go back, from
+  // an effect, not during render. The return is below every hook: a return
+  // above them renders fewer hooks than before and takes the app down, as the
+  // Zaps view did on sign-out.
   const focusedEvent = selectedNote;
+  useEffect(() => {
+    if (!focusedEvent) goBack();
+  }, [focusedEvent, goBack]);
 
   useEffect(() => {
+    if (!focusedEvent) return;
+    // Bound here: the guard above does not narrow inside loadThread.
+    const focused: NDKEvent = focusedEvent;
     let cancelled = false;
     // Another note: its replies are not this one's. The same note again ("Try again") keeps them.
-    if (publishedHere.current.note !== focusedEvent.id) publishedHere.current = { note: focusedEvent.id, replies: [] };
+    if (publishedHere.current.note !== focused.id) publishedHere.current = { note: focused.id, replies: [] };
 
     async function loadThread() {
       setLoadError(null);
@@ -68,8 +76,8 @@ export function ThreadView() {
       setShowRootReply(false);
 
       // Show focused note immediately as a minimal tree (no waiting)
-      const minimalTree = buildThreadTree(focusedEvent.id, [focusedEvent]);
-      setRootEvent(focusedEvent);
+      const minimalTree = buildThreadTree(focused.id, [focused]);
+      setRootEvent(focused);
       setTree(minimalTree);
       setLoading(false);
 
@@ -81,17 +89,17 @@ export function ThreadView() {
           return;
         }
 
-        const rootId = getRootEventId(focusedEvent);
-        let root: NDKEvent = focusedEvent;
+        const rootId = getRootEventId(focused);
+        let root: NDKEvent = focused;
         let fetchedAncestors: NDKEvent[] = [];
 
-        logDiag({ ts: new Date().toISOString(), action: "thread_load_start", details: `rootId=${rootId ?? "none"} focusedId=${focusedEvent.id}` });
+        logDiag({ ts: new Date().toISOString(), action: "thread_load_start", details: `rootId=${rootId ?? "none"} focusedId=${focused.id}` });
 
-        if (rootId && rootId !== focusedEvent.id) {
+        if (rootId && rootId !== focused.id) {
           const t0 = Date.now();
           const [fetched, ancestorResult] = await Promise.all([
             fetchNoteById(rootId),
-            fetchAncestors(focusedEvent),
+            fetchAncestors(focused),
           ]);
           logDiag({ ts: new Date().toISOString(), action: "thread_root_ancestors", durationMs: Date.now() - t0, details: `root=${fetched ? "ok" : "missing"} ancestors=${ancestorResult.length}` });
           if (fetched) {
@@ -117,8 +125,8 @@ export function ThreadView() {
 
         // Build event list: root + thread replies + focused event + ancestors
         const allEvents = [root, ...events.filter((e) => e.id !== root.id)];
-        if (focusedEvent.id !== root.id && !allEvents.some((e) => e.id === focusedEvent.id)) {
-          allEvents.push(focusedEvent);
+        if (focused.id !== root.id && !allEvents.some((e) => e.id === focused.id)) {
+          allEvents.push(focused);
         }
         for (const anc of fetchedAncestors) {
           if (!allEvents.some((e) => e.id === anc.id)) {
@@ -145,20 +153,22 @@ export function ThreadView() {
 
     loadThread();
     return () => { cancelled = true; };
-  }, [focusedEvent.id, retryCount]);
+  }, [focusedEvent?.id, retryCount]);
 
   // Scroll to focused note after tree fully loads.
   // Use a short delay after each tree update; the last one wins.
   const scrollTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   useEffect(() => {
-    if (focusedEvent.id === rootEvent?.id) return;
+    if (!focusedEvent || focusedEvent.id === rootEvent?.id) return;
     clearTimeout(scrollTimer.current);
     scrollTimer.current = setTimeout(() => {
       const el = document.querySelector(`[data-note-id="${focusedEvent.id}"]`);
       el?.scrollIntoView({ behavior: "smooth", block: "center" });
     }, 400);
     return () => clearTimeout(scrollTimer.current);
-  }, [tree, focusedEvent.id, rootEvent?.id]);
+  }, [tree, focusedEvent?.id, rootEvent?.id]);
+
+  if (!focusedEvent) return null;
 
   // Called when any inline reply box publishes a reply
   const handleReplyPublished = (reply: NDKEvent) => {
