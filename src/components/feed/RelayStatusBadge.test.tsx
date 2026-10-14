@@ -1,6 +1,8 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
 import { render, screen, fireEvent, cleanup } from "@testing-library/react";
 
+const feed = vi.hoisted(() => ({ connected: true }));
+vi.mock("../../stores/feed", () => ({ useFeedStore: <T,>(pick: (s: typeof feed) => T) => pick(feed) }));
 vi.mock("../../hooks/useRelayStatus", () => ({
   useRelayStatus: () => ({
     connectedCount: 2, totalCount: 3, discoveredCount: 1,
@@ -105,5 +107,20 @@ describe("RelayStatusBadge", () => {
     fireEvent.keyDown(document.body, { key: "Escape" });
     window.removeEventListener("keydown", app);
     expect(app).toHaveBeenCalledTimes(1);
+  });
+});
+
+// A network that went without closing its sockets left `relay.connected`
+// true, and the badge green, for as long as the app ran (#65).
+describe("RelayStatusBadge: when nothing answers", () => {
+  it("says so in red, whatever the sockets say, and says it in the list", () => {
+    feed.connected = false;
+    try {
+      render(<RelayStatusBadge />);
+      const badge = screen.getByText(/relays, not answering/);
+      expect(badge.textContent).toContain("relays, not answering");
+      expect(badge.className).toContain("text-danger");
+      expect(screen.getByRole("tooltip", { hidden: true }).textContent).toContain("Nothing has answered for a while");
+    } finally { feed.connected = true; }
   });
 });
