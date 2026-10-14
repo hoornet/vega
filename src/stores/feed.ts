@@ -32,6 +32,9 @@ export function isLiveSubActive(): boolean {
 // Guards against React StrictMode double-invoke and concurrent calls
 let connectCalled = false;
 let checkInterval: ReturnType<typeof setInterval> | null = null;
+/** The keys of the connection toasts, so that "Back online" can take the others down. */
+export const CONNECTION_LOST = "connection:lost";
+export const CONNECTION_RESET = "connection:reset";
 
 interface FeedState {
   notes: NDKEvent[];
@@ -57,6 +60,90 @@ interface FeedState {
   flushPendingNotes: () => void;
   loadTrendingFeed: (force?: boolean) => Promise<void>;
   setFocusedNoteIndex: (n: number) => void;
+}
+
+
+/**
+ * Checks relay connectivity every 5 s and reconnects when nothing answers.
+ * Always reads `getNDK()` fresh: the instance may be replaced by `resetNDK()`.
+ * Exported for its test.
+ */
+export function startConnectionMonitor(set: (patch: Partial<FeedState>) => void, get: () => FeedState): void {
+  let offlineStreak = 0;
+
+  const checkConnection = () => {
+    const currentNdk = getNDK();
+    const relays = Array.from(currentNdk.pool?.relays?.values() ?? []);
+    // Two things this must not believe. The embedded relay lives on
+    // ws://127.0.0.1 and survives any network failure, so it cannot answer
+    // for remote reachability — with it in the pool this predicate was
+    // permanently true and the whole ladder below was dead code. And
+    // `relay.connected` stays true on a half-open socket, so a fetch that
+    // nobody answers is the more honest signal. Both are issue #65.
+    const remotes = relays.filter((r) => !isLocalRelayUrl(r.url));
+    const candidates = remotes.length > 0 ? remotes : relays;
+    const hasConnected = candidates.some((r) => r.connected) && !isPoolSilent();
+
+    if (hasConnected) {
+      // Also after a reset, which zeroes the streak: "Connection lost" was
+      // said, and would otherwise stay up with nothing to take it down.
+      if (offlineStreak > 0 || !get().connected) {
+        // "Connection lost" and "Resetting" are no longer true: down they come.
+        const toasts = useToastStore.getState();
+        toasts.removeByKey(CONNECTION_LOST);
+        toasts.removeByKey(CONNECTION_RESET);
+        toasts.addToast("Back online", "success");
+      }
+      offlineStreak = 0;
+      if (!get().connected) set({ connected: true });
+    } else {
+      offlineStreak++;
+
+      // Mark offline once, on the check that crosses the 15s grace.
+      //
+      // This used to be guarded by `get().connected`, which the very next
+      // statement falsified — so from the second tick onwards the whole
+      // block was skipped and neither the retry nor the reset below could
+      // ever run. The nuclear reset has never fired. That went unnoticed
+      // while relays closed cleanly, because NDK reconnects those by
+      // itself; a half-open socket has no such self-healing, which is the
+      // #65 case this ladder now has to carry.
+      if (offlineStreak === 3) {
+        set({ connected: false });
+        logDiag({ ts: new Date().toISOString(), action: "connection_lost", details: `No relays connected after ${offlineStreak} checks` });
+        useToastStore.getState().addToast("Connection lost \u2014 reconnecting\u2026", "warning", { key: CONNECTION_LOST, sticky: true });
+      }
+
+      if (offlineStreak >= 3) {
+        // Nuclear reset after 6 consecutive failures (30s)
+        if (offlineStreak >= 6) {
+          offlineStreak = 0;
+          useToastStore.getState().addToast("Resetting relay connections\u2026", "info", { key: CONNECTION_RESET });
+          resetNDK().then(() => {
+            if (getNDK().pool?.relays) {
+              const after = Array.from(getNDK().pool.relays.values());
+              if (after.some((r) => r.connected)) {
+                set({ connected: true });
+                const toasts = useToastStore.getState();
+                toasts.removeByKey(CONNECTION_LOST);
+                toasts.removeByKey(CONNECTION_RESET);
+                toasts.addToast("Relays reconnected", "success");
+                // Restart live sub after NDK reset
+                get().startLiveFeed();
+              }
+            }
+          }).catch(() => {});
+        } else {
+          currentNdk.connect().catch(() => {});
+        }
+      }
+    }
+  };
+
+  // Store interval handle so it's never duplicated (guard above prevents this,
+  // but be defensive in case resetNDK restarts things)
+  if (checkInterval) clearInterval(checkInterval);
+  checkInterval = setInterval(checkConnection, 5000);
 }
 
 export const useFeedStore = create<FeedState>((set, get) => ({
@@ -125,74 +212,7 @@ export const useFeedStore = create<FeedState>((set, get) => ({
       startRelaySnapshots();
       startDiagFileFlusher(); // opt-in; no-op unless the user turned the log on
 
-      // Monitor relay connectivity — check every 5s, reconnect if needed.
-      // Always call getNDK() fresh — instance may be replaced by resetNDK().
-      let offlineStreak = 0;
-
-      const checkConnection = () => {
-        const currentNdk = getNDK();
-        const relays = Array.from(currentNdk.pool?.relays?.values() ?? []);
-        // Two things this must not believe. The embedded relay lives on
-        // ws://127.0.0.1 and survives any network failure, so it cannot answer
-        // for remote reachability — with it in the pool this predicate was
-        // permanently true and the whole ladder below was dead code. And
-        // `relay.connected` stays true on a half-open socket, so a fetch that
-        // nobody answers is the more honest signal. Both are issue #65.
-        const remotes = relays.filter((r) => !isLocalRelayUrl(r.url));
-        const candidates = remotes.length > 0 ? remotes : relays;
-        const hasConnected = candidates.some((r) => r.connected) && !isPoolSilent();
-
-        if (hasConnected) {
-          if (offlineStreak > 0) {
-            useToastStore.getState().addToast("Back online", "success");
-          }
-          offlineStreak = 0;
-          if (!get().connected) set({ connected: true });
-        } else {
-          offlineStreak++;
-
-          // Mark offline once, on the check that crosses the 15s grace.
-          //
-          // This used to be guarded by `get().connected`, which the very next
-          // statement falsified — so from the second tick onwards the whole
-          // block was skipped and neither the retry nor the reset below could
-          // ever run. The nuclear reset has never fired. That went unnoticed
-          // while relays closed cleanly, because NDK reconnects those by
-          // itself; a half-open socket has no such self-healing, which is the
-          // #65 case this ladder now has to carry.
-          if (offlineStreak === 3) {
-            set({ connected: false });
-            logDiag({ ts: new Date().toISOString(), action: "connection_lost", details: `No relays connected after ${offlineStreak} checks` });
-            useToastStore.getState().addToast("Connection lost \u2014 reconnecting\u2026", "warning");
-          }
-
-          if (offlineStreak >= 3) {
-            // Nuclear reset after 6 consecutive failures (30s)
-            if (offlineStreak >= 6) {
-              offlineStreak = 0;
-              useToastStore.getState().addToast("Resetting relay connections\u2026", "info");
-              resetNDK().then(() => {
-                if (getNDK().pool?.relays) {
-                  const after = Array.from(getNDK().pool.relays.values());
-                  if (after.some((r) => r.connected)) {
-                    set({ connected: true });
-                    useToastStore.getState().addToast("Relays reconnected", "success");
-                    // Restart live sub after NDK reset
-                    get().startLiveFeed();
-                  }
-                }
-              }).catch(() => {});
-            } else {
-              currentNdk.connect().catch(() => {});
-            }
-          }
-        }
-      };
-
-      // Store interval handle so it's never duplicated (guard above prevents this,
-      // but be defensive in case resetNDK restarts things)
-      if (checkInterval) clearInterval(checkInterval);
-      checkInterval = setInterval(checkConnection, 5000);
+      startConnectionMonitor(set, get);
     } catch (err) {
       connectCalled = false; // allow retry on error
       logDiag({ ts: new Date().toISOString(), action: "connect_failed", details: String(err) });
