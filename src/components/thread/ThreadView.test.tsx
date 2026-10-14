@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { render, screen, fireEvent, cleanup, waitFor } from "@testing-library/react";
+import { render, screen, fireEvent, cleanup, waitFor, act } from "@testing-library/react";
 import type { NDKEvent } from "@nostr-dev-kit/ndk";
 import type { ThreadNode } from "../../lib/threadTree";
 
@@ -214,5 +214,21 @@ describe("ThreadView: replying to the note", () => {
     await screen.findByText("another note");
     await settled();
     expect(screen.queryByText("reply mine")).toBeNull();
+  });
+});
+
+// The guard sat above the hooks and called goBack during render: with the
+// note taken away under the view (the stack cleared by sidebar navigation
+// while a thread was still mounted), React rendered fewer hooks than before
+// and the error boundary replaced the whole app.
+describe("ThreadView: with no note to show", () => {
+  it("goes back, from an effect, without rendering fewer hooks than before", async () => {
+    vi.mocked(fetchThreadEvents).mockResolvedValue([]);
+    const { rerender } = render(<ThreadView />);
+    expect(await screen.findByText(ROOT.content)).toBeTruthy();
+    useUIStore.setState({ viewStack: [{ view: "feed", selectedNote: null, selectedPubkey: null }] as never, currentView: "thread" });
+    expect(() => { act(() => { useUIStore.setState({ selectedNote: null }); }); rerender(<ThreadView />); }).not.toThrow();
+    expect(useUIStore.getState().currentView).toBe("feed");
+    expect(screen.queryByText(ROOT.content)).toBeNull();
   });
 });
