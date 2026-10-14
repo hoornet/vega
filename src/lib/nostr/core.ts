@@ -11,6 +11,7 @@ import {
   getPendingAuthRelays,
   getRelayAuthScope,
   looksLikeSignerRefusal,
+  looksLikeDisconnect,
   watchRelayAuthFailures,
   pruneOrphanRelaySubscriptions,
   pruneOrphanRelaySubscriptionsInPool,
@@ -730,9 +731,12 @@ function attachAuthListeners(instance: NDK): void {
  */
 export function announceAuthFailure(relay: { url: string }, err: unknown): void {
   if (_authFailureNotified.has(relay.url)) return;
+  const detail = describeAuthFailure(err);
+  // The connection went, not the relay's answer: nothing to tell, and the
+  // relay keeps its one notice for a refusal that may still come.
+  if (looksLikeDisconnect(detail)) return;
   _authFailureNotified.add(relay.url);
 
-  const detail = describeAuthFailure(err);
   const host = relayHost(relay.url);
   debug.warn(`[Vega] AUTH to ${relay.url} failed:`, err);
 

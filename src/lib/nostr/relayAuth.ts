@@ -258,6 +258,16 @@ export function looksLikeSignerRefusal(detail: string): boolean {
   return /permission|denied|not allowed|unauthoriz/i.test(detail);
 }
 
+/**
+ * The socket went before the relay answered the AUTH: NDK fails the pending
+ * publish with "Relay <url> disconnected" and the relay emits `auth:failed`
+ * with it. Nobody refused anything; a reset (`resetNDK`) closes every socket
+ * this way, and the notice then blamed a relay for Vega's own reconnect.
+ */
+export function looksLikeDisconnect(detail: string): boolean {
+  return /^Relay \S+ disconnected$/i.test(detail.trim());
+}
+
 /** Every relay currently holding an authenticated session. */
 export function authenticatedRelayUrls(instance: NDK): string[] {
   const urls: string[] = [];

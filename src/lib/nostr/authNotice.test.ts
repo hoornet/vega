@@ -48,4 +48,14 @@ describe("announceAuthFailure", () => {
     expect(toast.message).not.toContain("didn't accept Vega's sign-in");
     expect(toast.action?.label).toBe("Relays");
   });
+
+  // A reset closes every socket; NDK fails the pending AUTH with "Relay <url>
+  // disconnected" and the relay emits auth:failed with it. Nobody refused.
+  it("says nothing when the connection went before the relay answered, and keeps the relay's one notice", () => {
+    announceAuthFailure({ url: "wss://reset.example/" }, new Error("Relay wss://reset.example/ disconnected"));
+    expect(toasts()).toEqual([]);
+    announceAuthFailure({ url: "wss://reset.example/" }, new Error("Permission denied for sign_event kind:22242"));
+    expect(toasts()).toHaveLength(1);
+    expect(toasts()[0].message).toContain("Your signer refused");
+  });
 });
