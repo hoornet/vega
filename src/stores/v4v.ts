@@ -25,6 +25,10 @@ interface V4VPersistedState {
 
 interface V4VState extends V4VPersistedState {
   currentEpisodeSats: number;
+  /** Of those, sats whose request went out but whose wallet answer never came: counted, since the sats left. */
+  unconfirmedSats: number;
+  /** The last payment that did not go out, for the dashboard; a toast says it once per episode and recipient. */
+  lastFailure: { recipient: string; reason: string; at: number } | null;
   capReachedReason: string | null; // Set when a cap stops streaming
 
   // Computed
@@ -39,8 +43,9 @@ interface V4VState extends V4VPersistedState {
   setDefaultRate: (v: number) => void;
   setCapReachedReason: (reason: string | null) => void;
   addHistoryEntry: (entry: V4VHistoryEntry) => void;
-  addCurrentEpisodeSats: (amount: number) => void;
+  addCurrentEpisodeSats: (amount: number, unconfirmed?: boolean) => void;
   resetCurrentEpisodeSats: () => void;
+  setLastFailure: (failure: { recipient: string; reason: string } | null) => void;
 }
 
 function loadPersisted(): V4VPersistedState {
@@ -74,6 +79,8 @@ const initial = loadPersisted();
 export const useV4VStore = create<V4VState>((set, get) => ({
   ...initial,
   currentEpisodeSats: 0,
+  unconfirmedSats: 0,
+  lastFailure: null,
   capReachedReason: null,
 
   weeklySpent: () => {
@@ -142,9 +149,11 @@ export const useV4VStore = create<V4VState>((set, get) => ({
     persist(getPersistable({ ...get(), history }));
   },
 
-  addCurrentEpisodeSats: (amount) => {
-    set((s) => ({ currentEpisodeSats: s.currentEpisodeSats + amount }));
+  addCurrentEpisodeSats: (amount, unconfirmed = false) => {
+    set((s) => ({ currentEpisodeSats: s.currentEpisodeSats + amount, unconfirmedSats: s.unconfirmedSats + (unconfirmed ? amount : 0) }));
   },
 
-  resetCurrentEpisodeSats: () => set({ currentEpisodeSats: 0, capReachedReason: null }),
+  resetCurrentEpisodeSats: () => set({ currentEpisodeSats: 0, unconfirmedSats: 0, lastFailure: null, capReachedReason: null }),
+
+  setLastFailure: (failure) => set({ lastFailure: failure ? { ...failure, at: Date.now() } : null }),
 }));

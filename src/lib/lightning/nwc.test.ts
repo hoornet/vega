@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { parseNwcUri, isValidNwcUri } from "./nwc";
+import { parseNwcUri, isValidNwcUri, NwcTimeoutError } from "./nwc";
 
 describe("parseNwcUri", () => {
   it("parses a valid NWC URI", () => {
@@ -42,5 +42,14 @@ describe("isValidNwcUri", () => {
 
   it("returns false for missing fields", () => {
     expect(isValidNwcUri("nostr+walletconnect://abc123")).toBe(false);
+  });
+});
+
+describe("NwcTimeoutError", () => {
+  it("is told apart from a refusal by its class and its name", () => {
+    const err = new NwcTimeoutError("NWC payment");
+    expect(err).toBeInstanceOf(Error);
+    expect(err.name).toBe("NwcTimeoutError");
+    expect(err.message).toBe("NWC payment timed out (30s)");
   });
 });
