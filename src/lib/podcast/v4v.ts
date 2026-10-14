@@ -134,7 +134,12 @@ export function startStreaming(
   // Normalize splits to sum to 100
   const totalSplit = recipients.reduce((sum, r) => sum + r.split, 0);
 
+  // One round of payments at a time: a wallet that takes its 30 s per
+  // recipient can still be paying when the next minute fires, and two rounds
+  // at once paid twice.
+  let paying = false;
   streamingInterval = window.setInterval(async () => {
+    if (paying) return;
     // Check budget caps before accumulating
     const v4v = useV4VStore.getState();
     if (v4v.isCapReached()) {
@@ -157,6 +162,8 @@ export function startStreaming(
     accumulatedSats = 0;
     accumulatedMinutes = 0;
 
+    paying = true;
+    try {
     for (const recipient of recipients) {
       const share = totalSplit > 0 ? recipient.split / totalSplit : 1 / recipients.length;
       const recipientSats = Math.max(1, Math.round(satsToSend * share));
@@ -172,6 +179,9 @@ export function startStreaming(
       useV4VStore.getState().addCurrentEpisodeSats(recipientSats, result.outcome === "sent");
       const key = recipient.name || recipient.address || "unknown";
       sessionRecipientSats[key] = (sessionRecipientSats[key] || 0) + recipientSats;
+    }
+    } finally {
+      paying = false;
     }
   }, 60000); // Every 60 seconds
 

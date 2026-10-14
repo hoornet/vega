@@ -116,6 +116,23 @@ describe("streaming: what is counted", () => {
   });
 });
 
+describe("streaming: one round at a time", () => {
+  it("does not start the next round while a wallet is still being waited for", async () => {
+    let finish: (v: string) => void = () => {};
+    vi.mocked(payInvoiceViaNWC).mockImplementationOnce(() => new Promise((resolve) => { finish = resolve; }));
+    startStreaming(episode, 10, NWC, () => {});
+    await fiveMinutes();
+    expect(payInvoiceViaNWC).toHaveBeenCalledTimes(1);
+    // Five more minutes pass with the wallet silent: no second round, and nothing counted.
+    await fiveMinutes();
+    expect(payInvoiceViaNWC).toHaveBeenCalledTimes(1);
+    expect(useV4VStore.getState().currentEpisodeSats).toBe(0);
+    finish("preimage");
+    await vi.advanceTimersByTimeAsync(10);
+    expect(useV4VStore.getState().currentEpisodeSats).toBe(50);
+  });
+});
+
 describe("boost", () => {
   it("counts what was paid or sent, and reports what was not", async () => {
     wallet.answer = "timeout";

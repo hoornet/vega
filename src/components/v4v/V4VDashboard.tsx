@@ -76,7 +76,11 @@ export function V4VDashboard() {
             <div className="text-caption text-text-muted truncate">{episode.title}</div>
             <div className="text-caption text-text-dim mt-1">
               {v4vTotalStreamed} sats this session · {episode.value?.length} recipients
+              {unconfirmedSats > 0 && <span> ({unconfirmedSats} sent, not yet confirmed by your wallet)</span>}
             </div>
+            {lastFailure && (
+              <p role="status" className="text-danger text-caption mt-1">Couldn't pay {lastFailure.recipient}: {lastFailure.reason}.</p>
+            )}
           </div>
         ) : capReachedReason ? (
           <div className="bg-danger/5 border border-danger/20 rounded-lg p-3">
