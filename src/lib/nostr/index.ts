@@ -5,9 +5,7 @@ export { publishArticle, fetchArticle, fetchAuthorArticles, fetchArticleFeed, se
 export { publishReaction, fetchReplyCount, fetchZapCount, fetchReactions, groupReactions, fetchBatchEngagement, fetchZapsReceived, fetchZapsSent } from "./engagement";
 export type { GroupedReactions, BatchEngagement } from "./engagement";
 export { fetchDMConversations, fetchDMThread, fetchNewDMs, sendDM, decryptDM } from "./dms";
-export { fetchBookmarkList, publishBookmarkList, fetchBookmarkListFull, publishBookmarkListFull } from "./bookmarks";
 export { fetchPodcastList, publishPodcastList } from "./podcasts";
-export { fetchMuteList, publishMuteList } from "./muting";
 export { searchNotes, searchUsers, resolveNip05, advancedSearch } from "./search";
 export type { AdvancedSearchResults } from "./search";
 export { fetchUserRelayList, fetchUserDMRelayList, publishRelayList, fetchRelayRecommendations } from "./relays";
@@ -17,3 +15,4 @@ export { publishPoll, publishPollResponse, fetchPollResponses } from "./polls";
 export type { PollVotes } from "./polls";
 export { verifyReputation } from "./vertex";
 export type { ReputationResult, ReputationEntry } from "./vertex";
+export { fetchReplaceableList, publishReplaceableList, relaysToAsk, type ListResult } from "./lists";
