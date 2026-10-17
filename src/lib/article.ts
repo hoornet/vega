@@ -57,21 +57,31 @@ export function dropLeadingTitle(text: string, title: string): string {
   return flat.slice(squash(title).length).replace(/^[\s.:!?,;–—-]+/, "");
 }
 
-const decodeEntities = (html: string) =>
-  html.replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&nbsp;/g, " ");
+// A first-level heading at the top of the body: `# Title` (ATX, an optional
+// closing run of #) or `Title` over a line of `=` (Setext). Blank lines before
+// it are allowed. Every run is bounded, so a hostile body costs nothing: with
+// an unbounded `[ \t]*` after the lazy title, 100 KB of spaces took 250 ms.
+const BLANK_LINES = "(?:[ \\t]{0,40}\\r?\\n)*";
+const ATX_TITLE = new RegExp(`^${BLANK_LINES}[ \\t]{0,3}#[ \\t]{1,40}([^\\r\\n]{1,500}?)[ \\t]{0,40}#{0,40}[ \\t]{0,40}(?:\\r?\\n|$)`);
+const SETEXT_TITLE = new RegExp(`^${BLANK_LINES}[ \\t]{0,3}([^\\r\\n]{1,500}?)[ \\t]{0,40}\\r?\\n[ \\t]{0,3}={1,500}[ \\t]{0,40}(?:\\r?\\n|$)`);
+
+/** A heading's words without the marks a writer may have put on them: `# *Title*`, `# [Title](url)`. */
+const headingWords = (text: string) => squash(text.replace(/\[([^\]\n]{0,300})\]\([^)\n]{0,2000}\)/g, "$1").replace(/[*_`]/g, ""));
 
 /**
  * A body that opens with a heading equal to the title would show the title
- * twice, the second time as a section heading. Remove that heading. Only a
- * first `h1`: a repeated title deeper in the text is the writer's to keep.
+ * twice, the second time as a section heading. Remove that heading, from the
+ * markdown and before it is rendered: the rendered HTML is DOMPurify's, and is
+ * not taken apart afterwards. Only a first heading: a repeated title deeper in
+ * the text is the writer's to keep.
  */
-export function stripLeadingTitle(html: string, title: string): string {
-  if (!squash(title)) return html;
-  const match = /^\s*<h1\b[^>]*>([\s\S]*?)<\/h1>\s*/i.exec(html);
-  if (!match) return html;
-  const text = decodeEntities(match[1].replace(/<[^>]+>/g, ""));
-  if (squash(text) !== squash(title)) return html;
-  return html.slice(match[0].length);
+export function stripLeadingTitle(markdown: string, title: string): string {
+  const want = squash(title);
+  if (!want) return markdown;
+  const match = ATX_TITLE.exec(markdown) ?? SETEXT_TITLE.exec(markdown);
+  if (!match || headingWords(match[1]) !== want) return markdown;
+  // And the blank lines that followed it, or the body would start with a gap.
+  return markdown.slice(match[0].length).replace(/^(?:[ \t]{0,40}\r?\n){0,50}/, "");
 }
 
 /** How much of a body is read for its summary. A summary is 160 characters; nothing past this can be in it. */

@@ -26,19 +26,26 @@ describe("article metadata", () => {
 });
 
 describe("a body that repeats the title", () => {
-  it("loses a first h1 equal to the title, whatever its case, spacing or entities", () => {
-    expect(stripLeadingTitle("<h1>Hello &amp; welcome</h1>\n<p>Body</p>", "hello & Welcome")).toBe("<p>Body</p>");
-    expect(stripLeadingTitle('<h1 id="t"><em>Hello</em>  there</h1><p>x</p>', "Hello there")).toBe("<p>x</p>");
+  it("loses a first heading equal to the title, whatever its case, spacing or marks", () => {
+    expect(stripLeadingTitle("# Hello & welcome\n\nBody", "hello & Welcome")).toBe("Body");
+    expect(stripLeadingTitle("\n\n#  *Hello*  there ##\nBody", "Hello there")).toBe("Body");
+    expect(stripLeadingTitle("# [Hello](https://x.y)\nBody", "Hello")).toBe("Body");
+    expect(stripLeadingTitle("Hello there\n===========\n\nBody", "Hello there")).toBe("Body");
   });
 
-  it("keeps an h1 that says something else, an h2, and a repeat deeper in the text", () => {
-    expect(stripLeadingTitle("<h1>Other</h1><p>x</p>", "Hello")).toBe("<h1>Other</h1><p>x</p>");
-    expect(stripLeadingTitle("<h2>Hello</h2><p>x</p>", "Hello")).toBe("<h2>Hello</h2><p>x</p>");
-    expect(stripLeadingTitle("<p>intro</p><h1>Hello</h1>", "Hello")).toBe("<p>intro</p><h1>Hello</h1>");
+  it("keeps a heading that says something else, a second-level one, and a repeat deeper in the text", () => {
+    expect(stripLeadingTitle("# Other\nx", "Hello")).toBe("# Other\nx");
+    expect(stripLeadingTitle("## Hello\nx", "Hello")).toBe("## Hello\nx");
+    expect(stripLeadingTitle("intro\n\n# Hello\nx", "Hello")).toBe("intro\n\n# Hello\nx");
+    expect(stripLeadingTitle("#Hello\nx", "Hello")).toBe("#Hello\nx");
   });
 
-  it("is left alone with no title", () => {
-    expect(stripLeadingTitle("<h1></h1><p>x</p>", "")).toBe("<h1></h1><p>x</p>");
+  it("is left alone with no title, and takes no time on a hostile body", () => {
+    expect(stripLeadingTitle("# \nx", "")).toBe("# \nx");
+    const t0 = performance.now();
+    stripLeadingTitle("\n".repeat(100_000) + "# " + "a".repeat(100_000), "b");
+    stripLeadingTitle(" ".repeat(100_000) + "=".repeat(100_000), "b");
+    expect(performance.now() - t0).toBeLessThan(50);
   });
 });
 
