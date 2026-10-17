@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
-import { useUIStore, hasChosenFeedTab } from "./ui";
+import { useUIStore, hasChosenFeedTab, hasChosenArticlesTab } from "./ui";
+import type { NDKEvent } from "@nostr-dev-kit/ndk";
 
 describe("useUIStore", () => {
   beforeEach(() => {
@@ -122,6 +123,36 @@ describe("useUIStore", () => {
   });
 });
 
+describe("Back from an article", () => {
+  beforeEach(() => {
+    useUIStore.setState({ currentView: "articles", viewStack: [], pendingArticleNaddr: null, pendingArticleEvent: null, selectedNote: null, selectedPubkey: null });
+  });
+
+  it("returns to the article that was open before, not to the one just left", () => {
+    const a = { id: "a" } as unknown as NDKEvent;
+    const b = { id: "b" } as unknown as NDKEvent;
+    useUIStore.getState().openArticle("naddr1a", a);
+    // "More from" opens another article from inside the reader.
+    useUIStore.getState().openArticle("naddr1b", b);
+    expect(useUIStore.getState().pendingArticleNaddr).toBe("naddr1b");
+    useUIStore.getState().goBack();
+    expect(useUIStore.getState().currentView).toBe("article");
+    expect(useUIStore.getState().pendingArticleNaddr).toBe("naddr1a");
+    expect(useUIStore.getState().pendingArticleEvent).toBe(a);
+    useUIStore.getState().goBack();
+    expect(useUIStore.getState().currentView).toBe("articles");
+  });
+
+  it("returns to the article from the writer's profile", () => {
+    const a = { id: "a" } as unknown as NDKEvent;
+    useUIStore.getState().openArticle("naddr1a", a);
+    useUIStore.getState().openProfile("ab".repeat(32));
+    useUIStore.getState().goBack();
+    expect(useUIStore.getState().currentView).toBe("article");
+    expect(useUIStore.getState().pendingArticleNaddr).toBe("naddr1a");
+  });
+});
+
 describe("feed tab memory", () => {
   beforeEach(() => {
     localStorage.clear();
@@ -166,6 +197,38 @@ describe("feed tab memory", () => {
 
   it("ignores a stored value that is not a tab", async () => {
     expect(await openingTab({ wrystr_feed_tab: "nonsense" })).toBe("trending");
+  });
+});
+
+describe("articles tab memory", () => {
+  beforeEach(() => {
+    localStorage.clear();
+  });
+
+  it("remembers a tab the user picked, and not a default the app picked", () => {
+    expect(hasChosenArticlesTab()).toBe(false);
+    useUIStore.getState().setArticlesTab("latest");
+    expect(useUIStore.getState().articlesTab).toBe("latest");
+    expect(localStorage.getItem("wrystr_articles_tab")).toBe("latest");
+    expect(hasChosenArticlesTab()).toBe(true);
+    useUIStore.getState().setArticlesTab("following", { remember: false });
+    expect(useUIStore.getState().articlesTab).toBe("following");
+    expect(localStorage.getItem("wrystr_articles_tab")).toBe("latest");
+  });
+
+  async function openingTab(seed: Record<string, string>) {
+    localStorage.clear();
+    for (const [k, v] of Object.entries(seed)) localStorage.setItem(k, v);
+    vi.resetModules();
+    const fresh = await import("./ui");
+    return fresh.useUIStore.getState().articlesTab;
+  }
+
+  it("opens on the tab picked last time, else on Following when signed in, else on Latest", async () => {
+    expect(await openingTab({ wrystr_articles_tab: "latest", wrystr_pubkey: "ab".repeat(32) })).toBe("latest");
+    expect(await openingTab({ wrystr_pubkey: "ab".repeat(32) })).toBe("following");
+    expect(await openingTab({})).toBe("latest");
+    expect(await openingTab({ wrystr_articles_tab: "nonsense", wrystr_pubkey: "ab".repeat(32) })).toBe("following");
   });
 });
 

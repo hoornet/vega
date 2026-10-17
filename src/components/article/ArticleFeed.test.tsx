@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { render, screen, fireEvent, cleanup, waitFor } from "@testing-library/react";
+import { render, screen, fireEvent, cleanup, waitFor, act } from "@testing-library/react";
 import type { NDKEvent } from "@nostr-dev-kit/ndk";
 
 // Two tabs share this view. Since a load nobody answers keeps the rows it
@@ -36,6 +36,7 @@ vi.mock("../shared/Tabs", async (original) => {
 vi.mock("./ArticleCard", () => ({ ArticleCard: ({ event }: { event: NDKEvent }) => { shown.log.push({ tab: shown.tab, row: event.content }); return <article>{event.content}</article>; } }));
 
 import { ArticleFeed } from "./ArticleFeed";
+import { useUIStore } from "../../stores/ui";
 import { fetchArticleFeed, fetchProfiles } from "../../lib/nostr";
 import { dbLoadArticles } from "../../lib/db";
 import { recordFetchOutcome } from "../../lib/nostr/fetchTotals";
@@ -52,6 +53,9 @@ const openFollowing = async () => { fireEvent.click(screen.getByRole("tab", { na
 const rows = () => screen.queryAllByRole("article").map((e) => e.textContent);
 
 beforeEach(() => {
+  // The tab lives in the ui store and is remembered; each case starts on Latest with nothing remembered.
+  localStorage.clear();
+  useUIStore.setState({ articlesTab: "latest" });
   Object.assign(user, { loggedIn: true, follows: ["writer"], followsStatus: "loaded", fetchFollows });
   relays.latest = "rows"; relays.following = "rows";
   fetchFollows.mockClear();
@@ -251,5 +255,70 @@ describe("ArticleFeed: what a load nobody answers keeps", () => {
     await openFollowing();
     expect(rows()).toEqual([]);
     expect(screen.getByRole("alert")).toBeTruthy();
+  });
+});
+
+describe("ArticleFeed: the tab it opens on", () => {
+  it("opens on Following when the store says so, and loads the writers you follow", async () => {
+    useUIStore.setState({ articlesTab: "following" });
+    render(<ArticleFeed />);
+    await settled();
+    expect(screen.getByRole("tab", { name: "Following" }).getAttribute("aria-selected")).toBe("true");
+    expect(rows()).toEqual(["article good"]);
+    expect(vi.mocked(fetchArticleFeed).mock.calls[0][1]).toEqual(["writer"]);
+  });
+
+  it("lists Following before Latest", () => {
+    render(<ArticleFeed />);
+    expect(screen.getAllByRole("tab").map((t) => t.textContent)).toEqual(["Following", "Latest"]);
+  });
+
+  it("sends an account that follows nobody to Latest, once the list has loaded empty, without remembering it", async () => {
+    user.follows = []; user.followsStatus = "loaded";
+    useUIStore.setState({ articlesTab: "following" });
+    render(<ArticleFeed />);
+    await settled();
+    expect(screen.getByRole("tab", { name: "Latest" }).getAttribute("aria-selected")).toBe("true");
+    expect(rows()).toEqual(["article good"]);
+    expect(localStorage.getItem("wrystr_articles_tab")).toBeNull();
+  });
+
+  for (const status of ["loading", "unknown"] as const) {
+    it(`stays on Following while the follow list is ${status}`, async () => {
+      user.follows = []; user.followsStatus = status;
+      useUIStore.setState({ articlesTab: "following" });
+      render(<ArticleFeed />);
+      await act(async () => { await new Promise((r) => setTimeout(r, 0)); });
+      expect(screen.getByRole("tab", { name: "Following" }).getAttribute("aria-selected")).toBe("true");
+      expect(vi.mocked(fetchArticleFeed)).not.toHaveBeenCalled();
+    });
+  }
+
+  it("stays on Following when the user picked it, even with nobody followed", async () => {
+    user.follows = []; user.followsStatus = "loaded";
+    useUIStore.getState().setArticlesTab("following");
+    render(<ArticleFeed />);
+    await settled();
+    expect(screen.getByRole("tab", { name: "Following" }).getAttribute("aria-selected")).toBe("true");
+    expect(screen.getByRole("tabpanel").textContent).toContain("You're not following anyone yet.");
+  });
+
+  it("falls back to Latest when signed out", async () => {
+    user.loggedIn = false; user.follows = [];
+    useUIStore.setState({ articlesTab: "following" });
+    render(<ArticleFeed />);
+    await settled();
+    expect(screen.getByRole("tab", { name: "Latest" }).getAttribute("aria-selected")).toBe("true");
+    expect(localStorage.getItem("wrystr_articles_tab")).toBeNull();
+  });
+
+  it("remembers the tab the user clicks, and keeps it when the view is opened again", async () => {
+    render(<ArticleFeed />);
+    await settled();
+    await openFollowing();
+    expect(localStorage.getItem("wrystr_articles_tab")).toBe("following");
+    cleanup();
+    render(<ArticleFeed />);
+    expect(screen.getByRole("tab", { name: "Following" }).getAttribute("aria-selected")).toBe("true");
   });
 });

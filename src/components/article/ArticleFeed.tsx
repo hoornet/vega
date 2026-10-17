@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { NDKEvent, type NDKUserProfile } from "@nostr-dev-kit/ndk";
 import { fetchArticleFeed, fetchProfiles, getNDK } from "../../lib/nostr";
 import { useUserStore, useCanSign } from "../../stores/user";
-import { useUIStore } from "../../stores/ui";
+import { useUIStore, hasChosenArticlesTab, type ArticlesTab } from "../../stores/ui";
 import { useMuteStore } from "../../stores/mute";
 import { useWoTStore } from "../../stores/wot";
 import { dbLoadArticles, dbSaveNotes } from "../../lib/db";
@@ -14,8 +14,6 @@ import { Tabs, tabPanelProps } from "../shared/Tabs";
 import { Button } from "../shared/Button";
 import { ListState, stateWithoutRows, followListState } from "../shared/ListState";
 import { fetchMark, wentUnanswered, type LoadOutcome } from "../../lib/listLoad";
-
-type ArticleTab = "latest" | "following";
 
 interface ArticleList {
   /** What these are rows of: "latest", or the follow list they were asked for. */
@@ -35,14 +33,17 @@ const FOLLOWING_LIMIT = 40;
 export function ArticleFeed() {
   const canSign = useCanSign();
   const { loggedIn, follows, followsStatus, fetchFollows } = useUserStore();
-  const { setView } = useUIStore();
+  const { setView, articlesTab, setArticlesTab } = useUIStore();
+  // Following needs an account. Signed out it is Latest, decided here and not
+  // written to the store: while a session is still being restored the user is
+  // not signed in yet either, and a store write then kept them on Latest.
+  const tab: ArticlesTab = loggedIn ? articlesTab : "latest";
   const mutedPubkeyList = useMuteStore((s) => s.mutedPubkeys);
   const contentMatchesMutedKeyword = useMuteStore((s) => s.contentMatchesMutedKeyword);
   const languageFilter = useUIStore((s) => s.feedLanguageFilter);
   const hideRssArticles = useUIStore((s) => s.hideRssArticles);
   const wotEnabled = useWoTStore((s) => s.enabled);
   const wotSet = useWoTStore((s) => s.wotSet);
-  const [tab, setTab] = useState<ArticleTab>("latest");
   // The rows, with what they are rows of: a tab, and on Following a follow
   // list. A load nobody answers keeps the rows it finds, so they must be this
   // list's own: Latest's articles were once kept "from before" under
@@ -128,11 +129,13 @@ export function ArticleFeed() {
   // once, and never one frame of the other tab's rows, loading flag or outcome.
   const { articles, loading, outcome } = list.key === followsKey ? list : NOT_ASKED;
 
-  // Following needs an account. Signing out while on it left the selected tab
-  // disabled, with nothing loading and no way back to Latest by keyboard.
+  // An account that follows nobody is sent to Latest, where the writers are,
+  // once the follow list has actually loaded empty: not while it loads, and
+  // not when it could not be loaded. Not the user's choice, so not remembered.
   useEffect(() => {
-    if (!loggedIn && tab === "following") setTab("latest");
-  }, [loggedIn, tab]);
+    if (tab !== "following") return;
+    if (followsStatus === "loaded" && follows.length === 0 && !hasChosenArticlesTab()) setArticlesTab("latest", { remember: false });
+  }, [tab, followsStatus, follows.length, setArticlesTab]);
 
   useEffect(() => {
     if (tab === "following" && follows.length === 0) return;
@@ -231,11 +234,11 @@ export function ArticleFeed() {
         label="Articles"
         panel="articles-panel"
         tabs={[
-          { id: "latest", label: "Latest" },
           { id: "following", label: "Following", disabled: !loggedIn },
-        ]}
+          { id: "latest", label: "Latest" },
+        ] satisfies { id: ArticlesTab; label: string; disabled?: boolean }[]}
         value={tab}
-        onChange={setTab}
+        onChange={(id) => setArticlesTab(id)}
       />
 
       {/* Articles list */}
