@@ -426,6 +426,7 @@ function PublishSheet({ fields, derivedSummary, own, editing, canSign, canPublis
       <div className="p-4 space-y-4">
         <div>
           <p className="text-caption text-text-muted mb-1">How it will look in Articles</p>
+          {/* Without the byline: the writer knows who they are, and the card is about what they are about to publish. */}
           <div className="rounded-lg border border-border bg-bg overflow-hidden" inert>
             <ArticleCard event={preview} showAuthor={false} preview />
           </div>
