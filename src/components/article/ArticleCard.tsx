@@ -37,7 +37,9 @@ interface ArticleCardProps {
 }
 
 export const ArticleCard = memo(function ArticleCard({ event, showAuthor = true, read, actions, preview = false }: ArticleCardProps) {
-  const { openArticle, openProfile, openHashtag } = useUIStore();
+  const openArticle = useUIStore((s) => s.openArticle);
+  const openProfile = useUIStore((s) => s.openProfile);
+  const openHashtag = useUIStore((s) => s.openHashtag);
   const canSign = useCanSign();
   const profile = useProfile(event.pubkey);
   const addr = articleAddr(event);

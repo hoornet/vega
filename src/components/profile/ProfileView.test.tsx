@@ -49,7 +49,7 @@ beforeEach(() => {
     recordFetchOutcome(true);
     return held;
   });
-  useUIStore.setState({ selectedPubkey: ALICE });
+  useUIStore.setState({ selectedPubkey: ALICE, profileTabs: {} });
 });
 afterEach(() => { cleanup(); vi.useRealTimers(); });
 
@@ -193,10 +193,37 @@ describe("ProfileView: opening one profile from another", () => {
     await settle();
     tab("Articles");
     await settle(0);
+    tab("Notes");
     await open(BOB);
     await settle();
     await open(ALICE);
     await settle();
+    expect(screen.getByRole("tab", { name: "Notes" }).getAttribute("aria-selected")).toBe("true");
     expect(vi.mocked(fetchAuthorArticles).mock.calls.map(([pk]) => pk)).toEqual([ALICE]);
+  });
+
+  it("opens on the remembered tab when mounted afresh, as Back from an article does", async () => {
+    useUIStore.setState({ profileTabs: { [ALICE]: "articles" } });
+    render(<ProfileView />);
+    expect(screen.getByRole("tab", { name: "Articles" }).getAttribute("aria-selected")).toBe("true");
+    await settle(0);
+    expect(rows()).toEqual(["alice essay"]);
+    expect(vi.mocked(fetchAuthorArticles).mock.calls.map(([pk]) => pk)).toEqual([ALICE]);
+  });
+
+  it("opens on the tab that was last open on that person, and asks for the articles then, since they are showing", async () => {
+    render(<ProfileView />);
+    await settle();
+    tab("Articles");
+    await settle(0);
+    await open(BOB);
+    await settle();
+    expect(screen.getByRole("tab", { name: "Notes" }).getAttribute("aria-selected")).toBe("true");
+    expect(vi.mocked(fetchAuthorArticles).mock.calls.map(([pk]) => pk)).toEqual([ALICE]);
+    await open(ALICE);
+    await settle(0);
+    expect(screen.getByRole("tab", { name: "Articles" }).getAttribute("aria-selected")).toBe("true");
+    expect(rows()).toEqual(["alice essay"]);
+    expect(vi.mocked(fetchAuthorArticles).mock.calls.map(([pk]) => pk)).toEqual([ALICE, ALICE]);
   });
 });
