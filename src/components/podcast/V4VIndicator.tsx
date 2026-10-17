@@ -184,7 +184,7 @@ export function V4VIndicator() {
           <div className="flex items-center justify-between mb-2">
             <div className="text-caption text-text font-medium">Value 4 Value</div>
             <button
-              onClick={() => { setOpen(false); useUIStore.getState().setView("v4v"); }}
+              onClick={() => { setOpen(false); useUIStore.getState().openView("v4v"); }}
               className="text-caption text-accent hover:text-accent-hover transition-colors"
             >
               open v4v ↗

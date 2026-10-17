@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { useToastStore, openView } from "./toast";
+import { useToastStore, goToView } from "./toast";
 import { useUIStore } from "./ui";
 
 const add = useToastStore.getState().addToast;
@@ -562,10 +562,10 @@ describe("taking a toast down by its key", () => {
   });
 });
 
-describe("openView", () => {
+describe("goToView", () => {
   it("is an action that goes to a view", () => {
     useUIStore.setState({ currentView: "feed" });
-    openView("relays")();
+    goToView("relays")();
     expect(useUIStore.getState().currentView).toBe("relays");
   });
 });

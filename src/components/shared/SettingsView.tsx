@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import pkg from "../../../package.json";
 import { save } from "@tauri-apps/plugin-dialog";
 import { writeTextFile } from "@tauri-apps/plugin-fs";
 import { invoke } from "@tauri-apps/api/core";
@@ -861,6 +862,8 @@ export function SettingsView() {
         <MutedKeywordsSection />
         <ArticlesSection />
         <WoTSection />
+        {/* The build stamp, here and in Support, not in the sidebar's brand position. */}
+        <p className="text-caption text-text-muted pt-4">Vega v{pkg.version}</p>
       </div>
     </div>
   );

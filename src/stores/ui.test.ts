@@ -153,6 +153,26 @@ describe("Back from an article", () => {
   });
 });
 
+describe("openView", () => {
+  beforeEach(() => { useUIStore.setState({ currentView: "feed", viewStack: [], pendingArticleNaddr: null, pendingArticleEvent: null }); });
+
+  it("pushes the way back, which goBack takes", () => {
+    useUIStore.getState().openView("follows");
+    expect(useUIStore.getState().currentView).toBe("follows");
+    useUIStore.getState().goBack();
+    expect(useUIStore.getState().currentView).toBe("feed");
+    expect(useUIStore.getState().viewStack).toEqual([]);
+  });
+
+  it("does not push a second entry for the view already open", () => {
+    useUIStore.getState().openView("follows");
+    useUIStore.getState().openView("follows");
+    expect(useUIStore.getState().viewStack).toHaveLength(1);
+    useUIStore.getState().goBack();
+    expect(useUIStore.getState().currentView).toBe("feed");
+  });
+});
+
 describe("feed tab memory", () => {
   beforeEach(() => {
     localStorage.clear();

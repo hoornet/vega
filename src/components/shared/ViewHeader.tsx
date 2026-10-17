@@ -42,7 +42,10 @@ export function ViewHeader({ title, hiddenTitle, onBack, meta, tabs, children, a
   const wrap = given(tabs) ? "flex-wrap-reverse" : "flex-wrap";
   const lead = !!onBack || given(title) || given(meta);
   return (
-    <header className={`min-h-12 shrink-0 border-b border-border-subtle px-4 flex ${wrap} items-center gap-x-3`}>
+    // 48px of content plus the border, in both shapes: the titled header's inner
+    // group is 48 and made it 49 overall, while the tabs-only header was 48. The
+    // sidebar's header matches, so the dividers line up across the window.
+    <header className={`min-h-12 box-content shrink-0 border-b border-border-subtle px-4 flex ${wrap} items-center gap-x-3`}>
       {hiddenTitle && <h1 className="sr-only">{hiddenTitle}</h1>}
       {/* Tabs never shrink: squeezed, they slid under the controls beside them. */}
       {given(tabs) && (

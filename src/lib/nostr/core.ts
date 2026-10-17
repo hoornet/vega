@@ -2,7 +2,7 @@ import NDK, { NDKEvent, NDKFilter, NDKRelay, NDKRelaySet, NDKRelayStatus, NDKSub
 import { debug } from "../debug";
 import { clipText } from "../utils";
 import { recordFetchOutcome } from "./fetchTotals";
-import { useToastStore, openView } from "../../stores/toast";
+import { useToastStore, goToView } from "../../stores/toast";
 import {
   beginAuthAttempt,
   clearPendingAuthRelay,
@@ -753,7 +753,7 @@ export function announceAuthFailure(relay: { url: string }, err: unknown): void 
   // holds the "Relay authentication" switch. A long message, so it stays long.
   useToastStore.getState().addToast(message, "warning", {
     autoCloseMs: 12000,
-    action: { label: "Relays", run: openView("relays") },
+    action: { label: "Relays", run: goToView("relays") },
   });
 }
 

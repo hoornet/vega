@@ -281,7 +281,7 @@ export function Feed() {
     <div className="h-full flex flex-col">
       {/* Header */}
       <ViewHeader
-        hiddenTitle="Feed"
+        hiddenTitle="Home"
         // Order follows the default: the people you chose first, the open
         // firehose last. Following is only offered to someone signed in.
         tabs={

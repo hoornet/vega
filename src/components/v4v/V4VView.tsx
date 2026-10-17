@@ -4,16 +4,19 @@ import { V4VSettings } from "./V4VSettings";
 import { V4VHistory } from "./V4VHistory";
 import { ViewHeader } from "../shared/ViewHeader";
 import { Tabs, tabPanelProps } from "../shared/Tabs";
+import { useUIStore } from "../../stores/ui";
 
 const TABS = ["dashboard", "settings", "history"] as const;
 type Tab = (typeof TABS)[number];
 
 export function V4VView() {
   const [tab, setTab] = useState<Tab>("dashboard");
+  const { viewStack, goBack } = useUIStore();
 
   return (
     <div className="h-full flex flex-col">
-      <ViewHeader title="Value 4 Value" />
+      {/* Reached from Podcasts or the player bar, not from the sidebar: Back returns there. */}
+      <ViewHeader title="Value 4 Value" onBack={viewStack.length > 0 ? goBack : undefined} />
       <Tabs
         label="Value 4 Value"
         panel="v4v-panel"

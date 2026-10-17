@@ -16,7 +16,8 @@ const store = {
 const readSecretKey = vi.hoisted(() => vi.fn());
 vi.mock("../../stores/user", () => ({ useUserStore: () => store, readSecretKey }));
 const openProfile = vi.hoisted(() => vi.fn());
-vi.mock("../../stores/ui", () => ({ useUIStore: () => ({ openProfile }) }));
+const openView = vi.hoisted(() => vi.fn());
+vi.mock("../../stores/ui", () => ({ useUIStore: () => ({ openProfile, openView }) }));
 const loginProps = vi.hoisted(() => ({ last: null as null | { returnFocus?: { current: HTMLElement | null } } }));
 vi.mock("../shared/LoginModal", () => ({ LoginModal: (props: { returnFocus?: { current: HTMLElement | null } }) => { loginProps.last = props; return <div>login dialog</div>; } }));
 
@@ -268,5 +269,21 @@ describe("closing the menu", () => {
     // back in the menu, not out of it
     expect(menuOpen()).toBe(true);
     expect(store.removeAccount).not.toHaveBeenCalled();
+  });
+});
+
+// People and Zap history left the sidebar's list for the account menu.
+describe("your places in the menu", () => {
+  it("opens the profile, People and Zap history, through the view stack so Back returns", () => {
+    openMenu();
+    const reopen = () => fireEvent.click(screen.getByTitle("Switch account"));
+    fireEvent.click(screen.getByText("Profile"));
+    expect(openProfile).toHaveBeenCalledWith(ME);
+    reopen();
+    fireEvent.click(screen.getByText("People"));
+    expect(openView).toHaveBeenCalledWith("follows");
+    reopen();
+    fireEvent.click(screen.getByText("Zap history"));
+    expect(openView).toHaveBeenCalledWith("zaps");
   });
 });
