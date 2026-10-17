@@ -2,12 +2,12 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, fireEvent, cleanup, act } from "@testing-library/react";
 
 const user = vi.hoisted(() => ({ pubkey: "me", follows: [] as string[], followsStatus: "loaded" as "idle" | "loading" | "loaded" | "unknown", fetchFollows: (() => {}) as () => void }));
-const ui = vi.hoisted(() => ({ followsTab: "followers" as "followers" | "following" }));
+const ui = vi.hoisted(() => ({ followsTab: "followers" as "followers" | "following", viewStack: [] as unknown[], goBack: () => {} }));
 
 vi.mock("../../lib/nostr", () => ({ fetchFollowers: vi.fn(), ensureConnected: vi.fn().mockResolvedValue(true) }));
 vi.mock("../../lib/db", () => ({ dbLoadFollowers: vi.fn().mockResolvedValue([]), dbSaveFollowers: vi.fn() }));
 vi.mock("../../stores/user", () => ({ useUserStore: () => user }));
-vi.mock("../../stores/ui", () => ({ useUIStore: () => ({ followsTab: ui.followsTab, setFollowsTab: (tab: "followers" | "following") => { ui.followsTab = tab; }, openProfile: () => {} }) }));
+vi.mock("../../stores/ui", () => ({ useUIStore: () => ({ followsTab: ui.followsTab, setFollowsTab: (tab: "followers" | "following") => { ui.followsTab = tab; }, openProfile: () => {}, viewStack: ui.viewStack, goBack: ui.goBack }) }));
 vi.mock("../../stores/notifications", () => ({ useNotificationsStore: () => ({ newFollowerPubkeys: [] as string[], clearNewFollowers: () => {} }) }));
 vi.mock("../../hooks/useProfile", () => ({ useProfile: () => null }));
 vi.mock("../../hooks/useNip05Verified", () => ({ useNip05Verified: () => "unknown" }));
@@ -124,5 +124,21 @@ describe("FollowsView: Following", () => {
     render(<FollowsView />);
     await settle(0);
     expect(screen.getByRole("status").textContent).toBe("Loading the people you follow…");
+  });
+});
+
+// People left the sidebar for the account menu, which pushes the view stack.
+describe("FollowsView: the way back", () => {
+  it("shows Back only when there is somewhere to go back to", () => {
+    ui.viewStack = [];
+    const { unmount } = render(<FollowsView />);
+    expect(screen.queryByRole("button", { name: "Back" })).toBeNull();
+    unmount();
+    const goBack = vi.fn();
+    ui.viewStack = [{ view: "feed" }]; ui.goBack = goBack;
+    render(<FollowsView />);
+    fireEvent.click(screen.getByRole("button", { name: "Back" }));
+    expect(goBack).toHaveBeenCalledTimes(1);
+    ui.viewStack = []; ui.goBack = () => {};
   });
 });

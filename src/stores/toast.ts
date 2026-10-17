@@ -262,6 +262,6 @@ export const useToastStore = create<ToastState>((set, get) => {
 });
 
 /** For a toast's action: go to a view. Here so that the relay layer can offer "Relays" without knowing about navigation. */
-export function openView(view: View): () => void {
+export function goToView(view: View): () => void {
   return () => useUIStore.getState().setView(view);
 }

@@ -93,7 +93,7 @@ const ALLOWED: Record<string, number> = {
   "components/search/SearchView.tsx": 1, // trending hashtag chips
   "components/shared/RelaysView.tsx": 1, // the relay authentication segments
   "components/shared/SettingsView.tsx": 3, // theme cards, and the font size and relay authentication segments
-  "components/sidebar/Sidebar.tsx": 2, // navigation rows, tinted when current
+  "components/sidebar/Sidebar.tsx": 1, // navigation rows, tinted when current
   "components/v4v/V4VSettings.tsx": 1, // the streaming rate options
   "components/zap/ZapHistoryView.tsx": 1, // a zap row that opens its note
   "components/zap/ZapModal.tsx": 1, // the amount presets

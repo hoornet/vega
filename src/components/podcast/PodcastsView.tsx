@@ -7,6 +7,9 @@ import { EpisodeList } from "./EpisodeList";
 import { ViewHeader } from "../shared/ViewHeader";
 import { Tabs, tabPanelProps } from "../shared/Tabs";
 import { Button } from "../shared/Button";
+import { Radio } from "lucide-react";
+import { useUIStore } from "../../stores/ui";
+import { useCanSign } from "../../stores/user";
 
 type Tab = "subscriptions" | "trending" | "search";
 
@@ -14,6 +17,8 @@ export function PodcastsView() {
   const subscriptions = usePodcastStore((s) => s.subscriptions);
   const hasSubscriptions = subscriptions.length > 0;
   const [tab, setTab] = useState<Tab>(hasSubscriptions ? "subscriptions" : "trending");
+  const { openView } = useUIStore();
+  const canSign = useCanSign();
   const [query, setQuery] = useState("");
   const [shows, setShows] = useState<PodcastShow[]>([]);
   const [loading, setLoading] = useState(false);
@@ -58,7 +63,11 @@ export function PodcastsView() {
 
   return (
     <div className="h-full flex flex-col">
-      <ViewHeader title="Podcasts">
+      <ViewHeader
+        title="Podcasts"
+        // Value 4 Value left the sidebar: streaming sats while you listen belongs with the podcasts.
+        actions={canSign ? <Button variant="ghost" onClick={() => openView("v4v")}><Radio />Value 4 Value</Button> : undefined}
+      >
         {/* The field and its button stay together, beside the title. */}
         <div className="flex gap-2 w-full max-w-lg">
           <input

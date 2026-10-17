@@ -38,6 +38,12 @@ export type ButtonProps = Look & Shape & Omit<ButtonHTMLAttributes<HTMLButtonEle
   /** Makes it a toggle: announced as pressed or not, and drawn in the accent when on. */
   pressed?: boolean;
   /**
+   * "You are here": the same look as a pressed toggle, announced as the
+   * current page instead. For a sidebar's row or footer button that leads to
+   * a view, which pressing again does not switch back.
+   */
+  current?: boolean;
+  /**
    * The action is in flight. Unlike `disabled` it keeps keyboard focus: a
    * button that disables itself when pressed drops focus to the page.
    */
@@ -117,13 +123,14 @@ function look({ variant, tone }: Look, pressed: boolean | undefined): Pair {
 interface Drawn {
   size?: ButtonSize;
   pressed?: boolean;
+  current?: boolean;
   busy?: boolean;
   wrap?: boolean;
   square?: boolean;
 }
 
-function draw(shape: Look, { size = "md", pressed, busy = false, wrap = false, square = false }: Drawn): string {
-  const [base, hover] = look(shape, pressed);
+function draw(shape: Look, { size = "md", pressed, current, busy = false, wrap = false, square = false }: Drawn): string {
+  const [base, hover] = look(shape, pressed || current);
   // The one action of a form or a first-run step carries more weight. A quiet button beside it must not.
   const weight = size === "lg" && shape.variant === "primary" ? "font-medium" : "";
   // While busy the icon makes way for the spinner. The label keeps its full
@@ -144,7 +151,7 @@ export function buttonClass(shape: Look & { size?: ButtonSize }): string {
 // The same size as the icon it stands in for, so a button with an icon keeps its width while busy.
 const SPINNER: Record<ButtonSize, string> = { sm: "size-3.5", md: "size-4", lg: "size-4" };
 
-export function Button({ variant, tone, size = "md", pressed, busy = false, wrap = false, square = false, className = "", type = "button", onClick, ref, children, ...rest }: ButtonProps) {
+export function Button({ variant, tone, size = "md", pressed, current, busy = false, wrap = false, square = false, className = "", type = "button", onClick, ref, children, ...rest }: ButtonProps) {
   const click = (e: MouseEvent<HTMLButtonElement>) => {
     if (busy) { e.preventDefault(); return; }
     onClick?.(e);
@@ -157,10 +164,11 @@ export function Button({ variant, tone, size = "md", pressed, busy = false, wrap
       // A bare <button> inside a form submits it. Ask for "submit" when you mean it.
       type={type}
       aria-pressed={pressed}
+      aria-current={current ? "page" : undefined}
       aria-busy={busy || undefined}
       aria-disabled={busy || undefined}
       onClick={click}
-      className={`${draw({ variant, tone } as Look, { size, pressed, busy, wrap, square })} ${className}`}
+      className={`${draw({ variant, tone } as Look, { size, pressed, current, busy, wrap, square })} ${className}`}
     >
       {busy && <span aria-hidden className={`${SPINNER[size]} shrink-0 rounded-full border-2 border-current border-t-transparent animate-spin`} />}
       {children}

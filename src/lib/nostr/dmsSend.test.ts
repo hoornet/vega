@@ -38,7 +38,7 @@ vi.mock("@nostr-dev-kit/ndk", async (importOriginal) => ({
   NDKRelaySet: { fromRelayUrls: (urls: string[]) => ({ relayUrls: urls }) },
 }));
 vi.mock("../../stores/toast", () => ({
-  openView: (view: string) => () => view,
+  goToView: (view: string) => () => view,
   useToastStore: { getState: () => ({ addToast }) },
 }));
 

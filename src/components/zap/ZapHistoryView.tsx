@@ -154,6 +154,9 @@ function ZapRow({
 type Tab = "received" | "sent";
 
 export function ZapHistoryView() {
+  // Reached from the account menu (or a deep link), not from the sidebar: Back only when there is a way back.
+  const { viewStack, goBack } = useUIStore();
+  const back = viewStack.length > 0 ? goBack : undefined;
   const { pubkey, loggedIn } = useUserStore();
   const [tab, setTab] = useState<Tab>("received");
   const [received, setReceived] = useState<NDKEvent[]>([]);
@@ -192,7 +195,7 @@ export function ZapHistoryView() {
   if (!loggedIn || !pubkey) {
     return (
       <div className="h-full flex flex-col">
-        <ViewHeader title="Zaps" />
+        <ViewHeader title="Zap history" onBack={back} />
         <div className="flex-1 flex items-center justify-center text-text-dim text-body">
           Log in to see your zap history.
         </div>
@@ -214,9 +217,10 @@ export function ZapHistoryView() {
 
   return (
     <div className="h-full flex flex-col">
-      {/* The sidebar calls this view Zaps. It is a top-level view, so no Back. */}
+      {/* The account menu calls this Zap history, so the header does too. */}
       <ViewHeader
-        title="Zaps"
+        title="Zap history"
+        onBack={back}
         // Totals only once they are known: not "0 in, 0 out" beside a history that could not be read.
         actions={loading || error !== null || (unanswered && received.length === 0 && sent.length === 0) ? undefined : (
           <div className="text-text-dim text-caption flex gap-4">

@@ -95,7 +95,7 @@ function FollowingRows({ follows, followers }: { follows: string[]; followers: S
 }
 
 export function FollowsView() {
-  const { followsTab, setFollowsTab } = useUIStore();
+  const { followsTab, setFollowsTab , viewStack, goBack } = useUIStore();
   const { pubkey, follows, followsStatus, fetchFollows } = useUserStore();
   const { newFollowerPubkeys, clearNewFollowers } = useNotificationsStore();
 
@@ -176,8 +176,8 @@ export function FollowsView() {
 
   return (
     <div className="h-full flex flex-col">
-      {/* The sidebar calls this view People, so the header does too. */}
-      <ViewHeader title="People" />
+      {/* The account menu calls this view People, so the header does too; Back only when there is a way back. */}
+      <ViewHeader title="People" onBack={viewStack.length > 0 ? goBack : undefined} />
       <Tabs label="People" panel="people-panel" tabs={tabs} value={followsTab} onChange={setFollowsTab} />
 
       {/* Content */}
