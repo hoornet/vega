@@ -1,27 +1,22 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
+import { flushSync } from "react-dom";
 import pkg from "../../../package.json";
 import { save } from "@tauri-apps/plugin-dialog";
 import { writeTextFile } from "@tauri-apps/plugin-fs";
 import { invoke } from "@tauri-apps/api/core";
 import { relaunch } from "@tauri-apps/plugin-process";
-import { useUserStore, readSecretKey, type SecretKey } from "../../stores/user";
+import { useUserStore, useCanSign, readSecretKey, type SecretKey } from "../../stores/user";
+import { useLightningStore } from "../../stores/lightning";
+import { RemoveAccountConfirm } from "../sidebar/AccountSwitcher";
 import { useUIStore } from "../../stores/ui";
 import { useWoTStore } from "../../stores/wot";
 import { themes } from "../../lib/themes";
 import { useMuteStore } from "../../stores/mute";
 import { useBookmarkStore } from "../../stores/bookmark";
-import { getNDK, getStoredRelayUrls, isOutboxRelaysEnabled, setOutboxRelaysEnabled, resetNDK } from "../../lib/nostr";
-import {
-  authenticatedRelayUrls,
-  getPendingAuthRelays,
-  getRelayAuthScope,
-  rechallengeRelays,
-  setRelayAuthScope,
-  type RelayAuthScope,
-} from "../../lib/nostr/relayAuth";
+import { getStoredRelayUrls } from "../../lib/nostr";
 import { isDiagLogEnabled, setDiagLogEnabled, getDiagLogPath } from "../../lib/feedDiagnostics";
 import { useProfile } from "../../hooks/useProfile";
-import { profileName } from "../../lib/utils";
+import { profileName, shortenPubkey } from "../../lib/utils";
 import { refreshProxySettingsCache, type ProxySettings } from "../../lib/proxy";
 import { NWCWizard } from "./NWCWizard";
 import { getNotificationSettings, saveNotificationSettings, ensurePermission } from "../../lib/notifications";
@@ -37,7 +32,7 @@ import {
   type RelayStats,
 } from "../../lib/localRelay";
 import { Button } from "./Button";
-import { Check } from "lucide-react";
+import { Check, ChevronDown, ChevronRight } from "lucide-react";
 import { copyText } from "../../lib/clipboard";
 
 function MutedRow({ pubkey, onUnmute }: { pubkey: string; onUnmute: () => void }) {
@@ -59,28 +54,30 @@ function MutedRow({ pubkey, onUnmute }: { pubkey: string; onUnmute: () => void }
   );
 }
 
+const MUTED_SHOWN = 10;
+
 function MuteSection() {
   const { mutedPubkeys, unmute } = useMuteStore();
-  const [expanded, setExpanded] = useState(false);
-  if (mutedPubkeys.length === 0) return null;
+  const [showAll, setShowAll] = useState(false);
+  const shown = showAll ? mutedPubkeys : mutedPubkeys.slice(0, MUTED_SHOWN);
+  // Always shown, with its count: hidden when empty, nobody learned where
+  // muted people go. The first ten, then on request: a long list is a long
+  // page and a profile lookup per row.
   return (
     <section>
-      <button
-        onClick={() => setExpanded(!expanded)}
-        className="flex items-center gap-2 w-full text-left group"
-      >
-        <span className={`text-text-dim text-[10px] transition-transform ${expanded ? "rotate-90" : "rotate-0"}`}>
-          ▶
-        </span>
-        <h2 className="text-text text-micro font-medium uppercase tracking-widest text-text-dim group-hover:text-text transition-colors">
-          Muted accounts ({mutedPubkeys.length})
-        </h2>
-      </button>
-      {expanded && (
-        <div className="space-y-1 mt-2">
-          {mutedPubkeys.map((pk) => (
+      <h3 className="text-micro font-medium uppercase tracking-widest mb-2 text-text-dim">
+        Muted accounts ({mutedPubkeys.length})
+      </h3>
+      {mutedPubkeys.length === 0 ? (
+        <p className="text-text-muted text-caption">People you mute appear here. Mute someone from the menu on one of their notes.</p>
+      ) : (
+        <div className="space-y-1">
+          {shown.map((pk) => (
             <MutedRow key={pk} pubkey={pk} onUnmute={() => unmute(pk)} />
           ))}
+          {!showAll && mutedPubkeys.length > MUTED_SHOWN && (
+            <Button variant="ghost" size="sm" onClick={() => setShowAll(true)}>Show all {mutedPubkeys.length}</Button>
+          )}
         </div>
       )}
     </section>
@@ -93,19 +90,19 @@ function ArticlesSection() {
 
   return (
     <section>
-      <h2 className="text-text text-micro font-medium uppercase tracking-widest mb-2 text-text-dim">
+      <h3 className="text-micro font-medium uppercase tracking-widest mb-2 text-text-dim">
         Articles
-      </h2>
+      </h3>
       <Switch
         checked={hideRss}
         onChange={() => setHideRss(!hideRss)}
-        label="Hide RSS reposts in Latest"
+        label="Hide automatic news reposts"
         hint={
           <>
             {hideRss
-              ? "Bridges that republish news sites as long-form posts are left out of the Latest tab."
-              : "Bridges that republish news sites as long-form posts show in the Latest tab."}
-            {" "}Latest always leaves out accounts without a profile; muted authors and keywords apply on both tabs, and people you follow are never filtered this way.
+              ? "Leaves accounts that only republish news websites as articles out of the Latest tab."
+              : "Accounts that only republish news websites as articles show in the Latest tab."}
+            {" "}People you follow always show. Latest also leaves out accounts without a profile.
           </>
         }
       />
@@ -140,9 +137,9 @@ function MutedKeywordsSection() {
 
   return (
     <section>
-      <h2 className="text-text text-micro font-medium uppercase tracking-widest mb-2 text-text-dim">
+      <h3 className="text-micro font-medium uppercase tracking-widest mb-2 text-text-dim">
         Muted keywords {mutedKeywords.length > 0 && `(${mutedKeywords.length})`}
-      </h2>
+      </h3>
       <p className="text-text-dim text-caption mb-3">
         Notes containing these words or phrases will be hidden from your feeds.
       </p>
@@ -184,7 +181,7 @@ function WoTSection() {
   const noFollows = follows.length === 0;
   const whyNot = !noFollows ? undefined
     : !pubkey ? "Sign in first."
-    : followsStatus === "loaded" ? "Follow some people first."
+    : followsStatus === "loaded" ? "Available once you follow someone."
     : followsStatus === "unknown" ? "Your follow list could not be loaded."
     : "Loading your follow list…";
 
@@ -204,19 +201,15 @@ function WoTSection() {
 
   return (
     <section>
-      <h2 className="text-text text-micro font-medium uppercase tracking-widest mb-2 text-text-dim">
-        Web of Trust filter
-      </h2>
-      <p className="text-text-dim text-caption mb-3">
-        Hide notes, reactions, and zaps from outside your social graph
-        (people you follow + people they follow).
-      </p>
+      <h3 className="text-micro font-medium uppercase tracking-widest mb-2 text-text-dim">
+        Hide strangers
+      </h3>
       <Switch
         checked={enabled && !noFollows}
         onChange={() => toggle()}
         disabled={noFollows}
-        label="WoT feed filter"
-        hint={whyNot}
+        label="Only show people connected to me"
+        hint={<>{whyNot && <>{whyNot}{" "}</>}Shows posts, reactions and zaps only from people you follow and the people they follow. Good against spam; you also stop seeing everyone else.</>}
       />
       {enabled && !noFollows && (
         <div className="mt-2 ml-12 space-y-1">
@@ -258,7 +251,7 @@ export function IdentitySection() {
   if (!loggedIn || !npub) {
     return (
       <section>
-        <h2 className="text-text text-micro font-medium uppercase tracking-widest mb-2 text-text-dim">Identity</h2>
+        <h3 className="text-micro font-medium uppercase tracking-widest mb-2 text-text-dim">Identity</h3>
         <p className="text-text-dim text-body">Not logged in.</p>
       </section>
     );
@@ -278,7 +271,7 @@ export function IdentitySection() {
 
   return (
     <section>
-      <h2 className="text-text text-micro font-medium uppercase tracking-widest mb-2 text-text-dim">Identity</h2>
+      <h3 className="text-micro font-medium uppercase tracking-widest mb-2 text-text-dim">Identity</h3>
       <div className="flex items-center gap-2 px-3 py-2 border border-border rounded-lg">
         <span className="text-text font-mono text-caption truncate flex-1">{npub}</span>
         <button
@@ -332,10 +325,64 @@ export function IdentitySection() {
 }
 
 function WalletSection() {
+  const nwcUri = useLightningStore((s) => s.nwcUri);
+  const { openView } = useUIStore();
+  const canSign = useCanSign();
+  const [connecting, setConnecting] = useState(false);
+  // Once a wallet is connected (or disconnected again), the wizard's job is done and the one row comes back.
+  useEffect(() => { setConnecting(false); }, [nwcUri]);
+  // One row until asked: the wizard's four wallet cards took a third of the
+  // first screen of Settings, before the account and everything daily.
   return (
     <section>
-      <h2 className="text-text text-micro font-medium uppercase tracking-widest mb-2 text-text-dim">Lightning Wallet (NWC)</h2>
-      <NWCWizard />
+      {!nwcUri && (
+        <p className="text-text-muted text-caption mb-3">
+          Zaps are small Bitcoin tips. To send them, link a Lightning wallet. Pick yours and Vega shows the steps. Vega never holds your money; it asks your wallet to pay.
+        </p>
+      )}
+      {nwcUri ? (
+        <NWCWizard />
+      ) : connecting ? (
+        <>
+          <NWCWizard />
+          <Button variant="ghost" className="mt-2" onClick={() => setConnecting(false)}>Not now</Button>
+        </>
+      ) : (
+        <div className="flex flex-wrap items-center gap-3">
+          <span className="text-text text-body">No wallet connected</span>
+          <Button onClick={() => setConnecting(true)}>Connect a wallet</Button>
+        </div>
+      )}
+      {canSign && (
+        <p className="text-text-muted text-caption mt-3">
+          Streaming sats to podcasts while you listen has its own limits:{" "}
+          <button type="button" onClick={() => openView("v4v")} className="text-accent underline underline-offset-2 hover:text-accent-hover transition-colors">Podcast streaming limits</button>
+        </p>
+      )}
+    </section>
+  );
+}
+
+/** Removing an account from this computer, from Settings as well as from the account menu. */
+function RemoveAccountSection() {
+  const { accounts, pubkey, removeAccount } = useUserStore();
+  const [asking, setAsking] = useState(false);
+  const trigger = useRef<HTMLButtonElement>(null);
+  const current = accounts.find((a) => a.pubkey === pubkey) ?? null;
+  if (!current) return null;
+  const name = current.name || shortenPubkey(current.npub);
+  // Cancel unmounts the confirmation: focus goes back to the button that opened it, not to the page.
+  const cancel = () => { setAsking(false); requestAnimationFrame(() => trigger.current?.focus()); };
+  return (
+    <section>
+      <h3 className="text-micro font-medium uppercase tracking-widest mb-2 text-text-dim">This computer</h3>
+      {asking ? (
+        <div className="border border-border rounded-lg overflow-hidden [&>*]:border-b-0">
+          <RemoveAccountConfirm account={current} name={name} onCancel={cancel} onConfirm={() => { setAsking(false); removeAccount(current.pubkey); }} />
+        </div>
+      ) : (
+        <Button ref={trigger} variant="ghost" tone="danger" onClick={() => setAsking(true)}>Remove this account from this computer…</Button>
+      )}
     </section>
   );
 }
@@ -381,13 +428,13 @@ function ExportSection() {
 
   return (
     <section>
-      <h2 className="text-text text-micro font-medium uppercase tracking-widest mb-2 text-text-dim">Export Data</h2>
-      <p className="text-text-dim text-caption mb-3">
-        Save your bookmarks, follows, and relay list to a JSON file. Your keys, your data.
+      <h3 className="text-micro font-medium uppercase tracking-widest mb-2 text-text-dim">Back up follows and bookmarks</h3>
+      <p className="text-text-muted text-caption mb-3">
+        Saves your follows, bookmarks and relay list to a file on this computer. It does not include your secret key; back that up separately.
       </p>
-      <div className="flex items-center gap-3">
+      <div className="flex flex-wrap items-center gap-3">
         <Button onClick={handleExport} busy={status === "saving"}>
-          {status === "done" && <Check />}{status === "saving" ? "Exporting…" : status === "done" ? "Exported" : "Export data"}
+          {status === "done" && <Check />}{status === "saving" ? "Saving…" : status === "done" ? "Saved" : "Save a backup file"}
         </Button>
         <span className="text-text-dim text-caption">
           {bookmarkedIds.length} notes · {bookmarkedArticleAddrs.length} articles · {follows.length} follows · {getStoredRelayUrls().length} relays
@@ -418,11 +465,8 @@ function NotificationSection() {
 
   return (
     <section>
-      <h2 className="text-text text-micro font-medium uppercase tracking-widest mb-2 text-text-dim">
-        Notifications
-      </h2>
-      <p className="text-text-dim text-caption mb-3">
-        OS-level push notifications. Requires system permission.
+      <p className="text-text-muted text-caption mb-3">
+        Show a desktop notification for the things switched on below. Your system may ask for permission the first time.
       </p>
       <div className="space-y-2">
         {items.map(({ key, label }) => (
@@ -512,11 +556,11 @@ function ProxySection() {
 
   return (
     <section>
-      <h2 className="text-text text-micro font-medium uppercase tracking-widest mb-2 text-text-dim">
-        Network Proxy
-      </h2>
-      <p className="text-text-dim text-caption mb-3">
-        Route Vega's in-app network traffic through an HTTP or SOCKS5 proxy.
+      <h3 className="text-micro font-medium uppercase tracking-widest mb-2 text-text-dim">
+        Network proxy
+      </h3>
+      <p className="text-text-muted text-caption mb-3">
+        Send Vega's traffic through a proxy such as Tor. Leave this off unless you know you need it.
       </p>
       <Switch
         checked={settings.enabled}
@@ -540,10 +584,9 @@ function ProxySection() {
       <p className="text-text-dim text-caption mt-1.5 ml-12">
         Applies after restart. Example: socks5://127.0.0.1:9050
       </p>
-      <p className="text-text-dim text-caption mt-1 ml-12 leading-relaxed">
-        Note: Vega's own HTTP requests (update checks, uploads, link previews) resolve
-        DNS through the proxy. Relay connections run in the webview, which may still
-        resolve hostnames locally — full DNS privacy for Tor is not guaranteed yet.
+      {/* The one safety sentence in Settings, in the warning colour and not in developer words. */}
+      <p className="text-warning text-caption mt-1 ml-12 leading-relaxed">
+        Not fully private yet. Your network provider may still see which relays you look up, even with the proxy on. Uploads, link previews and update checks are covered.
       </p>
       {(error || validationError) && (
         <p className="text-danger text-caption mt-1 ml-12">{error ?? validationError}</p>
@@ -563,15 +606,17 @@ function ThemeSection() {
 
   return (
     <section>
-      <h2 className="text-text text-micro font-medium uppercase tracking-widest mb-3 text-text-dim">
+      <h3 className="text-micro font-medium uppercase tracking-widest mb-3 text-text-dim">
         Theme
-      </h2>
-      <div className="flex flex-wrap gap-2">
+      </h3>
+      {/* A grid with room for the whole name: in a wrapping row of fixed-width buttons "Catppuccin Mocha" was cut to "Catppucci…". */}
+      <div className="grid grid-cols-[repeat(auto-fill,minmax(8.5rem,1fr))] gap-2">
         {themes.map((theme) => (
           <button
             key={theme.id}
             onClick={() => setTheme(theme.id)}
-            className={`flex flex-col items-center gap-1.5 p-2 border transition-colors rounded-sm min-w-20 ${
+            aria-pressed={themeId === theme.id}
+            className={`flex flex-col items-center gap-1.5 p-2 border transition-colors rounded-sm ${
               themeId === theme.id
                 ? "border-accent bg-bg-hover"
                 : "border-border hover:border-accent/40"
@@ -583,7 +628,7 @@ function ThemeSection() {
               <div className="flex-1" style={{ background: theme.colors.accent }} />
               <div className="flex-1" style={{ background: theme.colors.text }} />
             </div>
-            <span className="text-caption text-text-muted whitespace-nowrap text-center">
+            <span className="text-caption text-text-muted text-center">
               {theme.name}
             </span>
           </button>
@@ -605,9 +650,9 @@ function FontSizeSection() {
 
   return (
     <section>
-      <h2 className="text-text text-micro font-medium uppercase tracking-widest mb-2 text-text-dim">
-        Font Size
-      </h2>
+      <h3 className="text-micro font-medium uppercase tracking-widest mb-2 text-text-dim">
+        Text size
+      </h3>
       <div className="flex flex-wrap items-center gap-2">
         {FONT_PRESETS.map(({ label, size }) => (
           <button
@@ -623,66 +668,8 @@ function FontSizeSection() {
           </button>
         ))}
       </div>
-      <p className="text-text-dim text-caption mt-2 px-1">
-        Adjusts the base text size across the app. Articles use their own reading font.
-      </p>
-    </section>
-  );
-}
-
-/**
- * Which relays Vega will prove your identity to (NIP-42). Issue #48.
- *
- * No resetNDK() here, unlike Relay reach: the auth policy reads this setting on
- * every challenge, so it is live. Narrowing the scope does bounce relays that
- * are already authenticated — you cannot untell a relay who you are, but you
- * should not keep using a session you have just withdrawn consent for.
- */
-function RelayAuthSection() {
-  const [scope, setScope] = useState<RelayAuthScope>(getRelayAuthScope);
-
-  const choose = (next: RelayAuthScope) => {
-    if (next === scope) return;
-    setScope(next);
-    setRelayAuthScope(next);
-    const instance = getNDK();
-    if (next === "configured") {
-      rechallengeRelays(instance, authenticatedRelayUrls(instance));
-    } else {
-      // Relays we previously turned away get another chance without a restart.
-      rechallengeRelays(instance, getPendingAuthRelays().declined);
-    }
-  };
-
-  const options: { value: RelayAuthScope; label: string }[] = [
-    { value: "configured", label: "My relays only" },
-    { value: "any", label: "Any relay that asks" },
-  ];
-
-  return (
-    <section>
-      <h2 className="text-text text-micro font-medium uppercase tracking-widest mb-2 text-text-dim">
-        Relay authentication
-      </h2>
-      <div className="flex flex-wrap items-center gap-2">
-        {options.map((opt) => (
-          <button
-            key={opt.value}
-            onClick={() => choose(opt.value)}
-            className={`px-3 py-1.5 text-ui border transition-colors ${
-              scope === opt.value
-                ? "border-accent text-accent"
-                : "border-border text-text-muted hover:text-text hover:border-accent/40"
-            } rounded-sm`}
-          >
-            {opt.label}
-          </button>
-        ))}
-      </div>
-      <p className="text-text-dim text-caption mt-2 px-1">
-        {scope === "configured"
-          ? "Vega proves who you are only to relays you added yourself. Some relays hide your private messages until you do."
-          : "Vega proves who you are to any relay that asks. That relay then knows your identity and can link it to everything you request."}
+      <p className="text-text-muted text-caption mt-2 px-1">
+        Changes the text size in the main area; the sidebar stays as it is. Articles follow it on their own measure.
       </p>
     </section>
   );
@@ -693,9 +680,9 @@ function EasyReadFontSection() {
 
   return (
     <section>
-      <h2 className="text-text text-micro font-medium uppercase tracking-widest mb-2 text-text-dim">
-        Easy-Read Font
-      </h2>
+      <h3 className="text-micro font-medium uppercase tracking-widest mb-2 text-text-dim">
+        Easy-read font
+      </h3>
       <Switch
         checked={easyReadFont}
         onChange={setEasyReadFont}
@@ -710,47 +697,6 @@ function formatBytes(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-}
-
-function RelayReachSection() {
-  const [enabled, setEnabled] = useState(isOutboxRelaysEnabled);
-  const [restarting, setRestarting] = useState(false);
-
-  const toggle = async () => {
-    const next = !enabled;
-    setEnabled(next);
-    setOutboxRelaysEnabled(next);
-    // enableOutboxModel is read once in the NDK constructor, so the change only
-    // takes effect on a fresh instance.
-    setRestarting(true);
-    try {
-      await resetNDK();
-    } finally {
-      setRestarting(false);
-    }
-  };
-
-  return (
-    <section>
-      <h2 className="text-text text-micro font-medium uppercase tracking-widest mb-2 text-text-dim">
-        Relay reach
-      </h2>
-      <Switch
-        checked={enabled}
-        onChange={() => toggle()}
-        busy={restarting}
-        label="Use authors' relays (NIP-65)"
-        hint={
-          <>
-            {enabled
-              ? "Vega may connect to relays your follows publish to, beyond your own list. Better reach, many more connections."
-              : "Vega connects only to the relays you have configured. Some notes from people you follow may not load."}
-            {restarting && " Reconnecting…"}
-          </>
-        }
-      />
-    </section>
-  );
 }
 
 function ExperimentalSection() {
@@ -780,17 +726,14 @@ function ExperimentalSection() {
 
   return (
     <section>
-      <h2 className="text-text text-micro font-medium uppercase tracking-widest mb-2 text-text-dim">
-        Experimental
-      </h2>
-      <p className="text-text-dim text-caption mb-3">
-        Features under development. May change or be removed.
-      </p>
+      <h3 className="text-micro font-medium uppercase tracking-widest mb-2 text-text-dim">
+        Personal relay
+      </h3>
       <Switch
         checked={enabled}
         onChange={() => toggle()}
-        label="Personal relay"
-        hint="Run a local Nostr relay for offline access and faster reads."
+        label="Run a relay on this computer"
+        hint="Keeps a copy of your notes and your follows' notes here, for offline reading and faster loads. Still under development."
       />
       {enabled && (port || stats) && (
         <div className="text-text-dim text-caption mt-2 ml-12 space-y-0.5">
@@ -822,9 +765,9 @@ function DiagnosticsSection() {
 
   return (
     <section>
-      <h2 className="text-text text-micro font-medium uppercase tracking-widest mb-2 text-text-dim">
+      <h3 className="text-micro font-medium uppercase tracking-widest mb-2 text-text-dim">
         Diagnostics
-      </h2>
+      </h3>
       <Switch
         checked={enabled}
         onChange={() => toggle()}
@@ -840,30 +783,123 @@ function DiagnosticsSection() {
   );
 }
 
+const GROUPS = [
+  { id: "appearance", title: "Appearance" },
+  { id: "account", title: "Account" },
+  { id: "wallet", title: "Wallet for zaps" },
+  { id: "notifications", title: "Notifications" },
+  { id: "what-you-see", title: "What you see" },
+  { id: "advanced", title: "Advanced" },
+] as const;
+
+/** One group of settings: a title, and its sections. The id is what the jump row, and a link into Settings, scroll to. */
+function Group({ id, title, children }: { id: string; title: string; children: React.ReactNode }) {
+  return (
+    <section id={`settings-${id}`} aria-labelledby={`settings-${id}-title`} className="scroll-mt-4">
+      {/* Focusable, so a jump moves the keyboard as well as the view. */}
+      <h2 id={`settings-${id}-title`} tabIndex={-1} className="text-body font-semibold text-text mb-4 outline-none">{title}</h2>
+      <div className="space-y-6">{children}</div>
+    </section>
+  );
+}
+
+/**
+ * The relay privacy settings live in Relays, which has the better wording and
+ * the list they are about. One row here says where. They used to be here as
+ * well, under other, more technical labels.
+ */
+function RelayPrivacyRow() {
+  const { setView } = useUIStore();
+  return (
+    <section>
+      <h3 className="text-micro font-medium uppercase tracking-widest mb-2 text-text-dim">Relay privacy</h3>
+      <div className="flex flex-wrap items-center gap-3">
+        <p className="text-text-muted text-caption flex-1 min-w-48">Which servers Vega talks to, and which ones it identifies you to.</p>
+        <Button onClick={() => setView("relays")}>Open Relays</Button>
+      </div>
+    </section>
+  );
+}
+
+/**
+ * Settings, in six groups, after the October 2026 UI review. It was one flat
+ * page of sixteen sections in build order, three screens long with no way to
+ * jump: the wallet wizard took a third of the first screen, the secret key
+ * was section twelve between Export and Muted keywords, and Proxy, Experimental
+ * and Diagnostics sat above it. Daily preferences first, one-off setup after,
+ * and what almost nobody needs behind Advanced.
+ */
 export function SettingsView() {
+  const pubkey = useUserStore((s) => s.pubkey);
+  const [advancedOpen, setAdvancedOpen] = useState(false);
+  const jump = (id: string) => {
+    // Advanced must be open and laid out before the scroll, or the scroll is
+    // clamped to the closed page and the opened rows land under the fold.
+    if (id === "advanced") flushSync(() => setAdvancedOpen(true));
+    document.getElementById(`settings-${id}`)?.scrollIntoView?.({ block: "start", behavior: "smooth" });
+    // And the keyboard goes with the view: the next Tab starts inside the group.
+    document.getElementById(`settings-${id}-title`)?.focus({ preventScroll: true });
+  };
   return (
     <div className="h-full flex flex-col">
       <ViewHeader title="Settings" />
 
-      <div className="flex-1 overflow-y-auto p-4 space-y-8">
-        <ThemeSection />
-        <FontSizeSection />
-        <EasyReadFontSection />
-        <WalletSection />
-        <NotificationSection />
-        <ProxySection />
-        <RelayReachSection />
-        <RelayAuthSection />
-        <ExperimentalSection />
-        <DiagnosticsSection />
-        <ExportSection />
-        <IdentitySection />
-        <MuteSection />
-        <MutedKeywordsSection />
-        <ArticlesSection />
-        <WoTSection />
-        {/* The build stamp, here and in Support, not in the sidebar's brand position. */}
-        <p className="text-caption text-text-muted pt-4">Vega v{pkg.version}</p>
+      <div className="flex-1 overflow-y-auto content-column">
+        <nav aria-label="Settings sections" className="flex flex-wrap gap-x-4 gap-y-1 px-4 pt-3 text-ui">
+          {GROUPS.map((g) => (
+            // Named "Go to …", so the jump and the Advanced group's own toggle are two different buttons to a screen reader.
+            <button key={g.id} type="button" onClick={() => jump(g.id)} aria-label={`Go to ${g.title}`} className="text-text-muted hover:text-accent transition-colors">{g.title}</button>
+          ))}
+        </nav>
+
+        <div className="p-4 space-y-10">
+          <Group id="appearance" title="Appearance">
+            <ThemeSection />
+            <FontSizeSection />
+            <EasyReadFontSection />
+          </Group>
+          <Group id="account" title="Account">
+            <IdentitySection />
+            <ExportSection />
+            <RemoveAccountSection key={pubkey ?? "none"} />
+          </Group>
+          <Group id="wallet" title="Wallet for zaps">
+            <WalletSection />
+          </Group>
+          <Group id="notifications" title="Notifications">
+            <NotificationSection />
+          </Group>
+          <Group id="what-you-see" title="What you see">
+            <MuteSection />
+            <MutedKeywordsSection />
+            <WoTSection />
+            <ArticlesSection />
+          </Group>
+
+          {/* Advanced is closed until asked: proxy, local relay and diagnostics are for the few who know they need them. */}
+          <section id="settings-advanced" aria-labelledby="settings-advanced-title" className="scroll-mt-4">
+            {/* The heading holds the button, not the other way round: a heading inside a button is not a heading to a screen reader. */}
+            <h2 id="settings-advanced-title" tabIndex={-1} className="text-body font-semibold text-text outline-none">
+              <button type="button" onClick={() => setAdvancedOpen((v) => !v)} aria-expanded={advancedOpen} aria-controls="settings-advanced-body" className="flex items-center gap-2 text-left hover:text-accent transition-colors">
+                {advancedOpen ? <ChevronDown size={16} className="text-text-muted" /> : <ChevronRight size={16} className="text-text-muted" />}
+                Advanced
+              </button>
+            </h2>
+            {advancedOpen ? (
+              <div id="settings-advanced-body" className="space-y-6 mt-4">
+                <ProxySection />
+                <ExperimentalSection />
+                <DiagnosticsSection />
+                <RelayPrivacyRow />
+              </div>
+            ) : (
+              <p className="text-text-muted text-caption mt-1 ml-6">Proxy, local relay, diagnostics. Most people never need these.</p>
+            )}
+          </section>
+
+          {/* The build stamp, here and in Support, not in the sidebar's brand position. */}
+          <p className="text-caption text-text-muted">Vega v{pkg.version}</p>
+        </div>
       </div>
     </div>
   );

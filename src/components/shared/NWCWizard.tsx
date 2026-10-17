@@ -249,9 +249,6 @@ export function NWCWizard() {
 
   return (
     <div>
-      <p className="text-text-muted text-body mb-3">
-        Choose your Lightning wallet to get a Nostr Wallet Connect (NWC) URI.
-      </p>
       <div className="grid grid-cols-2 gap-2 mb-3">
         {WALLETS.map((w) => (
           <WalletCard
