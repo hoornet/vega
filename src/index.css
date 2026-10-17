@@ -173,7 +173,7 @@ html.font-readable {
    follow the window. The body is 17px at 900 wide, 18 at 1200, 19.4 at 1600,
    20.5 at 1920, on a 34em column (about 70 to 75 characters a line), and never
    under 16 device pixels whatever the text-size preset (`--ui-zoom`, App.tsx).
-   The preset is a zoom on <main>, so Large and Extra Large scale this too. */
+   The preset is a zoom on the window's root box, so Large and Extra Large scale this too. */
 .reader-page {
   font-size: max(clamp(17px, 13.9px + 0.343vw, 21px), calc(16px / var(--ui-zoom, 1)));
 }

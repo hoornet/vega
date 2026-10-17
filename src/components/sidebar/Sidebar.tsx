@@ -3,6 +3,7 @@ import {
   Home, Bell, Mail, Bookmark, Search, BookOpen, Image as ImageIcon, Mic2,
   Settings, Wifi, CircleHelp, Heart, PenLine, ChevronsLeft, ChevronsRight,
 } from "lucide-react";
+import { widthFromPointer } from "../../lib/sidebarWidth";
 import { useUIStore, type View } from "../../stores/ui";
 import { useCanSign } from "../../stores/user";
 import { useNotificationsStore } from "../../stores/notifications";
@@ -80,7 +81,8 @@ export function Sidebar() {
     if (!dragging) return;
     const onMove = (e: MouseEvent) => {
       const left = asideRef.current?.getBoundingClientRect().left ?? 0;
-      setWidth(Math.min(MAX_WIDTH, Math.max(MIN_WIDTH, e.clientX - left)));
+      // Screen px to layout px: the aside is under the text-size zoom.
+      setWidth(widthFromPointer(e.clientX, left, useUIStore.getState().fontSize / 14, MIN_WIDTH, MAX_WIDTH));
     };
     const onUp = () => setDragging(false);
     document.body.style.userSelect = "none";
@@ -132,7 +134,10 @@ export function Sidebar() {
     <aside
       ref={asideRef}
       style={c ? undefined : { width }}
-      className={`relative h-full border-r border-border-subtle bg-bg-raised flex flex-col shrink-0 ${
+      // Never more than two fifths of the window: the width bounds are layout px and scale with the
+      // text, and a width saved at Normal would otherwise leave Messages' thread pane a few px wide at
+      // Extra Large in the smallest window.
+      className={`relative h-full max-w-[40%] border-r border-border-subtle bg-bg-raised flex flex-col shrink-0 ${
         dragging ? "" : "transition-all duration-150"
       } ${c ? "w-12" : ""}`}
     >

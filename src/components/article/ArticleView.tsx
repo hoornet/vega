@@ -462,7 +462,7 @@ export function ArticleView() {
             {/* Contents, beside the text on a wide pane */}
             {headings.length >= 2 && (
               <nav aria-label="Contents" className="hidden @[1180px]:block @[1180px]:col-start-3 justify-self-start pl-8 w-60 py-10">
-                <div className="sticky top-4 max-h-[calc(100vh-8rem)] overflow-y-auto overflow-x-hidden">
+                <div className="sticky top-4 max-h-[calc(var(--window-h)-8rem)] overflow-y-auto overflow-x-hidden">
                   <p className="text-text-muted text-micro uppercase tracking-wider mb-3">Contents</p>
                   {headings.map(({ id, text, level }) => (
                     <button

@@ -127,6 +127,11 @@ describe("Settings", () => {
     expect(screen.getByText(/People you mute appear here/)).toBeTruthy();
   });
 
+  it("says the text size changes the whole window", () => {
+    render(<SettingsView />);
+    expect(screen.getByText(/Changes the size of everything in the window/)).toBeTruthy();
+  });
+
   it("names things in plain words", () => {
     render(<SettingsView />);
     expect(screen.getByText("Text size")).toBeTruthy();

@@ -67,7 +67,7 @@ export function DebugPanel({ onClose }: { onClose: () => void }) {
   const connectedCount = state.relays.filter((r) => r.connected).length;
 
   return (
-    <div className="fixed bottom-4 left-4 z-50 w-80 bg-bg-raised/95 backdrop-blur-sm border border-border shadow-xl text-caption font-mono rounded-lg">
+    <div className="fixed bottom-4 left-4 z-50 w-80 max-h-[calc(100%-2rem)] overflow-y-auto bg-bg-raised/95 backdrop-blur-sm border border-border shadow-xl text-caption font-mono rounded-lg">
       {/* Header */}
       <div className="flex items-center justify-between px-3 py-2 border-b border-border/50">
         <span className="text-text-muted uppercase tracking-widest text-micro">Debug</span>

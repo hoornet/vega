@@ -52,7 +52,7 @@ function ImageGrid({ images, onImageClick, inView }: { images: string[]; onImage
       <div className="mt-2">
         {/* max-h keeps one photo from filling a short window; the fixed aspect
             box stays so the virtual list can size the row before it loads. */}
-        <div className={`w-full aspect-[4/3] max-h-[70vh] ${boxCls}`}>{cellImg(images[0], 0, soloFit, (e) => setSoloFit(soloImageFit(e.currentTarget.naturalWidth, e.currentTarget.naturalHeight)))}</div>
+        <div className={`w-full aspect-[4/3] max-h-[calc(var(--window-h)*0.7)] ${boxCls}`}>{cellImg(images[0], 0, soloFit, (e) => setSoloFit(soloImageFit(e.currentTarget.naturalWidth, e.currentTarget.naturalHeight)))}</div>
       </div>
     );
   }
