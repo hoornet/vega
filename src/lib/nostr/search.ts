@@ -4,6 +4,7 @@ import { getNDK, fetchWithTimeout, withTimeout, FEED_TIMEOUT } from "./core";
 import { recordFetchOutcome } from "./fetchTotals";
 import { debug } from "../debug";
 import { guardIncomingEvents } from "./authentic";
+import { withinTime } from "../timeLimit";
 
 // Dedicated NIP-50 search relays — queried for full-text search regardless of user's relay list
 const SEARCH_RELAYS = [
@@ -99,13 +100,18 @@ export async function searchUsers(query: string, limit = 20): Promise<NDKEvent[]
   return Array.from(byPubkey.values());
 }
 
+/**
+ * The public key behind a NIP-05 address, or null. `NDKUser`'s constructor in
+ * NDK 3.0.3 ignores `nip05`, so `new NDKUser({ nip05 })` followed by
+ * `fetchProfile()` threw "npub not set" for every address and this returned
+ * null for all of them, since at least March 2026. A domain that never answers
+ * is given eight seconds.
+ */
 export async function resolveNip05(identifier: string): Promise<string | null> {
-  const instance = getNDK();
   try {
-    const user = new NDKUser({ nip05: identifier });
-    user.ndk = instance;
-    await user.fetchProfile();
-    return user.pubkey || null;
+    const user = await withinTime(NDKUser.fromNip05(identifier, getNDK()), 8000, "NIP-05 lookup timed out");
+    const pubkey = user?.pubkey;
+    return typeof pubkey === "string" && /^[0-9a-f]{64}$/i.test(pubkey) ? pubkey.toLowerCase() : null;
   } catch {
     return null;
   }
