@@ -92,7 +92,7 @@ const ALLOWED: Record<string, number> = {
   "components/poll/PollWidget.tsx": 1, // a poll option, with its result bar behind it
   "components/search/SearchView.tsx": 1, // trending hashtag chips
   "components/shared/RelaysView.tsx": 1, // the relay authentication segments
-  "components/shared/SettingsView.tsx": 3, // theme cards, and the font size and relay authentication segments
+  "components/shared/SettingsView.tsx": 2 /* theme cards, text-size segments */,
   "components/sidebar/Sidebar.tsx": 1, // navigation rows, tinted when current
   "components/v4v/V4VSettings.tsx": 1, // the streaming rate options
   "components/zap/ZapHistoryView.tsx": 1, // a zap row that opens its note
