@@ -8,7 +8,7 @@ vi.mock("../../lib/nostr", () => ({ fetchFollowers: vi.fn(), ensureConnected: vi
 vi.mock("../../lib/db", () => ({ dbLoadFollowers: vi.fn().mockResolvedValue([]), dbSaveFollowers: vi.fn() }));
 vi.mock("../../stores/user", () => ({ useUserStore: () => user }));
 vi.mock("../../stores/ui", () => ({ useUIStore: () => ({ followsTab: ui.followsTab, setFollowsTab: (tab: "followers" | "following") => { ui.followsTab = tab; }, openProfile: () => {}, viewStack: ui.viewStack, goBack: ui.goBack }) }));
-vi.mock("../../stores/notifications", () => ({ useNotificationsStore: () => ({ newFollowerPubkeys: [] as string[], clearNewFollowers: () => {} }) }));
+vi.mock("../../stores/notifications", () => ({ useNotificationsStore: <T,>(pick: (s: { newFollowerPubkeys: Set<string> }) => T) => pick({ newFollowerPubkeys: new Set<string>() }) }));
 vi.mock("../../hooks/useProfile", () => ({ useProfile: () => null }));
 vi.mock("../../hooks/useNip05Verified", () => ({ useNip05Verified: () => "unknown" }));
 vi.mock("../shared/FollowButton", () => ({ FollowButton: () => null }));

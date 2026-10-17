@@ -1,7 +1,6 @@
 import { useCallback, useRef, useState, useEffect } from "react";
 import { useUserStore, SavedAccount, readSecretKey } from "../../stores/user";
 import { useUIStore } from "../../stores/ui";
-import { useNotificationsStore } from "../../stores/notifications";
 import { ChevronsUpDown, LogIn, UserRound, Users, Zap } from "lucide-react";
 import { LoginModal } from "../shared/LoginModal";
 import { shortenPubkey } from "../../lib/utils";
@@ -94,18 +93,15 @@ export function RemoveAccountConfirm({ account, name, onCancel, onConfirm }: {
 export function CollapsedAccount() {
   const { accounts, pubkey } = useUserStore();
   const { toggleSidebar } = useUIStore();
-  const newFollowers = useNotificationsStore((s) => s.newFollowersCount);
   const [showLogin, setShowLogin] = useState(false);
   const current = accounts.find((a) => a.pubkey === pubkey) ?? null;
   return (
     <div className="border-t border-border-subtle shrink-0 py-2 flex justify-center">
       {current ? (
         // The avatar expands the sidebar, where the account row and its menu
-        // (profile, People, Zap history, switching, signing out) are. A dot says
-        // there are new followers, which the menu's People item counts.
-        <button type="button" onClick={toggleSidebar} title={`${current.name || shortenPubkey(current.npub)}: expand for the account menu`} aria-label="Account: expand the sidebar for the account menu" className="relative w-8 h-8 rounded-full focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent">
+        // (profile, People, Zap history, switching, signing out) are.
+        <button type="button" onClick={toggleSidebar} title={`${current.name || shortenPubkey(current.npub)}: expand for the account menu`} aria-label="Account: expand the sidebar for the account menu" className="w-8 h-8 rounded-full focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent">
           <Avatar account={current} size="w-8 h-8" textSize="text-ui" />
-          {newFollowers > 0 && <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-accent border border-bg-raised" aria-hidden />}
         </button>
       ) : (
         <>
@@ -120,7 +116,6 @@ export function CollapsedAccount() {
 export function AccountSwitcher() {
   const { accounts, pubkey, loggedIn, switchAccount, removeAccount, logout } = useUserStore();
   const { openProfile, openView } = useUIStore();
-  const newFollowers = useNotificationsStore((s) => s.newFollowersCount);
   const [open, setOpen] = useState(false);
   const [showAddLogin, setShowAddLogin] = useState(false);
   // The account awaiting a second click before it is removed, if any.
@@ -217,7 +212,6 @@ export function AccountSwitcher() {
             </button>
             <button type="button" onClick={() => { setOpen(false); openView("follows"); }} className="w-full flex items-center gap-2 px-3 py-2 text-text-muted hover:text-text hover:bg-text/8 text-ui transition-colors">
               <Users size={16} strokeWidth={1.75} className="w-6 shrink-0" /><span>People</span>
-              {newFollowers > 0 && <span className="ml-auto text-micro bg-accent text-accent-text px-1.5 py-0.5 rounded-sm" aria-label={`${newFollowers} new followers`}>{newFollowers}</span>}
             </button>
             <button type="button" onClick={() => { setOpen(false); openView("zaps"); }} className="w-full flex items-center gap-2 px-3 py-2 text-text-muted hover:text-text hover:bg-text/8 text-ui transition-colors">
               <Zap size={16} strokeWidth={1.75} className="w-6 shrink-0" /><span>Zap history</span>
@@ -291,13 +285,10 @@ export function AccountSwitcher() {
               onClick={() => { setConfirmRemove(null); setOpen((v) => !v); }}
               ref={arrowRef}
               title="Switch account"
-              aria-label={newFollowers > 0 ? `Switch account (${newFollowers} new followers)` : "Switch account"}
+              aria-label="Switch account"
               aria-expanded={open}
-              className="relative"
             >
               <ChevronsUpDown />
-              {/* New followers are counted on the menu's People item; the dot says to look. */}
-              {!open && newFollowers > 0 && <span className="absolute top-0.5 right-0.5 w-1.5 h-1.5 rounded-full bg-accent" aria-hidden />}
             </Button>
           </div>
         </div>

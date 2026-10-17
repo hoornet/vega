@@ -31,7 +31,7 @@ const ALLOWED: Record<string, number> = {
   "components/feed/NoteCard.tsx": 1,
   "components/feed/QuoteModal.tsx": 1,
   "components/feed/TextSegments.tsx": 1,
-  "components/follows/FollowsView.tsx": 1,
+  "components/follows/FollowRow.tsx": 1,
   "components/onboarding/OnboardingFlow.tsx": 1,
   "components/podcast/PodcastCard.tsx": 1,
   "components/podcast/PodcastPlayerBar.tsx": 3,
@@ -47,7 +47,7 @@ const ALLOWED: Record<string, number> = {
   "components/thread/ThreadNode.tsx": 1,
   "components/thread/ThreadView.tsx": 1,
   "components/v4v/V4VSettings.tsx": 2,
-  "components/zap/ZapHistoryView.tsx": 1,
+  "components/zap/ZapRow.tsx": 1,
   "components/zap/ZapModal.tsx": 2,
 };
 

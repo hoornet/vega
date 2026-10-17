@@ -178,9 +178,9 @@ export async function fetchBatchEngagement(eventIds: string[], myPubkey?: string
   return result;
 }
 
-export async function fetchZapsReceived(pubkey: string, limit = 50): Promise<NDKEvent[]> {
+export async function fetchZapsReceived(pubkey: string, limit = 50, since?: number): Promise<NDKEvent[]> {
   const instance = getNDK();
-  const filter: NDKFilter = { kinds: [NDKKind.Zap], "#p": [pubkey], limit };
+  const filter: NDKFilter = { kinds: [NDKKind.Zap], "#p": [pubkey], limit, ...(since !== undefined ? { since } : {}) };
   // Zap queries can be slow — give relays more time
   const events = await fetchWithTimeout(instance, filter, 12000);
   return Array.from(events).sort((a, b) => (b.created_at ?? 0) - (a.created_at ?? 0));

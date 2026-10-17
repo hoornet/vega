@@ -95,7 +95,7 @@ const ALLOWED: Record<string, number> = {
   "components/shared/SettingsView.tsx": 2 /* theme cards, text-size segments */,
   "components/sidebar/Sidebar.tsx": 1, // navigation rows, tinted when current
   "components/v4v/V4VSettings.tsx": 1, // the streaming rate options
-  "components/zap/ZapHistoryView.tsx": 1, // a zap row that opens its note
+  "components/zap/ZapRow.tsx": 1, // a zap row that opens its note
   "components/zap/ZapModal.tsx": 1, // the amount presets
 };
 
