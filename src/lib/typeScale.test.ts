@@ -22,9 +22,7 @@ const HARD_CODED = /(?<![\w:-])(?:[a-z0-9\-[\]/&>_.*]+:)*text-(?:\[(?!#|var\(|co
 // file -> the most hard-coded sizes it may contain. Lower a number when you
 // remove some; never raise one.
 const ALLOWED: Record<string, number> = {
-  "components/article/ArticleCard.tsx": 1,
   "components/article/ArticleEditor.tsx": 1,
-  "components/article/ArticleView.tsx": 1,
   "components/dm/DMView.tsx": 2,
   "components/feed/ComposeBox.tsx": 5,
   "components/feed/FountainCard.tsx": 2,

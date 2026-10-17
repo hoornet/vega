@@ -57,7 +57,7 @@
   --radius-sm: 6px;
   --font-ui: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
   --font-mono: "JetBrains Mono", "Fira Code", "SF Mono", monospace;
-  --font-reading: Georgia, "Times New Roman", "Noto Serif", serif;
+  --font-reading: "Literata Variable", Georgia, "Times New Roman", "Noto Serif", serif;
 }
 
 * {
@@ -90,6 +90,8 @@ body {
    per evidence-based guidance. */
 html.font-readable {
   --font-ui: "Atkinson Hyperlegible", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  /* Articles are the one long-reading surface; the setting used to skip them. */
+  --font-reading: "Atkinson Hyperlegible", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
 }
 html.font-readable body {
   letter-spacing: 0.012em;
@@ -134,7 +136,9 @@ html.font-readable {
    matches every descendant directly, so opting in only the container leaves
    each <p>, <li>, <h2> and <code> inside it unselectable: a reader could not
    quote a sentence or copy a code block out of an article. */
+.prose-article,
 .prose-article *,
+.article-preview,
 .article-preview *,
 .selectable-text,
 .selectable-text * {
@@ -166,25 +170,68 @@ html.font-readable {
 .article-preview img { max-width: 100%; border-radius: 8px; margin: 0.5em 0; }
 
 /* Article reader — slightly larger type than the editor preview */
-.prose-article { -webkit-user-select: text; user-select: text; color: var(--color-text); font-family: var(--font-reading); font-size: 17px; line-height: 1.8; }
-.prose-article h1 { font-size: 1.7em; font-weight: bold; margin: 1.4em 0 0.5em; }
-.prose-article h2 { font-size: 1.35em; font-weight: bold; margin: 1.4em 0 0.5em; border-bottom: 1px solid var(--color-border-subtle); padding-bottom: 0.3em; }
-.prose-article h3 { font-size: 1.15em; font-weight: bold; margin: 1.2em 0 0.4em; }
-.prose-article p { margin: 0.9em 0; }
-.prose-article ul { list-style: disc; padding-left: 1.6em; margin: 0.9em 0; }
-.prose-article ol { list-style: decimal; padding-left: 1.6em; margin: 0.9em 0; }
+/* The reader. Sizes are em on a fluid base, set here and not with Tailwind
+   steps: the UI scale is for the interface, and the reader's measure must
+   follow the window. The body is 17px at 900 wide, 18 at 1200, 19.4 at 1600,
+   20.5 at 1920, on a 34em column (about 70 to 75 characters a line), and never
+   under 16 device pixels whatever the text-size preset (`--ui-zoom`, App.tsx).
+   The preset is a zoom on <main>, so Large and Extra Large scale this too. */
+.reader-page {
+  font-size: max(clamp(17px, 13.9px + 0.343vw, 21px), calc(16px / var(--ui-zoom, 1)));
+}
+/* The page sets the size and the column takes it, so a grid column sized in
+   the page's em (ArticleView.tsx) and the column's own max-width agree. Set on
+   the column alone, the grid read 34em at the UI size and squeezed the text. */
+.reader {
+  font-size: 1em;
+  width: 100%;
+  max-width: calc(34em + 3rem);
+  margin-inline: auto;
+  padding: 2.5rem 1.5rem 6rem;
+}
+.reader-title { font-family: var(--font-reading); font-size: 2em; line-height: 1.15; font-weight: 700; letter-spacing: -0.01em; text-wrap: balance; color: var(--color-text); }
+.reader-standfirst { font-family: var(--font-reading); font-size: 1.2em; line-height: 1.45; color: var(--color-text-muted); }
+.reader-title, .reader-standfirst, .reader-title *, .reader-standfirst * { -webkit-user-select: text; user-select: text; }
+
+.prose-article { color: color-mix(in srgb, var(--color-text) 90%, var(--color-bg)); font-family: var(--font-reading); font-size: 1em; line-height: 1.65; }
+.prose-article p { margin: 0 0 1.25em; }
+.prose-article :is(h1, h2, h3, h4, h5, h6) { line-height: 1.25; font-weight: 700; margin: 2em 0 0.5em; border: 0; padding: 0; color: var(--color-text); }
+.prose-article h1 { font-size: 1.5em; }
+.prose-article h2 { font-size: 1.3em; }
+.prose-article h3 { font-size: 1.12em; margin-top: 1.6em; }
+.prose-article :is(h4, h5, h6) { font-size: 1em; margin-top: 1.5em; }
+.prose-article h5, .prose-article h6 { color: var(--color-text-muted); }
+.prose-article ul { list-style: disc; padding-left: 1.6em; margin: 0 0 1.25em; }
+.prose-article ol { list-style: decimal; padding-left: 1.6em; margin: 0 0 1.25em; }
 .prose-article li { margin: 0.35em 0; }
-.prose-article blockquote { border-left: 3px solid var(--color-accent); padding-left: 1.1em; color: var(--color-text-muted); margin: 1.2em 0; font-style: italic; }
+.prose-article li > p { margin: 0; }
+.prose-article blockquote { border-left: 3px solid var(--color-accent); padding-left: 1.1em; color: var(--color-text-muted); margin: 0 0 1.25em; }
 .prose-article code { font-family: var(--font-mono); background: var(--color-bg-raised); padding: 0.15em 0.4em; font-size: 0.88em; border-radius: 4px; }
-.prose-article pre { background: var(--color-bg-raised); border: 1px solid var(--color-border); padding: 1.1em; overflow-x: auto; margin: 1.2em 0; border-radius: 8px; }
-.prose-article pre code { background: none; padding: 0; }
+/* A code block sets its own line height: body prose at 1.65 is too open for code. */
+.prose-article pre { background: var(--color-bg-raised); border: 1px solid var(--color-border); padding: 1.1em; overflow-x: auto; margin: 0 0 1.25em; border-radius: 8px; line-height: 1.55; font-size: 0.82em; }
+.prose-article pre code { background: none; padding: 0; font-size: 1em; }
 .prose-article a { color: var(--color-accent); text-decoration: underline; text-underline-offset: 3px; }
 .prose-article hr { border: none; border-top: 1px solid var(--color-border-subtle); margin: 2em 0; }
 .prose-article strong { color: var(--color-text); font-weight: 600; }
-/* WebKitGTK scroll-lock workaround: body <img> sometimes collapses to 0 height on re-decode,
+.prose-article table { border-collapse: collapse; width: 100%; margin: 0 0 1.25em; font-size: 0.9em; line-height: 1.45; display: block; overflow-x: auto; }
+.prose-article th, .prose-article td { border: 1px solid var(--color-border); padding: 0.45em 0.7em; text-align: left; vertical-align: top; }
+.prose-article th { background: var(--color-bg-raised); font-weight: 600; }
+
+/* Syntax colours from the theme, not from a bundled dark stylesheet: the
+   highlight.js palette was 1.6 to 2.3:1 on the Reader theme's raised surface. */
+:is(.prose-article, .article-preview) :is(.hljs-keyword, .hljs-selector-tag, .hljs-built_in, .hljs-name, .hljs-tag, .hljs-type) { color: var(--color-accent); }
+:is(.prose-article, .article-preview) :is(.hljs-string, .hljs-attr, .hljs-symbol, .hljs-bullet, .hljs-addition, .hljs-regexp, .hljs-template-tag) { color: var(--color-success); }
+:is(.prose-article, .article-preview) :is(.hljs-number, .hljs-literal, .hljs-variable, .hljs-template-variable, .hljs-link, .hljs-meta) { color: var(--color-zap); }
+:is(.prose-article, .article-preview) :is(.hljs-comment, .hljs-quote, .hljs-deletion) { color: var(--color-text-muted); font-style: italic; }
+:is(.prose-article, .article-preview) :is(.hljs-title, .hljs-section, .hljs-attribute, .hljs-doctag, .hljs-strong) { color: var(--color-text); font-weight: 600; }
+:is(.prose-article, .article-preview) .hljs-emphasis { font-style: italic; }
+
+/* WebKitGTK scroll-lock workaround: a body <img> sometimes collapses to 0 height on re-decode,
    shrinking scrollHeight and clamping the scroll. A fixed aspect-ratio reserves a layout box
-   that survives the collapse. object-fit: contain preserves the image's own ratio inside it. */
-.prose-article img { display: block; width: 100%; max-width: 100%; aspect-ratio: 16 / 9; object-fit: contain; background: var(--color-bg-raised); border-radius: 8px; margin: 1em 0; cursor: zoom-in; }
+   that survives the collapse. Until the picture has loaded the box is 16:9; once its size is
+   known the reader sets the real ratio and a width that does not upscale it (fitArticleImage). */
+.prose-article img { display: block; width: 100%; max-width: 100%; aspect-ratio: 16 / 9; object-fit: contain; background: var(--color-bg-raised); border-radius: 8px; margin: 0 0 1.25em; cursor: zoom-in; }
+.prose-article img[data-fitted] { background: none; object-fit: cover; }
 
 /* View transition fade-in */
 @keyframes fade-in {

@@ -327,7 +327,7 @@ export function ProfileView() {
                 <ListState state={emptyOr(articlesList.status)} loadingLabel="Loading articles…" empty="No articles found." what="these articles" error={articlesList.message} onRetry={articlesList.reload} />
               )}
               {articles.map((event) => (
-                <ArticleCard key={event.id} event={event} />
+                <ArticleCard key={event.id} event={event} showAuthor={false} />
               ))}
             </>
           )}

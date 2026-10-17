@@ -2,7 +2,8 @@ import { marked } from "marked";
 import { markedHighlight } from "marked-highlight";
 import DOMPurify from "dompurify";
 import hljs from "highlight.js/lib/core";
-import "highlight.js/styles/atom-one-dark.min.css";
+// No bundled highlight stylesheet: its dark palette was 1.6 to 2.3:1 on the
+// Reader theme. The token colours come from the theme, in index.css.
 
 // Register commonly used languages (keeps bundle small)
 import javascript from "highlight.js/lib/languages/javascript";

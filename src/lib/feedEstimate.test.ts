@@ -113,35 +113,36 @@ describe("estimateNoteHeight, notes", () => {
 });
 
 describe("estimateNoteHeight, article cards", () => {
-  const article = (tags: string[][]) => estimateNoteHeight(note("body ".repeat(500), tags, 30023), WIDTH);
+  const article = (tags: string[][], body = "") => estimateNoteHeight(note(body, tags, 30023), WIDTH);
+  // Padding and divider 33, byline 26, footer 36: what every card has.
+  const FRAME = 33 + 26 + 36;
 
-  it("does not depend on the article's body", () => {
-    const tags = [["title", "A title"]];
-    expect(estimateNoteHeight(note("short", tags, 30023), WIDTH)).toBe(estimateNoteHeight(note("# long ".repeat(900), tags, 30023), WIDTH));
+  it("is calibrated to a card with a one-line title and no summary", () => {
+    expect(article([["title", "A title"]])).toBe(FRAME + 28);
   });
 
-  // Title 23, gap 6, byline 20, gap 6, card padding and divider 25.
-  it("is calibrated to a card with a one-line title and nothing else", () => {
-    expect(article([["title", "A title"]])).toBe(Math.round(23.375 + 6 + 20 + 6 + 25));
-  });
-
-  it("adds the summary, up to two lines, and the row of tags", () => {
+  it("reads the summary from the body when the writer gave none", () => {
     const bare = article([["title", "A title"]]);
-    const oneLineSummary = article([["title", "A title"], ["summary", "Short."]]);
-    const longSummary = article([["title", "A title"], ["summary", "words ".repeat(200)]]);
-    expect(oneLineSummary - bare).toBe(Math.round(23.375 + 6 + 24.375 + 8 + 20 + 6 + 25) - bare);
-    expect(longSummary - oneLineSummary).toBeGreaterThanOrEqual(24);
-    expect(longSummary - oneLineSummary).toBeLessThanOrEqual(25);
-    expect(article([["title", "A title"], ["t", "nostr"]]) - bare).toBe(24);
+    expect(article([["title", "A title"]], "Some words.") - bare).toBe(4 + 24);
+    expect(article([["title", "A title"]], "word ".repeat(200)) - bare).toBe(Math.round(4 + 2 * 24.375));
+  });
+
+  it("adds the writer's summary, up to two lines, and nothing for tags", () => {
+    const bare = article([["title", "A title"]]);
+    expect(article([["title", "A title"], ["summary", "Short."]]) - bare).toBe(4 + 24);
+    expect(article([["title", "A title"], ["summary", "words ".repeat(200)]]) - bare).toBe(Math.round(4 + 2 * 24.375));
+    expect(article([["title", "A title"], ["t", "nostr"], ["t", "vega"], ["t", "more"]])).toBe(bare);
   });
 
   it("clamps a long title at two lines", () => {
     const two = article([["title", "word ".repeat(30)]]);
     expect(article([["title", "word ".repeat(300)]])).toBe(two);
-    expect(two).toBeGreaterThan(article([["title", "A title"]]));
+    expect(two).toBe(FRAME + 2 * 28);
   });
 
-  it("is at least as tall as its thumbnail", () => {
-    expect(article([["title", "A title"], ["image", "https://example.com/c.jpg"]])).toBe(80 + 25);
+  it("is at least as tall as its cover, which also narrows the text", () => {
+    expect(article([["title", "A title"], ["image", "https://example.com/c.jpg"]])).toBe(FRAME + 96);
+    const words = "word ".repeat(14);
+    expect(article([["title", words], ["image", "https://example.com/c.jpg"]])).toBeGreaterThanOrEqual(article([["title", words]]));
   });
 });

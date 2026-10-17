@@ -97,6 +97,20 @@ describe("Button", () => {
       expect(classes()).toContain(" min-h-10 ");
     });
 
+    it("is a square of its height when it is only an icon, and carries its name", () => {
+      const { rerender } = render(<Button square aria-label="Save"><svg /></Button>);
+      expect(screen.getByRole("button", { name: "Save" })).toBeTruthy();
+      expect(classes()).toContain(" w-8 ");
+      expect(classes()).not.toContain(" px-3 ");
+      rerender(<Button square size="sm" aria-label="Save"><svg /></Button>);
+      expect(classes()).toContain(" w-7 ");
+      rerender(<Button square size="lg" aria-label="Save"><svg /></Button>);
+      expect(classes()).toContain(" w-10 ");
+      rerender(<Button>a</Button>);
+      expect(classes()).toContain(" px-3 ");
+      expect(classes()).not.toContain(" w-8 ");
+    });
+
     // "Look around first" under two large buttons is the quiet way out. In medium weight it read as a bold link.
     it("gives weight to a large primary only", () => {
       const { rerender } = render(<Button variant="primary" size="lg">Create a new identity</Button>);

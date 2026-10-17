@@ -6,6 +6,7 @@ import { fetchNoteById, fetchByAddr, getNDK, fetchWithTimeout } from "../../lib/
 import { dbLoadBookmarkedNotes, dbSaveBookmarkedNotes } from "../../lib/db";
 import { NoteCard } from "../feed/NoteCard";
 import { ArticleCard } from "../article/ArticleCard";
+import { Button } from "../shared/Button";
 import { SkeletonNoteList } from "../shared/Skeleton";
 import { ViewHeader } from "../shared/ViewHeader";
 import { Tabs, tabPanelProps } from "../shared/Tabs";
@@ -20,21 +21,18 @@ function ArticleCardWithReadStatus({ event }: { event: NDKEvent }) {
   const fullAddr = addr ? `30023:${event.pubkey}:${addr}` : null;
   const isRead = fullAddr ? isArticleRead(fullAddr) : false;
 
+  // The card shows the state (a dot before an unread title); the toggle is a
+  // visible control in its footer. It used to be 10px text shown on hover only.
   return (
-    <div className="relative group">
-      {!isRead && fullAddr && (
-        <div className="absolute left-1 top-1/2 -translate-y-1/2 w-2 h-2 rounded-full bg-accent z-10" title="Unread" />
-      )}
-      <ArticleCard key={event.id} event={event} />
-      {fullAddr && (
-        <button
-          onClick={() => isRead ? markArticleUnread(fullAddr) : markArticleRead(fullAddr)}
-          className="absolute right-3 top-3 text-caption text-text-dim hover:text-accent opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity z-10"
-        >
+    <ArticleCard
+      event={event}
+      read={fullAddr ? isRead : undefined}
+      actions={fullAddr && (
+        <Button size="sm" variant="ghost" onClick={() => isRead ? markArticleUnread(fullAddr) : markArticleRead(fullAddr)}>
           {isRead ? "Mark unread" : "Mark read"}
-        </button>
+        </Button>
       )}
-    </div>
+    />
   );
 }
 
