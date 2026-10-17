@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { getNDK, getStoredRelayUrls, addRelay, removeRelay, publishRelayList, fetchRelayRecommendations, normalizeRelayUrl, isOutboxRelaysEnabled, setOutboxRelaysEnabled, resetNDK } from "../../lib/nostr";
 import {
   authenticatedRelayUrls,
@@ -14,7 +14,12 @@ import type { RelayHealthResult } from "../../lib/nostr/relayHealth";
 import { ViewHeader } from "./ViewHeader";
 import { Switch } from "./Switch";
 import { Button } from "./Button";
-import { Trash2 } from "lucide-react";
+import { useToastStore } from "../../stores/toast";
+import { useRelayStatus } from "../../hooks/useRelayStatus";
+import { useRelayListShare } from "../../stores/relayListShare";
+import { useFeedStore } from "../../stores/feed";
+import { useEscapeToClose } from "../../hooks/useEscapeToClose";
+import { ChevronDown, ChevronRight, Trash2, X } from "lucide-react";
 import { tellPublish } from "../../lib/publishFeedback";
 
 function statusColor(status: RelayHealthResult["status"]): string {
@@ -25,11 +30,12 @@ function statusColor(status: RelayHealthResult["status"]): string {
   }
 }
 
+/** One word, the same everywhere: a dot and a word said two different things ("offline" beside "NDK connected"). */
 function statusLabel(status: RelayHealthResult["status"]): string {
   switch (status) {
-    case "online": return "online";
+    case "online": return "connected";
     case "slow": return "slow";
-    case "offline": return "offline";
+    case "offline": return "not answering";
   }
 }
 
@@ -53,48 +59,48 @@ function NipBadges({ nips }: { nips: number[] }) {
   );
 }
 
+
+/** The relay's name when it has one, and its address second: a `wss://` URL is not a name. */
+function RelayName({ url, name }: { url: string; name?: string | null }) {
+  const host = url.replace(/^wss?:\/\//, "").replace(/\/$/, "");
+  // Spans, since this also sits inside the details button.
+  return (
+    <span className="flex-1 min-w-0 block">
+      <span className="block text-text text-ui truncate" title={url}>{name || host}</span>
+      {name && <span className="block text-text-muted text-caption font-mono truncate">{host}</span>}
+    </span>
+  );
+}
+
+/** What a checked relay's row says. A probe that failed while the pool holds a connection is said as that, not as "not answering". */
+function wordFor(result: RelayHealthResult, poolConnected: boolean): { word: string; dot: string; tone: string } {
+  if (result.status === "offline" && poolConnected) return { word: "connected, didn't answer the check", dot: "bg-warning", tone: "text-warning" };
+  return { word: statusLabel(result.status), dot: statusColor(result.status), tone: result.status === "offline" ? "text-danger" : "text-text-muted" };
+}
+
+/** One of your relays: a status dot and word, the latency, details on demand, and Remove. */
 function RelayHealthCard({ result, poolConnected, onRemove }: { result: RelayHealthResult; poolConnected: boolean; onRemove: () => void }) {
   const [expanded, setExpanded] = useState(false);
   const nip11 = result.nip11;
+  const said = wordFor(result, poolConnected);
 
   return (
-    <div className="border border-border group/card rounded-lg overflow-hidden">
-      <div
-        className="flex items-center gap-3 px-3 py-2 text-ui cursor-pointer hover:bg-bg-hover transition-colors"
-        onClick={() => setExpanded((v) => !v)}
-      >
-        <span
-          className={`w-2 h-2 rounded-full shrink-0 ${statusColor(result.status)}`}
-          title={result.status === "online" ? "Online" : result.status === "slow" ? `Slow (${formatLatency(result.latencyMs)})` : "Offline — connection failed"}
-        />
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2">
-            <span title={result.url} className="text-text truncate font-mono">{result.url}</span>
-            {nip11?.name && (
-              <span className="text-text-dim text-caption truncate">({nip11.name})</span>
+    <div className="border border-border rounded-lg overflow-hidden">
+      <div className="flex items-center gap-3 px-3 py-2">
+        <button type="button" onClick={() => setExpanded((v) => !v)} aria-expanded={expanded} className="flex items-center gap-3 flex-1 min-w-0 text-left" title={expanded ? "Hide details" : "Show details"}>
+          <span className={`w-2 h-2 rounded-full shrink-0 ${said.dot}`} aria-hidden />
+          <RelayName url={result.url} name={nip11?.name} />
+          <span className="flex items-center gap-3 shrink-0 text-caption">
+            {result.latencyMs !== null && (
+              // Amber from the same point "slow" starts, 3 s, not before.
+              <span className={`font-mono ${result.latencyMs >= 3000 ? "text-warning" : "text-text-muted"}`}>{formatLatency(result.latencyMs)}</span>
             )}
-          </div>
-        </div>
-        <div className="flex items-center gap-3 shrink-0">
-          {result.latencyMs !== null && (
-            <span className={`text-micro font-mono ${result.latencyMs > 2000 ? "text-warning" : "text-text-dim"}`}>
-              {formatLatency(result.latencyMs)}
-            </span>
-          )}
-          <span className={`text-caption ${result.status === "offline" ? "text-danger" : "text-text-dim"}`}>
-            {statusLabel(result.status)}
+            <span className={said.tone}>{said.word}</span>
+            {expanded ? <ChevronDown size={14} className="text-text-muted" /> : <ChevronRight size={14} className="text-text-muted" />}
           </span>
-          {poolConnected && (
-            <span className="w-1.5 h-1.5 rounded-full bg-accent shrink-0" title="NDK connected" />
-          )}
-          <button
-            onClick={(e) => { e.stopPropagation(); onRemove(); }}
-            className="text-text-dim hover:text-danger text-caption opacity-0 group-hover/card:opacity-100 focus-visible:opacity-100 transition-opacity"
-          >
-            remove
-          </button>
-          <span className={`text-text-dim text-[10px] transition-transform ${expanded ? "rotate-90" : "rotate-0"}`}>▶</span>
-        </div>
+        </button>
+        {/* Always visible, 28px: it was 35x16, hover-only, and instant. The toast's Undo puts the relay back. */}
+        <Button square size="sm" variant="ghost" tone="danger" onClick={onRemove} aria-label={`Remove ${result.url}`} title="Remove from your list"><X /></Button>
       </div>
 
       {expanded && (
@@ -107,19 +113,19 @@ function RelayHealthCard({ result, poolConnected, onRemove }: { result: RelayHea
               <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-caption">
                 {nip11.software && (
                   <div>
-                    <span className="text-text-dim">Software: </span>
+                    <span className="text-text-muted">Software: </span>
                     <span className="text-text">{nip11.software}{nip11.version ? ` ${nip11.version}` : ""}</span>
                   </div>
                 )}
                 {nip11.contact && (
                   <div>
-                    <span className="text-text-dim">Contact: </span>
+                    <span className="text-text-muted">Contact: </span>
                     <span className="text-text">{nip11.contact}</span>
                   </div>
                 )}
                 {nip11.pubkey && (
                   <div className="col-span-2">
-                    <span className="text-text-dim">Pubkey: </span>
+                    <span className="text-text-muted">Pubkey: </span>
                     <span className="text-text font-mono">{nip11.pubkey.slice(0, 16)}…</span>
                   </div>
                 )}
@@ -131,10 +137,10 @@ function RelayHealthCard({ result, poolConnected, onRemove }: { result: RelayHea
               )}
             </>
           ) : (
-            <p className="text-text-dim">No NIP-11 info available{result.error ? ` — ${result.error}` : ""}</p>
+            <p className="text-text-muted">No details from this relay{result.error ? ` — ${result.error}` : ""}</p>
           )}
-          <div className="text-text-dim text-micro">
-            Checked {new Date(result.checkedAt).toLocaleTimeString()}
+          <div className="text-text-muted text-micro">
+            Checked {checkedAt(result.checkedAt)}
           </div>
         </div>
       )}
@@ -142,38 +148,57 @@ function RelayHealthCard({ result, poolConnected, onRemove }: { result: RelayHea
   );
 }
 
-/** Fallback row for relays not yet health-checked */
-function RelayPoolRow({ url, connected, onRemove }: { url: string; connected: boolean; onRemove: () => void }) {
+/**
+ * A relay without a check result: one of yours awaiting its check ("not checked
+ * yet": nothing is known, so nothing is claimed), or one reached automatically
+ * ("connected" / "not connected", which is all the pool knows).
+ */
+function RelayPoolRow({ url, connected, kind, onRemove }: { url: string; connected: boolean; kind: "mine" | "extra"; onRemove?: () => void }) {
+  const word = kind === "mine" ? (connected ? "connected" : "not checked yet") : connected ? "connected" : "not connected";
   return (
-    <div className="flex items-center gap-3 px-3 py-2 border border-border text-ui group rounded-lg">
-      <span
-        className={`w-2 h-2 rounded-full shrink-0 ${connected ? "bg-success" : "bg-text-dim"}`}
-        title={connected ? "Connected" : "Not connected — awaiting health check"}
-      />
-      <span className="text-text truncate flex-1 font-mono">{url}</span>
-      <span className="text-text-dim text-caption">{connected ? "connected" : "—"}</span>
-      <button
-        onClick={onRemove}
-        className="text-text-dim hover:text-danger text-caption opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity shrink-0"
-      >
-        remove
-      </button>
+    <div className="flex items-center gap-3 px-3 py-2 border border-border rounded-lg">
+      <span className={`w-2 h-2 rounded-full shrink-0 ${connected ? "bg-success" : "bg-text-dim"}`} aria-hidden />
+      <RelayName url={url} />
+      <span className="text-text-muted text-caption shrink-0">{word}</span>
+      {onRemove && <Button square size="sm" variant="ghost" tone="danger" onClick={onRemove} aria-label={`Remove ${normalizeRelayUrl(url)}`} title="Remove from your list"><X /></Button>}
     </div>
   );
 }
 
+const checkedAt = (ms: number) => new Date(ms).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+
+/**
+ * The relay list. Rebuilt after the October 2026 UI review: nothing said what
+ * a relay was; relays the user chose and relays Vega reached on its own sat
+ * in identical rows, so "4 relays" in Export showed as eight here; a relay
+ * that failed one three-second probe was red, "offline", and one click from a
+ * danger-coloured "Remove dead", while the same row's purple dot said it was
+ * connected; per-row remove was hover-only, 35x16px, instant, with no undo;
+ * and "Publish list" said nothing about what was published or to whom.
+ */
 export function RelaysView() {
-  const { results, checking, lastChecked, checkAll } = useRelayHealthStore();
+  const { results: allResults, checking, lastChecked, checkAll } = useRelayHealthStore();
   const canSign = useCanSign();
   const { loggedIn } = useUserStore();
-  const ndk = getNDK();
-  const poolRelays = Array.from(ndk.pool?.relays?.values() ?? []);
-  const poolConnectedUrls = new Set(poolRelays.filter((r) => r.connected).map((r) => normalizeRelayUrl(r.url)));
+  // The pool through the hook that polls it, so the counts move when Relay reach is flipped and NDK is rebuilt.
+  const pool = useRelayStatus();
+  const poolConnectedUrls = new Set(pool.relays.filter((r) => r.connected).map((r) => normalizeRelayUrl(r.url)));
+  const configured = new Set(getStoredRelayUrls().map(normalizeRelayUrl));
+  // Results for relays still in the list: a relay removed while a check ran must not be drawn from that check.
+  const results = allResults.filter((r) => configured.has(normalizeRelayUrl(r.url)));
+  const networkUp = useFeedStore((s) => s.connected);
+  const { unshared, mark: markUnshared } = useRelayListShare();
 
   const [input, setInput] = useState("");
   const [addError, setAddError] = useState<string | null>(null);
   const [removing, setRemoving] = useState(false);
-  const [republishing, setRepublishing] = useState(false);
+  const [confirmOffline, setConfirmOffline] = useState(false);
+  const [sharing, setSharing] = useState(false);
+  const [showExtra, setShowExtra] = useState(false);
+  const offerButton = useRef<HTMLButtonElement>(null);
+  // Escape backs out of the confirmation, like every other floating thing; focus goes back to the offer.
+  const keepRelays = () => { setConfirmOffline(false); requestAnimationFrame(() => offerButton.current?.focus()); };
+  useEscapeToClose(keepRelays, confirmOffline);
 
   // Auto-check on first mount if no results yet
   useEffect(() => {
@@ -182,48 +207,69 @@ export function RelaysView() {
     }
   }, []);
 
-  const onlineCount = results.filter((r) => r.status === "online").length;
+  const isUp = (r: RelayHealthResult) => poolConnectedUrls.has(normalizeRelayUrl(r.url));
+  // Offered for removal: relays that did not answer the check AND are not connected right now.
+  // One failed probe is weak evidence; a relay the pool holds a connection to is not dead.
+  const deadRelays = results.filter((r) => r.status === "offline" && !isUp(r));
+  const connectedCount = results.filter((r) => r.status === "online" || (r.status === "offline" && isUp(r))).length;
   const slowCount = results.filter((r) => r.status === "slow").length;
-  const offlineCount = results.filter((r) => r.status === "offline").length;
-  const deadRelays = results.filter((r) => r.status === "offline");
+  // With the network gone every probe fails and every socket closes: that is not four dead relays, and
+  // confirming would empty the list. Judged by the connection monitor, and by the list itself: every
+  // checked relay failed and none of yours is connected. Never offer to remove the whole list either.
+  const anyMineUp = Array.from(configured).some((url) => poolConnectedUrls.has(url));
+  const networkDown = !networkUp || (results.length > 0 && !anyMineUp && results.every((r) => r.status === "offline"));
+  const offerRemoval = !networkDown && deadRelays.length > 0 && deadRelays.length < configured.size;
 
   const handleAddRelay = () => {
     const url = input.trim();
     if (!url) return;
     if (!url.startsWith("ws://") && !url.startsWith("wss://")) {
-      setAddError("URL must start with ws:// or wss://");
+      setAddError("A relay address starts with wss://");
       return;
     }
     if (getStoredRelayUrls().includes(normalizeRelayUrl(url))) {
-      setAddError("Already in list");
+      setAddError("Already in your list");
       return;
     }
     addRelay(url);
     setInput("");
     setAddError(null);
+    markUnshared(true);
     checkAll();
   };
 
-  const handleRemoveRelay = (url: string) => {
+  const handleRemoveRelay = (rawUrl: string) => {
+    const url = normalizeRelayUrl(rawUrl);
     removeRelay(url);
-    checkAll();
+    markUnshared(true);
+    void checkAll();
+    const host = url.replace(/^wss?:\/\//, "");
+    useToastStore.getState().addToast(`Removed ${host} from your relays.`, "info", {
+      key: `relay-removed:${url}`,
+      // Undo may run after this view is gone: it marks the list through the store, not through this render.
+      action: { label: "Undo", run: () => { addRelay(url); useRelayListShare.getState().mark(true); void useRelayHealthStore.getState().checkAll(); } },
+    });
   };
 
-  const handleRemoveDead = async () => {
+  const handleRemoveOffline = async () => {
+    setConfirmOffline(false);
     setRemoving(true);
-    for (const r of deadRelays) {
-      removeRelay(r.url);
+    try {
+      for (const r of deadRelays) removeRelay(r.url);
+      markUnshared(true);
+      await checkAll();
+    } finally {
+      setRemoving(false);
     }
-    await checkAll();
-    setRemoving(false);
   };
 
-  const handleRepublish = async () => {
-    setRepublishing(true);
-    // The button went busy and came back, whether the list had gone out or
-    // not: a failure was swallowed and a success looked the same.
-    await tellPublish(() => publishRelayList(getStoredRelayUrls()), { done: "Relay list published.", kept: "Your relays here are unchanged." });
-    setRepublishing(false);
+  const handleShare = async () => {
+    setSharing(true);
+    // The marker is cleared only for the list as it was when the share began: an add made meanwhile is still unshared.
+    const shared = getStoredRelayUrls().join("\n");
+    const told = await tellPublish(() => publishRelayList(getStoredRelayUrls()), { done: "Relay list shared.", kept: "Your relays here are unchanged.", verb: "share your relay list" });
+    if (told.ok && getStoredRelayUrls().join("\n") === shared) markUnshared(false);
+    setSharing(false);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -231,11 +277,14 @@ export function RelaysView() {
     if (e.key === "Escape") setInput("");
   };
 
-  // Merge: show health results first, then any pool relays not yet checked
+  // Your relays: the health results, then every relay in the stored list not checked yet, whether or
+  // not it has made it into the pool (a configured relay must never vanish from its own list).
   const checkedUrls = new Set(results.map((r) => normalizeRelayUrl(r.url)));
-  const uncheckedPoolRelays = poolRelays.filter((r) => !checkedUrls.has(normalizeRelayUrl(r.url)));
+  const uncheckedMine = Array.from(configured).filter((url) => !checkedUrls.has(url)).map((url) => ({ url, connected: poolConnectedUrls.has(url) }));
+  // Extra reach: what NDK pulled in on its own. Not removable: it is not in the list.
+  const extra = pool.relays.filter((r) => r.origin === "discovered");
 
-  // Sort: online first, then slow, then offline
+  // Sort: connected first, then slow, then not answering
   const sortedResults = [...results].sort((a, b) => {
     const order = { online: 0, slow: 1, offline: 2 };
     return order[a.status] - order[b.status];
@@ -247,103 +296,135 @@ export function RelaysView() {
         title="Relays"
         meta={results.length > 0 ? (
           <span className="flex items-center gap-2">
-            {onlineCount > 0 && <span className="text-success">{onlineCount} online</span>}
+            {connectedCount > 0 && <span className="text-success">{connectedCount} connected</span>}
             {slowCount > 0 && <span className="text-warning">{slowCount} slow</span>}
-            {offlineCount > 0 && <span className="text-danger">{offlineCount} offline</span>}
+            {deadRelays.length > 0 && <span className="text-danger">{deadRelays.length} not answering</span>}
           </span>
         ) : undefined}
         actions={
           <>
             {lastChecked && (
-              <span className="text-text-dim text-caption">
-                {new Date(lastChecked).toLocaleTimeString()}
-              </span>
+              <span className="text-text-muted text-caption">Checked {checkedAt(lastChecked)}</span>
             )}
-            <Button onClick={checkAll} busy={checking}>{checking ? "Checking…" : "Check all"}</Button>
+            <Button onClick={checkAll} busy={checking}>{checking ? "Checking…" : "Check now"}</Button>
           </>
         }
       />
 
-      {/* Add relay input */}
-      <div className="border-b border-border-subtle px-4 py-2 shrink-0">
-        <div className="flex gap-2">
-          <input
-            value={input}
-            onChange={(e) => { setInput(e.target.value); setAddError(null); }}
-            onKeyDown={handleKeyDown}
-            placeholder="wss://relay.example.com"
-            className="flex-1 bg-bg border border-border-strong px-3 py-1.5 text-text text-ui font-mono focus:outline-none focus:border-accent placeholder:text-text-dim rounded-lg"
-          />
-          <Button onClick={handleAddRelay}>Add</Button>
-          {canSign && (
-            <Button onClick={handleRepublish} busy={republishing}>
-              {republishing ? "Publishing…" : "Publish list"}
-            </Button>
-          )}
+      <div className="flex-1 overflow-y-auto content-column">
+        <div className="p-4 space-y-8">
+          <p className="text-text-muted text-caption">
+            Relays are the servers Vega gets posts from and sends yours to. The defaults work; you can leave this alone.
+          </p>
+
+          {/* Your relays */}
+          <section aria-labelledby="relays-mine">
+            <h2 id="relays-mine" className="text-body font-medium text-text mb-3">Your relays</h2>
+            <div className="flex flex-wrap gap-2">
+              <input
+                value={input}
+                onChange={(e) => { setInput(e.target.value); setAddError(null); }}
+                onKeyDown={handleKeyDown}
+                placeholder="wss://relay.example.com"
+                aria-label="Relay address"
+                className="flex-1 min-w-48 bg-bg border border-border-strong px-3 py-1.5 text-text text-ui font-mono focus:outline-none focus:border-accent placeholder:text-text-dim rounded-lg"
+              />
+              <Button onClick={handleAddRelay}>Add</Button>
+            </div>
+            {addError && <p className="text-danger text-caption mt-1">{addError}</p>}
+
+            <div className="space-y-1 mt-3">
+              {sortedResults.map((result) => (
+                <RelayHealthCard key={result.url} result={result} poolConnected={isUp(result)} onRemove={() => handleRemoveRelay(result.url)} />
+              ))}
+              {uncheckedMine.map((relay) => (
+                <RelayPoolRow key={relay.url} url={relay.url} connected={relay.connected} kind="mine" onRemove={() => handleRemoveRelay(relay.url)} />
+              ))}
+            </div>
+            {results.length === 0 && !checking && uncheckedMine.length === 0 && (
+              <p className="text-text-muted text-body mt-3">No relays in your list.</p>
+            )}
+            {checking && results.length === 0 && (
+              <div className="flex items-center gap-2 text-text-muted text-body py-6 justify-center">
+                <span className="w-4 h-4 border-2 border-accent border-t-transparent rounded-full animate-spin" />
+                Checking your relays…
+              </div>
+            )}
+
+            {/* With no relay reachable, nothing is "dead": the network is. */}
+            {networkDown && results.length > 0 && (
+              <p className="text-text-muted text-caption mt-3">Vega couldn't reach any relay. Check your connection; nothing is offered for removal while it is down.</p>
+            )}
+
+            {/* Removal of what did not answer: named, confirmed, never for a relay the pool is connected to, never the whole list. */}
+            {offerRemoval && !removing && (
+              confirmOffline ? (
+                <div role="alertdialog" aria-labelledby="relays-remove-offline" className="mt-3 border border-border rounded-lg p-3 bg-bg-raised">
+                  <p id="relays-remove-offline" className="text-text text-body">
+                    Remove {deadRelays.map((r) => r.url.replace(/^wss?:\/\//, "").replace(/\/$/, "")).join(", ")} from your list?
+                  </p>
+                  <p className="text-text-muted text-caption mt-1">{deadRelays.length === 1 ? "It did not answer" : "They did not answer"} the last check. A relay that is only slow today comes back if you keep it.</p>
+                  <div className="flex gap-2 mt-3">
+                    <Button variant="primary" tone="danger" onClick={() => void handleRemoveOffline()}><Trash2 />Remove</Button>
+                    {/* Keep has focus, as Cancel does in the account removal: the offer button is gone, and a stray Enter must not remove. */}
+                    <Button variant="ghost" onClick={keepRelays} autoFocus>Keep</Button>
+                  </div>
+                </div>
+              ) : (
+                <div className="mt-3">
+                  <Button ref={offerButton} variant="ghost" tone="danger" onClick={() => setConfirmOffline(true)}>
+                    <Trash2 />Remove {deadRelays.length} relay{deadRelays.length > 1 ? "s" : ""} not answering…
+                  </Button>
+                </div>
+              )
+            )}
+
+            {canSign && (
+              <div className="mt-4 flex flex-wrap items-center gap-3">
+                <Button onClick={() => void handleShare()} busy={sharing} aria-describedby={unshared ? "relays-unshared" : undefined}>
+                  {sharing ? "Sharing…" : "Share my relay list"}
+                </Button>
+                {/* On the canvas, not on the button's fill: a warning colour on the secondary fill is under 4.5:1 in the light themes. */}
+                {unshared && <span id="relays-unshared" className="text-caption text-warning">not shared yet</span>}
+                <p className="text-text-muted text-caption flex-1 min-w-48">Tells other apps and people where to find your posts. Do this after changing the list.</p>
+              </div>
+            )}
+          </section>
+
+          {/* Extra reach */}
+          <section aria-labelledby="relays-extra">
+            {/* The heading holds the button: a heading inside a button is not a heading to a screen reader. */}
+            <h2 className="text-body font-medium text-text">
+              <button type="button" onClick={() => setShowExtra((v) => !v)} aria-expanded={showExtra} className="flex items-center gap-2 text-left hover:text-accent transition-colors">
+                {showExtra ? <ChevronDown size={16} className="text-text-muted" /> : <ChevronRight size={16} className="text-text-muted" />}
+                {/* The section is named by the words alone, not by the count beside them. */}
+                <span id="relays-extra">Extra reach, found automatically</span>
+                <span className="text-text-muted text-caption font-normal">{extra.length}</span>
+              </button>
+            </h2>
+            <div className="mt-3">
+              <RelayReachToggle />
+            </div>
+            {showExtra && (
+              <div className="space-y-1 mt-3">
+                {extra.length === 0 && <p className="text-text-muted text-caption">None right now.</p>}
+                {extra.map((relay) => (
+                  <RelayPoolRow key={relay.url} url={relay.url} connected={relay.connected} kind="extra" />
+                ))}
+              </div>
+            )}
+          </section>
+
+          <RelayAuthToggle />
+
+          {loggedIn && <SuggestedRelays onAdded={() => { markUnshared(true); checkAll(); }} />}
         </div>
-        {addError && <p className="text-danger text-caption mt-1">{addError}</p>}
-      </div>
-
-      {/* Actions bar — show when there are dead relays */}
-      {deadRelays.length > 0 && (
-        <div className="border-b border-border-subtle px-4 py-2 bg-danger/5 flex items-center justify-between shrink-0">
-          <span className="text-danger text-caption">
-            {deadRelays.length} relay{deadRelays.length > 1 ? "s" : ""} offline
-          </span>
-          <Button onClick={handleRemoveDead} busy={removing}>
-            <Trash2 className="text-danger" />{removing ? "Removing…" : "Remove dead"}
-          </Button>
-        </div>
-      )}
-
-      <div className="flex-1 overflow-y-auto p-4">
-        {results.length === 0 && !checking && poolRelays.length === 0 && (
-          <p className="text-text-dim text-body">No relays configured.</p>
-        )}
-
-        <div className="space-y-1">
-          {sortedResults.map((result) => (
-            <RelayHealthCard
-              key={result.url}
-              result={result}
-              poolConnected={poolConnectedUrls.has(result.url)}
-              onRemove={() => handleRemoveRelay(result.url)}
-            />
-          ))}
-
-          {uncheckedPoolRelays.map((relay) => (
-            <RelayPoolRow
-              key={relay.url}
-              url={relay.url}
-              connected={relay.connected}
-              onRemove={() => handleRemoveRelay(relay.url)}
-            />
-          ))}
-        </div>
-
-        {checking && results.length === 0 && (
-          <div className="flex items-center gap-2 text-text-dim text-body py-8 justify-center">
-            <span className="w-4 h-4 border-2 border-accent border-t-transparent rounded-full animate-spin" />
-            Checking relay health…
-          </div>
-        )}
-
-        {/* Relay reach — surfaced here, not only in Settings: someone who wants
-            Vega confined to their own relays is already on this screen. */}
-        <RelayReachToggle />
-
-        {/* Relay authentication — same reasoning as Relay reach: someone who
-            cares which relays learn their identity is already on this screen. */}
-        <RelayAuthToggle />
-
-        {/* Suggested Relays */}
-        {loggedIn && <SuggestedRelays onAdded={checkAll} />}
       </div>
     </div>
   );
 }
 
-/** NIP-42. The Settings copy is the technical phrasing; here it points at the list above. */
+/** NIP-42: which relays Vega proves your identity to. The same words as the list they are about. */
 function RelayAuthToggle() {
   const [scope, setScope] = useState<RelayAuthScope>(getRelayAuthScope);
 
@@ -360,20 +441,20 @@ function RelayAuthToggle() {
   };
 
   const options: { value: RelayAuthScope; label: string }[] = [
-    { value: "configured", label: "Only the relays above" },
+    { value: "configured", label: "Only my relays" },
     { value: "any", label: "Any relay that asks" },
   ];
 
   return (
-    <div className="mt-6 pt-4 border-t border-border-subtle">
-      <h3 className="text-text text-micro font-medium uppercase tracking-widest text-text-dim">
-        Prove who you are to
-      </h3>
-      <div className="flex flex-wrap items-center gap-2 mt-2">
+    <section aria-labelledby="relays-auth">
+      <h2 id="relays-auth" className="text-body font-medium text-text">Prove who you are to</h2>
+      <div className="flex flex-wrap items-center gap-2 mt-2" role="group" aria-labelledby="relays-auth">
         {options.map((opt) => (
           <button
             key={opt.value}
+            type="button"
             onClick={() => choose(opt.value)}
+            aria-pressed={scope === opt.value}
             className={`px-3 py-1.5 text-ui border transition-colors ${
               scope === opt.value
                 ? "border-accent text-accent"
@@ -384,15 +465,16 @@ function RelayAuthToggle() {
           </button>
         ))}
       </div>
-      <p className="text-text-dim text-caption mt-1.5">
+      <p className="text-text-muted text-caption mt-1.5">
         {scope === "configured"
-          ? "Some relays hide private messages until you identify yourself. Vega will only do that for the relays listed above."
-          : "Any relay that asks will learn your identity, including relays Vega reached on its own."}
+          ? "Some relays hide private messages until you identify yourself. Vega only does that for your relays."
+          : "Any relay that asks learns your identity, including the relays Vega reached on its own."}
       </p>
-    </div>
+    </section>
   );
 }
 
+/** NIP-65 outbox, in the user's words (the review's wording, used only here now; Settings points here). */
 function RelayReachToggle() {
   const [enabled, setEnabled] = useState(isOutboxRelaysEnabled);
   const [applying, setApplying] = useState(false);
@@ -411,27 +493,30 @@ function RelayReachToggle() {
   };
 
   return (
-    <div className="mt-6 pt-4 border-t border-border-subtle">
-      <Switch
-        checked={enabled}
-        onChange={() => toggle()}
-        busy={applying}
-        label="Also use relays that people you follow publish to"
-        hint={
-          <>
-            {enabled
-              ? "Better reach, but Vega connects to many relays beyond the ones listed above."
-              : "Vega connects only to the relays listed above. Some notes from people you follow may not load."}
-            {applying && " Reconnecting…"}
-          </>
-        }
-      />
-    </div>
+    <Switch
+      checked={enabled}
+      onChange={() => toggle()}
+      busy={applying}
+      label="Also look on the relays that people I follow use"
+      hint={
+        <>
+          {enabled
+            ? "You miss fewer posts. Vega also connects to servers you did not choose, and each one can see your IP address."
+            : "Vega only talks to your relays. Posts from people who publish elsewhere will not appear."}
+          {applying && " Reconnecting…"}
+        </>
+      }
+    />
   );
 }
 
 function SuggestedRelays({ onAdded }: { onAdded: () => void }) {
-  const { follows } = useUserStore();
+  const { follows, followsStatus } = useUserStore();
+  // The reason it is unavailable, true to the follow list's state: "follow a few people first" while the list loads is a false reason.
+  const why = follows.length > 0 ? "Based on the relays the people you follow use."
+    : followsStatus === "loaded" ? "Follow a few people first: suggestions come from the relays they use."
+    : followsStatus === "unknown" ? "Your follow list could not be loaded, so there is nothing to suggest from yet."
+    : "Loading the people you follow…";
   const [suggestions, setSuggestions] = useState<{ url: string; count: number }[]>([]);
   const [loading, setLoading] = useState(false);
   const [loaded, setLoaded] = useState(false);
@@ -450,41 +535,36 @@ function SuggestedRelays({ onAdded }: { onAdded: () => void }) {
   const handleAdd = (url: string) => {
     addRelay(url);
     setSuggestions((prev) => prev.filter((s) => s.url !== url));
-    // The table above renders from the parent's health-check results, so without
+    // The list above renders from the parent's health-check results, so without
     // this the relay is added but stays invisible until the next re-check.
     onAdded();
   };
 
   return (
-    <div className="mt-6 pt-4 border-t border-border-subtle">
-      <div className="flex items-center justify-between mb-3">
+    <section aria-labelledby="relays-suggested">
+      <div className="flex flex-wrap items-start justify-between gap-3 mb-3">
         <div>
-          <h3 className="text-text text-micro font-medium uppercase tracking-widest text-text-dim">Suggested Relays</h3>
-          <p className="text-text-dim text-caption mt-0.5">Based on relays your follows use</p>
+          <h2 id="relays-suggested" className="text-body font-medium text-text">Suggested relays</h2>
+          <p className="text-text-muted text-caption mt-0.5">{why}</p>
         </div>
-        <Button onClick={handleDiscover} disabled={follows.length === 0} busy={loading}>{loading ? "Discovering…" : "Discover relays"}</Button>
+        <Button onClick={() => void handleDiscover()} disabled={follows.length === 0} busy={loading}>{loading ? "Discovering…" : "Discover relays"}</Button>
       </div>
 
       {loaded && suggestions.length === 0 && (
-        <p className="text-text-dim text-caption">No new relay suggestions found.</p>
+        <p className="text-text-muted text-caption">No new suggestions.</p>
       )}
 
       <div className="space-y-1">
         {suggestions.map((s) => (
-          <div key={s.url} className="flex items-center gap-3 px-3 py-2 border border-border text-ui group rounded-lg">
-            <span className="text-text truncate flex-1 font-mono">{s.url}</span>
-            <span className="text-text-dim text-caption shrink-0">
+          <div key={s.url} className="flex items-center gap-3 px-3 py-2 border border-border rounded-lg">
+            <RelayName url={s.url} />
+            <span className="text-text-muted text-caption shrink-0">
               {s.count} follow{s.count !== 1 ? "s" : ""}
             </span>
-            <button
-              onClick={() => handleAdd(s.url)}
-              className="text-accent hover:text-accent-hover text-caption opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity shrink-0"
-            >
-              Add
-</button>
+            <Button size="sm" onClick={() => handleAdd(s.url)}>Add</Button>
           </div>
         ))}
       </div>
-    </div>
+    </section>
   );
 }

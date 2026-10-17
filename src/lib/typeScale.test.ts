@@ -42,7 +42,6 @@ const ALLOWED: Record<string, number> = {
   "components/search/SearchView.tsx": 3,
   "components/shared/EmojiPicker.tsx": 1,
   "components/shared/ImageLightbox.tsx": 3,
-  "components/shared/RelaysView.tsx": 1,
   "components/sidebar/AccountSwitcher.tsx": 3,
   "components/thread/AncestorChain.tsx": 2,
   "components/thread/ThreadNode.tsx": 1,
