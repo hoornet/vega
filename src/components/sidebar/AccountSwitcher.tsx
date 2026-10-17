@@ -41,7 +41,7 @@ function Avatar({ account, size = "w-6 h-6", textSize = "text-[10px]" }: { accou
  * 10px link that sat beside "Sign out". Now it says what will happen, offers
  * the key first, and needs a second, deliberate click.
  */
-function RemoveAccountConfirm({ account, name, onCancel, onConfirm }: {
+export function RemoveAccountConfirm({ account, name, onCancel, onConfirm }: {
   account: SavedAccount;
   name: string;
   onCancel: () => void;

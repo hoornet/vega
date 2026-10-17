@@ -265,7 +265,7 @@ export function ArticleFeed() {
             emptyHint={tab === "following"
               ? "Try the Latest tab to discover writers, then follow them."
               : articles.length > 0
-                ? `Latest leaves out muted authors and keywords, accounts without a profile${hideRssArticles ? ", and RSS reposts" : ""}. Adjust these in Settings.`
+                ? `Latest leaves out muted authors and keywords, accounts without a profile${hideRssArticles ? ", and automatic news reposts" : ""}. Adjust these in Settings.`
                 : undefined}
             what="articles"
             onRetry={() => setReloadKey((n) => n + 1)}
