@@ -1,6 +1,7 @@
 import { NDKEvent } from "@nostr-dev-kit/ndk";
 import { parseContent } from "./parsing";
 import { getParentEventId } from "./threadTree";
+import { cardSummary } from "./article";
 
 /**
  * Estimated rendered height (px) of a feed row — used as the virtualizer's
@@ -60,25 +61,33 @@ function firstTag(event: NDKEvent, name: string): string {
 }
 
 /**
- * ArticleCard: a title of up to two lines, an optional summary of up to two
- * lines, a byline, an optional row of tags, and an optional 80px thumbnail.
- * A flat number was 18 to 28% low for a card with a summary and tags.
+ * ArticleCard: a byline, a title of up to two lines in the reading face, up to
+ * two lines of summary (the writer's, or the start of the body: there is
+ * nearly always one), a 144x96 cover beside the text, and a footer row of a
+ * fixed minimum height. The summary now depends on the body, through
+ * `cardSummary`, so the body is read after all.
+ * Layout constants, to be measured against rendered rows (see the header).
  */
+const CARD_PAD = 33;         // py-4 (32) + divider
+const BYLINE = 20 + 6;       // text-ui line + mb-1.5
+const TITLE_LINE = 28;       // text-heading (22px) line height
+const TITLE_CHAR = 11;       // 22px semibold Literata: about half an em a character
+const SUMMARY_GAP = 4;       // mt-1
+const FOOTER = 8 + 28;       // mt-2 + min-h-7
+const COVER = 96;            // h-24, beside title and summary
+const COVER_COLUMN = 144 + 16; // w-36 + gap-4
+
 function articleHeight(event: NDKEvent, mediaWidth: number): number {
   const image = firstTag(event, "image");
-  // The card has no avatar column (+48), and a thumbnail takes 96px plus a 12px gap.
-  const width = Math.max(120, mediaWidth + 48 - (image ? 108 : 0));
-  // Title and summary are clamped at two lines, so the only question is one
-  // line or two. The title is 17px semibold: about 8.7px a character.
-  const titleLines = Math.min(2, Math.max(1, lineCount(firstTag(event, "title") || "Untitled", width / 8.7)));
-  const summaryLines = Math.min(2, lineCount(firstTag(event, "summary"), width / FIT));
-  const hasTags = event.tags.some((t) => t[0] === "t");
-  let h = titleLines * 23.375 + 6;                    // text-title at leading-snug, mb-1.5
-  if (summaryLines) h += summaryLines * LINE + 8;     // mb-2
-  h += 20 + 6;                                        // byline, mb-1.5
-  if (hasTags) h += 24;                               // one row of tag chips
-  if (image) h = Math.max(h, 80);
-  return Math.round(h + 25);                          // py-3 + divider
+  const title = firstTag(event, "title") || "Untitled";
+  // The card has no avatar column (+48); the cover takes its column off the text.
+  const width = Math.max(120, mediaWidth + 48 - (image ? COVER_COLUMN : 0));
+  const titleLines = Math.min(2, Math.max(1, lineCount(title, width / TITLE_CHAR)));
+  const summary = cardSummary(firstTag(event, "summary"), event.content ?? "", title);
+  const summaryLines = Math.min(2, lineCount(summary, width / FIT));
+  let text = titleLines * TITLE_LINE;
+  if (summaryLines) text += SUMMARY_GAP + summaryLines * LINE;
+  return Math.round(CARD_PAD + BYLINE + Math.max(text, image ? COVER : 0) + FOOTER);
 }
 
 // Heights are cached per note, for one column width. A resize changes every

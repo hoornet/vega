@@ -25,7 +25,14 @@ type Look =
   | { variant: "primary"; tone?: "accent" | "danger" | "zap" }
   | { variant: "ghost"; tone?: "neutral" | "danger" };
 
-export type ButtonProps = Look & Omit<ButtonHTMLAttributes<HTMLButtonElement>, "aria-pressed" | "aria-busy"> & {
+/**
+ * A button that is only an icon is `square`: as wide as it is tall, so a row
+ * of them is a row of equal targets, and it must be named, because the icon
+ * says nothing to a screen reader. Pass the Lucide icon as the only child.
+ */
+type Shape = { square: true; "aria-label": string; wrap?: never } | { square?: false };
+
+export type ButtonProps = Look & Shape & Omit<ButtonHTMLAttributes<HTMLButtonElement>, "aria-pressed" | "aria-busy"> & {
   /** `sm` for a dense row, `lg` for the single action of a form or a first-run step. */
   size?: ButtonSize;
   /** Makes it a toggle: announced as pressed or not, and drawn in the accent when on. */
@@ -43,11 +50,16 @@ export type ButtonProps = Look & Omit<ButtonHTMLAttributes<HTMLButtonElement>, "
   ref?: Ref<HTMLButtonElement>;
 };
 
+
 const SIZE: Record<ButtonSize, string> = {
-  sm: "px-2 text-caption [&>svg]:size-3.5",
-  md: "px-3 text-ui [&>svg]:size-4",
-  lg: "px-4 text-ui [&>svg]:size-4",
+  sm: "text-caption [&>svg]:size-3.5",
+  md: "text-ui [&>svg]:size-4",
+  lg: "text-ui [&>svg]:size-4",
 };
+
+// Side padding for a label; an icon-only button is a square of its height instead.
+const PAD: Record<ButtonSize, string> = { sm: "px-2", md: "px-3", lg: "px-4" };
+const SQUARE: Record<ButtonSize, string> = { sm: "w-7", md: "w-8", lg: "w-10" };
 
 // A minimum, not a fixed height: beside a field in a row that stretches its
 // items, the button takes the field's height (34px with its border) instead of
@@ -107,16 +119,17 @@ interface Drawn {
   pressed?: boolean;
   busy?: boolean;
   wrap?: boolean;
+  square?: boolean;
 }
 
-function draw(shape: Look, { size = "md", pressed, busy = false, wrap = false }: Drawn): string {
+function draw(shape: Look, { size = "md", pressed, busy = false, wrap = false, square = false }: Drawn): string {
   const [base, hover] = look(shape, pressed);
   // The one action of a form or a first-run step carries more weight. A quiet button beside it must not.
   const weight = size === "lg" && shape.variant === "primary" ? "font-medium" : "";
   // While busy the icon makes way for the spinner. The label keeps its full
   // contrast: "Publishing…" at 60% was 2.8 to 3.8:1.
   const state = busy ? "cursor-progress [&>svg]:hidden" : `cursor-pointer ${hover}`;
-  return `${SIZE[size]} ${HEIGHT[size]} ${wrap ? WRAP[size] : "whitespace-nowrap"} ${weight} ${base} ${state} inline-flex shrink-0 items-center justify-center gap-1.5 rounded-sm transition-colors [&>svg]:shrink-0 [&>svg]:stroke-[1.75] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:cursor-not-allowed disabled:opacity-50`;
+  return `${SIZE[size]} ${square ? SQUARE[size] : PAD[size]} ${HEIGHT[size]} ${wrap ? WRAP[size] : "whitespace-nowrap"} ${weight} ${base} ${state} inline-flex shrink-0 items-center justify-center gap-1.5 rounded-sm transition-colors [&>svg]:shrink-0 [&>svg]:stroke-[1.75] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:cursor-not-allowed disabled:opacity-50`;
 }
 
 /**
@@ -131,7 +144,7 @@ export function buttonClass(shape: Look & { size?: ButtonSize }): string {
 // The same size as the icon it stands in for, so a button with an icon keeps its width while busy.
 const SPINNER: Record<ButtonSize, string> = { sm: "size-3.5", md: "size-4", lg: "size-4" };
 
-export function Button({ variant, tone, size = "md", pressed, busy = false, wrap = false, className = "", type = "button", onClick, ref, children, ...rest }: ButtonProps) {
+export function Button({ variant, tone, size = "md", pressed, busy = false, wrap = false, square = false, className = "", type = "button", onClick, ref, children, ...rest }: ButtonProps) {
   const click = (e: MouseEvent<HTMLButtonElement>) => {
     if (busy) { e.preventDefault(); return; }
     onClick?.(e);
@@ -147,7 +160,7 @@ export function Button({ variant, tone, size = "md", pressed, busy = false, wrap
       aria-busy={busy || undefined}
       aria-disabled={busy || undefined}
       onClick={click}
-      className={`${draw({ variant, tone } as Look, { size, pressed, busy, wrap })} ${className}`}
+      className={`${draw({ variant, tone } as Look, { size, pressed, busy, wrap, square })} ${className}`}
     >
       {busy && <span aria-hidden className={`${SPINNER[size]} shrink-0 rounded-full border-2 border-current border-t-transparent animate-spin`} />}
       {children}

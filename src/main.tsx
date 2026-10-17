@@ -6,6 +6,10 @@ import App from "./App";
 import "./index.css";
 import "@fontsource/atkinson-hyperlegible/400.css";
 import "@fontsource/atkinson-hyperlegible/700.css";
+// The reading face for articles, with its italic. Weight axis only: the
+// optical-size axis would double the files for a face shown at one size range.
+import "@fontsource-variable/literata/wght.css";
+import "@fontsource-variable/literata/wght-italic.css";
 import { useUserStore } from "./stores/user";
 
 // Error boundary to catch React error #31 and show details instead of blank screen

@@ -112,7 +112,7 @@ function UpdateBanner() {
       {/* What's-new panel — only the newest version's changes (issue: update changelog) */}
       {showChangelog && changelog && (
         <div className="px-4 pb-3 pt-1 max-h-72 overflow-y-auto border-t border-accent/20">
-          <div className="prose-article" dangerouslySetInnerHTML={{ __html: renderMarkdown(changelog) }} />
+          <div className="article-preview text-ui" dangerouslySetInnerHTML={{ __html: renderMarkdown(changelog) }} />
           <button
             onClick={() => openUrl("https://github.com/hoornet/vega/releases").catch(() => {})}
             className="mt-3 text-accent hover:text-accent-hover transition-colors text-ui"
@@ -137,6 +137,7 @@ function ReadOnlyBanner() {
 
 function App() {
   const currentView = useUIStore((s) => s.currentView);
+  const articleKey = useUIStore((s) => s.pendingArticleNaddr ?? "");
   const showHelp = useUIStore((s) => s.showHelp);
   const toggleHelp = useUIStore((s) => s.toggleHelp);
   const showDebugPanel = useUIStore((s) => s.showDebugPanel);
@@ -229,7 +230,8 @@ function App() {
           {currentView === "articles" && <ArticleFeed />}
           {currentView === "media" && <MediaFeed />}
           {currentView === "article-editor" && <ArticleEditor />}
-          {currentView === "article" && <ArticleView />}
+          {/* Keyed by the article: a comment or a like still on its way for the last one must not land on this one. */}
+          {currentView === "article" && <ArticleView key={articleKey} />}
           {currentView === "about" && <AboutView />}
           {currentView === "zaps" && <ZapHistoryView />}
           {currentView === "dm" && <DMView />}

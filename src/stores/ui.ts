@@ -5,12 +5,20 @@ import { isRetiredTheme, resolveThemeId } from "../lib/themes";
 
 export type View = "feed" | "search" | "relays" | "settings" | "profile" | "thread" | "article-editor" | "article" | "articles" | "media" | "podcasts" | "about" | "zaps" | "dm" | "notifications" | "bookmarks" | "hashtag" | "follows" | "v4v";
 type FeedTab = "global" | "following" | "trending";
+export type ArticlesTab = "following" | "latest";
 
 interface ViewStackEntry {
   view: View;
   selectedNote: NDKEvent | null;
   selectedPubkey: string | null;
+  /** The article that was open, so Back from "More from" or a writer's profile returns to it. */
+  articleNaddr: string | null;
+  articleEvent: NDKEvent | null;
 }
+
+/** Where we are, as Back will need it. */
+const here = (s: Pick<UIState, "currentView" | "selectedNote" | "selectedPubkey" | "pendingArticleNaddr" | "pendingArticleEvent">): ViewStackEntry =>
+  ({ view: s.currentView, selectedNote: s.selectedNote, selectedPubkey: s.selectedPubkey, articleNaddr: s.pendingArticleNaddr, articleEvent: s.pendingArticleEvent });
 
 const MAX_STACK = 20;
 
@@ -22,6 +30,8 @@ interface UIState {
   previousView: View;
   viewStack: ViewStackEntry[];
   feedTab: FeedTab;
+  /** The Articles tab. Kept here, not in the view: opening an article unmounts the list, and Back used to land on Latest. */
+  articlesTab: ArticlesTab;
   pendingSearch: string | null;
   pendingDMPubkey: string | null;
   pendingArticleNaddr: string | null;
@@ -40,6 +50,8 @@ interface UIState {
   setFollowsTab: (tab: "followers" | "following") => void;
   /** Switch feed tab. `remember: false` is for defaults the app picks; only the user's own choice is kept across restarts. */
   setFeedTab: (tab: FeedTab, opts?: { remember?: boolean }) => void;
+  /** Switch the Articles tab. As with the feed, only the user's own choice is kept across restarts. */
+  setArticlesTab: (tab: ArticlesTab, opts?: { remember?: boolean }) => void;
   openProfile: (pubkey: string) => void;
   openThread: (note: NDKEvent, from?: View) => void;
   openSearch: (query: string) => void;
@@ -103,6 +115,26 @@ function initialFeedTab(): FeedTab {
   return localStorage.getItem("wrystr_pubkey") ? "following" : "trending";
 }
 const HIDE_RSS_ARTICLES_KEY = "wrystr_hide_rss_articles";
+const ARTICLES_TAB_KEY = "wrystr_articles_tab";
+
+/** Has the user ever picked an Articles tab themselves? */
+export function hasChosenArticlesTab(): boolean {
+  const stored = localStorage.getItem(ARTICLES_TAB_KEY);
+  return stored === "following" || stored === "latest";
+}
+
+/**
+ * The tab Articles opens on: the last one the user picked, else the writers
+ * they follow. Latest is everyone's, and even filtered it opened on "Privacy
+ * notice" and "Refund and guarantee policy" from accounts nobody follows,
+ * one click away from a tab that looked like a publication. Signed out there
+ * is no Following.
+ */
+function initialArticlesTab(): ArticlesTab {
+  const stored = localStorage.getItem(ARTICLES_TAB_KEY);
+  if (stored === "following" || stored === "latest") return stored;
+  return localStorage.getItem("wrystr_pubkey") ? "following" : "latest";
+}
 
 export const useUIStore = create<UIState>((set, _get) => ({
   currentView: "feed",
@@ -112,6 +144,7 @@ export const useUIStore = create<UIState>((set, _get) => ({
   previousView: "feed",
   viewStack: [],
   feedTab: initialFeedTab(),
+  articlesTab: initialArticlesTab(),
   pendingSearch: null,
   pendingDMPubkey: null,
   pendingArticleNaddr: null,
@@ -129,34 +162,38 @@ export const useUIStore = create<UIState>((set, _get) => ({
   // the stack in place made Esc and Back jump to a thread or profile visited
   // before the last sidebar click.
   setView: (currentView) => set({ currentView, viewStack: [] }),
+  setArticlesTab: (articlesTab, opts) => {
+    if (opts?.remember !== false) localStorage.setItem(ARTICLES_TAB_KEY, articlesTab);
+    set({ articlesTab });
+  },
   setFeedTab: (feedTab, opts) => {
     if (opts?.remember !== false) localStorage.setItem(FEED_TAB_KEY, feedTab);
     set({ feedTab });
   },
   setFollowsTab: (followsTab) => set({ followsTab }),
   openProfile: (pubkey) => set((s) => {
-    const stack = [...s.viewStack, { view: s.currentView, selectedNote: s.selectedNote, selectedPubkey: s.selectedPubkey }].slice(-MAX_STACK);
+    const stack = [...s.viewStack, here(s)].slice(-MAX_STACK);
     return { currentView: "profile", selectedPubkey: pubkey, previousView: s.currentView as View, viewStack: stack };
   }),
   openThread: (note, _from) => set((s) => {
-    const stack = [...s.viewStack, { view: s.currentView, selectedNote: s.selectedNote, selectedPubkey: s.selectedPubkey }].slice(-MAX_STACK);
+    const stack = [...s.viewStack, here(s)].slice(-MAX_STACK);
     return { currentView: "thread", selectedNote: note, previousView: s.currentView as View, viewStack: stack };
   }),
   openSearch: (query) => set({ currentView: "search", pendingSearch: query }),
   openHashtag: (tag) => set((s) => {
-    const stack = [...s.viewStack, { view: s.currentView, selectedNote: s.selectedNote, selectedPubkey: s.selectedPubkey }].slice(-MAX_STACK);
+    const stack = [...s.viewStack, here(s)].slice(-MAX_STACK);
     return { currentView: "hashtag", pendingHashtag: tag, previousView: s.currentView as View, viewStack: stack };
   }),
   openDM: (pubkey) => set({ currentView: "dm", pendingDMPubkey: pubkey }),
   openArticle: (naddr, event) => set((s) => {
-    const stack = [...s.viewStack, { view: s.currentView, selectedNote: s.selectedNote, selectedPubkey: s.selectedPubkey }].slice(-MAX_STACK);
+    const stack = [...s.viewStack, here(s)].slice(-MAX_STACK);
     return { currentView: "article", pendingArticleNaddr: naddr, pendingArticleEvent: event ?? null, previousView: s.currentView as View, viewStack: stack };
   }),
   goBack: () => set((s) => {
     const stack = [...s.viewStack];
     const prev = stack.pop();
     if (prev) {
-      return { showHelp: false, currentView: prev.view, selectedNote: prev.selectedNote, selectedPubkey: prev.selectedPubkey, viewStack: stack };
+      return { showHelp: false, currentView: prev.view, selectedNote: prev.selectedNote, selectedPubkey: prev.selectedPubkey, pendingArticleNaddr: prev.articleNaddr, pendingArticleEvent: prev.articleEvent, viewStack: stack };
     }
     return { showHelp: false, currentView: "feed", selectedNote: null, viewStack: [] };
   }),
