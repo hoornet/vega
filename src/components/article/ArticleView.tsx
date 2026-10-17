@@ -211,8 +211,9 @@ export function ArticleView() {
   const authorProfile = useProfile(authorPubkey);
   const authorName = profileName(authorProfile, authorPubkey.slice(0, 12) + "…");
 
-  // Rendered once per article, not on every scroll (progress is state).
-  const bodyHtml = useMemo(() => (event?.content ? stripLeadingTitle(renderMarkdown(event.content), title) : ""), [event, title]);
+  // Rendered once per article, not on every scroll (progress is state). The
+  // repeated title goes before rendering: the HTML is DOMPurify's as it is.
+  const bodyHtml = useMemo(() => (event?.content ? renderMarkdown(stripLeadingTitle(event.content, title)) : ""), [event, title]);
   const readingTime = readingMinutes(event?.content);
   const addr = event ? articleAddr(event) : null;
   const bookmarked = addr ? isArticleBookmarked(addr) : (event?.id ? isBookmarked(event.id) : false);
