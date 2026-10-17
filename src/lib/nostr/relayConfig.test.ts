@@ -60,6 +60,28 @@ describe("relay configuration (issue #35)", () => {
     expect(getStoredRelayUrls().filter((u) => u === PRIVATE_RELAY)).toHaveLength(1);
   });
 
+  it("lets a fresh install remove the Vega relay as its first change", () => {
+    // No stored list and no migration flag: the defaults. The one-time injection for
+    // existing users must not read the first saved list as one of theirs.
+    localStorage.removeItem("wrystr_vega_relay_added");
+    localStorage.removeItem(RELAY_STORAGE_KEY);
+    expect(getStoredRelayUrls()).toContain("wss://relay2.veganostr.com");
+    removeRelay("wss://relay2.veganostr.com");
+    expect(hasUrl(getStoredRelayUrls(), "wss://relay2.veganostr.com")).toBe(false);
+    expect(hasUrl(getStoredRelayUrls(), "wss://relay2.veganostr.com")).toBe(false);
+  });
+
+  it("removes a relay from the stored list whatever form of its address it is given", () => {
+    // The pool's URL carries a trailing slash and the stored one does not. A row
+    // drawn from the pool passed the pool's form: the relay left the pool and
+    // stayed in the list, back at the next check, under a toast that said "Removed".
+    addRelay("wss://nos.lol");
+    expect(hasUrl(getStoredRelayUrls(), "wss://nos.lol")).toBe(true);
+    removeRelay("wss://nos.lol/");
+    expect(hasUrl(getStoredRelayUrls(), "wss://nos.lol")).toBe(false);
+    expect(poolHas("wss://nos.lol")).toBe(false);
+  });
+
   it("keeps the embedded local relay in the pool across relay-list edits", () => {
     const instance = getNDK();
     // localRelay.ts adds this to the pool but deliberately never to the stored

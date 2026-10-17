@@ -491,6 +491,11 @@ export function getStoredRelayUrls(): string[] {
 
       return deduped;
     }
+    // A fresh install starts from the defaults, which already hold the Vega relay, so there is
+    // nothing to inject later. Without the flag, the first list ever saved (the user's first
+    // Remove) was read back as an existing user's and the relay put back at once, under a toast
+    // that said "Removed".
+    localStorage.setItem(VEGA_RELAY_MIGRATED_KEY, "1");
   } catch { /* ignore */ }
   return FALLBACK_RELAYS;
 }
@@ -880,7 +885,11 @@ export function removeRelay(url: string): void {
     }
   }
   syncExplicitRelayUrl(instance, url, false);
-  saveRelayUrls(getStoredRelayUrls().filter((u) => u !== url));
+  // Compared normalised: the pool's URL carries a trailing slash and the stored
+  // one does not, and a row drawn from the pool passed the pool's form, so the
+  // relay left the pool and stayed in the list, back at the next check.
+  const gone = normalizeRelayUrl(url);
+  saveRelayUrls(getStoredRelayUrls().filter((u) => normalizeRelayUrl(u) !== gone));
 }
 
 function waitForConnectedRelay(instance: NDK, timeoutMs = 10000): Promise<void> {
