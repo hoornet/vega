@@ -14,13 +14,46 @@ interface ViewStackEntry {
   /** The article that was open, so Back from "More from" or a writer's profile returns to it. */
   articleNaddr: string | null;
   articleEvent: NDKEvent | null;
+  /** The hashtag page that was open: Back from a note to a tag's page must show that tag, not the one opened last. */
+  hashtag: string | null;
 }
 
 /** Where we are, as Back will need it. */
-const here = (s: Pick<UIState, "currentView" | "selectedNote" | "selectedPubkey" | "pendingArticleNaddr" | "pendingArticleEvent">): ViewStackEntry =>
-  ({ view: s.currentView, selectedNote: s.selectedNote, selectedPubkey: s.selectedPubkey, articleNaddr: s.pendingArticleNaddr, articleEvent: s.pendingArticleEvent });
+const here = (s: Pick<UIState, "currentView" | "selectedNote" | "selectedPubkey" | "pendingArticleNaddr" | "pendingArticleEvent" | "pendingHashtag">): ViewStackEntry =>
+  ({ view: s.currentView, selectedNote: s.selectedNote, selectedPubkey: s.selectedPubkey, articleNaddr: s.pendingArticleNaddr, articleEvent: s.pendingArticleEvent, hashtag: s.pendingHashtag });
 
 const MAX_STACK = 20;
+
+/**
+ * List views that stay mounted, hidden, while Back can lead to them, so Back
+ * finds the query, the results, the tab and the scroll position as they were.
+ * The feed always stays. Profile and thread are not here: each has one slot
+ * (`selectedPubkey`, `selectedNote`), so a second instance would show the
+ * wrong person. See "Back keeps your place" in CLAUDE.md.
+ */
+export const KEPT_VIEWS: readonly View[] = ["search", "articles", "bookmarks", "hashtag", "notifications", "follows", "zaps", "media"];
+
+/** The views to keep mounted right now: the one open, and every kept view Back can lead to. */
+export function keptViews(s: Pick<UIState, "currentView" | "viewStack">): Set<View> {
+  return new Set<View>([s.currentView, ...s.viewStack.map((e) => e.view).filter((v) => KEPT_VIEWS.includes(v))]);
+}
+
+/**
+ * The hashtag pages to keep, one instance per tag: the tag open now, and every
+ * tag Back can lead to. A hashtag page is a view with a subject, like a
+ * profile, but unlike a profile it is cheap to hold several, so each tag gets
+ * its own instance and Back finds that tag's rows and scroll, not the last
+ * tag's offset on this tag's rows.
+ */
+export function keptHashtags(s: Pick<UIState, "currentView" | "viewStack" | "pendingHashtag">): string[] {
+  const tags = s.viewStack.filter((e) => e.view === "hashtag" && e.hashtag).map((e) => e.hashtag as string);
+  if (s.currentView === "hashtag" && s.pendingHashtag) tags.push(s.pendingHashtag);
+  return Array.from(new Set(tags));
+}
+
+export type ProfileTab = "notes" | "articles" | "media";
+/** How many profiles' tabs are remembered for the session. */
+const PROFILE_TABS_KEPT = 200;
 
 interface UIState {
   currentView: View;
@@ -29,6 +62,11 @@ interface UIState {
   selectedNote: NDKEvent | null;
   previousView: View;
   viewStack: ViewStackEntry[];
+  /** Counts sidebar trips. A kept view is keyed by it, so choosing a destination in the sidebar starts it fresh even when it is the view already on screen. */
+  trip: number;
+  /** The tab last open on each profile, for the session: Back to a profile, or opening it again, lands where you were. */
+  profileTabs: Record<string, ProfileTab>;
+  rememberProfileTab: (pubkey: string, tab: ProfileTab) => void;
   feedTab: FeedTab;
   /** The Articles tab. Kept here, not in the view: opening an article unmounts the list, and Back used to land on Latest. */
   articlesTab: ArticlesTab;
@@ -145,6 +183,15 @@ export const useUIStore = create<UIState>((set, _get) => ({
   selectedNote: null,
   previousView: "feed",
   viewStack: [],
+  trip: 0,
+  profileTabs: {},
+  rememberProfileTab: (pubkey, tab) => set((s) => {
+    const { [pubkey]: _was, ...rest } = s.profileTabs;
+    const next: Record<string, ProfileTab> = { ...rest, [pubkey]: tab };
+    const keys = Object.keys(next);
+    for (const key of keys.slice(0, Math.max(0, keys.length - PROFILE_TABS_KEPT))) delete next[key];
+    return { profileTabs: next };
+  }),
   feedTab: initialFeedTab(),
   articlesTab: initialArticlesTab(),
   pendingSearch: null,
@@ -162,8 +209,10 @@ export const useUIStore = create<UIState>((set, _get) => ({
   themeId: initialThemeId(),
   // A sidebar destination is a fresh start: nothing to go "back" to. Leaving
   // the stack in place made Esc and Back jump to a thread or profile visited
-  // before the last sidebar click.
-  setView: (currentView) => set({ currentView, viewStack: [] }),
+  // before the last sidebar click. It is also a fresh instance of a kept view
+  // (`trip`): Notifications chosen again from a thread opened out of it must
+  // not be the old list at its old scroll, with its first load never run again.
+  setView: (currentView) => set((s) => ({ currentView, viewStack: [], trip: s.viewStack.length > 0 || s.currentView !== currentView ? s.trip + 1 : s.trip })),
   setArticlesTab: (articlesTab, opts) => {
     if (opts?.remember !== false) localStorage.setItem(ARTICLES_TAB_KEY, articlesTab);
     set({ articlesTab });
@@ -200,7 +249,7 @@ export const useUIStore = create<UIState>((set, _get) => ({
     const stack = [...s.viewStack];
     const prev = stack.pop();
     if (prev) {
-      return { showHelp: false, currentView: prev.view, selectedNote: prev.selectedNote, selectedPubkey: prev.selectedPubkey, pendingArticleNaddr: prev.articleNaddr, pendingArticleEvent: prev.articleEvent, viewStack: stack };
+      return { showHelp: false, currentView: prev.view, selectedNote: prev.selectedNote, selectedPubkey: prev.selectedPubkey, pendingArticleNaddr: prev.articleNaddr, pendingArticleEvent: prev.articleEvent, pendingHashtag: prev.hashtag, viewStack: stack };
     }
     return { showHelp: false, currentView: "feed", selectedNote: null, viewStack: [] };
   }),

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { nip19 } from "@nostr-dev-kit/ndk";
-import { useUIStore } from "../../stores/ui";
+import { useUIStore, type ProfileTab } from "../../stores/ui";
 import { useUserStore, useCanSign } from "../../stores/user";
 import { useMuteStore } from "../../stores/mute";
 import { useProfile } from "../../hooks/useProfile";
@@ -72,20 +72,26 @@ export function ProfileView() {
   // twice when the first answer is empty: relays are often slow on the first ask.
   const notesList = useLoadedList(() => fetchUserNotesNIP65(pubkey), [pubkey], { retryEmptyAfterMs: 3000 });
   const notes = notesList.items;
-  // Articles are fetched the first time their tab is opened on this visit, and kept until the profile changes.
-  const [articlesWantedFor, setArticlesWantedFor] = useState<string | null>(null);
-  // Forgotten when the profile changes, and during render, not in an effect:
-  // coming back to a profile must not fetch its articles before the tab is opened.
+  // The tab opens where it was last left on this person, for the session (see "Back keeps your place").
+  const rememberProfileTab = useUIStore((s) => s.rememberProfileTab);
+  const tabLeftOn = (pk: string) => useUIStore.getState().profileTabs[pk] ?? "notes";
+  const [profileTab, setProfileTab] = useState<ProfileTab>(() => tabLeftOn(pubkey));
+  // Articles are fetched the first time their tab is opened on this visit, and kept until the profile
+  // changes; a profile that opens on its Articles tab asks for them at once, since they are what is showing.
+  const [articlesWantedFor, setArticlesWantedFor] = useState<string | null>(() => tabLeftOn(pubkey) === "articles" ? pubkey : null);
+  // Reset when the profile changes, and during render, not in an effect: a profile
+  // left on Notes must not fetch its articles before that tab is opened again.
   const [shownPubkey, setShownPubkey] = useState(pubkey);
   if (shownPubkey !== pubkey) {
     setShownPubkey(pubkey);
-    setArticlesWantedFor(null);
+    const tab = tabLeftOn(pubkey);
+    setProfileTab(tab);
+    setArticlesWantedFor(tab === "articles" ? pubkey : null);
   }
   const articlesList = useLoadedList(() => fetchAuthorArticles(pubkey), [pubkey], { retryEmptyAfterMs: 3000, enabled: articlesWantedFor === pubkey });
   const articles = articlesList.items;
   const [editing, setEditing] = useState(false);
   const [showZap, setShowZap] = useState(false);
-  const [profileTab, setProfileTab] = useState<"notes" | "articles" | "media">("notes");
   const [bannerLightbox, setBannerLightbox] = useState(false);
   const [bannerLoaded, setBannerLoaded] = useState(false);
   const [bannerError, setBannerError] = useState(false);
@@ -105,7 +111,6 @@ export function ProfileView() {
   const lud16 = typeof profile?.lud16 === "string" ? profile.lud16 : undefined;
 
   useEffect(() => {
-    setProfileTab("notes");
     // Someone else's profile opened from inside the edit form (a mention in
     // the notes under it) must not open titled "Edit profile".
     setEditing(false);
@@ -305,6 +310,7 @@ export function ProfileView() {
           value={profileTab}
           onChange={(tab) => {
             setProfileTab(tab);
+            rememberProfileTab(pubkey, tab);
             if (tab === "articles") setArticlesWantedFor(pubkey);
           }}
         />
