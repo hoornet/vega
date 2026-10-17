@@ -1,5 +1,6 @@
 import NDK, { NDKEvent, NDKFilter, NDKKind, NDKPrivateKeySigner } from "@nostr-dev-kit/ndk";
 import { guardIncomingEvents } from "../nostr/authentic";
+import { withinTime } from "../timeLimit";
 
 interface NwcConnection {
   walletPubkey: string;
@@ -215,4 +216,72 @@ export async function payInvoiceViaNWC(nwcUri: string, bolt11: string): Promise<
       reject(err instanceof Error ? err : new Error(String(err)));
     });
   });
+}
+
+/** What a wallet's reply to the probe says: it is there and this code is known to it, it refused the code, or nothing came back. */
+export type ProbeResult = "ok" | "refused" | "unreachable";
+
+/** NIP-47 error codes that mean the wallet does not know, or cannot speak to, this connection. Any other error means the wallet is there. */
+const REFUSALS = new Set(["UNAUTHORIZED", "UNSUPPORTED_ENCRYPTION"]);
+
+/**
+ * Asks the wallet one cheap question (`get_info`) to learn whether the
+ * connection code reaches a wallet that knows it. Nothing is paid. The reply
+ * is decrypted and read: "ok" when the wallet answered with a result or with
+ * an error that is not about the code (RESTRICTED, NOT_IMPLEMENTED and the
+ * like: a wallet that allows only pay_invoice is still there); "refused" when
+ * it answered UNAUTHORIZED or UNSUPPORTED_ENCRYPTION, or with something this
+ * secret cannot decrypt, which is the revoked-or-mistyped case; "unreachable"
+ * when nothing came back in time.
+ */
+export async function probeWallet(nwcUri: string, timeoutMs = 10000): Promise<ProbeResult> {
+  const { walletPubkey, relayUrl, secret } = parseNwcUri(nwcUri);
+  const signer = new NDKPrivateKeySigner(secret);
+  let ndk: NDK | null = null;
+  // Every wait in here has a limit, and the whole has one too: `ndk.connect()` resolves only once the
+  // relay has connected, and a relay that is down leaves it pending for good.
+  const ask = async (): Promise<ProbeResult> => {
+    ndk = guardIncomingEvents(new NDK({ explicitRelayUrls: [relayUrl], enableOutboxModel: false, relayAuthDefaultPolicy: async () => true }));
+    ndk.signer = signer;
+    await withinTime(ndk.connect(), Math.min(timeoutMs, 8000), "connect").catch(() => {});
+    const walletUser = ndk.getUser({ pubkey: walletPubkey });
+    const requestEvent = new NDKEvent(ndk);
+    requestEvent.kind = NDKKind.NostrWalletConnectReq;
+    requestEvent.content = await signer.encrypt(walletUser, JSON.stringify({ method: "get_info", params: {} }), "nip04");
+    requestEvent.tags = [["p", walletPubkey]];
+    await requestEvent.sign();
+    const instance = ndk;
+    const filter: NDKFilter = { kinds: [NDKKind.NostrWalletConnectRes], authors: [walletPubkey], "#e": [requestEvent.id!] };
+    // The relay must hold the REQ before the request goes out: a wallet answers within milliseconds,
+    // the reply is ephemeral (a relay keeps none of it), and NDK sends REQs on a short delay to batch
+    // them. Not groupable, and EOSE is the relay saying it has the REQ. The live test found this: the
+    // reply reached the relay before the question about it, and was gone.
+    const sub = instance.subscribe(filter, { closeOnEose: false, groupable: false });
+    await new Promise<void>((resolve) => { sub.on("eose", () => resolve()); setTimeout(resolve, 2000); });
+    return new Promise<ProbeResult>((resolve) => {
+      // A bare sub.stop() is allowed here only because the whole instance is disconnected right after.
+      const timer = setTimeout(() => { sub.stop(); resolve("unreachable"); }, timeoutMs);
+      sub.on("event", async (event: NDKEvent) => {
+        clearTimeout(timer);
+        sub.stop();
+        try {
+          const reply = JSON.parse(await signer.decrypt(walletUser, event.content, "nip04")) as { error?: { code?: string } };
+          resolve(reply.error && REFUSALS.has(String(reply.error.code)) ? "refused" : "ok");
+        } catch {
+          resolve("refused");
+        }
+      });
+      requestEvent.publish().catch(() => { clearTimeout(timer); sub.stop(); resolve("unreachable"); });
+    });
+  };
+  try {
+    return await withinTime(ask(), timeoutMs + 9000, "probe");
+  } catch {
+    return "unreachable";
+  } finally {
+    // Through connectivity, not relay.disconnect(): that one returns at once for a relay that never
+    // connected and leaves its state monitor, sleep detector and any reconnect timer running for the
+    // session, with the secret still in the instance.
+    for (const relay of (ndk as NDK | null)?.pool?.relays?.values() ?? []) relay.connectivity.disconnect();
+  }
 }

@@ -4,14 +4,6 @@ import { SwitchControl } from "../shared/Switch";
 
 const RATE_OPTIONS = [5, 10, 21, 50, 100];
 
-function InfoIcon({ title }: { title: string }) {
-  return (
-    <span className="text-text-dim cursor-help text-[10px] ml-1" title={title}>
-      &#9432;
-    </span>
-  );
-}
-
 export function V4VSettings() {
   const autoId = useId();
   const autoEnabled = useV4VStore((s) => s.autoEnabled);
@@ -21,41 +13,35 @@ export function V4VSettings() {
   const {
     setAutoEnabled, setPerEpisodeCap, setWeeklyBudget, setDefaultRate,
   } = useV4VStore.getState();
+  const limitsSet = perEpisodeCap > 0 && weeklyBudget > 0;
 
   return (
     <div className="max-w-md mx-auto px-6 py-6 space-y-6">
-      {/* Auto-enable */}
+      {/* Auto-enable. Disabled, with the reason as its hint, until both limits are set: the store refuses
+          otherwise, and a switch that looks live and only raises a toast is a switch that does not work. */}
       <section>
         <div className="flex items-center justify-between">
-          <div className="flex items-center">
-            <label id={`${autoId}-label`} htmlFor={autoId} className="text-body text-text font-medium cursor-pointer">Auto-stream</label>
-            <InfoIcon title="When enabled, V4V streaming starts automatically for every episode that supports it. Requires per-episode cap and weekly budget to be set." />
-          </div>
-          <SwitchControl id={autoId} checked={autoEnabled} onChange={setAutoEnabled} aria-labelledby={`${autoId}-label`} aria-describedby={`${autoId}-hint`} />
+          <label id={`${autoId}-label`} htmlFor={autoId} className={`text-body font-medium ${limitsSet ? "text-text cursor-pointer" : "text-text-muted cursor-not-allowed"}`}>Auto-stream</label>
+          <SwitchControl id={autoId} checked={autoEnabled} onChange={setAutoEnabled} disabled={!limitsSet} aria-labelledby={`${autoId}-label`} aria-describedby={`${autoId}-hint`} />
         </div>
-        <p id={`${autoId}-hint`} className="text-caption text-text-dim mt-1">
-          Automatically stream sats to creators when playing V4V-enabled episodes.
+        <p id={`${autoId}-hint`} className="text-caption text-text-muted mt-1">
+          {limitsSet
+            ? "Streams sats to the makers of every episode that supports it, as soon as it plays, at the rate below and within the limits."
+            : "Set a per-episode cap and a weekly budget first. Then every episode that supports it is paid as it plays."}
         </p>
-        {autoEnabled && (
-          <div className="mt-2 text-caption text-success flex items-center gap-1">
-            <span className="text-[8px]">&#9679;</span> Auto-streaming is active
-          </div>
-        )}
       </section>
 
       {/* Per-episode cap */}
       <section>
-        <div className="flex items-center">
-          <label className="text-body text-text font-medium">Per-episode cap</label>
-          <InfoIcon title="Maximum sats to stream for a single episode. Streaming stops automatically when this limit is reached." />
-        </div>
-        <p className="text-caption text-text-dim mt-1 mb-2">
-          Stop streaming after this many sats per episode.
+        <label htmlFor={`${autoId}-cap`} className="text-body text-text font-medium">Per-episode cap</label>
+        <p className="text-caption text-text-muted mt-1 mb-2">
+          Streaming stops once this many sats have gone to one episode.
         </p>
         <div className="flex items-center gap-2">
           <input
             type="number"
             min={0}
+            id={`${autoId}-cap`}
             value={perEpisodeCap || ""}
             onChange={(e) => setPerEpisodeCap(parseInt(e.target.value) || 0)}
             placeholder="e.g. 100"
@@ -67,17 +53,15 @@ export function V4VSettings() {
 
       {/* Weekly budget */}
       <section>
-        <div className="flex items-center">
-          <label className="text-body text-text font-medium">Weekly budget</label>
-          <InfoIcon title="Total sats allowed across all V4V streaming in a rolling 7-day window. Auto-streaming pauses when the budget is exhausted." />
-        </div>
-        <p className="text-caption text-text-dim mt-1 mb-2">
-          Total sats allowed per week across all episodes.
+        <label htmlFor={`${autoId}-week`} className="text-body text-text font-medium">Weekly budget</label>
+        <p className="text-caption text-text-muted mt-1 mb-2">
+          Total sats across all episodes in a rolling seven days. Streaming pauses when it is spent.
         </p>
         <div className="flex items-center gap-2">
           <input
             type="number"
             min={0}
+            id={`${autoId}-week`}
             value={weeklyBudget || ""}
             onChange={(e) => setWeeklyBudget(parseInt(e.target.value) || 0)}
             placeholder="e.g. 500"
@@ -89,12 +73,9 @@ export function V4VSettings() {
 
       {/* Default rate */}
       <section>
-        <div className="flex items-center">
-          <label className="text-body text-text font-medium">Default streaming rate</label>
-          <InfoIcon title="How many sats per minute to stream by default. Can be overridden per session in the player bar." />
-        </div>
-        <p className="text-caption text-text-dim mt-1 mb-2">
-          Sats per minute when auto-streaming.
+        <label className="text-body text-text font-medium">Streaming rate</label>
+        <p className="text-caption text-text-muted mt-1 mb-2">
+          Sats per minute, unless changed for one episode in the player bar.
         </p>
         <div className="flex items-center gap-1">
           {RATE_OPTIONS.map((rate) => (
@@ -114,12 +95,6 @@ export function V4VSettings() {
         </div>
       </section>
 
-      {/* Requirements notice */}
-      {!autoEnabled && (perEpisodeCap <= 0 || weeklyBudget <= 0) && (
-        <div className="text-caption text-text-dim bg-bg-raised border border-border rounded-lg p-3">
-          Set both a per-episode cap and weekly budget to enable auto-streaming.
-        </div>
-      )}
     </div>
   );
 }

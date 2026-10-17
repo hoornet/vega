@@ -2,10 +2,10 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, fireEvent, cleanup, waitFor } from "@testing-library/react";
 
 const zap = vi.fn();
-const setView = vi.fn();
+const openSettings = vi.fn();
 const state = { nwcUri: "nostr+walletconnect://x" as string | null, canSign: true };
 vi.mock("../../stores/lightning", () => ({ useLightningStore: () => ({ nwcUri: state.nwcUri, zap }) }));
-vi.mock("../../stores/ui", () => ({ useUIStore: () => ({ setView }) }));
+vi.mock("../../stores/ui", () => ({ useUIStore: <T,>(pick: (s: { openSettings: typeof openSettings }) => T) => pick({ openSettings }) }));
 vi.mock("../../stores/user", () => ({ useCanSign: () => state.canSign }));
 vi.mock("../shared/LoginModal", () => ({ LoginModal: () => <div>login dialog</div> }));
 
@@ -68,9 +68,9 @@ describe("ZapModal", () => {
     state.nwcUri = null;
     open();
     expect(screen.getByText("No wallet connected")).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: /Go to settings/ }));
+    fireEvent.click(screen.getByRole("button", { name: /Connect a wallet/ }));
     expect(onClose).toHaveBeenCalledTimes(1);
-    expect(setView).toHaveBeenCalledWith("settings");
+    expect(openSettings).toHaveBeenCalledWith("wallet");
   });
 
   it("closes on a backdrop press while nothing would be lost", () => {

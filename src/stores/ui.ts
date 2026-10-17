@@ -52,6 +52,8 @@ export function keptHashtags(s: Pick<UIState, "currentView" | "viewStack" | "pen
 }
 
 export type ProfileTab = "notes" | "articles" | "media";
+/** The ids of Settings' groups, as `GROUPS` in SettingsView names them. */
+export type SettingsGroupId = "appearance" | "account" | "wallet" | "notifications" | "what-you-see" | "advanced";
 /** How many profiles' tabs are remembered for the session. */
 const PROFILE_TABS_KEPT = 200;
 
@@ -72,6 +74,9 @@ interface UIState {
   articlesTab: ArticlesTab;
   pendingSearch: string | null;
   pendingDMPubkey: string | null;
+  /** A Settings group to scroll to when Settings opens (a link from the zap dialog or Value 4 Value). */
+  pendingSettingsGroup: SettingsGroupId | null;
+  openSettings: (group: SettingsGroupId) => void;
   pendingArticleNaddr: string | null;
   pendingArticleEvent: NDKEvent | null;
   pendingHashtag: string | null;
@@ -196,6 +201,7 @@ export const useUIStore = create<UIState>((set, _get) => ({
   articlesTab: initialArticlesTab(),
   pendingSearch: null,
   pendingDMPubkey: null,
+  pendingSettingsGroup: null,
   pendingArticleNaddr: null,
   pendingArticleEvent: null,
   pendingHashtag: null,
@@ -212,7 +218,7 @@ export const useUIStore = create<UIState>((set, _get) => ({
   // before the last sidebar click. It is also a fresh instance of a kept view
   // (`trip`): Notifications chosen again from a thread opened out of it must
   // not be the old list at its old scroll, with its first load never run again.
-  setView: (currentView) => set((s) => ({ currentView, viewStack: [], trip: s.viewStack.length > 0 || s.currentView !== currentView ? s.trip + 1 : s.trip })),
+  setView: (currentView) => set((s) => ({ currentView, viewStack: [], pendingSettingsGroup: null, trip: s.viewStack.length > 0 || s.currentView !== currentView ? s.trip + 1 : s.trip })),
   setArticlesTab: (articlesTab, opts) => {
     if (opts?.remember !== false) localStorage.setItem(ARTICLES_TAB_KEY, articlesTab);
     set({ articlesTab });
@@ -241,6 +247,8 @@ export const useUIStore = create<UIState>((set, _get) => ({
     return { currentView: "hashtag", pendingHashtag: tag, previousView: s.currentView as View, viewStack: stack };
   }),
   openDM: (pubkey) => set({ currentView: "dm", pendingDMPubkey: pubkey }),
+  // A sidebar destination, so the way back is cleared as setView does; the group is what Settings scrolls to.
+  openSettings: (group) => set((s) => ({ currentView: "settings", viewStack: [], trip: s.trip + 1, pendingSettingsGroup: group })),
   openArticle: (naddr, event) => set((s) => {
     const stack = [...s.viewStack, here(s)].slice(-MAX_STACK);
     return { currentView: "article", pendingArticleNaddr: naddr, pendingArticleEvent: event ?? null, previousView: s.currentView as View, viewStack: stack };

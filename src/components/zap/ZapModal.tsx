@@ -20,7 +20,7 @@ interface ZapModalProps {
 export function ZapModal({ target, recipientName, onClose }: ZapModalProps) {
   const canSign = useCanSign();
   const { nwcUri, zap } = useLightningStore();
-  const { setView } = useUIStore();
+  const openSettings = useUIStore((s) => s.openSettings);
   const [amountSats, setAmountSats] = useState(21);
   const [customAmount, setCustomAmount] = useState("");
   const [useCustom, setUseCustom] = useState(false);
@@ -69,10 +69,10 @@ export function ZapModal({ target, recipientName, onClose }: ZapModalProps) {
         {/* No wallet state */}
         {canSign && !nwcUri && (
           <div className="px-4 py-5 text-center">
-            <p className="text-text-dim text-body mb-3">
-              Connect a Lightning wallet using a Nostr Wallet Connect (NWC) URI to send zaps.
+            <p className="text-text-muted text-body mb-3">
+              Zaps are small Bitcoin tips. To send one, link a Lightning wallet first; Vega shows the steps.
             </p>
-            <Button variant="primary" onClick={() => { onClose(); setView("settings"); }}>Go to settings<ArrowRight /></Button>
+            <Button variant="primary" onClick={() => { onClose(); openSettings("wallet"); }}>Connect a wallet<ArrowRight /></Button>
           </div>
         )}
 

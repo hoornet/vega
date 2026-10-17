@@ -46,7 +46,6 @@ const ALLOWED: Record<string, number> = {
   "components/thread/AncestorChain.tsx": 2,
   "components/thread/ThreadNode.tsx": 1,
   "components/thread/ThreadView.tsx": 1,
-  "components/v4v/V4VSettings.tsx": 2,
   "components/zap/ZapRow.tsx": 1,
   "components/zap/ZapModal.tsx": 2,
 };

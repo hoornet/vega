@@ -1,5 +1,7 @@
 import { usePodcastStore } from "../../stores/podcast";
 import { useV4VStore } from "../../stores/v4v";
+import { useLightningStore } from "../../stores/lightning";
+import { useUIStore } from "../../stores/ui";
 
 function BudgetBar({ label, spent, total }: { label: string; spent: number; total: number }) {
   if (total <= 0) return null;
@@ -47,6 +49,8 @@ export function V4VDashboard() {
   const weeklySpent = useV4VStore((s) => s.weeklySpent)();
 
   const hasRecipients = episode?.value && episode.value.length > 0;
+  const nwcUri = useLightningStore((s) => s.nwcUri);
+  const openSettings = useUIStore((s) => s.openSettings);
 
   // All-time stats
   const allTimeSats = history.reduce((sum, e) => sum + e.satsStreamed + e.satsBoosted, 0) + v4vTotalStreamed;
@@ -54,6 +58,13 @@ export function V4VDashboard() {
 
   return (
     <div className="max-w-md mx-auto px-6 py-6">
+      {/* What this is, before three zero tiles. */}
+      <p className="text-text-muted text-body mb-6">
+        While you listen to a podcast, Vega can send its makers a few sats per minute from your wallet, at a rate you choose. You set the limits.
+        {!nwcUri && (
+          <> <button type="button" onClick={() => openSettings("wallet")} className="text-accent underline underline-offset-2 hover:text-accent-hover transition-colors">Connect a wallet first.</button></>
+        )}
+      </p>
       {/* Current streaming status */}
       <section className="mb-6">
         <h2 className="text-text-dim text-micro uppercase tracking-widest mb-3">Now</h2>

@@ -1,9 +1,9 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useLightningStore } from "../../stores/lightning";
 import { useUserStore } from "../../stores/user";
 import { isValidNwcUri, parseNwcUri } from "../../lib/lightning/nwc";
 import { Button, buttonClass } from "./Button";
-import { ArrowRight, ExternalLink } from "lucide-react";
+import { ArrowLeft, ArrowRight, ExternalLink } from "lucide-react";
 
 // ── Wallet catalogue ─────────────────────────────────────────────────────────
 
@@ -25,7 +25,7 @@ const WALLETS: WalletDef[] = [
     steps: [
       "Open your Alby Hub dashboard",
       'Go to Connections → "Add connection"',
-      "Copy the Nostr Wallet Connect URI",
+      "Copy the connection code",
       "Paste it below",
     ],
     detect: (r) => r.includes("albyhub") || (r.includes("getalby") && r.includes("hub")),
@@ -34,11 +34,11 @@ const WALLETS: WalletDef[] = [
     id: "alby",
     name: "Alby Extension",
     tagline: "Browser extension",
-    setupUrl: "https://getalby.com/apps/new",
+    setupUrl: "https://getalby.com",
     steps: [
       "Go to getalby.com/apps/new",
       "Create a new app connection",
-      "Copy the Nostr Wallet Connect URI",
+      "Copy the connection code",
       "Paste it below",
     ],
     detect: (r) => r.includes("getalby") && !r.includes("albyhub"),
@@ -52,7 +52,7 @@ const WALLETS: WalletDef[] = [
       "Open Phoenix on your phone",
       "Go to Settings → Nostr Wallet Connect",
       "Tap 'Link a new wallet'",
-      "Copy the URI and paste it below",
+      "Copy the code and paste it below",
     ],
     detect: (r) => r.includes("phoenix") || r.includes("acinq"),
   },
@@ -66,7 +66,7 @@ const GENERIC: WalletDef = {
   steps: [
     "Open your Lightning wallet",
     "Find the Nostr Wallet Connect section",
-    "Generate a new NWC connection URI",
+    "Create a new connection and copy its code",
     "Paste it below",
   ],
   detect: () => true,
@@ -83,27 +83,47 @@ function detectWallet(nwcUri: string): WalletDef {
 
 // ── Connected state ───────────────────────────────────────────────────────────
 
+/**
+ * A wallet is "connected" when it has answered, not when a string was saved.
+ * This used to say "Your NWC connection is active" the moment a well-formed
+ * string was pasted, so a revoked or mistyped one looked fine until a zap
+ * failed. The wallet is asked a cheap question (`checkWallet`) when this is
+ * first shown and on Try again.
+ */
 function ConnectedState({ nwcUri, onDisconnect }: { nwcUri: string; onDisconnect: () => void }) {
+  const status = useLightningStore((s) => s.walletStatus);
+  const checkWallet = useLightningStore((s) => s.checkWallet);
   const wallet = detectWallet(nwcUri);
+  const word = status === "ok" ? "Connected" : status === "refused" ? "Not recognised" : status === "unreachable" ? "Not reached" : "Checking…";
+  const tone = status === "ok" ? "text-success" : status === "refused" || status === "unreachable" ? "text-danger" : "text-text-muted";
   let relay = "";
   try {
     relay = parseNwcUri(nwcUri).relayUrl;
     const u = new URL(relay);
     relay = u.hostname;
   } catch { /* keep raw */ }
+  useEffect(() => { if (status === "unknown") void checkWallet(); }, [status, checkWallet]);
 
   return (
     <div>
-      <div className="flex items-center gap-2 px-3 py-2 border border-border mb-2 rounded-lg">
-        <span className="text-zap">⚡</span>
+      <div className="flex flex-wrap items-center gap-2 px-3 py-2 border border-border mb-2 rounded-lg">
+        <span className="text-zap" aria-hidden>⚡</span>
         <div className="flex-1 min-w-0">
-          <span className="text-text text-body">{wallet.name} connected</span>
+          <span className="text-text text-body">{wallet.name}</span>
           {relay && <span className="text-text-dim text-caption ml-2">via {relay}</span>}
         </div>
-        <Button variant="ghost" tone="danger" size="sm" onClick={onDisconnect}>Disconnect</Button>
+        <span role="status" className={`text-caption ${tone}`}>{word}</span>
+        {(status === "unreachable" || status === "refused") && <Button size="sm" onClick={() => void checkWallet()}>Try again</Button>}
+        <Button variant="ghost" tone="danger" size="sm" onClick={onDisconnect}>Remove</Button>
       </div>
-      <p className="text-text-dim text-caption px-1">
-        Your NWC connection is active. You can zap notes and profiles.
+      <p className="text-text-muted text-caption px-1">
+        {status === "ok"
+          ? "Your wallet answered. You can zap notes and people, and stream sats to podcasts."
+          : status === "refused"
+            ? "The wallet does not recognise this code. It may have been removed in the wallet; paste a new one."
+            : status === "unreachable"
+              ? "Vega could not reach this wallet. If it is an app on your phone, open it and press Try again. If that does not help, remove the code and paste a new one."
+              : "Asking the wallet whether this connection works…"}
       </p>
     </div>
   );
@@ -125,10 +145,10 @@ function WalletCard({ wallet, onSelect }: { wallet: WalletDef; onSelect: () => v
             className={buttonClass({ variant: "ghost", size: "sm" })}
             onClick={(e) => e.stopPropagation()}
           >
-            Open<ExternalLink />
+            Get this wallet<ExternalLink />
           </a>
         )}
-        <Button size="sm" onClick={onSelect}>Connect<ArrowRight /></Button>
+        <Button size="sm" onClick={onSelect}>Show steps<ArrowRight /></Button>
       </div>
     </div>
   );
@@ -145,7 +165,7 @@ function PasteStep({
   onBack: () => void;
   onConnected: () => void;
 }) {
-  const { setNwcUri } = useLightningStore();
+  const setNwcUri = useLightningStore((s) => s.setNwcUri);
   const { pubkey } = useUserStore();
   const [input, setInput] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -161,14 +181,17 @@ function PasteStep({
   const formatError =
     input.trim() && !valid
       ? input.trim().startsWith("nostr+walletconnect://")
-        ? "URI is incomplete — missing relay or secret parameter"
-        : "Should start with nostr+walletconnect://"
+        ? "This code is not complete: it should name a relay and a secret. Copy all of it."
+        : "A connection code starts with nostr+walletconnect://"
       : null;
 
+  // The code is saved and the connected row takes over: it asks the wallet and says whether it
+  // answered, with Try again. The code is kept whatever the wallet says, so a wallet that is merely
+  // slow is not lost.
   const handleConnect = () => {
     const uri = input.trim();
     if (!isValidNwcUri(uri)) {
-      setError("Invalid NWC URI — check and try again");
+      setError("That is not a connection code. Copy it again from the wallet.");
       return;
     }
     try {
@@ -181,12 +204,8 @@ function PasteStep({
 
   return (
     <div>
-      <button
-        onClick={onBack}
-        className="text-text-dim hover:text-text text-ui transition-colors mb-3 block"
-      >
-        ← {wallet.name}
-      </button>
+      <Button variant="ghost" size="sm" onClick={onBack} className="mb-3"><ArrowLeft />All wallets</Button>
+      <h3 className="text-body font-medium text-text mb-2">{wallet.id === "generic" ? "Connect your wallet" : `Connect ${wallet.name}`}</h3>
 
       {/* Step-by-step instructions */}
       <ol className="space-y-1 mb-4">
@@ -215,10 +234,13 @@ function PasteStep({
       )}
       {valid && (
         <p className="text-success text-caption mb-1.5">
-          ✓ Valid — relay: {parsedRelay}
+          Looks right. Relay: {parsedRelay}
         </p>
       )}
       {error && <p className="text-danger text-caption mb-2">{error}</p>}
+      <p className="text-text-muted text-caption mb-3">
+        This code lets Vega spend from your wallet. Set a spending limit for it in the wallet, and treat it like a password.
+      </p>
 
       <Button variant="primary" onClick={handleConnect} disabled={!valid}>Connect wallet</Button>
     </div>
@@ -258,12 +280,7 @@ export function NWCWizard() {
           />
         ))}
       </div>
-      <button
-        onClick={() => { setSelectedWallet(GENERIC); setStep("paste"); }}
-        className="text-text-dim hover:text-text text-ui transition-colors"
-      >
-        I already have a connection string →
-      </button>
+      <Button variant="ghost" size="sm" onClick={() => { setSelectedWallet(GENERIC); setStep("paste"); }}>I already have a connection code<ArrowRight /></Button>
     </div>
   );
 }
