@@ -19,7 +19,7 @@ import {
   setOwnDMRelayUrls,
   shouldAuthenticate,
 } from "./relayAuth";
-import { useToastStore, openView } from "../../stores/toast";
+import { useToastStore, goToView } from "../../stores/toast";
 import { stillAccount } from "../currentAccount";
 import { debug } from "../debug";
 
@@ -241,7 +241,7 @@ export async function fetchGiftWraps(myPubkey: string, limit: number, timeoutMs:
           useToastStore.getState().addToast(
             `${host} wants to know who you are before showing your messages. Add it to your relays, or allow any relay under Relay authentication.`,
             "warning",
-            { autoCloseMs: 12000, action: { label: "Relays", run: openView("relays") } },
+            { autoCloseMs: 12000, action: { label: "Relays", run: goToView("relays") } },
           );
         }
         return;
@@ -538,7 +538,7 @@ export async function sendDM(recipientPubkey: string, content: string): Promise<
     useToastStore.getState().addToast(
       "Sent. Your own copy of the message could not be saved to a relay, so it will not show in this conversation.",
       "warning",
-      { key: "dm:own-copy", action: { label: "Relays", run: openView("relays") } },
+      { key: "dm:own-copy", action: { label: "Relays", run: goToView("relays") } },
     );
   }
   debug.log(`[DM] sendDM published: toRecipient=${recipientRelays.size} relays, toSelf=${ownRelays} relays`);
