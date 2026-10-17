@@ -1,4 +1,4 @@
-import { useState, useEffect, lazy, Suspense } from "react";
+import { useState, useEffect, lazy, Suspense, type ReactNode } from "react";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { Sidebar } from "./components/sidebar/Sidebar";
 import { Feed } from "./components/feed/Feed";
@@ -27,9 +27,19 @@ const HashtagFeed = lazy(() => import("./components/feed/HashtagFeed").then(m =>
 const PodcastsView = lazy(() => import("./components/podcast/PodcastsView").then(m => ({ default: m.PodcastsView })));
 const FollowsView = lazy(() => import("./components/follows/FollowsView").then(m => ({ default: m.FollowsView })));
 const V4VView = lazy(() => import("./components/v4v/V4VView").then(m => ({ default: m.V4VView })));
+// The kept views as elements made once: App renders on every navigation, and a new element each time
+// would render every hidden list (and parse every note in it) on every click.
+const SEARCH = <SearchView />;
+const ARTICLES = <ArticleFeed />;
+const MEDIA = <MediaFeed />;
+const ZAPS = <ZapHistoryView />;
+const NOTIFICATIONS = <NotificationsView />;
+const BOOKMARKS = <BookmarkView />;
+const FOLLOWS = <FollowsView />;
 const DebugPanel = lazy(() => import("./components/shared/DebugPanel").then(m => ({ default: m.DebugPanel })));
 const HelpModal = lazy(() => import("./components/shared/HelpModal").then(m => ({ default: m.HelpModal })));
-import { useUIStore } from "./stores/ui";
+import { useUIStore, keptViews, keptHashtags, type View } from "./stores/ui";
+import { KeptView } from "./components/shared/KeptView";
 import { useCanSign } from "./stores/user";
 import { getTheme, applyTheme } from "./lib/themes";
 import { useUpdater } from "./hooks/useUpdater";
@@ -137,6 +147,17 @@ function ReadOnlyBanner() {
 
 function App() {
   const currentView = useUIStore((s) => s.currentView);
+  const viewStack = useUIStore((s) => s.viewStack);
+  const trip = useUIStore((s) => s.trip);
+  const pendingHashtag = useUIStore((s) => s.pendingHashtag);
+  // List views Back can lead to stay mounted and hidden, so Back finds them as they were (see "Back keeps your place").
+  // Each has its own Suspense boundary: one boundary around everything hid the kept views with an inline
+  // display: none while a lazy view's code loaded, before they were told they were hidden.
+  const kept = keptViews({ currentView, viewStack });
+  const keep = (view: View, element: ReactNode) => kept.has(view) && (
+    <KeptView key={`${view}:${trip}`} hidden={currentView !== view}><Suspense fallback={null}>{element}</Suspense></KeptView>
+  );
+  const hashtags = keptHashtags({ currentView, viewStack, pendingHashtag });
   const articleKey = useUIStore((s) => s.pendingArticleNaddr ?? "");
   const showHelp = useUIStore((s) => s.showHelp);
   const toggleHelp = useUIStore((s) => s.toggleHelp);
@@ -221,27 +242,30 @@ function App() {
         <div className={currentView === "feed" ? "contents" : "hidden"}>
           <Feed />
         </div>
-        <Suspense fallback={null}>
-          {currentView === "search" && <SearchView />}
-          {currentView === "relays" && <RelaysView />}
-          {currentView === "settings" && <SettingsView />}
-          {currentView === "profile" && <ProfileView />}
-          {currentView === "thread" && <ThreadView />}
-          {currentView === "articles" && <ArticleFeed />}
-          {currentView === "media" && <MediaFeed />}
-          {currentView === "article-editor" && <ArticleEditor />}
-          {/* Keyed by the article: a comment or a like still on its way for the last one must not land on this one. */}
-          {currentView === "article" && <ArticleView key={articleKey} />}
-          {currentView === "about" && <AboutView />}
-          {currentView === "zaps" && <ZapHistoryView />}
-          {currentView === "dm" && <DMView />}
-          {currentView === "notifications" && <NotificationsView />}
-          {currentView === "bookmarks" && <BookmarkView />}
-          {currentView === "hashtag" && <HashtagFeed />}
-          {currentView === "podcasts" && <PodcastsView />}
-          {currentView === "follows" && <FollowsView />}
-          {currentView === "v4v" && <V4VView />}
-        </Suspense>
+        {keep("search", SEARCH)}
+        {currentView === "relays" && <Suspense fallback={null}><RelaysView /></Suspense>}
+        {currentView === "settings" && <Suspense fallback={null}><SettingsView /></Suspense>}
+        {currentView === "profile" && <Suspense fallback={null}><ProfileView /></Suspense>}
+        {currentView === "thread" && <Suspense fallback={null}><ThreadView /></Suspense>}
+        {keep("articles", ARTICLES)}
+        {keep("media", MEDIA)}
+        {currentView === "article-editor" && <Suspense fallback={null}><ArticleEditor /></Suspense>}
+        {/* Keyed by the article: a comment or a like still on its way for the last one must not land on this one. */}
+        {currentView === "article" && <Suspense fallback={null}><ArticleView key={articleKey} /></Suspense>}
+        {currentView === "about" && <Suspense fallback={null}><AboutView /></Suspense>}
+        {keep("zaps", ZAPS)}
+        {currentView === "dm" && <Suspense fallback={null}><DMView /></Suspense>}
+        {keep("notifications", NOTIFICATIONS)}
+        {keep("bookmarks", BOOKMARKS)}
+        {/* One page per tag, so Back to #vega finds #vega's rows at #vega's scroll. */}
+        {hashtags.map((tag) => (
+          <KeptView key={`hashtag:${tag}:${trip}`} hidden={!(currentView === "hashtag" && pendingHashtag === tag)}>
+            <Suspense fallback={null}><HashtagFeed tag={tag} /></Suspense>
+          </KeptView>
+        ))}
+        {currentView === "podcasts" && <Suspense fallback={null}><PodcastsView /></Suspense>}
+        {keep("follows", FOLLOWS)}
+        {currentView === "v4v" && <Suspense fallback={null}><V4VView /></Suspense>}
       </main>
       </div>
       <PodcastPlayerBar />

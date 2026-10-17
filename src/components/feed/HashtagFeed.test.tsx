@@ -5,7 +5,7 @@ import type { NDKEvent } from "@nostr-dev-kit/ndk";
 vi.mock("../../lib/nostr", () => ({
   fetchHashtagFeed: vi.fn(),
 }));
-vi.mock("../../stores/ui", () => ({ useUIStore: () => ({ pendingHashtag: "bitcoin", goBack: vi.fn() }) }));
+vi.mock("../../stores/ui", () => ({ useUIStore: <T,>(pick: (s: { goBack: () => void }) => T) => pick({ goBack: vi.fn() }) }));
 vi.mock("./NoteCard", () => ({ NoteCard: ({ event }: { event: NDKEvent }) => <article>{event.content}</article> }));
 
 import { HashtagFeed } from "./HashtagFeed";
@@ -28,7 +28,7 @@ afterEach(() => { cleanup(); vi.useRealTimers(); });
 describe("HashtagFeed", () => {
   it("shows the notes and how many there are", async () => {
     vi.mocked(fetchHashtagFeed).mockImplementation(answering([note("a", "first"), note("b", "second")]));
-    render(<HashtagFeed />);
+    render(<HashtagFeed tag="bitcoin" />);
     expect(screen.getByRole("status").textContent).toBe("Loading notes for #bitcoin…");
     await settle(0);
     expect(screen.getByText("first")).toBeTruthy();
@@ -39,7 +39,7 @@ describe("HashtagFeed", () => {
   // Relays are often slow on the first ask, so an empty answer is asked for once more.
   it("asks a second time, three seconds after an empty answer, and shows what that finds", async () => {
     vi.mocked(fetchHashtagFeed).mockImplementationOnce(answering([])).mockImplementation(answering([note("a", "late")]));
-    render(<HashtagFeed />);
+    render(<HashtagFeed tag="bitcoin" />);
     await settle(2900);
     expect(fetchHashtagFeed).toHaveBeenCalledTimes(1);
     expect(screen.getByRole("status")).toBeTruthy(); // still loading: not "No notes found" yet
@@ -51,7 +51,7 @@ describe("HashtagFeed", () => {
 
   it("says there are none when a relay answered with none, twice", async () => {
     vi.mocked(fetchHashtagFeed).mockImplementation(answering([]));
-    render(<HashtagFeed />);
+    render(<HashtagFeed tag="bitcoin" />);
     await settle();
     expect(screen.getByText("No notes found for #bitcoin.")).toBeTruthy();
     expect(screen.getByText("0 notes")).toBeTruthy();
@@ -61,7 +61,7 @@ describe("HashtagFeed", () => {
   // This used to read "No notes found for #bitcoin" under a header saying "0 notes".
   it("says the relays could not be reached when nobody answered, with no count", async () => {
     vi.mocked(fetchHashtagFeed).mockImplementation(timingOut);
-    render(<HashtagFeed />);
+    render(<HashtagFeed tag="bitcoin" />);
     await settle();
     expect(screen.getByRole("alert").textContent).toContain("so notes for #bitcoin can't be loaded");
     expect(screen.queryByText(/No notes found/)).toBeNull();
@@ -70,7 +70,7 @@ describe("HashtagFeed", () => {
 
   it("shows a failure, not an empty list", async () => {
     vi.mocked(fetchHashtagFeed).mockRejectedValue(new Error("relay said no"));
-    render(<HashtagFeed />);
+    render(<HashtagFeed tag="bitcoin" />);
     await settle();
     expect(screen.getByRole("alert").textContent).toContain("relay said no");
     expect(screen.queryByText(/No notes found/)).toBeNull();
@@ -78,7 +78,7 @@ describe("HashtagFeed", () => {
 
   it("asks again on Try again", async () => {
     vi.mocked(fetchHashtagFeed).mockImplementationOnce(timingOut).mockImplementationOnce(timingOut).mockImplementation(answering([note("a", "first")]));
-    render(<HashtagFeed />);
+    render(<HashtagFeed tag="bitcoin" />);
     await settle();
     fireEvent.click(screen.getByRole("button", { name: "Try again" }));
     await settle();

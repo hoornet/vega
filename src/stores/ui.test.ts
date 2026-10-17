@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
-import { useUIStore, hasChosenFeedTab, hasChosenArticlesTab } from "./ui";
+import { useUIStore, hasChosenFeedTab, hasChosenArticlesTab, keptViews, keptHashtags } from "./ui";
 import type { NDKEvent } from "@nostr-dev-kit/ndk";
 
 describe("useUIStore", () => {
@@ -15,6 +15,9 @@ describe("useUIStore", () => {
       pendingSearch: null,
       pendingDMPubkey: null,
       pendingArticleNaddr: null,
+      pendingHashtag: null,
+      profileTabs: {},
+      trip: 0,
       showHelp: false,
       feedLanguageFilter: null,
     });
@@ -82,6 +85,68 @@ describe("useUIStore", () => {
     // Both are "feed" initially
     useUIStore.getState().goBack();
     expect(useUIStore.getState().currentView).toBe("feed");
+  });
+
+  it("goBack returns to the hashtag page that was open, with its tag", () => {
+    useUIStore.getState().openHashtag("vega");
+    useUIStore.getState().openThread({} as NDKEvent);
+    useUIStore.getState().openHashtag("nostr");
+    useUIStore.getState().goBack();
+    expect(useUIStore.getState().currentView).toBe("thread");
+    useUIStore.getState().goBack();
+    expect(useUIStore.getState().currentView).toBe("hashtag");
+    expect(useUIStore.getState().pendingHashtag).toBe("vega");
+  });
+
+  it("keeps mounted the view that is open and every kept view Back can lead to, and no other", () => {
+    useUIStore.getState().setView("search");
+    useUIStore.getState().openProfile("pk");
+    useUIStore.getState().openThread({} as NDKEvent);
+    // Profile and thread are on the way back but are not kept views: each has one slot.
+    expect([...keptViews(useUIStore.getState())].sort()).toEqual(["search", "thread"]);
+    useUIStore.getState().openView("bookmarks");
+    expect([...keptViews(useUIStore.getState())].sort()).toEqual(["bookmarks", "search"]);
+    // A sidebar destination is a fresh start: nothing is kept from before it.
+    useUIStore.getState().setView("articles");
+    expect([...keptViews(useUIStore.getState())]).toEqual(["articles"]);
+  });
+
+  it("counts a sidebar trip, so the view chosen is a fresh instance even when it is the one on screen", () => {
+    useUIStore.getState().setView("notifications");
+    const start = useUIStore.getState().trip;
+    useUIStore.getState().openThread({} as NDKEvent);
+    useUIStore.getState().setView("notifications");
+    expect(useUIStore.getState().trip).toBe(start + 1);
+    // Choosing the view already on screen with nothing behind it changes nothing.
+    useUIStore.getState().setView("notifications");
+    expect(useUIStore.getState().trip).toBe(start + 1);
+  });
+
+  it("keeps one hashtag page per tag Back can lead to", () => {
+    useUIStore.getState().openHashtag("vega");
+    useUIStore.getState().openThread({} as NDKEvent);
+    useUIStore.getState().openHashtag("nostr");
+    expect(keptHashtags(useUIStore.getState())).toEqual(["vega", "nostr"]);
+    useUIStore.getState().openThread({} as NDKEvent);
+    useUIStore.getState().openHashtag("vega");
+    expect(keptHashtags(useUIStore.getState())).toEqual(["vega", "nostr"]);
+    useUIStore.getState().goBack();
+    expect(keptHashtags(useUIStore.getState())).toEqual(["vega", "nostr"]);
+    useUIStore.getState().setView("feed");
+    expect(keptHashtags(useUIStore.getState())).toEqual([]);
+  });
+
+  it("remembers the tab last open on each profile, the newest two hundred", () => {
+    const { rememberProfileTab } = useUIStore.getState();
+    rememberProfileTab("alice", "articles");
+    rememberProfileTab("bob", "media");
+    rememberProfileTab("alice", "notes");
+    expect(useUIStore.getState().profileTabs).toEqual({ bob: "media", alice: "notes" });
+    for (let i = 0; i < 200; i++) rememberProfileTab(`p${i}`, "articles");
+    const kept = Object.keys(useUIStore.getState().profileTabs);
+    expect(kept).toHaveLength(200);
+    expect(kept).not.toContain("bob");
+    expect(kept).toContain("p199");
   });
 
   it("openSearch sets pending search and view", () => {
