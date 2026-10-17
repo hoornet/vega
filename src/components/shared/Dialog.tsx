@@ -22,7 +22,7 @@ import { useModal } from "../../hooks/useModal";
 //   - It is rendered at <body> (see BodyPortal), so it covers the whole window
 //     wherever it was opened from.
 
-const WIDTH = { sm: "max-w-xs", md: "max-w-md" } as const;
+const WIDTH = { sm: "max-w-xs", md: "max-w-md", lg: "max-w-2xl" } as const;
 
 interface DialogProps {
   /** The visible heading. It names the dialog. */
@@ -30,7 +30,7 @@ interface DialogProps {
   /** A line under the title, for the state of things ("No wallet connected"). */
   status?: ReactNode;
   onClose: () => void;
-  /** `sm` is 20rem, `md` 28rem. Both give way to a narrower window. */
+  /** `sm` is 20rem, `md` 28rem, `lg` 42rem (a sheet that shows a card). All give way to a narrower window. */
   size?: keyof typeof WIDTH;
   /** Pass false while closing would throw away something typed. Escape and the close button still work. */
   closeOnBackdrop?: boolean;

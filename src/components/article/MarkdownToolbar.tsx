@@ -1,174 +1,81 @@
+import type { KeyboardEvent, RefObject } from "react";
+import { Bold, Italic, Heading2, Link2, Image, Quote, Code, List } from "lucide-react";
 import { open } from "@tauri-apps/plugin-dialog";
 import { readFile } from "@tauri-apps/plugin-fs";
 import { uploadBytes } from "../../lib/upload";
+import { Button } from "../shared/Button";
+import { markdownEdit, continueList, applyEdit, type EditAction } from "../../lib/markdownEdit";
 
-type MarkdownAction = "bold" | "italic" | "heading" | "link" | "image" | "quote" | "code" | "list";
+// The editor's toolbar. The rules for what each button does to the text are
+// in `lib/markdownEdit.ts`, pure and tested; this puts them on the textarea.
 
 interface ToolbarProps {
-  textareaRef: React.RefObject<HTMLTextAreaElement | null>;
-  content: string;
+  textareaRef: RefObject<HTMLTextAreaElement | null>;
   setContent: (value: string) => void;
   setUploading?: (value: boolean) => void;
   setError?: (value: string | null) => void;
 }
 
-function applyMarkdown(
-  textarea: HTMLTextAreaElement,
-  action: MarkdownAction,
-  content: string,
-  setContent: (value: string) => void,
-  insertText?: string,
-) {
-  const start = textarea.selectionStart;
-  const end = textarea.selectionEnd;
-  const selected = content.slice(start, end);
-
-  let before = "";
-  let after = "";
-  let replacement = "";
-  let cursorOffset = 0;
-
-  switch (action) {
-    case "bold":
-      before = "**";
-      after = "**";
-      replacement = selected || "bold text";
-      cursorOffset = selected ? 0 : 9; // select "bold text"
-      break;
-    case "italic":
-      before = "*";
-      after = "*";
-      replacement = selected || "italic text";
-      cursorOffset = selected ? 0 : 11;
-      break;
-    case "heading":
-      before = "## ";
-      after = "";
-      replacement = selected || "Heading";
-      break;
-    case "link":
-      if (selected) {
-        before = "[";
-        after = "](url)";
-        replacement = selected;
-      } else {
-        before = "[";
-        after = "](url)";
-        replacement = "link text";
-      }
-      break;
-    case "image":
-      if (insertText) {
-        before = "";
-        after = "";
-        replacement = insertText;
-      } else {
-        before = "![";
-        after = "](url)";
-        replacement = selected || "alt text";
-      }
-      break;
-    case "quote":
-      before = "> ";
-      after = "";
-      replacement = selected || "quote";
-      break;
-    case "code":
-      if (selected.includes("\n")) {
-        before = "```\n";
-        after = "\n```";
-        replacement = selected;
-      } else {
-        before = "`";
-        after = "`";
-        replacement = selected || "code";
-      }
-      break;
-    case "list":
-      if (selected) {
-        replacement = selected
-          .split("\n")
-          .map((line) => `- ${line}`)
-          .join("\n");
-      } else {
-        before = "- ";
-        after = "";
-        replacement = "item";
-      }
-      break;
-  }
-
-  const newContent =
-    content.slice(0, start) + before + replacement + after + content.slice(end);
-  setContent(newContent);
-
-  // Restore focus and selection
-  requestAnimationFrame(() => {
-    textarea.focus();
-    const newCursorPos = start + before.length + replacement.length + after.length;
-    if (!selected && cursorOffset === 0) {
-      // Select the placeholder text
-      textarea.selectionStart = start + before.length;
-      textarea.selectionEnd = start + before.length + replacement.length;
-    } else {
-      textarea.selectionStart = textarea.selectionEnd = newCursorPos;
-    }
-  });
+/** Apply a toolbar action to the textarea's current selection. */
+export function applyMarkdownAction(textarea: HTMLTextAreaElement, action: EditAction, setContent: (value: string) => void): void {
+  const change = markdownEdit(textarea.value, textarea.selectionStart, textarea.selectionEnd, action);
+  applyEdit(textarea, change, setContent);
 }
 
-const TOOLS: { action: MarkdownAction; label: string; title: string; bold?: boolean; italic?: boolean }[] = [
-  { action: "bold", label: "B", title: "Bold (Ctrl+B)", bold: true },
-  { action: "italic", label: "I", title: "Italic (Ctrl+I)", italic: true },
-  { action: "heading", label: "H", title: "Heading" },
-  { action: "link", label: "Link", title: "Insert link (Ctrl+K)" },
-  { action: "image", label: "Image", title: "Upload image" },
-  { action: "quote", label: "Quote", title: "Block quote" },
-  { action: "code", label: "Code", title: "Code block" },
-  { action: "list", label: "List", title: "Bullet list" },
+/** Put text in at the caret, replacing the selection. */
+export function insertAtCaret(textarea: HTMLTextAreaElement, text: string, setContent: (value: string) => void): void {
+  const start = textarea.selectionStart, end = textarea.selectionEnd;
+  const content = textarea.value;
+  applyEdit(textarea, { content: content.slice(0, start) + text + content.slice(end), selectionStart: start + text.length, selectionEnd: start + text.length, replace: { start, end, text } }, setContent);
+}
+
+const TOOLS: { action: EditAction | "image"; label: string; title: string; icon: typeof Bold }[] = [
+  { action: "bold", label: "Bold", title: "Bold (Ctrl+B)", icon: Bold },
+  { action: "italic", label: "Italic", title: "Italic (Ctrl+I)", icon: Italic },
+  { action: "heading", label: "Heading", title: "Heading", icon: Heading2 },
+  { action: "link", label: "Link", title: "Link (Ctrl+K)", icon: Link2 },
+  { action: "image", label: "Image", title: "Upload an image", icon: Image },
+  { action: "quote", label: "Quote", title: "Quote", icon: Quote },
+  { action: "code", label: "Code", title: "Code", icon: Code },
+  { action: "list", label: "List", title: "Bullet list", icon: List },
 ];
 
-export function MarkdownToolbar({ textareaRef, content, setContent, setUploading, setError }: ToolbarProps) {
-  const handleClick = (action: MarkdownAction) => {
-    if (action === "image") {
-      handleImageUpload();
-      return;
-    }
+const MIME: Record<string, string> = {
+  jpg: "image/jpeg", jpeg: "image/jpeg", png: "image/png", gif: "image/gif", webp: "image/webp", svg: "image/svg+xml",
+};
+
+export function MarkdownToolbar({ textareaRef, setContent, setUploading, setError }: ToolbarProps) {
+  const handleClick = (action: EditAction | "image") => {
+    if (action === "image") { void handleImageUpload(); return; }
     const textarea = textareaRef.current;
     if (!textarea) return;
-    applyMarkdown(textarea, action, content, setContent);
+    applyMarkdownAction(textarea, action, setContent);
   };
 
   const handleImageUpload = async () => {
     try {
       const selected = await open({
         multiple: true,
-        filters: [
-          { name: "Images", extensions: ["jpg", "jpeg", "png", "gif", "webp", "svg"] },
-        ],
+        filters: [{ name: "Images", extensions: ["jpg", "jpeg", "png", "gif", "webp", "svg"] }],
       });
       if (!selected) return;
       const paths = Array.isArray(selected) ? selected : [selected];
       setUploading?.(true);
       setError?.(null);
       try {
-        const mimeMap: Record<string, string> = {
-          jpg: "image/jpeg", jpeg: "image/jpeg", png: "image/png", gif: "image/gif",
-          webp: "image/webp", svg: "image/svg+xml",
-        };
         const snippets: string[] = [];
         for (const filePath of paths) {
           const bytes = await readFile(filePath);
           const fileName = filePath.split(/[\\/]/).pop() || "image.png";
           const ext = fileName.split(".").pop()?.toLowerCase() || "png";
-          const url = await uploadBytes(new Uint8Array(bytes), fileName, mimeMap[ext] || "image/png");
+          const url = await uploadBytes(new Uint8Array(bytes), fileName, MIME[ext] || "image/png");
           snippets.push(`![${fileName}](${url})`);
         }
         const textarea = textareaRef.current;
         if (textarea && snippets.length > 0) {
-          const cursorPos = textarea.selectionStart ?? content.length;
-          const needsLeadingNewline = cursorPos > 0 && content[cursorPos - 1] !== "\n";
-          const block = (needsLeadingNewline ? "\n\n" : "") + snippets.join("\n\n") + "\n\n";
-          applyMarkdown(textarea, "image", content, setContent, block);
+          const cursorPos = textarea.selectionStart ?? textarea.value.length;
+          const needsLeadingNewline = cursorPos > 0 && textarea.value[cursorPos - 1] !== "\n";
+          insertAtCaret(textarea, (needsLeadingNewline ? "\n\n" : "") + snippets.join("\n\n") + "\n\n", setContent);
         }
       } finally {
         setUploading?.(false);
@@ -179,46 +86,40 @@ export function MarkdownToolbar({ textareaRef, content, setContent, setUploading
   };
 
   return (
-    <div className="flex items-center gap-0.5 border-b border-border-subtle px-2 py-1 bg-bg-raised shrink-0">
-      {TOOLS.map(({ action, label, title, bold, italic }) => (
-        <button
-          key={action}
-          onClick={() => handleClick(action)}
-          title={title}
-          className={`px-2 py-0.5 text-ui text-text-muted hover:text-text hover:bg-bg-hover transition-colors rounded-sm ${bold ? "font-bold" : ""} ${italic ? "italic" : ""}`}
-        >
-          {label}
-        </button>
+    <div role="toolbar" aria-label="Formatting" className="flex flex-wrap items-center gap-0.5">
+      {TOOLS.map(({ action, label, title, icon: Icon }) => (
+        <Button key={action} square size="sm" variant="ghost" onClick={() => handleClick(action)} title={title} aria-label={label}>
+          <Icon />
+        </Button>
       ))}
     </div>
   );
 }
 
-/** Keyboard shortcut handler for the article editor textarea */
+/**
+ * Keyboard shortcuts in the body: Ctrl+B, Ctrl+I, Ctrl+K, and Enter inside a
+ * list, which continues it. True when the key was taken.
+ */
 export function handleEditorKeyDown(
-  e: React.KeyboardEvent<HTMLTextAreaElement>,
-  textareaRef: React.RefObject<HTMLTextAreaElement | null>,
-  content: string,
+  e: KeyboardEvent<HTMLTextAreaElement>,
+  textareaRef: RefObject<HTMLTextAreaElement | null>,
   setContent: (value: string) => void,
 ): boolean {
-  if (!(e.ctrlKey || e.metaKey)) return false;
   const textarea = textareaRef.current;
   if (!textarea) return false;
-
-  switch (e.key.toLowerCase()) {
-    case "b":
-      e.preventDefault();
-      applyMarkdown(textarea, "bold", content, setContent);
-      return true;
-    case "i":
-      e.preventDefault();
-      applyMarkdown(textarea, "italic", content, setContent);
-      return true;
-    case "k":
-      e.preventDefault();
-      applyMarkdown(textarea, "link", content, setContent);
-      return true;
-    default:
-      return false;
+  // The Enter that commits an IME conversion is not an Enter in the text.
+  if (e.nativeEvent.isComposing || e.keyCode === 229) return false;
+  if (e.key === "Enter" && !e.shiftKey && !e.ctrlKey && !e.metaKey && !e.altKey && textarea.selectionStart === textarea.selectionEnd) {
+    const change = continueList(textarea.value, textarea.selectionStart);
+    if (!change) return false;
+    e.preventDefault();
+    applyEdit(textarea, change, setContent);
+    return true;
   }
+  if (!(e.ctrlKey || e.metaKey)) return false;
+  const action = ({ b: "bold", i: "italic", k: "link" } as Record<string, EditAction>)[e.key.toLowerCase()];
+  if (!action) return false;
+  e.preventDefault();
+  applyMarkdownAction(textarea, action, setContent);
+  return true;
 }

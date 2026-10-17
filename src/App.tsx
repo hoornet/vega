@@ -112,7 +112,7 @@ function UpdateBanner() {
       {/* What's-new panel — only the newest version's changes (issue: update changelog) */}
       {showChangelog && changelog && (
         <div className="px-4 pb-3 pt-1 max-h-72 overflow-y-auto border-t border-accent/20">
-          <div className="article-preview text-ui" dangerouslySetInnerHTML={{ __html: renderMarkdown(changelog) }} />
+          <div className="prose-compact text-ui" dangerouslySetInnerHTML={{ __html: renderMarkdown(changelog) }} />
           <button
             onClick={() => openUrl("https://github.com/hoornet/vega/releases").catch(() => {})}
             className="mt-3 text-accent hover:text-accent-hover transition-colors text-ui"
