@@ -4,36 +4,65 @@ import { fetchUserRelayList } from "./relays";
 import { relaysToAsk } from "./lists";
 import { recordFetchOutcome } from "./fetchTotals";
 
-export async function publishArticle(opts: {
+export interface ArticleFields {
   title: string;
   content: string;
   summary?: string;
   image?: string;
   tags?: string[];
-}): Promise<{ relayCount: number }> {
-  const instance = getNDK();
-  if (!instance.signer) throw new Error("Not logged in");
+  /** Of the article this replaces. Without it a new address is minted and the article is a new one. */
+  dTag?: string;
+  /** When it was first published, kept across edits. */
+  publishedAt?: number;
+}
 
-  const slug = opts.title
+/** The address a new article gets: the title as a slug, made unique by the time. */
+export function articleSlug(title: string, nowMs: number): string {
+  return title
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-|-$/g, "")
-    .slice(0, 60) + "-" + Date.now();
+    .slice(0, 60) + "-" + nowMs;
+}
 
+/**
+ * The tags of a kind 30023 for these fields. An edit keeps the `d` tag and
+ * the first `published_at`, so relays replace the article (NIP-23 is
+ * replaceable for this) instead of keeping a second one beside it; until
+ * October 2026 every publish minted a new address and a typo meant a duplicate.
+ */
+export function articleTags(fields: ArticleFields, nowMs: number): string[][] {
+  const tags: string[][] = [
+    ["d", fields.dTag || articleSlug(fields.title, nowMs)],
+    ["title", fields.title],
+    ["published_at", String(fields.publishedAt || Math.floor(nowMs / 1000))],
+  ];
+  if (fields.summary) tags.push(["summary", fields.summary]);
+  if (fields.image) tags.push(["image", fields.image]);
+  for (const t of fields.tags ?? []) tags.push(["t", t]);
+  return tags;
+}
+
+/** An unsigned event with these fields, for a card or a reader to show before publishing. */
+export function previewArticleEvent(fields: ArticleFields, pubkey: string): NDKEvent {
+  const event = new NDKEvent(getNDK());
+  event.kind = 30023;
+  event.pubkey = pubkey;
+  event.content = fields.content;
+  event.created_at = Math.floor(Date.now() / 1000);
+  event.tags = articleTags(fields, Date.now());
+  return event;
+}
+
+export async function publishArticle(fields: ArticleFields): Promise<{ relayCount: number; event: NDKEvent }> {
+  const instance = getNDK();
+  if (!instance.signer) throw new Error("Not logged in");
   const event = new NDKEvent(instance);
   event.kind = 30023;
-  event.content = opts.content;
-  event.tags = [
-    ["d", slug],
-    ["title", opts.title],
-    ["published_at", String(Math.floor(Date.now() / 1000))],
-  ];
-  if (opts.summary) event.tags.push(["summary", opts.summary]);
-  if (opts.image) event.tags.push(["image", opts.image]);
-  if (opts.tags) opts.tags.forEach((t) => event.tags.push(["t", t]));
-
+  event.content = fields.content;
+  event.tags = articleTags(fields, Date.now());
   const relays = await publishToNetwork(event);
-  return { relayCount: relays.size };
+  return { relayCount: relays.size, event };
 }
 
 export async function fetchArticle(naddr: string): Promise<NDKEvent | null> {

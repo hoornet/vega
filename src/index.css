@@ -138,8 +138,8 @@ html.font-readable {
    quote a sentence or copy a code block out of an article. */
 .prose-article,
 .prose-article *,
-.article-preview,
-.article-preview *,
+.prose-compact,
+.prose-compact *,
 .selectable-text,
 .selectable-text * {
   -webkit-user-select: text;
@@ -147,29 +147,27 @@ html.font-readable {
 }
 
 /* Article preview prose styles */
-.article-preview {
-  -webkit-user-select: text;
-  user-select: text;
-  font-family: var(--font-reading);
-  font-size: 15px;
-}
-.article-preview h1 { font-size: 1.6em; font-weight: bold; margin: 1.2em 0 0.5em; }
-.article-preview h2 { font-size: 1.3em; font-weight: bold; margin: 1.2em 0 0.5em; }
-.article-preview h3 { font-size: 1.1em; font-weight: bold; margin: 1em 0 0.4em; }
-.article-preview p { margin: 0.8em 0; line-height: 1.75; }
-.article-preview ul { list-style: disc; padding-left: 1.5em; margin: 0.8em 0; }
-.article-preview ol { list-style: decimal; padding-left: 1.5em; margin: 0.8em 0; }
-.article-preview li { margin: 0.3em 0; line-height: 1.7; }
-.article-preview blockquote { border-left: 3px solid var(--color-accent); padding-left: 1em; color: var(--color-text-muted); margin: 1em 0; }
-.article-preview code { font-family: var(--font-mono); background: var(--color-bg-raised); padding: 0.1em 0.4em; font-size: 0.9em; border-radius: 4px; }
-.article-preview pre { background: var(--color-bg-raised); border: 1px solid var(--color-border); padding: 1em; overflow-x: auto; margin: 1em 0; border-radius: 8px; }
-.article-preview pre code { background: none; padding: 0; }
-.article-preview a { color: var(--color-accent); text-decoration: underline; text-underline-offset: 2px; }
-.article-preview hr { border: none; border-top: 1px solid var(--color-border-subtle); margin: 1.5em 0; }
-.article-preview strong { color: var(--color-text); font-weight: 600; }
-.article-preview img { max-width: 100%; border-radius: 8px; margin: 0.5em 0; }
+/* Compact prose for a block that is not the reader: the update banner's
+   changelog. The editor's Preview used to have this as a stylesheet of its own
+   and showed something other than the reader would; it now renders through the
+   reader's own component. */
+.prose-compact { font-family: var(--font-reading); line-height: 1.6; }
+.prose-compact h1 { font-size: 1.3em; font-weight: bold; margin: 1em 0 0.4em; }
+.prose-compact h2 { font-size: 1.15em; font-weight: bold; margin: 1em 0 0.4em; }
+.prose-compact h3 { font-size: 1.05em; font-weight: bold; margin: 0.8em 0 0.3em; }
+.prose-compact p { margin: 0.6em 0; }
+.prose-compact ul { list-style: disc; padding-left: 1.5em; margin: 0.6em 0; }
+.prose-compact ol { list-style: decimal; padding-left: 1.5em; margin: 0.6em 0; }
+.prose-compact li { margin: 0.2em 0; }
+.prose-compact code { font-family: var(--font-mono); background: var(--color-bg-raised); padding: 0.1em 0.4em; font-size: 0.9em; border-radius: 4px; }
+.prose-compact pre { background: var(--color-bg-raised); border: 1px solid var(--color-border); padding: 0.8em; overflow-x: auto; margin: 0.8em 0; border-radius: 8px; line-height: 1.5; }
+.prose-compact pre code { background: none; padding: 0; }
+.prose-compact a { color: var(--color-accent); text-decoration: underline; text-underline-offset: 2px; }
+.prose-compact strong { color: var(--color-text); font-weight: 600; }
+.prose-compact blockquote { border-left: 3px solid var(--color-accent); padding-left: 1em; color: var(--color-text-muted); margin: 0.8em 0; }
+.prose-compact hr { border: none; border-top: 1px solid var(--color-border-subtle); margin: 1.2em 0; }
+.prose-compact img { max-width: 100%; border-radius: 8px; margin: 0.5em 0; }
 
-/* Article reader — slightly larger type than the editor preview */
 /* The reader. Sizes are em on a fluid base, set here and not with Tailwind
    steps: the UI scale is for the interface, and the reader's measure must
    follow the window. The body is 17px at 900 wide, 18 at 1200, 19.4 at 1600,
@@ -192,6 +190,11 @@ html.font-readable {
 .reader-title { font-family: var(--font-reading); font-size: 2em; line-height: 1.15; font-weight: 700; letter-spacing: -0.01em; text-wrap: balance; color: var(--color-text); }
 .reader-standfirst { font-family: var(--font-reading); font-size: 1.2em; line-height: 1.45; color: var(--color-text-muted); }
 .reader-title, .reader-standfirst, .reader-title *, .reader-standfirst * { -webkit-user-select: text; user-select: text; }
+/* A field in the editor takes the reader's type, so writing looks like reading.
+   In the components layer, so a utility (font-mono, text-ui) can still override it. */
+@layer components {
+  .reader-field { font: inherit; line-height: 1.65; }
+}
 
 .prose-article { color: color-mix(in srgb, var(--color-text) 90%, var(--color-bg)); font-family: var(--font-reading); font-size: 1em; line-height: 1.65; }
 .prose-article p { margin: 0 0 1.25em; }
@@ -219,12 +222,12 @@ html.font-readable {
 
 /* Syntax colours from the theme, not from a bundled dark stylesheet: the
    highlight.js palette was 1.6 to 2.3:1 on the Reader theme's raised surface. */
-:is(.prose-article, .article-preview) :is(.hljs-keyword, .hljs-selector-tag, .hljs-built_in, .hljs-name, .hljs-tag, .hljs-type) { color: var(--color-accent); }
-:is(.prose-article, .article-preview) :is(.hljs-string, .hljs-attr, .hljs-symbol, .hljs-bullet, .hljs-addition, .hljs-regexp, .hljs-template-tag) { color: var(--color-success); }
-:is(.prose-article, .article-preview) :is(.hljs-number, .hljs-literal, .hljs-variable, .hljs-template-variable, .hljs-link, .hljs-meta) { color: var(--color-zap); }
-:is(.prose-article, .article-preview) :is(.hljs-comment, .hljs-quote, .hljs-deletion) { color: var(--color-text-muted); font-style: italic; }
-:is(.prose-article, .article-preview) :is(.hljs-title, .hljs-section, .hljs-attribute, .hljs-doctag, .hljs-strong) { color: var(--color-text); font-weight: 600; }
-:is(.prose-article, .article-preview) .hljs-emphasis { font-style: italic; }
+:is(.prose-article, .prose-compact) :is(.hljs-keyword, .hljs-selector-tag, .hljs-built_in, .hljs-name, .hljs-tag, .hljs-type) { color: var(--color-accent); }
+:is(.prose-article, .prose-compact) :is(.hljs-string, .hljs-attr, .hljs-symbol, .hljs-bullet, .hljs-addition, .hljs-regexp, .hljs-template-tag) { color: var(--color-success); }
+:is(.prose-article, .prose-compact) :is(.hljs-number, .hljs-literal, .hljs-variable, .hljs-template-variable, .hljs-link, .hljs-meta) { color: var(--color-zap); }
+:is(.prose-article, .prose-compact) :is(.hljs-comment, .hljs-quote, .hljs-deletion) { color: var(--color-text-muted); font-style: italic; }
+:is(.prose-article, .prose-compact) :is(.hljs-title, .hljs-section, .hljs-attribute, .hljs-doctag, .hljs-strong) { color: var(--color-text); font-weight: 600; }
+:is(.prose-article, .prose-compact) .hljs-emphasis { font-style: italic; }
 
 /* WebKitGTK scroll-lock workaround: a body <img> sometimes collapses to 0 height on re-decode,
    shrinking scrollHeight and clamping the scroll. A fixed aspect-ratio reserves a layout box

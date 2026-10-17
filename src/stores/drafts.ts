@@ -13,6 +13,20 @@ export interface ArticleDraft {
   tags: string;
   createdAt: number;
   updatedAt: number;
+  /**
+   * Set when the draft is an edit of a published article: its `d` tag and its
+   * first `published_at`. Publishing reuses both, so the article is replaced
+   * (NIP-23 is replaceable for exactly this) instead of a second one minted.
+   */
+  dTag?: string;
+  publishedAt?: number;
+}
+
+export type DraftFields = Pick<ArticleDraft, "title" | "content" | "summary" | "image" | "tags">;
+
+/** A draft with nothing in it: never worth a row in the list or a count in the sidebar. */
+export function isEmptyDraft(d: DraftFields): boolean {
+  return !d.title.trim() && !d.content.trim() && !d.summary.trim() && !d.image.trim() && !d.tags.trim();
 }
 
 function generateId(): string {
@@ -70,9 +84,14 @@ function saveActiveDraftId(id: string | null) {
 interface DraftState {
   drafts: ArticleDraft[];
   activeDraftId: string | null;
-  createDraft: () => string;
-  updateDraft: (id: string, fields: Partial<Pick<ArticleDraft, "title" | "content" | "summary" | "image" | "tags">>) => void;
+  /** A new draft, made active. `fields` for one that starts with something in it (an edit of a published article). */
+  createDraft: (fields?: Partial<DraftFields> & Pick<ArticleDraft, "dTag" | "publishedAt">) => string;
+  updateDraft: (id: string, fields: Partial<DraftFields>) => void;
   deleteDraft: (id: string) => void;
+  /** Put a deleted draft back, as it was (Undo). */
+  restoreDraft: (draft: ArticleDraft) => void;
+  /** Drop every draft with nothing in it. Called when the editor is left. */
+  pruneEmptyDrafts: () => void;
   setActiveDraft: (id: string | null) => void;
 }
 
@@ -80,8 +99,9 @@ export const useDraftStore = create<DraftState>((set, get) => ({
   drafts: loadDrafts(),
   activeDraftId: loadActiveDraftId(),
 
-  createDraft: () => {
+  createDraft: (fields) => {
     const id = generateId();
+    const given = Object.fromEntries(Object.entries(fields ?? {}).filter(([, v]) => v !== undefined));
     const draft: ArticleDraft = {
       id,
       title: "",
@@ -89,6 +109,7 @@ export const useDraftStore = create<DraftState>((set, get) => ({
       summary: "",
       image: "",
       tags: "",
+      ...given,
       createdAt: Date.now(),
       updatedAt: Date.now(),
     };
@@ -112,6 +133,26 @@ export const useDraftStore = create<DraftState>((set, get) => ({
     const activeId = get().activeDraftId === id ? null : get().activeDraftId;
     set({ drafts: updated, activeDraftId: activeId });
     saveDrafts(updated);
+    saveActiveDraftId(activeId);
+  },
+
+  restoreDraft: (draft) => {
+    const drafts = get().drafts;
+    if (drafts.some((d) => d.id === draft.id)) return;
+    // Back where its date places it, the others left in their order.
+    const at = drafts.findIndex((d) => d.updatedAt < draft.updatedAt);
+    const updated = at === -1 ? [...drafts, draft] : [...drafts.slice(0, at), draft, ...drafts.slice(at)];
+    set({ drafts: updated });
+    saveDrafts(updated);
+  },
+
+  pruneEmptyDrafts: () => {
+    const { drafts, activeDraftId } = get();
+    const kept = drafts.filter((d) => !isEmptyDraft(d));
+    if (kept.length === drafts.length) return;
+    const activeId = kept.some((d) => d.id === activeDraftId) ? activeDraftId : null;
+    set({ drafts: kept, activeDraftId: activeId });
+    saveDrafts(kept);
     saveActiveDraftId(activeId);
   },
 
