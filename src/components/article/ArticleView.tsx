@@ -1,6 +1,5 @@
-import { useEffect, useId, useMemo, useState, useRef, useCallback } from "react";
+import { useEffect, useId, useState, useRef, useCallback } from "react";
 import { NDKEvent } from "@nostr-dev-kit/ndk";
-import { renderMarkdown } from "../../lib/markdown";
 import { useAutoResize } from "../../hooks/useAutoResize";
 import { useUIStore } from "../../stores/ui";
 import { useCanSign, useUserStore } from "../../stores/user";
@@ -12,14 +11,15 @@ import { nip19 } from "@nostr-dev-kit/ndk";
 import { useProfile } from "../../hooks/useProfile";
 import { useLoadedList } from "../../hooks/useLoadedList";
 import { profileName } from "../../lib/utils";
-import { articleAddr, fitArticleImage, getTag, getTags, publishedAt as articlePublishedAt, readingMinutes, readingProgress, stripLeadingTitle } from "../../lib/article";
+import { articleAddr, getTag, getTags, publishedAt as articlePublishedAt, readingProgress } from "../../lib/article";
+import { useDraftStore } from "../../stores/drafts";
 import { ZapModal } from "../zap/ZapModal";
-import { ImageLightbox } from "../shared/ImageLightbox";
+import { ArticleBody } from "./ArticleBody";
 import { ViewHeader } from "../shared/ViewHeader";
 import { Button } from "../shared/Button";
 import { FollowButton } from "../shared/FollowButton";
 import { ArticleCard } from "./ArticleCard";
-import { ArrowLeft, Bookmark, Check, Heart, Link, MessageCircle, Repeat2, Zap } from "lucide-react";
+import { ArrowLeft, Bookmark, Check, Heart, Link, MessageCircle, Pencil, Repeat2, Zap } from "lucide-react";
 import { copyText } from "../../lib/clipboard";
 import { tellPublish } from "../../lib/publishFeedback";
 
@@ -44,45 +44,6 @@ interface TocHeading {
 export const READ_AT_PERCENT = 90;
 /** How many of the writer's other articles are offered at the end. */
 export const MORE_FROM_AUTHOR = 3;
-
-// ── Author row ────────────────────────────────────────────────────────────────
-
-function AuthorRow({ pubkey, publishedAt, readingTime }: { pubkey: string; publishedAt: number | null; readingTime: number }) {
-  const { openProfile } = useUIStore();
-  const profile = useProfile(pubkey);
-  const name = profileName(profile, pubkey.slice(0, 12) + "…");
-  const date = publishedAt
-    ? new Date(publishedAt * 1000).toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" })
-    : null;
-
-  return (
-    <div className="flex items-center gap-3 mt-5">
-      <button type="button" className="shrink-0" onClick={() => openProfile(pubkey)} aria-label={`${name}'s profile`}>
-        {profile?.picture ? (
-          <img src={profile.picture} alt="" className="w-9 h-9 rounded-full object-cover hover:opacity-80 transition-opacity"
-            onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
-        ) : (
-          <span className="w-9 h-9 rounded-full bg-bg-raised border border-border flex items-center justify-center text-text-dim text-ui" aria-hidden>
-            {name.charAt(0).toUpperCase()}
-          </span>
-        )}
-      </button>
-      <div className="min-w-0">
-        <button
-          type="button"
-          onClick={() => openProfile(pubkey)}
-          className="text-text text-body font-medium hover:text-accent transition-colors block truncate max-w-full"
-        >
-          {name}
-        </button>
-        <p className="text-text-muted text-caption">
-          {date && <span>{date} · </span>}
-          <span>{readingTime} min read</span>
-        </p>
-      </div>
-    </div>
-  );
-}
 
 // ── Author card, at the end ──────────────────────────────────────────────────
 
@@ -165,7 +126,6 @@ export function ArticleView() {
   const [reacted, setReacted] = useState(false);
   const [showComment, setShowComment] = useState(false);
   const [commentText, setCommentText] = useState("");
-  const [coverFailed, setCoverFailed] = useState(false);
   const autoResize = useAutoResize(3, 10);
   const { isBookmarked, addBookmark, removeBookmark, isArticleBookmarked, addArticleBookmark, removeArticleBookmark, markArticleRead } = useBookmarkStore();
 
@@ -175,7 +135,6 @@ export function ArticleView() {
   const [progress, setProgress] = useState(0);
   const [headings, setHeadings] = useState<TocHeading[]>([]);
   const [activeId, setActiveId] = useState("");
-  const [lightbox, setLightbox] = useState<{ images: string[]; index: number } | null>(null);
   /** The address marked read for this article, so it is marked once. */
   const markedRead = useRef<string | null>(null);
 
@@ -211,26 +170,11 @@ export function ArticleView() {
   const authorProfile = useProfile(authorPubkey);
   const authorName = profileName(authorProfile, authorPubkey.slice(0, 12) + "…");
 
-  // Rendered once per article, not on every scroll (progress is state). The
-  // repeated title goes before rendering: the HTML is DOMPurify's as it is.
-  const bodyHtml = useMemo(() => (event?.content ? renderMarkdown(stripLeadingTitle(event.content, title)) : ""), [event, title]);
-  const readingTime = readingMinutes(event?.content);
   const addr = event ? articleAddr(event) : null;
   const bookmarked = addr ? isArticleBookmarked(addr) : (event?.id ? isBookmarked(event.id) : false);
   const reposted = useRepostedStore((s) => (event ? s.byKey[repostKey(account, event.id)] : undefined));
 
-  const handleContentClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
-    const target = e.target as HTMLElement;
-    if (!(target instanceof HTMLImageElement)) return;
-    const root = contentRef.current;
-    if (!root) return;
-    const imgs = Array.from(root.querySelectorAll<HTMLImageElement>("img"));
-    const index = imgs.indexOf(target);
-    if (index < 0) return;
-    setLightbox({ images: imgs.map((img) => img.src), index });
-  }, []);
-
-  // Extract headings from rendered content and assign IDs
+  // Extract headings from the rendered content (ArticleBody renders it, in the same commit) and assign IDs
   useEffect(() => {
     const el = contentRef.current;
     if (!el) { setHeadings([]); return; }
@@ -243,7 +187,7 @@ export function ArticleView() {
     });
     setHeadings(items);
     if (items.length > 0) setActiveId(items[0].id);
-  }, [bodyHtml]);
+  }, [event, title]);
 
   // How far through the text the reader is: measured to the end of the body,
   // not of the page, which goes on with the footer, the writer and their
@@ -266,27 +210,8 @@ export function ArticleView() {
     markArticleRead(addr);
   }, [addr, markArticleRead, progressIn]);
 
-  // Body images: a 16:9 box until the picture has loaded (index.css), then
-  // its own shape, and never wider than it is. `load` does not bubble, but it
-  // can be caught on the way down. A picture that loads can make a short
-  // article fit the pane, or stop fitting it, so the read check runs again.
-  useEffect(() => {
-    const el = contentRef.current;
-    if (!el) return;
-    const fit = (img: HTMLImageElement) => {
-      const got = fitArticleImage(img.naturalWidth, img.naturalHeight);
-      if (!got) return;
-      img.style.aspectRatio = got.aspectRatio;
-      img.style.maxWidth = `${got.maxWidth}px`;
-      img.style.height = "auto";
-      img.dataset.fitted = "";
-      if (scrollRef.current) noteRead(scrollRef.current);
-    };
-    el.querySelectorAll<HTMLImageElement>("img").forEach((img) => { if (img.complete) fit(img); });
-    const onLoad = (e: Event) => { if (e.target instanceof HTMLImageElement) fit(e.target); };
-    el.addEventListener("load", onLoad, true);
-    return () => el.removeEventListener("load", onLoad, true);
-  }, [bodyHtml, noteRead]);
+  // A picture that loads can make a short article fit the pane, or stop fitting it.
+  const onImageFit = useCallback(() => { if (scrollRef.current) noteRead(scrollRef.current); }, [noteRead]);
 
   const handleScroll = useCallback(() => {
     const el = scrollRef.current;
@@ -382,6 +307,21 @@ export function ArticleView() {
   // The web link opens anywhere; the nostr: address only in a Nostr client.
   const webLink = naddr ? `https://njump.me/${naddr}` : "";
 
+  // Your own article opens in the editor as a draft that keeps its address,
+  // so publishing replaces it. Every publish used to mint a new one.
+  const { setView } = useUIStore();
+  const editArticle = () => {
+    if (!event) return;
+    const dTag = getTag(event, "d") || undefined;
+    const drafts = useDraftStore.getState();
+    // One draft per article: a second Edit returns to the edit in progress
+    // instead of making a twin whose stale publish would replace the newer one.
+    const existing = dTag ? drafts.drafts.find((d) => d.dTag === dTag) : undefined;
+    if (existing) drafts.setActiveDraft(existing.id);
+    else drafts.createDraft({ title, content: event.content ?? "", summary, image, tags: articleTags.join(", "), dTag, publishedAt: publishedAt ?? undefined });
+    setView("article-editor");
+  };
+
   return (
     <div className="h-full flex flex-col">
       <ViewHeader
@@ -406,6 +346,11 @@ export function ArticleView() {
             {event && canSign && (
               <Button square variant="ghost" aria-expanded={showComment} onClick={() => (showComment ? setShowComment(false) : openComment())} aria-label="Comment" title="Comment">
                 <MessageCircle />
+              </Button>
+            )}
+            {event && canSign && account === event.pubkey && (
+              <Button square variant="ghost" onClick={editArticle} aria-label="Edit article" title="Edit">
+                <Pencil />
               </Button>
             )}
             {naddr && (
@@ -457,35 +402,7 @@ export function ArticleView() {
           <div className="@container">
           <div className="reader-page grid grid-cols-1 @[1180px]:grid-cols-[1fr_minmax(0,calc(34em+3rem))_1fr]">
             <article className="reader @[1180px]:col-start-2">
-              <h1 className="reader-title">{title || "Untitled"}</h1>
-              {summary && <p className="reader-standfirst mt-3">{summary}</p>}
-              <AuthorRow pubkey={authorPubkey} publishedAt={publishedAt} readingTime={readingTime} />
-
-              {/* Cover: after the words that say what this is, and never the whole first screen */}
-              {image && !coverFailed && (
-                <img
-                  src={image}
-                  alt=""
-                  className="w-full aspect-[2/1] max-h-80 object-cover rounded-lg mt-6"
-                  onError={() => setCoverFailed(true)}
-                />
-              )}
-
-              {/* Content */}
-              <div
-                ref={contentRef}
-                className="prose-article mt-8"
-                onClick={handleContentClick}
-                dangerouslySetInnerHTML={{ __html: bodyHtml }}
-              />
-              {lightbox && (
-                <ImageLightbox
-                  images={lightbox.images}
-                  index={lightbox.index}
-                  onClose={() => setLightbox(null)}
-                  onNavigate={(i) => setLightbox({ ...lightbox, index: i })}
-                />
-              )}
+              <ArticleBody title={title} summary={summary} image={image} pubkey={authorPubkey} publishedAt={publishedAt} content={event.content ?? ""} contentRef={contentRef} onImageFit={onImageFit} />
 
               {/* Tags, at the end: where to go next, not a row of chips before the first word */}
               {articleTags.length > 0 && (
