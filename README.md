@@ -12,11 +12,12 @@ Grab the latest release from the [Releases page](https://github.com/hoornet/vega
 
 | Platform | File | Command |
 |---|---|---|
-| Ubuntu / Debian / Mint | `.deb` | `sudo dpkg -i vega_*.deb` |
-| Fedora | `.rpm` | `sudo rpm -i vega-*.rpm` |
-| openSUSE | `.rpm` | `sudo zypper install vega-*.rpm` |
+| Ubuntu / Debian / Mint | `.deb` | `sudo dpkg -i Vega_*.deb` |
+| Fedora | `.rpm` | `sudo rpm -i Vega-*.rpm` |
+| openSUSE | `.rpm` | `sudo zypper install Vega-*.rpm` |
 | Arch / Manjaro | AUR | `yay -S vega-nostr` |
 | Windows | `.exe` installer | run the installer |
+| Windows | winget | `winget install Hoornet.Vega` |
 | macOS (Apple Silicon) | `aarch64.dmg` | open and drag to Applications |
 
 **Windows note:** The installer is not yet code-signed. Windows SmartScreen will show an "Unknown publisher" warning — click "More info → Run anyway" to install.
@@ -59,7 +60,7 @@ minisign -Vm Vega_X.Y.Z_amd64.deb -p vega.pub
 - **NIP-46 remote signer** — connect via `bunker://` URI (nsecBunker, Amber, etc.) with session persistence across restarts
 - **Multi-account switcher** — save multiple identities, switch instantly from the sidebar
 - **OS keychain integration** — nsec stored in macOS Keychain / Windows Credential Manager / Linux Secret Service; sessions survive restarts
-- **View your secret key** — reveal and copy your `nsec` from Settings → Identity at any time, to back it up or move to another client
+- **View your secret key** — reveal and copy your `nsec` from Settings → Account at any time, to back it up or move to another client
 
 **Feed & content**
 - **Virtualized feed with infinite scroll** — the Global feed loads older notes automatically as you scroll; only on-screen notes stay in memory, so it remains fast and memory-bounded no matter how far you go
@@ -71,10 +72,10 @@ minisign -Vm Vega_X.Y.Z_amd64.deb -p vega.pub
 - **Feed reply context** — replies show "↩ replying to @name"; click to jump to the parent thread or scroll to it in the current thread
 - Reactions (NIP-25) with live network counts
 - Follow / unfollow (NIP-02) with contact list publishing
-- **Quote & Repost** (NIP-18) — one-click repost or quote with compose modal
-- **Bookmarks** (NIP-51 kind 10003) — save/unsave notes and articles; **Notes/Articles tabs** in bookmark view; article bookmarks use `a` tags for parameterized replaceable events; synced to relays
-- **Mute users** (NIP-51) — muted list synced to relays, filtered from feed and search results
-- **Long-form article experience** (NIP-23) — **markdown toolbar** (bold, italic, heading, link, image, quote, code, list) with keyboard shortcuts (Ctrl+B/I/K); **multi-draft management** with draft list, resume, delete; **cover image file picker**; dedicated article feed with Latest/Following tabs; article search by keyword or hashtag; article reader with reading time, bookmark, like, and zap; profile Articles tab
+- **Quote & Repost** (NIP-18) — Repost and Quote share one menu on each note; Quote opens a compose dialog
+- **Bookmarks** (NIP-51 kind 10003) — save/unsave notes and articles; **Notes/Articles tabs** in bookmark view; article bookmarks use `a` tags for parameterized replaceable events; synced to relays, with each change made on the relays' copy of the list and nothing published while that copy is unknown
+- **Mute users** (NIP-51) — muted list synced to relays the same way as bookmarks, filtered from feed and search results
+- **Long-form article experience** (NIP-23) — the editor is laid out as the reader's page, with a **markdown toolbar** (bold, italic, heading, link, image, quote, code, list) and keyboard shortcuts (Ctrl+B/I/K); **multi-draft management** with draft list, resume, delete; Publish opens a sheet with the card as it will appear, the summary, a **cover image file picker** and tags; **published articles can be edited** as an update to the same article; dedicated article feed with Following/Latest tabs; article search by keyword or hashtag; article reader set in a bundled reading typeface (Literata), with reading time, bookmark, like, and zap, and the writer's bio and more of their articles at the end; profile Articles tab
 - **Quoted note inline preview** — `nostr:note1…` / `nostr:nevent1…` renders as an inline card
 - **naddr clickable links** — `nostr:naddr1…` references resolve to clickable named links (article titles, etc.)
 - **Syntax highlighting** — code blocks in notes and articles render with syntax highlighting
@@ -83,27 +84,28 @@ minisign -Vm Vega_X.Y.Z_amd64.deb -p vega.pub
 - **Emoji reactions** — reaction picker with common emojis on note cards; emoji insertion in compose and reply boxes via categorized emoji picker
 - **Keyword muting** — word/phrase mute list with client-side filtering across all views
 - **Web of Trust filter** — hide notes, reactions, and zaps from people outside your social graph (people you follow + follows-of-follows), powered by Vertex DVM trust scoring; toggleable in Settings
-- **Direct Messages** (NIP-04 + NIP-17 gift wrap) — conversation list, thread view, per-message decryption; unread badge in sidebar; honours published DM relay lists (kind 10050), so messages reach a dedicated DM relay even when it isn't in your main list
-- **Notifications** — background poller (60s) for mentions, zaps, new followers, and incoming messages; each type independently toggleable; OS push notifications (DM notifications name the sender only — never the message content); 🔔 in sidebar with unread badge
-- **New follower badges** — recently gained followers marked with a "new" badge and sorted to the top of your follows list
+- **Direct Messages** (NIP-04 + NIP-17 gift wrap) — conversation list, thread view, per-message decryption; unread badge in sidebar; honours published DM relay lists (kind 10050), so messages reach a dedicated DM relay even when it isn't in your main list; **New message** finds people you follow by name, or takes a key or a name@domain address
+- **Notifications** — background poller (60s) for mentions, zaps, new followers, and incoming messages; each type independently toggleable; OS push notifications (DM notifications name the sender only — never the message content); a Notifications view with Mentions, Zaps and Followers tabs, a line on each item saying what happened, and one unread badge in the sidebar
+- **New follower badges** — recently gained followers marked with a "new" badge and sorted to the top of your followers in People
 
 **Relay & network**
-- **Relay status badge** — compact "3/3 relays · +2" indicator in feed header with color coding; counts *your* relays, with a separate `+N` for extra reach (built-in relay, NIP-65 discovery); hover shows per-relay connection status grouped by origin
-- **Toast notifications** — transient status messages for relay events: "Connection lost — reconnecting", "Back online", "Relays reconnected"
-- **Relay health checker** — NIP-11 info fetch, WebSocket latency probing, online/slow/offline classification; expandable cards show all supported NIPs, software, description; per-relay remove button; "Remove dead" strips offline relays; "Publish list" publishes NIP-65 relay list; auto-checks on mount
+- **Every event a relay sends is checked**: its signature, and that its id is the hash of its own contents
+- **Relay status badge** — compact "3/3 relays +2" indicator in feed header with color coding; counts *your* relays, with a separate `+N` for extra reach found through NIP-65; says "not answering" when relays stop answering; hover or keyboard focus shows per-relay connection status grouped by origin
+- **Toast notifications** — say what happened when nothing else on screen shows it, and say when something failed, with Undo or Try again where it helps; also relay events: "Connection lost — reconnecting", "Back online", "Relays reconnected"
+- **Relay health checker** — NIP-11 info fetch, WebSocket latency probing, one status word per relay (connected, slow, not answering); expandable cards show all supported NIPs, software, description; a Remove button on every relay, with Undo; relays that did not answer the last check can be removed after a confirmation; "Share my relay list" publishes your NIP-65 relay list; auto-checks on mount
 - **Relay recommendations** — discover relays based on your follows' NIP-65 relay lists; shows follow count, one-click "Add"
-- **Embedded Nostr relay** — built-in strfry relay with catch-up sync on startup; your notes are always available locally even when remote relays are slow or offline
+- **Embedded Nostr relay** — optional built-in strfry relay (Settings → Advanced) with catch-up sync on startup; your notes are always available locally even when remote relays are slow or offline
 - **Vega public relay** — `wss://relay2.veganostr.com` included by default; custom Go relay with NIP-45/50/77, ensuring data availability when other relays are flaky or down
-- Relay management: add/remove relays, all in one consolidated Relays view; changes apply immediately, no restart needed
-- **NIP-65 outbox model with a Relay reach switch** — reads user relay lists (kind 10002) so you see notes from people who publish to their own relays; publish your own relay list to Nostr. On by default; turn **Relay reach** off (Relays view or Settings) to confine Vega strictly to your configured relays
-- **Relay authentication (NIP-42) with a privacy scope** — answers relay AUTH challenges so auth-gated relays serve your messages; because authenticating tells a relay who you are, you choose the scope: **My relays only** (default) or **Any relay that asks**. Declined challenges are surfaced instead of showing an empty screen
+- Relay management: add/remove relays, all in one consolidated Relays view that shows your relays apart from the extra reach Vega found on its own; changes apply immediately, no restart needed
+- **NIP-65 outbox model with a Relay reach switch** — reads user relay lists (kind 10002) so you see notes from people who publish to their own relays; publish your own relay list to Nostr. On by default; in Relays, turn off **Also look on the relays that people I follow use** to confine Vega strictly to your configured relays
+- **Relay authentication (NIP-42) with a privacy scope** — answers relay AUTH challenges so auth-gated relays serve your messages; because authenticating tells a relay who you are, you choose the scope in Relays: **Only my relays** (default) or **Any relay that asks**. Declined challenges are surfaced instead of showing an empty screen
 
 **Podcasts & Value 4 Value**
 - **Built-in podcast player** — search and play podcasts via Fountain.fm integration with Podcast Index enrichment
 - **V4V streaming** — stream sats per minute to podcast creators while listening via Lightning (keysend + LNURL-pay)
-- **Auto-streaming** — enable once, and V4V starts automatically on every supported episode at your chosen rate
+- **Auto-streaming** — once a per-episode cap and a weekly budget are set, enable it once and V4V starts automatically on every supported episode at your chosen rate
 - **Per-episode caps & weekly budgets** — set spending limits; streaming stops automatically when caps are reached
-- **V4V sidebar section** — dedicated dashboard with live streaming status, budget bars, stats, settings, and full history
+- **Value 4 Value view** — reached from Podcasts; dashboard with live streaming status, budget bars, stats, settings, and full history
 - **Recipient breakdown** — see exactly who gets paid and their split percentages
 - **V4V nudge** — brief non-intrusive tooltip when a V4V-enabled episode starts playing (once per episode per session)
 - **V4V badges on episodes** — ⚡ V4V pill on episode cards so you know which shows support it
@@ -111,7 +113,7 @@ minisign -Vm Vega_X.Y.Z_amd64.deb -p vega.pub
 
 **Lightning & zaps**
 - **Per-account NWC wallet** — each account remembers its own Lightning wallet; switching accounts loads the correct one automatically
-- **NWC guided wizard** — wallet picker (Alby Hub, Alby Extension, Mutiny, Phoenix) with per-wallet setup steps and inline URI validation
+- **NWC guided wizard** — wallet picker (Alby Hub, Alby Extension, Phoenix, or another NWC wallet) with per-wallet setup steps and inline URI validation; a wallet counts as connected once it has answered, so a revoked or mistyped code shows up at once
 - Send zaps via NWC (NIP-47 + NIP-57) with amount presets, custom amounts, comment
 - Zap counts on notes (⚡ N sats inline)
 - **Zap history** — Received and Sent tabs with amounts, counterparts, comments, and clickable note previews
@@ -129,7 +131,7 @@ minisign -Vm Vega_X.Y.Z_amd64.deb -p vega.pub
 
 **Personalization**
 - **Color themes** — 7 built-in themes: Midnight (default dark), Light, Catppuccin Mocha, Gruvbox, Nord Frost, Hackerman, and **Reader** (a warm, low-glare palette for comfortable long reading); instant switching from Settings
-- **Font size** — Small / Normal / Large / Extra Large presets; scales the entire UI uniformly
+- **Text size** — Small / Normal / Large / Extra Large presets; scales the whole window, the sidebar included
 - **Easy-Read Font** — optional Atkinson Hyperlegible typeface, designed by the Braille Institute for legibility, with slightly wider letter-spacing and line-height; helps dyslexic readers and long reading sessions
 
 **Performance & UX**
@@ -143,13 +145,13 @@ minisign -Vm Vega_X.Y.Z_amd64.deb -p vega.pub
 - **Reading list tracking** — read/unread state on bookmarked articles with unread dot indicators and sidebar badge
 - **Profile banner polish** — hero-height banner with click-to-lightbox, avatar overlaps banner edge with ring
 - **System tray** — close button hides to tray; "Quit" in tray menu to fully exit
-- **Collapsible & resizable sidebar** — collapse to icon-only mode, or drag the right edge to set the width (double-click to reset; remembered between sessions)
+- **Collapsible & resizable sidebar** — eight places (Home, Notifications, Messages, Bookmarks, Search, Articles, Media, Podcasts), a Write button with your draft count, and Settings, Relays, Keyboard shortcuts and Support at the foot; People and Zap history are in the account menu; collapse to icon-only mode, or drag the right edge to set the width (double-click to reset; remembered between sessions)
 - **Collapsing compose box** — sits as a single line when idle and expands to full height with the toolbar when you focus it, keeping the top of the feed compact
 - **Update banner with changelog** — when an update is available, "What's new" shows that version's changes inline, with a link to the full changelog on GitHub
-- **Keyboard shortcuts** — `n` compose, `/` search, `j`/`k` navigate feed, `Esc` back, `?` help overlay
+- **Keyboard shortcuts** — `n` compose, `/` search, `j`/`k` navigate feed, `Esc` closes what opened last or goes back, `F6` newest toast, `?` help overlay
 - Skeleton loading placeholders, view fade transitions
 - **Media pause on navigation** — video and audio in feed automatically pause when you navigate to another view
-- **Accessibility** — WCAG AA contrast compliance, ARIA labels, reduced motion support
+- **Accessibility** — WCAG AA contrast (text colours at 4.5:1 or better in every theme), ARIA labels, reduced motion support; dialogs take focus, keep Tab inside and give focus back; switches and tabs tell a screen reader their state
 - **Podcast player stability** — 15s loading timeout with user-friendly error messages; automatic V4V stop on audio failure
 - **Read-only mode banner** — persistent top-of-app warning when not signed in, so you always know you're in read-only mode
 
@@ -218,7 +220,7 @@ Vega is free and open-source. If it's useful to you:
 
 | Method | Details |
 |---|---|
-| ⚡ Zap (in-app) | Open the **support** view in Vega's sidebar and zap directly |
+| ⚡ Zap (in-app) | Open **Support** (the heart at the foot of Vega's sidebar) and zap directly |
 | ⚡ Lightning | `jure@getalby.com` |
 | ₿ Bitcoin | `bc1qcgaupf80j28ca537xjlcs9dm9s03khezjs7crp` |
 | ☕ Ko-fi | [ko-fi.com/jure](https://ko-fi.com/jure) |
