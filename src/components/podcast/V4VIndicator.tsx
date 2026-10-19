@@ -192,8 +192,8 @@ export function V4VIndicator() {
           </div>
 
           {!hasWallet && (
-            <div className="text-caption text-text-dim mb-2">
-              Connect NWC wallet in Settings to stream sats.
+            <div className="text-caption text-text-muted mb-2">
+              <button type="button" onClick={() => useUIStore.getState().openSettings("wallet")} className="text-accent underline underline-offset-2 hover:text-accent-hover transition-colors">Connect a wallet</button> to stream sats.
             </div>
           )}
 

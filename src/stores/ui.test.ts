@@ -16,6 +16,7 @@ describe("useUIStore", () => {
       pendingDMPubkey: null,
       pendingArticleNaddr: null,
       pendingHashtag: null,
+      pendingSettingsGroup: null,
       profileTabs: {},
       trip: 0,
       showHelp: false,
@@ -147,6 +148,18 @@ describe("useUIStore", () => {
     expect(kept).toHaveLength(200);
     expect(kept).not.toContain("bob");
     expect(kept).toContain("p199");
+  });
+
+  it("openSettings goes to Settings for one group, as a sidebar destination would", () => {
+    useUIStore.getState().openThread({} as NDKEvent);
+    useUIStore.getState().openSettings("wallet");
+    const s = useUIStore.getState();
+    expect(s.currentView).toBe("settings");
+    expect(s.pendingSettingsGroup).toBe("wallet");
+    expect(s.viewStack).toEqual([]);
+    // A sidebar trip taken before Settings mounted forgets the request.
+    useUIStore.getState().setView("feed");
+    expect(useUIStore.getState().pendingSettingsGroup).toBeNull();
   });
 
   it("openSearch sets pending search and view", () => {

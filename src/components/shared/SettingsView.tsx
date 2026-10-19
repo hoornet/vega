@@ -328,9 +328,20 @@ function WalletSection() {
   const nwcUri = useLightningStore((s) => s.nwcUri);
   const { openView } = useUIStore();
   const canSign = useCanSign();
-  const [connecting, setConnecting] = useState(false);
-  // Once a wallet is connected (or disconnected again), the wizard's job is done and the one row comes back.
-  useEffect(() => { setConnecting(false); }, [nwcUri]);
+  // Opened for the wallet (the zap dialog's "Connect a wallet", Value 4 Value's link): the wizard is what
+  // was promised, not a second "Connect a wallet". Read on mount, before SettingsView forgets the request.
+  const [connecting, setConnecting] = useState(() => useUIStore.getState().pendingSettingsGroup === "wallet");
+  // Once a wallet is connected (or disconnected again), the wizard's job is done and the one row comes
+  // back. The button that was pressed unmounts with the wizard, so the keyboard goes to the group's title.
+  const wasConnecting = useRef(false);
+  wasConnecting.current = connecting;
+  const lastUri = useRef(nwcUri);
+  useEffect(() => {
+    if (lastUri.current === nwcUri) return; // mounting is not a change of code
+    lastUri.current = nwcUri;
+    setConnecting(false);
+    if (wasConnecting.current && nwcUri) document.getElementById("settings-wallet-title")?.focus({ preventScroll: true });
+  }, [nwcUri]);
   // One row until asked: the wizard's four wallet cards took a third of the
   // first screen of Settings, before the account and everything daily.
   return (
@@ -840,6 +851,13 @@ export function SettingsView() {
     // And the keyboard goes with the view: the next Tab starts inside the group.
     document.getElementById(`settings-${id}-title`)?.focus({ preventScroll: true });
   };
+  // Opened for one group (the zap dialog's "Connect a wallet", Value 4 Value's link): land on it, not at the top.
+  const pendingGroup = useUIStore((s) => s.pendingSettingsGroup);
+  useEffect(() => {
+    if (!pendingGroup) return;
+    useUIStore.setState({ pendingSettingsGroup: null });
+    jump(pendingGroup);
+  }, [pendingGroup]); // eslint-disable-line react-hooks/exhaustive-deps
   return (
     <div className="h-full flex flex-col">
       <ViewHeader title="Settings" />

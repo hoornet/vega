@@ -19,7 +19,7 @@ describe("V4VSettings: the auto-stream switch", () => {
     expect(sw().getAttribute("aria-checked")).toBe("false");
     expect(document.getElementById(sw().getAttribute("aria-labelledby")!)?.textContent).toBe("Auto-stream");
     const hint = document.getElementById(sw().getAttribute("aria-describedby")!);
-    expect(hint?.textContent).toContain("Automatically stream sats");
+    expect(hint?.textContent).toContain("Streams sats to the makers");
   });
 
   it("turns auto-streaming on, from the switch and from its label", () => {
@@ -31,11 +31,13 @@ describe("V4VSettings: the auto-stream switch", () => {
     expect(useV4VStore.getState().autoEnabled).toBe(false);
   });
 
-  it("stays off when the limits are not set", () => {
+  it("cannot be used until both limits are set, and says so as its hint", () => {
     useV4VStore.setState({ perEpisodeCap: 0 });
     render(<V4VSettings />);
+    expect((sw() as HTMLButtonElement).disabled).toBe(true);
+    expect(document.getElementById(sw().getAttribute("aria-describedby")!)?.textContent).toContain("Set a per-episode cap and a weekly budget first");
     fireEvent.click(sw());
     expect(useV4VStore.getState().autoEnabled).toBe(false);
-    expect(sw().getAttribute("aria-checked")).toBe("false");
+    expect(screen.queryByText(/ⓘ|&#9432;/)).toBeNull();
   });
 });

@@ -104,6 +104,16 @@ describe("Settings", () => {
     expect(screen.getByRole("heading", { level: 2, name: "Advanced" })).toBeTruthy();
   });
 
+  it("lands on the group it was opened for, with the wizard already open, and forgets the request", () => {
+    useUIStore.setState({ pendingSettingsGroup: "wallet" });
+    render(<SettingsView />);
+    expect(document.activeElement?.id).toBe("settings-wallet-title");
+    expect(useUIStore.getState().pendingSettingsGroup).toBeNull();
+    // Not a second "Connect a wallet": the steps were promised.
+    expect(screen.getByText("wallet wizard")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Connect a wallet" })).toBeNull();
+  });
+
   it("shows the wizard's connected state when a wallet is connected", () => {
     useLightningStore.setState({ nwcUri: "nostr+walletconnect://abc?relay=wss%3A%2F%2Fr&secret=s" });
     render(<SettingsView />);
