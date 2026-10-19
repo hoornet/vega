@@ -11,6 +11,9 @@ vi.mock("@nostr-dev-kit/ndk", async (original) => {
   const real = await original<typeof import("@nostr-dev-kit/ndk")>();
   class FakeSearchNDK {
     private url: string;
+    // What the app's incoming-event check reads off an instance (see authentic.ts).
+    subManager = { dispatchEvent() { /* no relay events here */ } };
+    asyncSigVerification = false;
     constructor(opts: { explicitRelayUrls: string[] }) { this.url = opts.explicitRelayUrls[0]; }
     async connect() { /* connected at once */ }
     fetchEvents() {

@@ -3,6 +3,7 @@ import { type ParsedSearch, matchesHasFilter } from "../search";
 import { getNDK, fetchWithTimeout, withTimeout, FEED_TIMEOUT } from "./core";
 import { recordFetchOutcome } from "./fetchTotals";
 import { debug } from "../debug";
+import { guardIncomingEvents } from "./authentic";
 
 // Dedicated NIP-50 search relays — queried for full-text search regardless of user's relay list
 const SEARCH_RELAYS = [
@@ -18,7 +19,7 @@ const searchNDKs: Map<string, NDK> = new Map();
 async function getSearchNDKFor(relay: string): Promise<NDK> {
   let ndk = searchNDKs.get(relay);
   if (ndk) return ndk;
-  ndk = new NDK({ explicitRelayUrls: [relay] });
+  ndk = guardIncomingEvents(new NDK({ explicitRelayUrls: [relay] }));
   searchNDKs.set(relay, ndk);
   await withTimeout(ndk.connect(), 5000, undefined);
   debug.log(`[Vega] Search relay connected: ${relay}`);

@@ -1,4 +1,5 @@
 import NDK, { NDKEvent, NDKFilter, NDKKind, NDKPrivateKeySigner } from "@nostr-dev-kit/ndk";
+import { guardIncomingEvents } from "../nostr/authentic";
 
 interface NwcConnection {
   walletPubkey: string;
@@ -48,7 +49,7 @@ export async function payKeysendViaNWC(
 ): Promise<string> {
   const { walletPubkey, relayUrl, secret } = parseNwcUri(nwcUri);
 
-  const ndk = new NDK({
+  const ndk = guardIncomingEvents(new NDK({
     explicitRelayUrls: [relayUrl],
     enableOutboxModel: false,
     // A wallet relay that requires NIP-42 would otherwise never connect,
@@ -58,7 +59,7 @@ export async function payKeysendViaNWC(
     // reasoning behind the "My relays only" scope does not apply — the key
     // is already scoped to this one wallet. See #54.
     relayAuthDefaultPolicy: async () => true,
-  });
+  }));
   const signer = new NDKPrivateKeySigner(secret);
   ndk.signer = signer;
   await ndk.connect();
@@ -137,7 +138,7 @@ export async function payKeysendViaNWC(
 export async function payInvoiceViaNWC(nwcUri: string, bolt11: string): Promise<string> {
   const { walletPubkey, relayUrl, secret } = parseNwcUri(nwcUri);
 
-  const ndk = new NDK({
+  const ndk = guardIncomingEvents(new NDK({
     explicitRelayUrls: [relayUrl],
     enableOutboxModel: false,
     // A wallet relay that requires NIP-42 would otherwise never connect,
@@ -147,7 +148,7 @@ export async function payInvoiceViaNWC(nwcUri: string, bolt11: string): Promise<
     // reasoning behind the "My relays only" scope does not apply — the key
     // is already scoped to this one wallet. See #54.
     relayAuthDefaultPolicy: async () => true,
-  });
+  }));
   const signer = new NDKPrivateKeySigner(secret);
   ndk.signer = signer;
   await ndk.connect();
