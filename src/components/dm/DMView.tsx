@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { NDKEvent, NDKKind, nip19 } from "@nostr-dev-kit/ndk";
+import { NDKEvent, NDKKind } from "@nostr-dev-kit/ndk";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { useUserStore } from "../../stores/user";
 import { useUIStore } from "../../stores/ui";
@@ -14,7 +14,8 @@ import { parseContent } from "../../lib/parsing";
 import { tryHandleUrlInternally, tryOpenNostrEntity } from "../feed/TextSegments";
 import { ViewHeader } from "../shared/ViewHeader";
 import { Button } from "../shared/Button";
-import { ArrowRight } from "lucide-react";
+import { Plus, MessageSquarePlus } from "lucide-react";
+import { NewMessageDialog } from "./NewMessageDialog";
 import { explainPublishError } from "../../lib/publishErrors";
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -199,9 +200,12 @@ function MessageBubble({ event, myPubkey }: { event: NDKEvent; myPubkey: string 
 export function ThreadPanel({
   partnerPubkey,
   myPubkey,
+  focusOnMount = false,
 }: {
   partnerPubkey: string;
   myPubkey: string;
+  /** A conversation just started from the New message dialog: the box takes focus, so the first thing typed goes into it. */
+  focusOnMount?: boolean;
 }) {
   const { openProfile } = useUIStore();
   const profile = useProfile(partnerPubkey);
@@ -218,6 +222,8 @@ export function ThreadPanel({
   // than the reply boxes do. The messages pane above is flex-1, so it yields.
   const autoResize = useAutoResize(2, 14);
   const composeBar = useToastFloor<HTMLDivElement>();
+  // After the dialog's own focus return, which runs first in the same commit.
+  useEffect(() => { if (focusOnMount) textareaRef.current?.focus(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Reads of the thread, numbered as they start. The box is free while a
   // read is on its way, so a send's re-read can overtake the first load, and
@@ -339,98 +345,8 @@ export function ThreadPanel({
           />
           <Button variant="primary" onClick={handleSend} disabled={!text.trim() && !sending} busy={sending} className="self-end">Send</Button>
         </div>
-        <p className="text-text-dim text-caption mt-1">Ctrl+Enter to send · gift-wrapped (NIP-17)</p>
+        <p className="text-text-dim text-caption mt-1">Ctrl+Enter to send · Encrypted, only the two of you can read it</p>
       </div>
-    </div>
-  );
-}
-
-// ── New conversation input ────────────────────────────────────────────────────
-
-// Collapsed to a single "New message" link until it's actually needed. It lives
-// at the bottom of the list column, directly alongside the thread's Send button,
-// so a permanently visible field and a second always-there button read as two
-// competing send affordances.
-function NewConvInput({ onStart }: { onStart: (pubkey: string) => void }) {
-  const [open, setOpen] = useState(false);
-  const [input, setInput] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    if (open) inputRef.current?.focus();
-  }, [open]);
-
-  const close = () => {
-    setOpen(false);
-    setInput("");
-    setError(null);
-  };
-
-  const handleStart = () => {
-    const raw = input.trim();
-    if (!raw) return;
-    try {
-      if (raw.startsWith("npub1")) {
-        const decoded = nip19.decode(raw);
-        if (decoded.type !== "npub") throw new Error("Not an npub");
-        onStart(decoded.data as string);
-        close();
-      } else if (/^[0-9a-f]{64}$/.test(raw)) {
-        onStart(raw);
-        close();
-      } else {
-        setError("Enter an npub1… or hex pubkey");
-      }
-    } catch {
-      setError("Invalid public key");
-    }
-  };
-
-  if (!open) {
-    return (
-      <div className="px-3 py-2 border-t border-border-subtle">
-        <button
-          onClick={() => setOpen(true)}
-          className="w-full text-left text-text-dim hover:text-accent text-ui py-1 transition-colors focus-visible:ring-1 focus-visible:ring-accent"
-        >
-          + New message
-        </button>
-      </div>
-    );
-  }
-
-  return (
-    <div className="px-3 py-3 border-t border-border-subtle">
-      {/* min-w-0 is required, not cosmetic: flex-1 leaves min-width:auto, so the
-          input won't shrink below its intrinsic size=20 monospace width. Below
-          roughly a 240px list column the row overflows and pushes the shrink-0
-          button out under the message panel. */}
-      <div className="flex gap-1.5">
-        <input
-          ref={inputRef}
-          value={input}
-          onChange={(e) => { setInput(e.target.value); setError(null); }}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") handleStart();
-            if (e.key === "Escape") close();
-          }}
-          onBlur={() => { if (!input.trim()) close(); }}
-          placeholder="npub1… or hex pubkey"
-          className="flex-1 min-w-0 bg-bg border border-border-strong px-2 py-1.5 text-text text-ui font-mono focus:outline-none focus:border-accent placeholder:text-text-dim rounded-lg"
-          style={{ WebkitUserSelect: "text", userSelect: "text" } as React.CSSProperties}
-        />
-        <Button
-          onMouseDown={(e) => e.preventDefault()} /* don't let onBlur close before the click lands */
-          onClick={handleStart}
-          disabled={!input.trim()}
-          aria-label="Start conversation"
-          title="Start conversation"
-        >
-          <ArrowRight />
-        </Button>
-      </div>
-      {error && <p className="text-danger text-caption mt-1">{error}</p>}
     </div>
   );
 }
@@ -442,6 +358,12 @@ export function DMView() {
   const { pendingDMPubkey } = useUIStore();
 
   const [conversations, setConversations] = useState<Map<string, NDKEvent[]>>(new Map());
+  // The New message dialog, which of its two openers was used (focus goes back there when it closes
+  // without a pick), and whether the next conversation panel takes focus (after a pick).
+  const [newOpen, setNewOpen] = useState<"plus" | "pane" | null>(null);
+  const [focusNext, setFocusNext] = useState(false);
+  const plusRef = useRef<HTMLButtonElement>(null);
+  const emptyRef = useRef<HTMLButtonElement>(null);
   const [selectedPubkey, setSelectedPubkey] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   // Distinguishes "you have no messages" from "we could not reach a relay".
@@ -492,10 +414,12 @@ export function DMView() {
           return;
         }
 
-        setConversations(grouped);
-        // Auto-select first if none chosen and no pending
-        if (!selectedPubkey && !pendingDMPubkey && grouped.size > 0) {
-          setSelectedPubkey(Array.from(grouped.keys())[0]);
+        // Merged, not replaced: a conversation started while this load ran keeps its row.
+        setConversations((prev) => { const next = new Map(grouped); for (const [pk, msgs] of prev) if (!next.has(pk)) next.set(pk, msgs); return next; });
+        // Auto-select the first if none is chosen by then and none is pending: read at that moment, not
+        // from this effect's closure, or a conversation picked during the load was swapped for another.
+        if (!pendingDMPubkey && grouped.size > 0) {
+          setSelectedPubkey((cur) => cur ?? Array.from(grouped.keys())[0]);
         }
         // Compute DM unread counts
         const convList = Array.from(grouped.entries()).map(([partnerPubkey, msgs]) => ({
@@ -545,7 +469,7 @@ export function DMView() {
     <div className="h-full flex">
       {/* Left: conversation list */}
       <div className="w-56 border-r border-border-subtle flex flex-col shrink-0">
-        <ViewHeader title="Messages" />
+        <ViewHeader title="Messages" actions={<Button ref={plusRef} square size="sm" variant="ghost" onClick={() => setNewOpen("plus")} aria-label="New message" title="New message"><Plus /></Button>} />
 
         <div className="flex-1 overflow-y-auto">
           {loading && (
@@ -572,6 +496,7 @@ export function DMView() {
                 lastEvent={events[0]}
                 selected={selectedPubkey === partner}
                 onSelect={() => {
+                  setFocusNext(false);
                   setSelectedPubkey(partner);
                   useNotificationsStore.getState().markDMRead(partner);
                 }}
@@ -579,7 +504,7 @@ export function DMView() {
             ) : (
               <button
                 key={partner}
-                onClick={() => setSelectedPubkey(partner)}
+                onClick={() => { setFocusNext(false); setSelectedPubkey(partner); }}
                 className={`w-full flex items-center gap-2.5 px-3 py-2.5 text-left transition-colors ${
                   selectedPubkey === partner ? "bg-accent/10 border-l-2 border-accent" : "hover:bg-bg-hover border-l-2 border-transparent"
                 }`}
@@ -594,15 +519,6 @@ export function DMView() {
           )}
         </div>
 
-        <NewConvInput
-          onStart={(pk) => {
-            setSelectedPubkey(pk);
-            // Add to conversations map if not already there
-            if (!conversations.has(pk)) {
-              setConversations((prev) => new Map(prev).set(pk, []));
-            }
-          }}
-        />
       </div>
 
       {/* Right: thread or empty state */}
@@ -611,11 +527,32 @@ export function DMView() {
         // them kept the text typed for one person in the box for the next,
         // and a send that finished after a switch put the old conversation's
         // messages under the new one's name.
-        <ThreadPanel key={`${pubkey}:${selectedPubkey}`} partnerPubkey={selectedPubkey} myPubkey={pubkey} />
+        <ThreadPanel key={`${pubkey}:${selectedPubkey}`} partnerPubkey={selectedPubkey} myPubkey={pubkey} focusOnMount={focusNext} />
       ) : (
-        <div className="flex-1 flex items-center justify-center text-text-dim text-body">
-          Select a conversation or start a new one.
+        <div className="flex-1 flex items-center justify-center p-8">
+          <div className="max-w-sm text-center">
+            {/* "No conversations yet" only once the relays have said so. */}
+            <p className="text-text text-body font-medium">
+              {loading ? "Loading your conversations…" : unreachable ? "Your conversations could not be loaded." : conversations.size === 0 ? "No conversations yet." : "Pick a conversation."}
+            </p>
+            <p className="text-text-muted text-body mt-1">Messages are encrypted; only the two of you can read them. Start one with someone you follow, or paste a public key.</p>
+            <Button ref={emptyRef} variant="primary" className="mt-4" onClick={() => setNewOpen("pane")}><MessageSquarePlus />New message</Button>
+          </div>
         </div>
+      )}
+      {newOpen && (
+        <NewMessageDialog
+          onClose={() => setNewOpen(null)}
+          returnFocus={newOpen === "plus" ? plusRef : emptyRef}
+          onPick={(pk) => {
+            setNewOpen(null);
+            setFocusNext(true);
+            setSelectedPubkey(pk);
+            // A conversation with nothing in it yet, so the panel opens for it. Checked inside the update:
+            // the list may have arrived, with this person in it, while the dialog was open.
+            setConversations((prev) => (prev.has(pk) ? prev : new Map(prev).set(pk, [])));
+          }}
+        />
       )}
     </div>
   );
