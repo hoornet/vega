@@ -8,6 +8,7 @@ const user = vi.hoisted(() => ({
   loginWithPubkey: vi.fn(),
   loginWithRemoteSigner: vi.fn(),
   saveProfile: vi.fn(),
+  adoptEmptyContactList: vi.fn(),
 }));
 vi.mock("../../stores/user", () => {
   const useUserStore = Object.assign(() => user, { getState: () => user, setState: (next: Partial<typeof user>) => Object.assign(user, next) });
@@ -194,6 +195,8 @@ describe("the name is published once the account exists", () => {
     await act(async () => { finishLogin(); });
     expect(order).toEqual(["signed in", "published"]);
     expect(user.saveProfile).toHaveBeenCalledWith({ name: "Ana", display_name: "Ana" }, expect.stringMatching(/^[0-9a-f]{64}$/));
+    // And the new key is known to follow nobody, without a relay being asked.
+    expect(user.adoptEmptyContactList).toHaveBeenCalledWith(expect.stringMatching(/^[0-9a-f]{64}$/));
   });
 
   // The profile is for the key made in this flow, whoever is signed in by then.
