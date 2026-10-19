@@ -1,6 +1,6 @@
 # Vega — Roadmap
 
-> The "already shipped" history below ends at v0.12.x. For everything since — the UI polish sprint, the identifier move, Flathub prep, NIP-42 relay authentication, NIP-17 DM relays — see [CHANGELOG.md](./CHANGELOG.md) and the [GitHub release notes](https://github.com/hoornet/vega/releases).
+> The "already shipped" history below ends at v0.12.x. For everything since — the UI polish sprint, the identifier move, Flathub prep, NIP-42 relay authentication, NIP-17 DM relays, the October 2026 interface review — see [CHANGELOG.md](./CHANGELOG.md) and the [GitHub release notes](https://github.com/hoornet/vega/releases).
 
 ---
 
@@ -116,7 +116,8 @@ Bugs found during testing are fixed before Phase N+1 starts. A release is cut be
 - ✓ Multi-draft management (create, resume, delete)
 - ✓ Cover image file picker upload
 - ✓ Article bookmarks (NIP-51 `a` tags) with Notes/Articles tabs
-- Remaining: reading history, table of contents, trending articles, tag suggestions
+- ✓ Table of contents in the reader (v0.8.2)
+- Remaining: reading history, trending articles, tag suggestions
 - Cross-posting to other platforms
 
 ### NIP-46 remote signer — ✓ SHIPPED (v0.8.3)
