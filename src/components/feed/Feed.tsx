@@ -14,6 +14,7 @@ import { ArticleCard } from "../article/ArticleCard";
 import { ComposeBox } from "./ComposeBox";
 import { StartHereCard } from "./StartHereCard";
 import { PeopleToStartWith } from "../shared/PeopleToStartWith";
+import { FOLLOWS_TO_START } from "../../stores/firstRun";
 import { storedInterests } from "../../lib/interests";
 import { looksLikePayload } from "../../lib/noteFilters";
 import { SkeletonNoteList } from "../shared/Skeleton";
@@ -160,6 +161,28 @@ export function Feed() {
   const tabOutcome: LoadOutcome = isTrending ? storeOutcome.trending : isFollowing ? followOutcome : storeOutcome.global;
   // Following shows nothing without a follow list, and why it has none matters.
   const needsFollows = isFollowing && follows.length === 0;
+  // "People to start with" stays above the notes until the account follows
+  // three, and for the whole visit once shown: the first Follow used to empty
+  // the tab's empty state, and with it the list, and the tab became that one
+  // person's notes. The list sits in the scroll container, above the virtual
+  // rows, which are offset by its measured height (`scrollMargin`).
+  const [startList, setStartList] = useState(false);
+  useEffect(() => { setStartList(false); }, [ownPubkey]);
+  useEffect(() => {
+    if (isFollowing && followsStatus === "loaded" && follows.length < FOLLOWS_TO_START) setStartList(true);
+  }, [isFollowing, followsStatus, follows.length]);
+  const showStartList = isFollowing && startList && follows.length > 0;
+  const startListRef = useRef<HTMLDivElement>(null);
+  const [startListHeight, setStartListHeight] = useState(0);
+  useEffect(() => {
+    const el = startListRef.current;
+    if (!el) { setStartListHeight(0); return; }
+    setStartListHeight(el.offsetHeight);
+    if (typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(() => setStartListHeight(el.offsetHeight));
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [showStartList]);
   // Read only when it will be shown. A stored value that does not parse used to throw during render.
   const interests = needsFollows && followsStatus === "loaded" ? storedInterests(ownPubkey) : [];
   const reloadTab = () => {
@@ -186,6 +209,7 @@ export function Feed() {
   const virtualizer = useVirtualizer({
     count: filteredNotes.length,
     getScrollElement: () => scrollRef.current,
+    scrollMargin: startListHeight,
     // Content-aware estimate: a flat estimate makes every row snap to its real
     // height on first measurement → upward-scroll flicker. estimateNoteHeight
     // predicts the height from the note's content so the snap is negligible.
@@ -418,6 +442,12 @@ export function Feed() {
           />
         ))}
 
+        {showStartList && filteredNotes.length > 0 && (
+          <div ref={startListRef} className="border-b border-border-subtle">
+            <PeopleToStartWith />
+          </div>
+        )}
+
         {/* Virtualized list — only the visible window of cards stays in the DOM */}
         {filteredNotes.length > 0 && (
           <div style={{ height: `${virtualizer.getTotalSize()}px`, position: "relative", width: "100%" }}>
@@ -432,7 +462,7 @@ export function Feed() {
                   // rows paint over earlier ones, so a menu that opens downward
                   // would be covered by the next note. Lift the row that has one open.
                   className="has-[[data-popover-open]]:z-10"
-                  style={{ position: "absolute", top: 0, left: 0, width: "100%", transform: `translateY(${vi.start}px)` }}
+                  style={{ position: "absolute", top: 0, left: 0, width: "100%", transform: `translateY(${vi.start - startListHeight}px)` }}
                 >
                   {event.kind === 30023 ? (
                     <ArticleCard event={event} />
