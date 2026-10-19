@@ -21,7 +21,7 @@ export interface Room {
  * Measure the room around a trigger, in layout px.
  *
  * The scroll area is the nearest `.overflow-y-auto` ancestor, else the window.
- * Text size is a CSS zoom on <main>, and engines disagree on whether
+ * Text size is a CSS zoom on the window's root box, and engines disagree on whether
  * `getBoundingClientRect` reports zoomed or unzoomed boxes, so the factor is
  * measured from the trigger itself (rendered height over layout height)
  * instead of assumed. Only differences between rects are used, never a rect

@@ -680,7 +680,7 @@ function FontSizeSection() {
         ))}
       </div>
       <p className="text-text-muted text-caption mt-2 px-1">
-        Changes the text size in the main area; the sidebar stays as it is. Articles follow it on their own measure.
+        Changes the size of everything in the window. Articles follow it on their own measure.
       </p>
     </section>
   );

@@ -121,7 +121,7 @@ function UpdateBanner() {
 
       {/* What's-new panel — only the newest version's changes (issue: update changelog) */}
       {showChangelog && changelog && (
-        <div className="px-4 pb-3 pt-1 max-h-72 overflow-y-auto border-t border-accent/20">
+        <div className="px-4 pb-3 pt-1 max-h-[calc(var(--window-h)*0.4)] overflow-y-auto border-t border-accent/20">
           <div className="prose-compact text-ui" dangerouslySetInnerHTML={{ __html: renderMarkdown(changelog) }} />
           <button
             onClick={() => openUrl("https://github.com/hoornet/vega/releases").catch(() => {})}
@@ -174,12 +174,20 @@ function App() {
 
   useKeyboardShortcuts();
 
-  // Apply zoom to main content area only (sidebar stays fixed size)
+  // The text-size preset is a CSS zoom on the window's root box below (not on <html>: engines differ on
+  // what root zoom does to viewport units). Portals at <body> carry it themselves (BodyPortal).
+  // `--window-h` is the window's height in layout px under that zoom, for the few sizes that are a share
+  // of the window: `vh` means different things per engine inside a zoom (Chromium multiplies it by the
+  // zoom, WebKitGTK does not), so a measured number is the one length both agree on.
   useEffect(() => {
     // Clear any old root zoom
     document.documentElement.style.zoom = "";
     // Set CSS custom property for components that need to know the scale
     document.documentElement.style.setProperty("--ui-zoom", `${fontSize / 14}`);
+    const measure = () => document.documentElement.style.setProperty("--window-h", `${Math.round(window.innerHeight / (fontSize / 14))}px`);
+    measure();
+    window.addEventListener("resize", measure);
+    return () => window.removeEventListener("resize", measure);
   }, [fontSize]);
 
   // Apply color theme
@@ -232,13 +240,18 @@ function App() {
   }
 
   return (
-    <div className="flex flex-col h-screen w-screen bg-bg">
+    // Sized by its edges, not in vh/vw: inside a zoom, Chromium makes 100vh the viewport times the
+    // zoom (WebKitGTK does not), so the window's root box would overflow by the factor at Large and
+    // Extra Large on Windows. The zoom is here, on everything (the sidebar, the banners, the player
+    // bar), not on <main> alone: the people who pick Extra Large are the ones who could not read the
+    // sidebar's 13px labels, which stayed 13px.
+    <div className="fixed inset-0 flex flex-col bg-bg" style={{ zoom: `${fontSize / 14}` }}>
       <UpdateBanner />
       <ReleaseNoticeBanner />
       <ReadOnlyBanner />
       <div className="flex flex-1 min-h-0">
       <Sidebar />
-      <main className="flex-1 min-w-0 h-full overflow-hidden" style={{ zoom: `${fontSize / 14}` }}>
+      <main className="flex-1 min-w-0 h-full overflow-hidden">
         <div className={currentView === "feed" ? "contents" : "hidden"}>
           <Feed />
         </div>

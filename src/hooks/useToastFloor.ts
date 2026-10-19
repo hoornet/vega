@@ -20,7 +20,7 @@ export const TOAST_FLOOR = "--toast-floor";
  * and the stack are under the same text-size zoom, so layout units on one
  * side are layout units on the other, whatever the engine says a rectangle
  * is. One bar at a time. The podcast player bar has its own rule in the
- * stack's classes, because it is outside the zoom and never changes height.
+ * stack's classes, because it never changes height; it is under the same zoom.
  */
 export function useToastFloor<T extends HTMLElement>(): RefObject<T | null> {
   const bar = useRef<T | null>(null);

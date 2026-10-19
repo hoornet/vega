@@ -10,7 +10,7 @@ import { createPortal } from "react-dom";
  * row: its backdrop dimmed one note, it was centred on that note, and it
  * scrolled away with the feed.
  *
- * The wrapper carries the text-size zoom, which lives on <main> and would
+ * The wrapper carries the text-size zoom, which lives on the window's root box and would
  * otherwise be lost on the way out.
  *
  * React events still bubble from a portal to its React ancestors. Components
