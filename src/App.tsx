@@ -6,6 +6,7 @@ import { OnboardingFlow } from "./components/onboarding/OnboardingFlow";
 import { PodcastPlayerBar } from "./components/podcast/PodcastPlayerBar";
 import { ToastContainer } from "./components/shared/ToastContainer";
 import { ReleaseNoticeBanner } from "./components/shared/ReleaseNoticeBanner";
+import { UpdateBanner } from "./components/shared/UpdateBanner";
 import { isBrowseOnly } from "./lib/browseOnly";
 
 // Lazy-loaded views — only fetched when navigated to
@@ -42,98 +43,7 @@ import { useUIStore, keptViews, keptHashtags, type View } from "./stores/ui";
 import { KeptView } from "./components/shared/KeptView";
 import { useCanSign } from "./stores/user";
 import { getTheme, applyTheme } from "./lib/themes";
-import { useUpdater } from "./hooks/useUpdater";
 import { useKeyboardShortcuts } from "./hooks/useKeyboardShortcuts";
-import { renderMarkdown } from "./lib/markdown";
-import { copyText } from "./lib/clipboard";
-
-// The updater's release body is a cumulative changelog: a `## Vega vX` header
-// followed by a `### vX — title` section per version, newest first. For the
-// "what's new" panel we want only the newest version's section. Returns the
-// whole body unchanged if the format isn't recognized.
-function latestChangelogSection(body: string): string {
-  const lines = body.split("\n");
-  const headings = lines.reduce<number[]>((acc, line, i) => {
-    if (/^###\s+v/i.test(line.trim())) acc.push(i);
-    return acc;
-  }, []);
-  if (headings.length === 0) return body.trim();
-  const start = headings[0];
-  const end = headings.length > 1 ? headings[1] : lines.length;
-  return lines.slice(start, end).join("\n").trim();
-}
-
-function UpdateBanner() {
-  const { available, version, body, installing, error, canSelfUpdate, kind, install, dismiss } = useUpdater();
-  const [copied, setCopied] = useState(false);
-  const [showChangelog, setShowChangelog] = useState(false);
-  if (!available) return null;
-
-  const aurCmd = "yay -S vega-nostr-git";
-  const changelog = body ? latestChangelogSection(body) : "";
-
-  return (
-    <div className="bg-accent/10 border-b border-accent/30 text-ui shrink-0">
-      <div className="flex items-center justify-between px-4 py-2">
-        <span className="text-text">
-          Vega {version} is available.
-          {!canSelfUpdate && kind === "pacman" && (
-            <> Update with <code className="text-accent bg-bg-raised px-1 rounded-sm">{aurCmd}</code></>
-          )}
-          {error && <span className="text-danger ml-1">{error}</span>}
-        </span>
-        <div className="flex items-center gap-3">
-          {changelog && (
-            <button
-              onClick={() => setShowChangelog((v) => !v)}
-              aria-expanded={showChangelog}
-              className="text-accent hover:text-accent-hover transition-colors"
-            >
-              {showChangelog ? "Hide changes" : "What's new"}
-            </button>
-          )}
-          {canSelfUpdate ? (
-            <button
-              onClick={install}
-              disabled={installing}
-              className="text-accent hover:text-accent-hover transition-colors disabled:opacity-50"
-            >
-              {installing ? "Installing…" : "Update & restart"}
-            </button>
-          ) : kind === "pacman" ? (
-            <button
-              onClick={async () => { if (await copyText(aurCmd)) setCopied(true); }}
-              className="text-accent hover:text-accent-hover transition-colors"
-            >
-              {copied ? "Copied" : "Copy command"}
-            </button>
-          ) : (
-            <button
-              onClick={() => openUrl("https://github.com/hoornet/vega/releases/latest").catch(() => {})}
-              className="text-accent hover:text-accent-hover transition-colors"
-            >
-              View release
-            </button>
-          )}
-          <button onClick={dismiss} aria-label="Dismiss update" className="text-text-dim hover:text-text transition-colors">×</button>
-        </div>
-      </div>
-
-      {/* What's-new panel — only the newest version's changes (issue: update changelog) */}
-      {showChangelog && changelog && (
-        <div className="px-4 pb-3 pt-1 max-h-[calc(var(--window-h)*0.4)] overflow-y-auto border-t border-accent/20">
-          <div className="prose-compact text-ui" dangerouslySetInnerHTML={{ __html: renderMarkdown(changelog) }} />
-          <button
-            onClick={() => openUrl("https://github.com/hoornet/vega/releases").catch(() => {})}
-            className="mt-3 text-accent hover:text-accent-hover transition-colors text-ui"
-          >
-            Full changelog on GitHub →
-          </button>
-        </div>
-      )}
-    </div>
-  );
-}
 
 function ReadOnlyBanner() {
   const canSign = useCanSign();
