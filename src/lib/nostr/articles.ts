@@ -1,5 +1,8 @@
-import { NDKEvent, NDKFilter, NDKKind, nip19 } from "@nostr-dev-kit/ndk";
-import { getNDK, fetchWithTimeout, FEED_TIMEOUT, SINGLE_TIMEOUT, publishToNetwork } from "./core";
+import { NDKEvent, NDKFilter, NDKKind, NDKRelay, NDKRelaySet, nip19 } from "@nostr-dev-kit/ndk";
+import { getNDK, fetchWithTimeout, fetchFromRelay, heardFromNetwork, withTimeout, isOutboxRelaysEnabled, FEED_TIMEOUT, SINGLE_TIMEOUT, publishToNetwork } from "./core";
+import { fetchUserRelayList } from "./relays";
+import { relaysToAsk } from "./lists";
+import { recordFetchOutcome } from "./fetchTotals";
 
 export async function publishArticle(opts: {
   title: string;
@@ -52,11 +55,38 @@ export async function fetchArticle(naddr: string): Promise<NDKEvent | null> {
   }
 }
 
+const NO_RELAYS = { read: [] as string[], write: [] as string[] };
+
+/**
+ * A writer's articles: each of the user's relays asked on its own, plus the
+ * writer's own write relays when Relay reach is on (as `fetchUserNotesNIP65`
+ * does for notes; with it off, our relays are all the user allowed, issue #35).
+ *
+ * On its own, because of NDK's early EOSE (see `fetchFromRelay`): measured
+ * 2026-10-17 in the capture harness, two relays answered "nothing" within 80 ms,
+ * which cut the wait for the third to about 330 ms, and the one relay that held
+ * the writer's articles answered at 368 ms. One fetch over all three returned
+ * nothing every time; the same relay asked alone returned five.
+ */
 export async function fetchAuthorArticles(pubkey: string, limit = 20): Promise<NDKEvent[]> {
   const instance = getNDK();
   const filter: NDKFilter = { kinds: [NDKKind.Article], authors: [pubkey], limit };
-  const events = await fetchWithTimeout(instance, filter, FEED_TIMEOUT);
-  return Array.from(events).sort((a, b) => (b.created_at ?? 0) - (a.created_at ?? 0));
+  const [own, theirs] = await Promise.all([
+    relaysToAsk(instance),
+    isOutboxRelaysEnabled() ? withTimeout(fetchUserRelayList(pubkey), SINGLE_TIMEOUT, NO_RELAYS).catch(() => NO_RELAYS) : Promise.resolve(NO_RELAYS),
+  ]);
+  const relays = new Map<string, NDKRelay>(own.map((r) => [r.url, r]));
+  if (theirs.write.length > 0) {
+    try {
+      for (const r of NDKRelaySet.fromRelayUrls(theirs.write, instance).relays) relays.set(r.url, r);
+    } catch { /* their relays are a bonus */ }
+  }
+  const asked = await Promise.all(Array.from(relays.values()).map(async (relay) => ({ relay, ...(await fetchFromRelay(instance, relay, filter, FEED_TIMEOUT)) })));
+  // One answer from the network is an answer; what a list says of "nothing" depends on it.
+  recordFetchOutcome(heardFromNetwork(asked.filter((a) => a.answered).map((a) => a.relay.url), instance.pool?.relays?.keys() ?? []));
+  const byId = new Map<string, NDKEvent>();
+  for (const a of asked) for (const e of a.events) if (!byId.has(e.id)) byId.set(e.id, e);
+  return Array.from(byId.values()).sort((a, b) => (b.created_at ?? 0) - (a.created_at ?? 0));
 }
 
 export async function fetchArticleFeed(limit = 40, authors?: string[]): Promise<NDKEvent[]> {
