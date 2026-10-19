@@ -26,14 +26,15 @@ beforeEach(() => {
   signer.canSign = true;
   useUIStore.setState({ currentView: "feed", sidebarCollapsed: false, showHelp: false, viewStack: [] });
   useDraftStore.setState({ drafts: [], activeDraftId: null });
-  useNotificationsStore.setState({ unreadCount: 2, dmUnreadCount: 0, newFollowersCount: 3 });
+  useNotificationsStore.setState({ unreadCount: 2, dmUnreadCount: 0, newFollowersCount: 3, newFollowerPubkeys: new Set(["a", "b", "c"]) });
 });
 afterEach(cleanup);
 
 describe("Sidebar", () => {
   it("lists where you come back to, then where you explore, and nothing else", () => {
     render(<Sidebar />);
-    expect(rows()).toEqual(["Home", "Notifications2 unread", "Messages", "Bookmarks", "Search", "Articles", "Media", "Podcasts"]);
+    // 2 unread mentions or zaps and 3 new followers: one badge.
+    expect(rows()).toEqual(["Home", "Notifications5 unread", "Messages", "Bookmarks", "Search", "Articles", "Media", "Podcasts"]);
     for (const gone of ["People", "Zaps", "Value 4 Value", "Feed"]) {
       expect(within(nav()).queryByText(gone)).toBeNull();
     }
@@ -82,18 +83,19 @@ describe("Sidebar", () => {
     const account = screen.getByRole("button", { name: /^Account/ });
     expect(tools()).toHaveLength(4);
     // Collapsed rows carry their counts in their names.
-    expect(within(nav()).getByRole("button", { name: "Notifications, 2 unread" })).toBeTruthy();
+    expect(within(nav()).getByRole("button", { name: "Notifications, 5 unread" })).toBeTruthy();
     fireEvent.click(account);
     expect(useUIStore.getState().sidebarCollapsed).toBe(false);
   });
 
-  it("says there are new followers on the account control, since People is in its menu", () => {
-    render(<Sidebar />);
-    expect(screen.getByRole("button", { name: "Switch account (3 new followers)" })).toBeTruthy();
-    useNotificationsStore.setState({ newFollowersCount: 0 });
-    cleanup();
+  it("counts new followers on the Notifications badge, where their tab is, and nowhere else", () => {
     render(<Sidebar />);
     expect(screen.getByRole("button", { name: "Switch account" })).toBeTruthy();
+    expect(screen.queryByText(/new followers/)).toBeNull();
+    useNotificationsStore.setState({ newFollowersCount: 0, newFollowerPubkeys: new Set() });
+    cleanup();
+    render(<Sidebar />);
+    expect(rows()[1]).toBe("Notifications2 unread");
   });
 
   it("does not show the version string", () => {

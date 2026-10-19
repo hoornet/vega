@@ -55,7 +55,9 @@ const FOOTER: { id: View | "help"; label: string; icon: ReactNode }[] = [
 export function Sidebar() {
   const { currentView, setView, sidebarCollapsed, toggleSidebar, showHelp, toggleHelp } = useUIStore();
   const canSign = useCanSign();
-  const { unreadCount: notifUnread, dmUnreadCount } = useNotificationsStore();
+  // One badge: unread mentions and zaps, plus the new followers (they have no read state of their own).
+  const notifUnread = useNotificationsStore((s) => s.unreadCount + s.newFollowerPubkeys.size);
+  const dmUnreadCount = useNotificationsStore((s) => s.dmUnreadCount);
   const draftCount = useDraftStore((s) => s.drafts.length);
   const bookmarkUnread = useBookmarkStore((s) => s.unreadArticleCount());
   const shown = (items: NavItem[]) => items.filter((item) => !item.requiresSigner || canSign);

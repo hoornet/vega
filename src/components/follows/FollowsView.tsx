@@ -2,79 +2,14 @@ import { useEffect, useState } from "react";
 import { useUIStore } from "../../stores/ui";
 import { useUserStore } from "../../stores/user";
 import { useNotificationsStore } from "../../stores/notifications";
-import { useProfile } from "../../hooks/useProfile";
-import { useNip05Verified } from "../../hooks/useNip05Verified";
 import { fetchFollowers, ensureConnected } from "../../lib/nostr";
 import { keepUnfollowedRows } from "../../lib/contacts";
 import { dbLoadFollowers, dbSaveFollowers } from "../../lib/db";
-import { shortenPubkey, profileName } from "../../lib/utils";
 import { ViewHeader } from "../shared/ViewHeader";
 import { Tabs, tabPanelProps } from "../shared/Tabs";
-import { FollowButton } from "../shared/FollowButton";
+import { FollowRow } from "./FollowRow";
 import { ListState, followListState } from "../shared/ListState";
 import { fetchMark, wentUnanswered } from "../../lib/listLoad";
-
-function FollowRow({
-  pubkey,
-  followsYou,
-  isNew,
-}: {
-  pubkey: string;
-  followsYou?: boolean;
-  isNew?: boolean;
-}) {
-  const profile = useProfile(pubkey);
-  const name = profileName(profile, shortenPubkey(pubkey));
-  const avatar = typeof profile?.picture === "string" ? profile.picture : undefined;
-  const nip05 = typeof profile?.nip05 === "string" ? profile.nip05 : undefined;
-  const verified = useNip05Verified(pubkey, nip05);
-
-  const { openProfile } = useUIStore();
-
-  return (
-    <div className="flex items-center gap-3 px-4 py-2.5 hover:bg-bg-hover transition-colors">
-      <button className="shrink-0" onClick={() => openProfile(pubkey)}>
-        {avatar ? (
-          <img
-            src={avatar}
-            alt={`${name}'s avatar`}
-            className="w-9 h-9 rounded-full object-cover bg-bg-raised hover:opacity-80 transition-opacity"
-            loading="lazy"
-            onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
-          />
-        ) : (
-          <div className="w-9 h-9 rounded-full bg-bg-raised border border-border flex items-center justify-center text-text-dim text-xs hover:border-accent/40 transition-colors">
-            {name.charAt(0).toUpperCase()}
-          </div>
-        )}
-      </button>
-
-      <div className="flex-1 min-w-0">
-        <div className="flex items-baseline gap-2">
-          <button
-            onClick={() => openProfile(pubkey)}
-            className="text-text font-medium truncate text-body hover:text-accent transition-colors text-left"
-          >
-            {name}
-          </button>
-          {nip05 && (
-            <span className={`text-caption truncate max-w-40 ${verified === "valid" ? "text-success" : "text-text-dim"}`}>
-              {verified === "valid" ? "✓ " : ""}{nip05}
-            </span>
-          )}
-          {followsYou && (
-            <span className="text-micro text-text-dim bg-bg-raised px-1.5 py-0.5 rounded-sm">follows you</span>
-          )}
-          {isNew && (
-            <span className="text-micro text-accent bg-accent/15 px-1.5 py-0.5 rounded-sm font-medium">new</span>
-          )}
-        </div>
-      </div>
-
-      <FollowButton pubkey={pubkey} />
-    </div>
-  );
-}
 
 /**
  * The people you follow. Someone unfollowed here keeps their row, now with a
@@ -97,7 +32,9 @@ function FollowingRows({ follows, followers }: { follows: string[]; followers: S
 export function FollowsView() {
   const { followsTab, setFollowsTab , viewStack, goBack } = useUIStore();
   const { pubkey, follows, followsStatus, fetchFollows } = useUserStore();
-  const { newFollowerPubkeys, clearNewFollowers } = useNotificationsStore();
+  // "New" is live: Notifications clears it once its Followers have been looked at. This view used to
+  // clear it on mount from a snapshot, which a kept view (see "Back keeps your place") never takes again.
+  const newFollowerPubkeys = useNotificationsStore((s) => s.newFollowerPubkeys);
 
   const [followers, setFollowers] = useState<string[]>([]);
   const [followersLoading, setFollowersLoading] = useState(false);
@@ -106,14 +43,6 @@ export function FollowsView() {
   // The network did not answer the followers fetch: with none to show, "no followers" would be a guess.
   const [followersUnanswered, setFollowersUnanswered] = useState(false);
   const [followersReload, setFollowersReload] = useState(0);
-  // Snapshot new follower pubkeys on mount, before clearing
-  const [newPubkeys] = useState(() => new Set(newFollowerPubkeys));
-
-  // Clear badge when view opens
-  useEffect(() => {
-    clearNewFollowers();
-  }, []);
-
   // Load followers: DB cache first (instant), then relay fetch to merge new ones
   useEffect(() => {
     if (followsTab !== "followers" || !pubkey || followersFetched) return;
@@ -196,12 +125,12 @@ export function FollowsView() {
             )}
             {[...followers]
               .sort((a, b) => {
-                const aNew = newPubkeys.has(a) ? 1 : 0;
-                const bNew = newPubkeys.has(b) ? 1 : 0;
+                const aNew = newFollowerPubkeys.has(a) ? 1 : 0;
+                const bNew = newFollowerPubkeys.has(b) ? 1 : 0;
                 return bNew - aNew; // new followers first
               })
               .map((pk) => (
-              <FollowRow key={pk} pubkey={pk} isNew={newPubkeys.has(pk)} />
+              <FollowRow key={pk} pubkey={pk} isNew={newFollowerPubkeys.has(pk)} />
             ))}
           </>
         )}

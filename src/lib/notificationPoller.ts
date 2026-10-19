@@ -79,6 +79,8 @@ async function pollOnce(pubkey: string) {
     const newZaps = zaps.filter((e) => !existingIds.has(e.id!) && (e.created_at ?? 0) > zapsSince);
     if (newZaps.length > 0) {
       dbSaveNotifications(newZaps.map((e) => JSON.stringify(e.rawEvent())), pubkey, "zap");
+      // Into the store too, or the badge learns of them only at the next open or restart.
+      useNotificationsStore.getState().addNotifications(newZaps, pubkey);
       for (const e of newZaps) {
         const desc = e.tags.find((t) => t[0] === "description")?.[1];
         let senderName = "Someone";
@@ -111,10 +113,8 @@ async function pollOnce(pubkey: string) {
     const newFollowers = followers.filter((e) => e.pubkey !== pubkey && !existingFollowerPubkeys.has(e.pubkey));
     if (newFollowers.length > 0) {
       dbSaveNotifications(newFollowers.map((e) => JSON.stringify(e.rawEvent())), pubkey, "follower");
-      // Add to in-memory store so next poll cycle's pubkey dedup catches them
-      const store = useNotificationsStore.getState();
-      const updated = [...store.notifications, ...newFollowers];
-      useNotificationsStore.setState({ notifications: updated });
+      // Into the store, so the next poll's dedup by person sees them and the badge counts them
+      useNotificationsStore.getState().addNotifications(newFollowers, pubkey);
       for (const e of newFollowers) {
         const name = await getProfileName(e.pubkey);
         notifyFollower(name).catch(() => {});
