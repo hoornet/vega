@@ -99,7 +99,8 @@ function ImageGrid({ images, onImageClick, inView }: { images: string[]; onImage
 
 function QuotePreview({ eventId }: { eventId: string }) {
   const [event, setEvent] = useState<NDKEvent | null>(null);
-  const { openThread, currentView } = useUIStore();
+  const openThread = useUIStore((s) => s.openThread);
+  const currentView = useUIStore((s) => s.currentView);
   const profile = useProfile(event?.pubkey ?? "");
 
   useEffect(() => {
@@ -148,7 +149,7 @@ interface NoteContentProps {
 }
 
 export function NoteContent({ content, inline, mediaOnly, mediaInView = true }: NoteContentProps) {
-  const { openHashtag } = useUIStore();
+  const openHashtag = useUIStore((s) => s.openHashtag);
   const segments = parseContent(content);
   const images: string[] = segments.filter((s) => s.type === "image").map((s) => s.value);
   const videos: string[] = segments.filter((s) => s.type === "video").map((s) => s.value);

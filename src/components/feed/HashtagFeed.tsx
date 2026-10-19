@@ -1,3 +1,4 @@
+import { memo } from "react";
 import { useUIStore } from "../../stores/ui";
 import { fetchHashtagFeed } from "../../lib/nostr";
 import { NoteCard } from "./NoteCard";
@@ -5,9 +6,9 @@ import { ViewHeader } from "../shared/ViewHeader";
 import { ListState, emptyOr } from "../shared/ListState";
 import { useLoadedList } from "../../hooks/useLoadedList";
 
-export function HashtagFeed() {
-  const { pendingHashtag, goBack } = useUIStore();
-  const tag = pendingHashtag ?? "";
+/** One tag's page. App keeps one instance per tag Back can lead to (see "Back keeps your place"). */
+export const HashtagFeed = memo(function HashtagFeed({ tag }: { tag: string }) {
+  const goBack = useUIStore((s) => s.goBack);
 
   // Asked twice when the first answer is empty: relays are often slow on the first ask.
   const list = useLoadedList(() => fetchHashtagFeed(tag), [tag], { retryEmptyAfterMs: 3000, enabled: tag !== "" });
@@ -40,4 +41,4 @@ export function HashtagFeed() {
       </div>
     </div>
   );
-}
+});
