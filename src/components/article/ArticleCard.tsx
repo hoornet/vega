@@ -1,4 +1,4 @@
-import { memo, useMemo, useState, type MouseEvent, type ReactNode } from "react";
+import { memo, useEffect, useMemo, useState, type MouseEvent, type ReactNode } from "react";
 import { NDKEvent } from "@nostr-dev-kit/ndk";
 import { Bookmark } from "lucide-react";
 import { useProfile } from "../../hooks/useProfile";
@@ -32,9 +32,11 @@ interface ArticleCardProps {
   read?: boolean;
   /** More controls for the footer, before Save (the reading list's "Mark read"). */
   actions?: ReactNode;
+  /** Only a picture of the card (the publish sheet): nothing opens, no Save. */
+  preview?: boolean;
 }
 
-export const ArticleCard = memo(function ArticleCard({ event, showAuthor = true, read, actions }: ArticleCardProps) {
+export const ArticleCard = memo(function ArticleCard({ event, showAuthor = true, read, actions, preview = false }: ArticleCardProps) {
   const { openArticle, openProfile, openHashtag } = useUIStore();
   const canSign = useCanSign();
   const profile = useProfile(event.pubkey);
@@ -42,10 +44,12 @@ export const ArticleCard = memo(function ArticleCard({ event, showAuthor = true,
   // One field, not the whole store: a card subscribed to everything re-rendered on any bookmark change.
   const saved = useBookmarkStore((s) => (addr ? s.isArticleBookmarked(addr) : false));
   const [coverFailed, setCoverFailed] = useState(false);
+  const image = getTag(event, "image");
+  // A new address is a new try: the publish sheet's card is one instance for the whole sheet.
+  useEffect(() => { setCoverFailed(false); }, [image]);
 
   const title = getTag(event, "title") || "Untitled";
   const summary = useMemo(() => cardSummary(getTag(event, "summary"), event.content ?? "", title), [event, title]);
-  const image = getTag(event, "image");
   const tags = getTags(event, "t").slice(0, CARD_TAGS);
   const when = publishedAt(event);
   const naddr = articleNaddr(event);
@@ -61,9 +65,10 @@ export const ArticleCard = memo(function ArticleCard({ event, showAuthor = true,
   // The card is a target as a whole, but anything inside it that is itself a
   // control (the author, a tag, Save) does its own thing and not that too.
   const cardClick = (e: MouseEvent<HTMLElement>) => {
-    if ((e.target as HTMLElement).closest("button, a")) return;
+    if (preview || (e.target as HTMLElement).closest("button, a")) return;
     open();
   };
+  const act = (fn: () => void) => (preview ? undefined : fn);
   const toggleSave = () => {
     if (!addr) return;
     const { addArticleBookmark, removeArticleBookmark } = useBookmarkStore.getState();
@@ -73,14 +78,14 @@ export const ArticleCard = memo(function ArticleCard({ event, showAuthor = true,
 
   return (
     <article
-      className="border-b border-border-subtle px-4 py-4 hover:bg-bg-hover transition-colors cursor-pointer"
+      className={`border-b border-border-subtle px-4 py-4 ${preview ? "" : "hover:bg-bg-hover transition-colors cursor-pointer"}`}
       onClick={cardClick}
     >
       {/* Byline */}
       <div className="flex items-center gap-2 mb-1.5 text-ui text-text-muted">
         {showAuthor && (
           <>
-            <button type="button" className="shrink-0" onClick={() => openProfile(event.pubkey)} aria-label={`${authorName}'s profile`}>
+            <button type="button" className="shrink-0" onClick={act(() => openProfile(event.pubkey))} aria-label={`${authorName}'s profile`}>
               {profile?.picture ? (
                 <img
                   src={profile.picture}
@@ -94,7 +99,7 @@ export const ArticleCard = memo(function ArticleCard({ event, showAuthor = true,
                 </span>
               )}
             </button>
-            <button type="button" className="font-medium truncate hover:text-accent transition-colors" onClick={() => openProfile(event.pubkey)}>
+            <button type="button" className="font-medium truncate hover:text-accent transition-colors" onClick={act(() => openProfile(event.pubkey))}>
               {authorName}
             </button>
           </>
@@ -108,7 +113,7 @@ export const ArticleCard = memo(function ArticleCard({ event, showAuthor = true,
               block inside the button: a clamp on the heading did not count the
               lines of an inline-block button, and a long title ran to four. */}
           <h3 className={`font-reading text-heading font-semibold ${read ? "text-text-muted" : "text-text"}`}>
-            <button type="button" className="block w-full text-left" onClick={open}>
+            <button type="button" className="block w-full text-left" onClick={act(open)}>
               <span className="line-clamp-2">
                 {read === false && <><span aria-hidden className="inline-block size-1.5 rounded-full bg-accent mr-2 align-middle" /><span className="sr-only">Unread: </span></>}
                 {title}
@@ -136,13 +141,13 @@ export const ArticleCard = memo(function ArticleCard({ event, showAuthor = true,
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-2 min-h-7 text-caption text-text-muted">
         <span className="shrink-0">{readingMinutes(event.content)} min read</span>
         {tags.map((tag) => (
-          <button key={tag} type="button" className="max-w-40 truncate hover:text-accent transition-colors" onClick={() => openHashtag(tag)}>
+          <button key={tag} type="button" className="max-w-40 truncate hover:text-accent transition-colors" onClick={act(() => openHashtag(tag))}>
             #{tag}
           </button>
         ))}
         <span className="flex-1" />
         {actions}
-        {canSign && addr && (
+        {canSign && addr && !preview && (
           <Button square size="sm" variant="ghost" pressed={saved} onClick={toggleSave} aria-label={saved ? "Remove from reading list" : "Save to reading list"} title={saved ? "Saved" : "Save"}>
             <Bookmark fill={saved ? "currentColor" : "none"} />
           </Button>

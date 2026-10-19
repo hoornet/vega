@@ -1,7 +1,7 @@
 export { getNDK, getNDKUptimeMs, connectToRelays, ensureConnected, resetNDK, getStoredRelayUrls, normalizeRelayUrl, isLocalRelayUrl, isPoolSilent, stopSubscription, addRelay, removeRelay, isRelayAllowed, isOutboxRelaysEnabled, setOutboxRelaysEnabled, fetchWithTimeout, withTimeout, FEED_TIMEOUT, THREAD_TIMEOUT, SINGLE_TIMEOUT } from "./core";
 export { fetchGlobalFeed, fetchMediaFeed, fetchFollowFeed, fetchUserNotes, fetchUserNotesNIP65, fetchNoteById, fetchReplies, publishNote, publishReply, publishRepost, publishQuote, fetchHashtagFeed, fetchThreadEvents, fetchAncestors } from "./notes";
 export { publishProfile, publishContactList, fetchContactList, fetchProfile, fetchProfiles, fetchFollowSuggestions, fetchMentions, fetchFollowers, fetchNewFollowers } from "./social";
-export { publishArticle, fetchArticle, fetchAuthorArticles, fetchArticleFeed, searchArticles, fetchByAddr } from "./articles";
+export { publishArticle, previewArticleEvent, articleTags, articleSlug, type ArticleFields, fetchArticle, fetchAuthorArticles, fetchArticleFeed, searchArticles, fetchByAddr } from "./articles";
 export { publishReaction, fetchReplyCount, fetchZapCount, fetchReactions, groupReactions, fetchBatchEngagement, fetchZapsReceived, fetchZapsSent } from "./engagement";
 export type { GroupedReactions, BatchEngagement } from "./engagement";
 export { fetchDMConversations, fetchDMThread, fetchNewDMs, sendDM, decryptDM } from "./dms";
