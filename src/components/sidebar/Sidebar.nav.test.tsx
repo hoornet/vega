@@ -1,8 +1,8 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, fireEvent, cleanup, within } from "@testing-library/react";
 
-// The sidebar after the October 2026 UI review: eight destinations in two
-// groups, a Write button, a footer of tools, and the account.
+// The sidebar after the October 2026 UI review: nine destinations in two
+// groups (People came back on 2026-10-19), a Write button, a footer of tools, and the account.
 
 const signer = vi.hoisted(() => ({ canSign: true }));
 vi.mock("../../stores/user", () => ({
@@ -34,16 +34,17 @@ describe("Sidebar", () => {
   it("lists where you come back to, then where you explore, and nothing else", () => {
     render(<Sidebar />);
     // 2 unread mentions or zaps and 3 new followers: one badge.
-    expect(rows()).toEqual(["Home", "Notifications5 unread", "Messages", "Bookmarks", "Search", "Articles", "Media", "Podcasts"]);
-    for (const gone of ["People", "Zaps", "Value 4 Value", "Feed"]) {
+    expect(rows()).toEqual(["Home", "Notifications5 unread", "Messages", "Bookmarks", "People", "Search", "Articles", "Media", "Podcasts"]);
+    for (const gone of ["Zaps", "Value 4 Value", "Feed"]) {
       expect(within(nav()).queryByText(gone)).toBeNull();
     }
   });
 
-  it("hides the account-bound rows for a read-only account, and Write with them", () => {
+  // People stays: a read-only account has people to look at, and nothing there needs a key.
+  it("hides the key-bound rows for a read-only account, and Write with them", () => {
     signer.canSign = false;
     render(<Sidebar />);
-    expect(rows()).toEqual(["Home", "Search", "Articles", "Media", "Podcasts"]);
+    expect(rows()).toEqual(["Home", "People", "Search", "Articles", "Media", "Podcasts"]);
     expect(screen.queryByRole("button", { name: /^Write/ })).toBeNull();
   });
 
