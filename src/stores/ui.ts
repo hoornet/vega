@@ -53,6 +53,8 @@ interface UIState {
   /** Switch the Articles tab. As with the feed, only the user's own choice is kept across restarts. */
   setArticlesTab: (tab: ArticlesTab, opts?: { remember?: boolean }) => void;
   openProfile: (pubkey: string) => void;
+  /** Show a view reached from another view (People or Zap history from the account menu), so Back returns there. `setView` is for the sidebar and clears the way back. */
+  openView: (view: View) => void;
   openThread: (note: NDKEvent, from?: View) => void;
   openSearch: (query: string) => void;
   openHashtag: (tag: string) => void;
@@ -171,6 +173,11 @@ export const useUIStore = create<UIState>((set, _get) => ({
     set({ feedTab });
   },
   setFollowsTab: (followsTab) => set({ followsTab }),
+  openView: (view) => set((s) => {
+    // Choosing the view that is already open is not a step: a second entry made the first Back look like nothing.
+    if (s.currentView === view) return {};
+    return { currentView: view, previousView: s.currentView as View, viewStack: [...s.viewStack, here(s)].slice(-MAX_STACK) };
+  }),
   openProfile: (pubkey) => set((s) => {
     const stack = [...s.viewStack, here(s)].slice(-MAX_STACK);
     return { currentView: "profile", selectedPubkey: pubkey, previousView: s.currentView as View, viewStack: stack };

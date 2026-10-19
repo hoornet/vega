@@ -165,6 +165,13 @@ describe("Button", () => {
     });
 
     // A ghost toggle can sit on a row that hovers, where the accent tint is not held at 4.5:1.
+    it("marks the current place with the pressed look and aria-current, not as a toggle", () => {
+      render(<Button variant="ghost" current>Settings</Button>);
+      expect(btn().getAttribute("aria-current")).toBe("page");
+      expect(btn().getAttribute("aria-pressed")).toBeNull();
+      expect(classes()).toContain(" text-accent ");
+    });
+
     it("draws a pressed ghost in accent text, with no fill", () => {
       render(<Button variant="ghost" pressed>Meta</Button>);
       expect(btn().getAttribute("aria-pressed")).toBe("true");

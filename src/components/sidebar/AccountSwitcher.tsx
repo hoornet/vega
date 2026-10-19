@@ -1,6 +1,8 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useRef, useState, useEffect } from "react";
 import { useUserStore, SavedAccount, readSecretKey } from "../../stores/user";
 import { useUIStore } from "../../stores/ui";
+import { useNotificationsStore } from "../../stores/notifications";
+import { ChevronsUpDown, LogIn, UserRound, Users, Zap } from "lucide-react";
 import { LoginModal } from "../shared/LoginModal";
 import { shortenPubkey } from "../../lib/utils";
 import { useEscapeToClose } from "../../hooks/useEscapeToClose";
@@ -10,20 +12,23 @@ import { copyText } from "../../lib/clipboard";
 
 function Avatar({ account, size = "w-6 h-6", textSize = "text-[10px]" }: { account: SavedAccount; size?: string; textSize?: string }) {
   const initial = (account.name || account.npub || "?").charAt(0).toUpperCase();
-  if (account.picture) {
+  // A picture that fails to load falls back to the initial. It used to hide
+  // the <img>, which left a button with nothing in it and no size: collapsed,
+  // the only account control was gone.
+  const [failed, setFailed] = useState(false);
+  useEffect(() => { setFailed(false); }, [account.picture]);
+  if (account.picture && !failed) {
     return (
       <img
         src={account.picture}
         alt={`${account.name || "Account"} avatar`}
         className={`${size} rounded-full object-cover shrink-0`}
-        onError={(e) => {
-          (e.target as HTMLImageElement).style.display = "none";
-        }}
+        onError={() => setFailed(true)}
       />
     );
   }
   return (
-    <div className={`${size} rounded-full bg-accent/20 flex items-center justify-center text-accent ${textSize} shrink-0`}>
+    <div className={`${size} rounded-full bg-bg-raised border border-border flex items-center justify-center text-text-dim ${textSize} shrink-0`}>
       {initial}
     </div>
   );
@@ -81,9 +86,41 @@ function RemoveAccountConfirm({ account, name, onCancel, onConfirm }: {
   );
 }
 
+/**
+ * The account when the sidebar is collapsed: the avatar alone, opening your
+ * profile. Collapsed, the account used to be gone altogether, and with it
+ * your profile, switching and signing out.
+ */
+export function CollapsedAccount() {
+  const { accounts, pubkey } = useUserStore();
+  const { toggleSidebar } = useUIStore();
+  const newFollowers = useNotificationsStore((s) => s.newFollowersCount);
+  const [showLogin, setShowLogin] = useState(false);
+  const current = accounts.find((a) => a.pubkey === pubkey) ?? null;
+  return (
+    <div className="border-t border-border-subtle shrink-0 py-2 flex justify-center">
+      {current ? (
+        // The avatar expands the sidebar, where the account row and its menu
+        // (profile, People, Zap history, switching, signing out) are. A dot says
+        // there are new followers, which the menu's People item counts.
+        <button type="button" onClick={toggleSidebar} title={`${current.name || shortenPubkey(current.npub)}: expand for the account menu`} aria-label="Account: expand the sidebar for the account menu" className="relative w-8 h-8 rounded-full focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent">
+          <Avatar account={current} size="w-8 h-8" textSize="text-ui" />
+          {newFollowers > 0 && <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-accent border border-bg-raised" aria-hidden />}
+        </button>
+      ) : (
+        <>
+          <Button square variant="ghost" onClick={() => setShowLogin(true)} aria-label="Log in" title="Log in"><LogIn /></Button>
+          {showLogin && <LoginModal onClose={() => setShowLogin(false)} />}
+        </>
+      )}
+    </div>
+  );
+}
+
 export function AccountSwitcher() {
   const { accounts, pubkey, loggedIn, switchAccount, removeAccount, logout } = useUserStore();
-  const { openProfile } = useUIStore();
+  const { openProfile, openView } = useUIStore();
+  const newFollowers = useNotificationsStore((s) => s.newFollowersCount);
   const [open, setOpen] = useState(false);
   const [showAddLogin, setShowAddLogin] = useState(false);
   // The account awaiting a second click before it is removed, if any.
@@ -174,6 +211,18 @@ export function AccountSwitcher() {
         )}
         {open && !confirmTarget && (
           <div className="border-b border-border-subtle">
+            {/* Your places. People and Zap history left the sidebar's list for here; Back returns from them. */}
+            <button type="button" onClick={() => { setOpen(false); openProfile(pubkey); }} className="w-full flex items-center gap-2 px-3 py-2 text-text-muted hover:text-text hover:bg-text/8 text-ui transition-colors">
+              <UserRound size={16} strokeWidth={1.75} className="w-6 shrink-0" /><span>Profile</span>
+            </button>
+            <button type="button" onClick={() => { setOpen(false); openView("follows"); }} className="w-full flex items-center gap-2 px-3 py-2 text-text-muted hover:text-text hover:bg-text/8 text-ui transition-colors">
+              <Users size={16} strokeWidth={1.75} className="w-6 shrink-0" /><span>People</span>
+              {newFollowers > 0 && <span className="ml-auto text-micro bg-accent text-accent-text px-1.5 py-0.5 rounded-sm" aria-label={`${newFollowers} new followers`}>{newFollowers}</span>}
+            </button>
+            <button type="button" onClick={() => { setOpen(false); openView("zaps"); }} className="w-full flex items-center gap-2 px-3 py-2 text-text-muted hover:text-text hover:bg-text/8 text-ui transition-colors">
+              <Zap size={16} strokeWidth={1.75} className="w-6 shrink-0" /><span>Zap history</span>
+            </button>
+            <div className="border-t border-border-subtle mx-3 my-1" />
             {others.map((a) => (
               <div
                 key={a.pubkey}
@@ -233,18 +282,23 @@ export function AccountSwitcher() {
               className="flex items-center gap-2 flex-1 min-w-0 cursor-pointer hover:opacity-80 transition-opacity"
               onClick={() => { setOpen(false); openProfile(pubkey); }}
             >
-              <Avatar account={current} size={loggedIn ? "w-11 h-11" : "w-8 h-8"} textSize={loggedIn ? "text-[16px]" : "text-[12px]"} />
-              <span className={`font-medium truncate flex-1 ${loggedIn ? "text-body text-text" : "text-ui text-text-muted"}`}>{displayName(current)}</span>
+              {/* 32px and semibold at the UI size: the 44px avatar beside a body-size name was the heaviest thing in the chrome. */}
+              <Avatar account={current} size="w-8 h-8" textSize="text-ui" />
+              <span className={`text-ui font-semibold truncate flex-1 ${loggedIn ? "text-text" : "text-text-muted"}`}>{displayName(current)}</span>
             </div>
-            <button
+            <Button
+              square size="sm" variant="ghost"
               onClick={() => { setConfirmRemove(null); setOpen((v) => !v); }}
-              className="text-text-dim hover:text-text text-[14px] transition-colors px-1"
               ref={arrowRef}
               title="Switch account"
+              aria-label={newFollowers > 0 ? `Switch account (${newFollowers} new followers)` : "Switch account"}
               aria-expanded={open}
+              className="relative"
             >
-              {open ? "▲" : "▼"}
-            </button>
+              <ChevronsUpDown />
+              {/* New followers are counted on the menu's People item; the dot says to look. */}
+              {!open && newFollowers > 0 && <span className="absolute top-0.5 right-0.5 w-1.5 h-1.5 rounded-full bg-accent" aria-hidden />}
+            </Button>
           </div>
         </div>
       </div>
