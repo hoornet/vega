@@ -25,6 +25,8 @@ interface LightningState {
   nwcUri: string | null;
   setNwcUri: (uri: string, pubkey?: string) => void;
   clearNwcUri: (pubkey?: string) => void;
+  /** An account removed from this computer takes its wallet connection with it: that string can spend money. */
+  forgetAccount: (pubkey: string, wasActive: boolean) => void;
   loadNwcForAccount: (pubkey: string) => void;
   zap: (target: ZapTargetSpec, amountSats: number, comment?: string) => Promise<void>;
 }
@@ -43,6 +45,14 @@ export const useLightningStore = create<LightningState>(() => ({
     localStorage.removeItem(NWC_STORAGE_KEY);
     if (pubkey) localStorage.removeItem(nwcKeyForAccount(pubkey));
     useLightningStore.setState({ nwcUri: null });
+  },
+
+  forgetAccount: (pubkey: string, wasActive: boolean) => {
+    localStorage.removeItem(nwcKeyForAccount(pubkey));
+    if (wasActive) {
+      localStorage.removeItem(NWC_STORAGE_KEY);
+      useLightningStore.setState({ nwcUri: null });
+    }
   },
 
   loadNwcForAccount: (pubkey: string) => {

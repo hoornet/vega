@@ -734,6 +734,9 @@ export const useUserStore = create<UserState>((set, get) => ({
     _unsaved.delete(pubkey);
     useToastStore.getState().removeByKey(keychainToast(pubkey));
     usePodcastStore.getState().forgetAccount(pubkey);
+    // And its wallet connection, which can spend money: it stayed in localStorage,
+    // and the Settings page still said "connected" beside the words that the key was deleted.
+    useLightningStore.getState().forgetAccount(pubkey, get().pubkey === pubkey);
 
     const accounts = get().accounts.filter((a) => a.pubkey !== pubkey);
     persistAccounts(accounts);
