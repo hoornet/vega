@@ -2,6 +2,38 @@
 
 > Note: entries for v0.12.10 through v0.13.1 live in the [GitHub Releases](https://github.com/hoornet/vega/releases) notes; this file resumes at v0.13.2. The release notes on GitHub are the richer record — this file is the summary.
 
+## v0.16.0 — A reworked interface, and every relay event checked (2026-10-19)
+
+### Security
+- **Every event a relay sends is checked: its signature, and that its id is the hash of its own contents.** NDK 3.0.3 did not do either reliably on its own: for relays added after start-up it stopped checking signatures altogether, and its record of already-checked signatures could be fooled by a chosen event id. Either way a relay could hand Vega a note or a profile in someone else's name, or a follow list in yours, and the next Follow click would have republished that list under your key. Private messages were not affected. Reported to NDK's author on 2026-10-12; a fix is offered upstream in nostr-dev-kit/ndk#403. No misuse is known.
+- rustls 0.23.46 for RUSTSEC-2026-0346 to 0349, and Tauri's fs plugin 2.7.1 with two fixes to its scope checks. The zip advisories RUSTSEC-2026-0367 to 0369 are accepted with the reason written down: zip is used only by the updater on Windows, on an archive whose signature has already been verified.
+
+### Fixed
+- **The mute list and the bookmark list can no longer be overwritten by accident.** They were published whole, as this computer held them, over whatever the relays had, with the private part other clients keep there written empty; a first mute on a new computer could replace a list of a hundred. Each change is now made on the relays' copy as it stands, and nothing is published while that copy is unknown. Nothing muted or saved under older versions is lost, and each account has its own lists.
+- **"Posted." means a relay on the network has it**, not only the built-in relay. The same went for a follow, a profile edit or a relay list made offline.
+- **A list says it is empty only when a relay said so.** When nobody answered it says so and offers Try again, and a failed refresh keeps its rows.
+- Adding a read-only account while signed in with a key left that key in use, so the podcast, mute and bookmark lists could be published under the previous account's key. A change of account now lets go of it.
+- A message is sent once the recipient's copy is out; when only your own copy failed, a second press used to send it twice.
+- Looking someone up by name@domain (search's `by:`) had found nobody since at least March. It works now.
+- Value 4 Value counts a payment whose confirmation came late as sent, and names one that failed.
+- The relay badge says when relays are not answering. "Connection lost" goes when "Back online" comes.
+- A removed relay no longer comes back. Removing an account also removes its wallet connection.
+- A failed podcast subscription change is no longer lost at the next start. Leaving a thread through the sidebar no longer takes the whole app down.
+
+### Changed
+- **The October 2026 interface review.** One content column for lists and feeds; seven text sizes in place of 660 hard-coded ones, note text at 15px; every theme's text colours at 4.5:1 or better; rounded corners; Sepia retired (it becomes Gruvbox); buttons in three levels, one switch, one view header.
+- **The note action row**: icons in 32px targets in a fixed order, a near miss never opens the thread, Repost and Quote share one menu.
+- **Articles**: a bundled reading face (Literata), a size and measure that follow the window, the writer at the end, marked read near the end of the text, rebuilt cards.
+- **The editor** is the reader's page; Publish opens a sheet with the card as it will appear; published articles can be edited in place.
+- **The sidebar** has eight places, a Write button and four tools at the foot. **Settings** is in six groups. **Relays** shows your relays apart from extra reach, with Undo on Remove.
+- **Notifications** has tabs for mentions, zaps and followers. **New message** finds people you follow by name.
+- **A wallet counts as connected once it has answered.** Text size scales the whole window. Back keeps your place in list views.
+- Toasts confirm what nothing else shows and say when something failed. Escape closes what opened last, and dialogs take and return focus.
+
+### Maintenance
+- Tauri 2.12.3 and its plugins, marked 18.1, lucide-react 1.55, @tanstack/react-virtual 3.14.19, tokio 1.53.3, serde_json, sha2; quinn-proto 0.11.18 (in the lockfile, not compiled).
+- The leak check anchors private IP ranges to the start of an address.
+
 ## v0.15.10 — Your follow list and your key are safer (2026-10-11)
 
 ### Fixed
