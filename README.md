@@ -54,8 +54,9 @@ minisign -Vm Vega_X.Y.Z_amd64.deb -p vega.pub
 ## Features
 
 **Identity & accounts**
-- In-app key generation with plain-language nsec backup — no browser extension required
-- **Create new account** from the account switcher — no need to restart or go through onboarding again
+- **In-app account creation** — asks what people should call you and publishes that as your first profile; your secret key is shown once, with Copy, and a reminder stays until you have copied it; no browser extension required
+- **A first day that makes sense** — a "start here" card above the feed (picture, bio, follow three people, back up your key, say hello), people to start with until you follow three, and every empty view saying what it is for and offering the next step
+- **Looking around first** — browse without an account; "Create account" and "I have a key" open the same sign-up flow over the app, from the account switcher too
 - Login with nsec (full access) or npub (read-only)
 - **NIP-46 remote signer** — connect via `bunker://` URI (nsecBunker, Amber, etc.) with session persistence across restarts
 - **Multi-account switcher** — save multiple identities, switch instantly from the sidebar
@@ -145,9 +146,9 @@ minisign -Vm Vega_X.Y.Z_amd64.deb -p vega.pub
 - **Reading list tracking** — read/unread state on bookmarked articles with unread dot indicators and sidebar badge
 - **Profile banner polish** — hero-height banner with click-to-lightbox, avatar overlaps banner edge with ring
 - **System tray** — close button hides to tray; "Quit" in tray menu to fully exit
-- **Collapsible & resizable sidebar** — eight places (Home, Notifications, Messages, Bookmarks, Search, Articles, Media, Podcasts), a Write button with your draft count, and Settings, Relays, Keyboard shortcuts and Support at the foot; People and Zap history are in the account menu; collapse to icon-only mode, or drag the right edge to set the width (double-click to reset; remembered between sessions)
+- **Collapsible & resizable sidebar** — nine places (Home, Notifications, Messages, Bookmarks, People, Search, Articles, Media, Podcasts), a Write button with your draft count, and Settings, Relays, Keyboard shortcuts and Support at the foot; Zap history is in the account menu; collapse to icon-only mode, or drag the right edge to set the width (double-click to reset; remembered between sessions)
 - **Collapsing compose box** — sits as a single line when idle and expands to full height with the toolbar when you focus it, keeping the top of the feed compact
-- **Update banner with changelog** — when an update is available, "What's new" shows that version's changes inline, with a link to the full changelog on GitHub
+- **Update banner with changelog** — when an update is available, "What's new" shows the release notes of every version since the one you have, newest first, with a link to the full changelog on GitHub
 - **Keyboard shortcuts** — `n` compose, `/` search, `j`/`k` navigate feed, `Esc` closes what opened last or goes back, `F6` newest toast, `?` help overlay
 - Skeleton loading placeholders, view fade transitions
 - **Media pause on navigation** — video and audio in feed automatically pause when you navigate to another view
