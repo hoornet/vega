@@ -154,7 +154,7 @@ minisign -Vm Vega_X.Y.Z_amd64.deb -p vega.pub
 - **Media pause on navigation** — video and audio in feed automatically pause when you navigate to another view
 - **Accessibility** — WCAG AA contrast (text colours at 4.5:1 or better in every theme), ARIA labels, reduced motion support; dialogs take focus, keep Tab inside and give focus back; switches and tabs tell a screen reader their state
 - **Podcast player stability** — 15s loading timeout with user-friendly error messages; automatic V4V stop on audio failure
-- **Read-only mode banner** — persistent top-of-app warning when not signed in, so you always know you're in read-only mode
+- **Identity banner** — looking around without an account, a line at the top offers Create account and I have a key; a public-key account is told whose view it is and what a key adds; an account made here is reminded until its secret key is backed up
 
 ## Supported NIPs
 
