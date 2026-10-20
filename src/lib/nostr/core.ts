@@ -454,7 +454,7 @@ export function normalizeRelayUrl(url: string): string {
 }
 
 /**
- * The embedded strfry relay, which lives in the pool but deliberately never in
+ * The embedded relay (Vega's own, in src-tauri/src/relay), which lives in the pool but deliberately never in
  * the stored relay list.
  *
  * Tolerates either URL form — callers pass `NDKRelay.url` (trailing slash) as
