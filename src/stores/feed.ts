@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { NDKEvent, NDKFilter, NDKKind, NDKSubscription, NDKSubscriptionCacheUsage } from "@nostr-dev-kit/ndk";
-import { connectToRelays, ensureConnected, resetNDK, fetchGlobalFeed, fetchBatchEngagement, fetchTrendingCandidates, getNDK, isLocalRelayUrl, isPoolSilent } from "../lib/nostr";
+import { connectToRelays, ensureConnected, resetNDK, fetchGlobalFeed, fetchBatchEngagement, fetchTrendingCandidates, getNDK, isLocalRelayUrl, isPoolSilent, stopSubscription } from "../lib/nostr";
 import { seedReactionsCache } from "../hooks/useReactions";
 import { useToastStore } from "./toast";
 import { useWoTStore } from "./wot";
@@ -338,9 +338,11 @@ export const useFeedStore = create<FeedState>((set, get) => ({
    * New events stream in and are prepended to the feed in real time.
    */
   startLiveFeed: () => {
-    // Close existing subscription if any
+    // Close the existing subscription, if any. Never a bare stop(): a subscription that has
+    // never EOSEd leaves its "authed" listener behind, and an auth-required relay then gets a
+    // REQ with no filters (see "Orphan relay subscriptions" in CLAUDE.md).
     if (liveSub) {
-      try { liveSub.stop(); } catch { /* ignore */ }
+      stopSubscription(liveSub, getNDK());
       liveSub = null;
     }
 
