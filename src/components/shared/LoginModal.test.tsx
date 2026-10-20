@@ -9,10 +9,11 @@ const store = {
   loginWithRemoteSigner: vi.fn(),
 };
 vi.mock("../../stores/user", () => ({ useUserStore: Object.assign(() => store, { getState: () => store }) }));
+beforeEach(() => { useUIStore.setState({ signup: null }); });
 
 import { LoginModal } from "./LoginModal";
 import { HelpModal } from "./HelpModal";
-import { useToastStore } from "../../stores/toast";
+import { useUIStore } from "../../stores/ui";
 
 const onClose = vi.fn();
 beforeEach(() => { vi.clearAllMocks(); store.loginError = null; store.loginWithNsec.mockResolvedValue(undefined); store.loginWithPubkey.mockResolvedValue(undefined); });
@@ -22,7 +23,7 @@ describe("LoginModal", () => {
   it("is a dialog at the body, with the key field ready to type in", () => {
     const { container } = render(<div><LoginModal onClose={onClose} /></div>);
     expect(container.querySelector("[role=dialog]")).toBeNull();
-    expect(screen.getByRole("dialog", { name: "Login" })).toBeTruthy();
+    expect(screen.getByRole("dialog", { name: "Sign in" })).toBeTruthy();
     expect(document.activeElement).toBe(screen.getByPlaceholderText("nsec1…"));
   });
 
@@ -39,7 +40,7 @@ describe("LoginModal", () => {
     store.loginWithNsec.mockImplementation(async () => { store.loginError = "That is not a valid key."; });
     render(<LoginModal onClose={onClose} />);
     fireEvent.change(screen.getByPlaceholderText("nsec1…"), { target: { value: "nonsense" } });
-    fireEvent.click(screen.getByRole("button", { name: "Login" }));
+    fireEvent.click(screen.getByRole("button", { name: "Sign in" }));
     await waitFor(() => expect(store.loginWithNsec).toHaveBeenCalled());
     expect(onClose).not.toHaveBeenCalled();
   });
@@ -71,41 +72,14 @@ describe("LoginModal", () => {
   });
 });
 
-describe("LoginModal: copying a new account's secret key", () => {
-  const writeText = vi.fn();
-  const original = Object.getOwnPropertyDescriptor(navigator, "clipboard");
-  beforeEach(() => {
-    writeText.mockReset().mockResolvedValue(undefined);
-    Object.defineProperty(navigator, "clipboard", { value: { writeText }, configurable: true });
-    useToastStore.setState({ toasts: [] });
-  });
-  afterEach(() => {
-    if (original) Object.defineProperty(navigator, "clipboard", original);
-    else delete (navigator as { clipboard?: unknown }).clipboard;
-  });
-  const openNewAccount = () => {
+// Making an account is the sign-up flow's job, not a fourth tab here.
+describe("LoginModal: a new account", () => {
+  it("offers the sign-up flow, and closes to make way for it", () => {
     render(<LoginModal onClose={onClose} />);
-    fireEvent.click(screen.getByRole("tab", { name: /New account/i }));
-  };
-
-  it("says Copied once the key is on the clipboard", async () => {
-    openNewAccount();
-    fireEvent.click(screen.getByRole("button", { name: "Copy key" }));
-    expect(await screen.findByRole("button", { name: "Copied" })).toBeTruthy();
-    expect(writeText.mock.calls[0][0]).toMatch(/^nsec1/);
-    expect(useToastStore.getState().toasts).toEqual([]);
-  });
-
-  // Believing the key was copied when it was not is how a key gets lost.
-  it("does not say Copied when the key could not be copied, and says why", async () => {
-    writeText.mockRejectedValue(new Error("NotAllowedError"));
-    openNewAccount();
-    fireEvent.click(screen.getByRole("button", { name: "Copy key" }));
-    await waitFor(() => expect(useToastStore.getState().toasts).toHaveLength(1));
-    expect(useToastStore.getState().toasts[0].type).toBe("error");
-    expect(screen.queryByRole("button", { name: "Copied" })).toBeNull();
-    expect(screen.getByRole("button", { name: "Copy key" })).toBeTruthy();
-    expect(JSON.stringify(useToastStore.getState().toasts)).not.toContain("nsec1");
+    expect(screen.queryByRole("tab", { name: /new account/i })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Create an account" }));
+    expect(onClose).toHaveBeenCalledTimes(1);
+    expect(useUIStore.getState().signup).toBe("create");
   });
 });
 

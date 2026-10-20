@@ -1,11 +1,9 @@
 import { useState, type RefObject } from "react";
-import { NDKPrivateKeySigner } from "@nostr-dev-kit/ndk";
 import { useUserStore } from "../../stores/user";
+import { useUIStore } from "../../stores/ui";
 import { Tabs } from "./Tabs";
 import { Button } from "./Button";
 import { Dialog } from "./Dialog";
-import { Check, Copy } from "lucide-react";
-import { copyText } from "../../lib/clipboard";
 
 interface LoginModalProps {
   onClose: () => void;
@@ -13,72 +11,9 @@ interface LoginModalProps {
   returnFocus?: RefObject<HTMLElement | null>;
 }
 
-function NewAccountTab({ onClose }: { onClose: () => void }) {
-  const { loginWithNsec, loginError } = useUserStore();
-  const [signer] = useState(() => NDKPrivateKeySigner.generate());
-  const [confirmed, setConfirmed] = useState(false);
-  const [copied, setCopied] = useState(false);
-  const [logging, setLogging] = useState(false);
-
-  const nsec = signer.nsec;
-
-  // "Copied" only once it has been: this is the secret key, and believing it
-  // was copied when it was not is how a key gets lost.
-  const handleCopy = async () => {
-    if (!(await copyText(nsec))) return;
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1500);
-  };
-
-  const handleConfirm = async () => {
-    if (!confirmed) return;
-    setLogging(true);
-    await loginWithNsec(nsec);
-    if (!useUserStore.getState().loginError) {
-      onClose();
-    }
-    setLogging(false);
-  };
-
-  return (
-    <div>
-      <p className="text-text-muted text-body mb-3">
-        A new private key has been generated for you. Save it somewhere safe — it cannot be recovered.
-      </p>
-
-      <div className="bg-bg border border-border px-3 py-2 font-mono text-caption text-text break-all mb-2 rounded-lg"
-        style={{ WebkitUserSelect: "text", userSelect: "text" } as React.CSSProperties}
-      >
-        {nsec}
-      </div>
-
-      <Button className="mb-4" onClick={handleCopy}>{copied ? <Check /> : <Copy />}{copied ? "Copied" : "Copy key"}</Button>
-
-      <label className="flex items-start gap-2 cursor-pointer mb-4">
-        <input
-          type="checkbox"
-          checked={confirmed}
-          onChange={(e) => setConfirmed(e.target.checked)}
-          className="mt-0.5 shrink-0"
-        />
-        <span className="text-text-muted text-body">
-          I've saved my private key in a safe place
-        </span>
-      </label>
-
-      {loginError && (
-        <p className="text-danger text-caption mb-2">{loginError}</p>
-      )}
-
-      <Button variant="primary" size="lg" className="w-full" onClick={handleConfirm} disabled={!confirmed} busy={logging}>
-        {logging ? "Logging in…" : "create account"}
-      </Button>
-    </div>
-  );
-}
-
 export function LoginModal({ onClose, returnFocus }: LoginModalProps) {
-  const [tab, setTab] = useState<"nsec" | "pubkey" | "bunker" | "new">("nsec");
+  const [tab, setTab] = useState<"nsec" | "pubkey" | "bunker">("nsec");
+  const openSignup = useUIStore((s) => s.openSignup);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const { loginWithNsec, loginWithPubkey, loginWithRemoteSigner, loginError } = useUserStore();
@@ -107,14 +42,13 @@ export function LoginModal({ onClose, returnFocus }: LoginModalProps) {
   };
 
   return (
-    <Dialog title="Login" onClose={onClose} returnFocus={returnFocus}>
+    <Dialog title="Sign in" onClose={onClose} returnFocus={returnFocus}>
       <Tabs
-        label="How to log in"
+        label="How to sign in"
         tabs={[
-          { id: "nsec", label: "Private key" },
+          { id: "nsec", label: "Secret key" },
           { id: "pubkey", label: "Read-only" },
           { id: "bunker", label: "Remote signer" },
-          { id: "new", label: "New account" },
         ]}
         value={tab}
         onChange={(t) => { setTab(t); setInput(""); }}
@@ -122,15 +56,13 @@ export function LoginModal({ onClose, returnFocus }: LoginModalProps) {
 
       {/* Content */}
       <div className="p-4">
-        {tab === "new" ? (
-          <NewAccountTab onClose={onClose} />
-        ) : (
+        {(
           <>
             <label className="block text-text-muted text-caption mb-1.5">
               {tab === "nsec"
-                ? "Paste your nsec or hex private key"
+                ? "Paste your secret key (nsec)"
                 : tab === "pubkey"
-                  ? "Paste your npub or hex public key"
+                  ? "Paste a public key (npub) to browse as that account"
                   : "Paste your bunker:// URI"}
             </label>
             <input
@@ -150,7 +82,7 @@ export function LoginModal({ onClose, returnFocus }: LoginModalProps) {
 
             {tab === "pubkey" && (
               <p className="text-text-dim text-caption mt-1.5">
-                Read-only mode — you can browse but not post or zap.
+                Browse as that account. You can read, but not post, reply or zap.
               </p>
             )}
 
@@ -166,11 +98,19 @@ export function LoginModal({ onClose, returnFocus }: LoginModalProps) {
 
             <Button variant="primary" size="lg" className="w-full mt-3" onClick={handleLogin} disabled={!input.trim()} busy={loading}>
               {loading
-                ? (tab === "bunker" ? "Connecting…" : "Logging in…")
-                : tab === "nsec" ? "Login" : tab === "pubkey" ? "View as read-only" : "Connect"}
+                ? (tab === "bunker" ? "Connecting…" : "Signing in…")
+                : tab === "nsec" ? "Sign in" : tab === "pubkey" ? "View as read-only" : "Connect"}
             </Button>
           </>
         )}
+        {/* One way to make an account: the sign-up flow, not a fourth tab
+            with an unmasked key and no name. */}
+        <p className="text-text-muted text-caption text-center mt-4">
+          New to Nostr?{" "}
+          <button type="button" className="text-accent hover:text-accent-hover transition-colors" onClick={() => { onClose(); openSignup("create"); }}>
+            Create an account
+          </button>
+        </p>
       </div>
     </Dialog>
   );

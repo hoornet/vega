@@ -81,6 +81,13 @@ interface UIState {
   pendingArticleEvent: NDKEvent | null;
   pendingHashtag: string | null;
   showHelp: boolean;
+  /**
+   * The sign-up flow opened over the app: at the name step for a new
+   * account, or at the sign-in step for someone with a key. Null when the
+   * app is on screen. One flow for every way in; the welcome screen is only
+   * for a first launch.
+   */
+  signup: "create" | "login" | null;
   showDebugPanel: boolean;
   feedLanguageFilter: string | null;
   /** Hide RSS-bridge reposts on the Articles Latest tab. Default on. */
@@ -111,6 +118,8 @@ interface UIState {
   setTheme: (id: string) => void;
   toggleSidebar: () => void;
   toggleHelp: () => void;
+  openSignup: (step: "create" | "login") => void;
+  closeSignup: () => void;
   toggleDebugPanel: () => void;
 }
 
@@ -206,6 +215,7 @@ export const useUIStore = create<UIState>((set, _get) => ({
   pendingArticleEvent: null,
   pendingHashtag: null,
   showHelp: false,
+  signup: null,
   showDebugPanel: false,
   feedLanguageFilter: localStorage.getItem(SCRIPT_FILTER_KEY) || null,
   hideRssArticles: localStorage.getItem(HIDE_RSS_ARTICLES_KEY) !== "false",
@@ -223,6 +233,8 @@ export const useUIStore = create<UIState>((set, _get) => ({
     if (opts?.remember !== false) localStorage.setItem(ARTICLES_TAB_KEY, articlesTab);
     set({ articlesTab });
   },
+  openSignup: (step) => set({ signup: step }),
+  closeSignup: () => set({ signup: null }),
   setFeedTab: (feedTab, opts) => {
     if (opts?.remember !== false) localStorage.setItem(FEED_TAB_KEY, feedTab);
     set({ feedTab });

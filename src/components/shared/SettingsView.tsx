@@ -8,6 +8,7 @@ import { relaunch } from "@tauri-apps/plugin-process";
 import { useUserStore, useCanSign, readSecretKey, type SecretKey } from "../../stores/user";
 import { useLightningStore } from "../../stores/lightning";
 import { RemoveAccountConfirm } from "../sidebar/AccountSwitcher";
+import { useBackupStore } from "../../stores/backup";
 import { useUIStore } from "../../stores/ui";
 import { useWoTStore } from "../../stores/wot";
 import { themes } from "../../lib/themes";
@@ -265,6 +266,8 @@ export function IdentitySection() {
 
   const handleCopyNsec = async () => {
     if (!nsec || !(await copyText(nsec))) return;
+    // Copied out once: the reminder to back it up has done its work.
+    if (pubkey) useBackupStore.getState().clearPending(pubkey);
     setNsecCopied(true);
     setTimeout(() => setNsecCopied(false), 2000);
   };

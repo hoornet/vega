@@ -21,8 +21,9 @@ vi.mock("../../lib/nostr", () => ({ ensureConnected: () => { relays.ensureConnec
 const copyText = vi.hoisted(() => vi.fn());
 vi.mock("../../lib/clipboard", () => ({ copyText: (text: string) => copyText(text) }));
 
-import { OnboardingFlow } from "./OnboardingFlow";
+import { OnboardingFlow, discardSignupDraft } from "./OnboardingFlow";
 import { useToastStore } from "../../stores/toast";
+import { useBackupStore } from "../../stores/backup";
 import { shortNpub } from "../../lib/utils";
 
 /** What the interests step says about the step before it, if anything. */
@@ -58,6 +59,8 @@ beforeEach(() => {
   relays.connect = () => Promise.resolve(true);
   copyText.mockResolvedValue(true);
   useToastStore.setState({ toasts: [] });
+  useBackupStore.setState({ pending: [] });
+  discardSignupDraft();
 });
 afterEach(() => {
   cleanup();
@@ -316,6 +319,181 @@ describe("when no relay took the name", () => {
   });
 });
 
+// The backup step: the one thing it is for is a Copy button, and the box
+// may only be ticked once the key has been copied or seen.
+describe("the backup step", () => {
+  const KEY_BOX = () => screen.getByRole("checkbox") as HTMLInputElement;
+
+  it("copies the secret key with one button, and says so", async () => {
+    toBackupStep();
+    await act(async () => { press("Copy secret key"); });
+    expect(copyText).toHaveBeenCalledWith(expect.stringMatching(/^nsec1/));
+    expect(screen.getByRole("button", { name: "Copy secret key" }).textContent).toContain("Copied");
+  });
+
+  it("does not let the box be ticked before the key was copied or revealed", () => {
+    toBackupStep();
+    expect(KEY_BOX().disabled).toBe(true);
+    expect(screen.getByText("Copy or reveal the key first.")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "reveal" }));
+    expect(KEY_BOX().disabled).toBe(false);
+  });
+
+  it("lets the box be ticked once the key was copied, and keeps it so after Copied fades", async () => {
+    vi.useFakeTimers();
+    toBackupStep();
+    await act(async () => { press("Copy secret key"); });
+    expect(KEY_BOX().disabled).toBe(false);
+    expect(screen.queryByText("Copy or reveal the key first.")).toBeNull();
+    act(() => { vi.advanceTimersByTime(3100); });
+    expect(screen.getByRole("button", { name: "Copy secret key" }).textContent).toBe("Copy secret key");
+    expect(KEY_BOX().disabled).toBe(false);
+  });
+
+  it("unticks a box that was ticked on a revealed key once the key is hidden again", () => {
+    toBackupStep();
+    fireEvent.click(screen.getByRole("button", { name: "reveal" }));
+    fireEvent.click(KEY_BOX());
+    expect(KEY_BOX().checked).toBe(true);
+    fireEvent.click(screen.getByRole("button", { name: "hide" }));
+    expect(KEY_BOX().checked).toBe(false);
+    expect(KEY_BOX().disabled).toBe(true);
+  });
+
+  it("shows two step dots over the app, three on a first launch", () => {
+    toBackupStep();
+    expect(document.querySelectorAll(".rounded-full.transition-all").length).toBe(3);
+    cleanup();
+    render(<OnboardingFlow onComplete={onComplete} start="create" onCancel={vi.fn()} />);
+    expect(document.querySelectorAll(".rounded-full.transition-all").length).toBe(2);
+  });
+
+  it("does not count a copy the clipboard refused", async () => {
+    copyText.mockResolvedValue(false);
+    toBackupStep();
+    await act(async () => { press("Copy secret key"); });
+    expect(KEY_BOX().disabled).toBe(true);
+    expect(screen.getByRole("button", { name: "Copy secret key" }).textContent).not.toContain("Copied");
+  });
+
+  it("remembers an account that chose later, without the key copied", async () => {
+    toBackupStep();
+    await finishBackup();
+    const { NDKPrivateKeySigner } = await import("@nostr-dev-kit/ndk");
+    const made = new NDKPrivateKeySigner(user.loginWithNsec.mock.calls[0][0] as string).pubkey;
+    expect(useBackupStore.getState().pending).toEqual([made]);
+  });
+
+  // "Later" is still signing in, and the user copies the key meanwhile.
+  it("does not remember one that copied the key while later was still signing in", async () => {
+    let finishLogin!: () => void;
+    user.loginWithNsec.mockImplementation(() => new Promise<void>((resolve) => { finishLogin = resolve; }));
+    toBackupStep();
+    await finishBackup();
+    await act(async () => { press("Copy secret key"); });
+    await act(async () => { finishLogin(); });
+    expect(useBackupStore.getState().pending).toEqual([]);
+  });
+
+  it("does not remember an account whose sign-in failed", async () => {
+    user.loginWithNsec.mockImplementation(async () => { user.loginError = "Login failed"; });
+    toBackupStep();
+    await finishBackup();
+    expect(useBackupStore.getState().pending).toEqual([]);
+  });
+
+  it("does not remember one that copied the key and then chose later", async () => {
+    toBackupStep();
+    await act(async () => { press("Copy secret key"); });
+    await finishBackup();
+    expect(useBackupStore.getState().pending).toEqual([]);
+  });
+
+  it("does not remember one that ticked the box", async () => {
+    toBackupStep();
+    fireEvent.click(screen.getByRole("button", { name: "reveal" }));
+    fireEvent.click(KEY_BOX());
+    await act(async () => { press("Start using Vega"); });
+    expect(useBackupStore.getState().pending).toEqual([]);
+  });
+});
+
+// The same flow opened over the running app, from a banner or the account menu.
+describe("opened over the app", () => {
+  it("starts at the name step, with a way out instead of Back to the welcome screen", () => {
+    const onCancel = vi.fn();
+    render(<OnboardingFlow onComplete={onComplete} start="create" onCancel={onCancel} />);
+    expect(screen.getByRole("heading", { name: "What should people call you?" })).toBeTruthy();
+    press("Back");
+    expect(onCancel).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole("heading", { name: "Welcome to Vega." })).toBeNull();
+  });
+
+  it("starts at the sign-in step when the user has a key", () => {
+    const onCancel = vi.fn();
+    render(<OnboardingFlow onComplete={onComplete} start="login" onCancel={onCancel} />);
+    expect(screen.getByRole("heading", { name: "Sign in with your key." })).toBeTruthy();
+    press("Back");
+    expect(onCancel).toHaveBeenCalledTimes(1);
+  });
+
+  // Closed at the backup step, the key may already be in a password manager.
+  // The next "Create account" must come back with the same key.
+  it("comes back with the same key and name after being closed", () => {
+    const onCancel = vi.fn();
+    const { unmount } = render(<OnboardingFlow onComplete={onComplete} start="create" onCancel={onCancel} />);
+    const first = address().getAttribute("title");
+    fireEvent.change(nameField(), { target: { value: "Ana" } });
+    press(/Next: save your secret key/);
+    unmount();
+    render(<OnboardingFlow onComplete={onComplete} start="create" onCancel={onCancel} />);
+    expect(address().getAttribute("title")).toBe(first);
+    expect(nameField().value).toBe("Ana");
+  });
+
+  it("lets the key go once the account is made", async () => {
+    const { unmount } = render(<OnboardingFlow onComplete={onComplete} start="create" onCancel={vi.fn()} />);
+    const first = address().getAttribute("title");
+    press(/Next: save your secret key/);
+    await finishBackup();
+    expect(onComplete).toHaveBeenCalledTimes(1);
+    unmount();
+    render(<OnboardingFlow onComplete={onComplete} start="create" onCancel={vi.fn()} />);
+    expect(address().getAttribute("title")).not.toBe(first);
+  });
+
+  it("says in a toast when the name could not be published, since there is no next step", async () => {
+    user.saveProfile.mockRejectedValue(new Error("Not enough relays received the event (0 published, 1 required)"));
+    render(<OnboardingFlow onComplete={onComplete} start="create" onCancel={vi.fn()} />);
+    fireEvent.change(nameField(), { target: { value: "Ana" } });
+    press(/Next: save your secret key/);
+    await finishBackup();
+    expect(onComplete).toHaveBeenCalledTimes(1);
+    expect(toasts().map((t) => `${t.type}: ${t.message}`)).toEqual([
+      "error: Your name was not published: none of your relays accepted it. Your account works without it, and you can add your name from your profile.",
+    ]);
+  });
+
+  // A failed sign-in, or a remote signer that did not answer at startup.
+  it("does not show an earlier sign-in error on the new account's backup step", () => {
+    user.loginError = "That doesn't look like a secret key.";
+    render(<OnboardingFlow onComplete={onComplete} start="create" onCancel={vi.fn()} />);
+    press(/Next: save your secret key/);
+    expect(screen.queryByText("That doesn't look like a secret key.")).toBeNull();
+    expect(user.loginError).toBeNull();
+  });
+
+  it("skips the interests step, which belongs to the first launch", async () => {
+    render(<OnboardingFlow onComplete={onComplete} start="create" onCancel={vi.fn()} />);
+    fireEvent.change(nameField(), { target: { value: "Ana" } });
+    press(/Next: save your secret key/);
+    await finishBackup();
+    expect(screen.queryByRole("heading", { name: "What are you into?" })).toBeNull();
+    expect(onComplete).toHaveBeenCalledTimes(1);
+    expect(user.saveProfile).toHaveBeenCalledWith({ name: "Ana", display_name: "Ana" }, expect.any(String));
+  });
+});
+
 describe("the rest of the flow", () => {
   it("finishes onboarding from the interests step", async () => {
     toBackupStep("Ana");
@@ -327,7 +505,7 @@ describe("the rest of the flow", () => {
   it("still leads someone with a key to the sign-in step and back", () => {
     render(<OnboardingFlow onComplete={onComplete} />);
     press("I already have a Nostr key");
-    expect(screen.getByRole("heading", { name: "Log in with your key." })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Sign in with your key." })).toBeTruthy();
     press("Back");
     expect(screen.getByRole("heading", { name: "Welcome to Vega." })).toBeTruthy();
   });

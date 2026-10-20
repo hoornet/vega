@@ -359,3 +359,86 @@ describe("becoming another account", () => {
     expect(podcasts.setActiveAccount).toHaveBeenLastCalledWith(null);
   });
 });
+
+// The reminder to back up a key ends when the key is copied out, or the
+// account and its key are gone.
+describe("the backup reminder and the key", () => {
+  const ME = "cd".repeat(32);
+  const writeText = vi.fn();
+  const original = Object.getOwnPropertyDescriptor(navigator, "clipboard");
+  beforeEach(async () => {
+    localStorage.clear();
+    vi.clearAllMocks();
+    writeText.mockReset().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "clipboard", { value: { writeText }, configurable: true });
+    useToastStore.setState({ toasts: [] });
+    const { useBackupStore } = await import("./backup");
+    useBackupStore.setState({ pending: [ME] });
+    vi.mocked(invoke).mockImplementation(async (cmd: string) => (cmd === "load_nsec" ? "nsec1fromkeychain" : null));
+  });
+  afterEach(() => { if (original) Object.defineProperty(navigator, "clipboard", original); });
+
+  it("ends when the key is copied", async () => {
+    const { copySecretKey } = await import("./user");
+    const { useBackupStore } = await import("./backup");
+    expect(await copySecretKey(ME)).toBe(true);
+    expect(writeText).toHaveBeenCalledWith("nsec1fromkeychain");
+    expect(useBackupStore.getState().pending).toEqual([]);
+    expect(useToastStore.getState().toasts.map((t) => t.message)).toEqual(["Secret key copied."]);
+  });
+
+  it("says nothing of its own when asked to be quiet", async () => {
+    const { copySecretKey } = await import("./user");
+    expect(await copySecretKey(ME, { quiet: true })).toBe(true);
+    expect(useToastStore.getState().toasts).toEqual([]);
+  });
+
+  it("does not end when the clipboard refused", async () => {
+    writeText.mockRejectedValue(new Error("no clipboard"));
+    const { copySecretKey } = await import("./user");
+    const { useBackupStore } = await import("./backup");
+    expect(await copySecretKey(ME)).toBe(false);
+    expect(useBackupStore.getState().pending).toEqual([ME]);
+  });
+
+  it("does not end when there is no key here to copy", async () => {
+    vi.mocked(invoke).mockResolvedValue(null);
+    const { copySecretKey } = await import("./user");
+    const { useBackupStore } = await import("./backup");
+    expect(await copySecretKey(ME)).toBe(false);
+    expect(useBackupStore.getState().pending).toEqual([ME]);
+    expect(useToastStore.getState().toasts.map((t) => t.type)).toEqual(["error"]);
+  });
+
+  it("ends when the account is removed from this computer", async () => {
+    const { useBackupStore } = await import("./backup");
+    useUserStore.setState({ accounts: [{ pubkey: ME, npub: "npub1me", loginType: "nsec" }], pubkey: null, npub: null, loggedIn: false });
+    useUserStore.getState().removeAccount(ME);
+    expect(useBackupStore.getState().pending).toEqual([]);
+  });
+});
+
+// Who is signed in is not known while the saved session is restored.
+describe("restoring the saved session", () => {
+  it("says so while it runs, and not afterwards", async () => {
+    localStorage.clear();
+    vi.mocked(invoke).mockResolvedValue(null);
+    localStorage.setItem("wrystr_accounts", JSON.stringify([{ pubkey: BUNKER_PUBKEY, npub: "npub1", loginType: "nsec" }]));
+    localStorage.setItem("wrystr_pubkey", BUNKER_PUBKEY);
+    localStorage.setItem("wrystr_login_type", "nsec");
+    useUserStore.setState({ accounts: [{ pubkey: BUNKER_PUBKEY, npub: "npub1", loginType: "nsec" }], pubkey: null, loggedIn: false, restoring: false });
+    const restoring = useUserStore.getState().restoreSession();
+    expect(useUserStore.getState().restoring).toBe(true);
+    await restoring;
+    expect(useUserStore.getState().restoring).toBe(false);
+  });
+
+  it("is over even when the restore throws", async () => {
+    localStorage.clear();
+    localStorage.setItem("wrystr_accounts", "{not json");
+    vi.mocked(invoke).mockRejectedValue(new Error("keychain locked"));
+    useUserStore.setState({ accounts: [{ pubkey: BUNKER_PUBKEY, npub: "npub1", loginType: "nsec" }], pubkey: null, loggedIn: false, restoring: false });
+    await useUserStore.getState().restoreSession().catch(() => {});
+    expect(useUserStore.getState().restoring).toBe(false);
+  });
+});

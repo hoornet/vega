@@ -10,6 +10,7 @@ vi.mock("../../stores/user", () => ({ useUserStore: () => user, readSecretKey })
 
 import { IdentitySection } from "./SettingsView";
 import { useToastStore } from "../../stores/toast";
+import { useBackupStore } from "../../stores/backup";
 
 const writeText = vi.fn();
 const keyRow = () => screen.queryByText("reveal") ?? screen.queryByText("hide");
@@ -51,6 +52,30 @@ describe("Settings: the secret key", () => {
     fireEvent.click(screen.getByText("reveal"));
     fireEvent.click(screen.getByText("copy"));
     await vi.waitFor(() => expect(writeText).toHaveBeenCalledWith("nsec1onlyhere"));
+  });
+
+  // Copied from here counts as backed up: the reminder that asks for it ends.
+  it("ends the backup reminder once the key has been copied", async () => {
+    readSecretKey.mockResolvedValue({ nsec: "nsec1stored", stored: true });
+    useBackupStore.setState({ pending: [user.pubkey!] });
+    render(<IdentitySection />);
+    expect(await screen.findByText("reveal")).toBeTruthy();
+    fireEvent.click(screen.getByText("reveal"));
+    fireEvent.click(screen.getByText("copy"));
+    await vi.waitFor(() => expect(useBackupStore.getState().pending).toEqual([]));
+  });
+
+  it("does not end it on a copy the clipboard refused", async () => {
+    readSecretKey.mockResolvedValue({ nsec: "nsec1stored", stored: true });
+    useBackupStore.setState({ pending: [user.pubkey!] });
+    writeText.mockRejectedValueOnce(new Error("no clipboard"));
+    render(<IdentitySection />);
+    expect(await screen.findByText("reveal")).toBeTruthy();
+    fireEvent.click(screen.getByText("reveal"));
+    fireEvent.click(screen.getByText("copy"));
+    await vi.waitFor(() => expect(writeText).toHaveBeenCalled());
+    await act(async () => {});
+    expect(useBackupStore.getState().pending).toEqual([user.pubkey!]);
   });
 
   // A locked keychain may well hold the key. Saying "not saved" would be a guess.

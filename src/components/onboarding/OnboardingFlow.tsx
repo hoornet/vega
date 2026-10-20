@@ -1,7 +1,9 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, createContext, useContext } from "react";
 import { NDKPrivateKeySigner } from "@nostr-dev-kit/ndk";
 import { useUserStore } from "../../stores/user";
 import { useUIStore } from "../../stores/ui";
+import { useBackupStore } from "../../stores/backup";
+import { useToastStore } from "../../stores/toast";
 import { setBrowseOnly } from "../../lib/browseOnly";
 import { ensureConnected } from "../../lib/nostr";
 import { Button } from "../shared/Button";
@@ -12,11 +14,41 @@ import { shortNpub, endSentence } from "../../lib/utils";
 
 type Step = "welcome" | "create" | "backup" | "interests" | "login";
 
+/**
+ * The account being made, kept for the session while the flow is closed.
+ *
+ * Opened over the app, the flow can be closed at any step. Closed at the
+ * backup step, the key may already be in a password manager; a new flow
+ * that made a new key would leave the user with a saved key that opens
+ * nothing. So the key and the name survive the flow, and the next "Create
+ * account" takes them up again. Let go of once the account is made.
+ */
+let draft: { signer: NDKPrivateKeySigner; name: string } | null = null;
+export function discardSignupDraft(): void { draft = null; }
+
 interface OnboardingFlowProps {
   onComplete: () => void;
+  /**
+   * Where to begin. "welcome" is the first launch. The other two open the
+   * same flow over the running app (`SignupOverlay`): "create" from "Create
+   * account" in the banner or the account menu, "login" from "I have a key".
+   * Opened that way the flow has a way out (`onCancel`; the overlay closes
+   * on Escape) and skips the interests step, which belongs to the first
+   * launch. What was typed, and the key made, survive a closed flow for the
+   * session (see `draft`).
+   */
+  start?: "welcome" | "create" | "login";
+  onCancel?: () => void;
 }
 
 // ─── Shared layout ───────────────────────────────────────────────────────────
+
+/**
+ * True when the flow is opened over the running app (`SignupOverlay`), inside
+ * the text-size zoom, where a box sized in `vh`/`vw` is the window times the
+ * zoom on Chromium. There the shell fills its container instead.
+ */
+export const EmbeddedOnboarding = createContext(false);
 
 function Shell({
   children,
@@ -27,8 +59,9 @@ function Shell({
   step?: number;
   totalSteps?: number;
 }) {
+  const embedded = useContext(EmbeddedOnboarding);
   return (
-    <div className="h-screen w-screen bg-bg flex items-center justify-center">
+    <div className={`${embedded ? "min-h-full w-full" : "h-screen w-screen"} bg-bg flex items-center justify-center`}>
       <div className="w-full max-w-md px-8">
         {/* Logo wordmark */}
         <div className="text-accent text-[18px] font-bold tracking-[0.25em] mb-2 select-none">VEGA</div>
@@ -179,9 +212,11 @@ const NAME_MAX = 50;
 // what to be called. The account then went out as "npub1ksj…" and its first
 // note was published under a key. Now the step asks for a name, and the
 // public address is one quiet line.
-function NameStep({ signer, name, onName, onNext, onBack }: {
+function NameStep({ signer, name, steps, onName, onNext, onBack }: {
   signer: NDKPrivateKeySigner;
   name: string;
+  /** How many steps the dots show: three on a first launch, two over the app. */
+  steps: number;
   onName: (name: string) => void;
   onNext: () => void;
   onBack: () => void;
@@ -204,7 +239,7 @@ function NameStep({ signer, name, onName, onNext, onBack }: {
   };
 
   return (
-    <Shell step={0} totalSteps={3}>
+    <Shell step={0} totalSteps={steps}>
       <Heading>What should people call you?</Heading>
       <Body>
         Your name is shown next to everything you write. A nickname is fine, and you
@@ -277,32 +312,53 @@ async function publishName(name: string, pubkey: string): Promise<string | null>
 
 // ─── Step: Backup nsec ───────────────────────────────────────────────────────
 
-function BackupStep({ signer, name, onComplete }: {
+function BackupStep({ signer, name, steps, onComplete }: {
   signer: NDKPrivateKeySigner;
   name: string;
+  steps: number;
   /** Called once signed in, with what could not be done on the way, if anything. */
   onComplete: (notice: string | null) => void;
 }) {
   const { loginWithNsec, loginError } = useUserStore();
   const [confirmed, setConfirmed] = useState(false);
   const [copied, setCopied] = useState(false);
+  // Sticky: the box below may only be ticked once the key has been copied or
+  // seen. Before, both easy ways through this step ended with no backup at
+  // all: tick the box and go, or "later".
+  const [everCopied, setEverCopied] = useState(false);
+  // The same, read when the sign-in comes back: a copy made while "later"
+  // was signing in means no reminder is needed.
+  const copiedByNow = useRef(false);
   const [revealed, setRevealed] = useState(false);
   const [saving, setSaving] = useState(false);
+  const canConfirm = everCopied || revealed;
 
   const handleCopy = async () => {
     if (!(await copyText(signer.nsec))) return;
     setCopied(true);
+    setEverCopied(true);
+    copiedByNow.current = true;
     setTimeout(() => setCopied(false), 3000);
   };
 
+  // Hidden again without a copy: the box was ticked on the strength of the
+  // key being on screen, and it is not any more.
+  const toggleReveal = () => {
+    if (revealed && !everCopied) setConfirmed(false);
+    setRevealed(!revealed);
+  };
+
   // Sign in with the new key, then give the account its name. Both ways out
-  // of this step end here.
-  const finish = async () => {
+  // of this step end here. `later`: the user did not say the key is saved,
+  // so the account is remembered as not backed up once it exists, unless
+  // the key was copied by then.
+  const finish = async (later: boolean) => {
     setSaving(true);
     await loginWithNsec(signer.nsec);
     // Not signed in: stay, with the reason shown above the button. This used
     // to go on to the next step regardless.
     if (useUserStore.getState().loginError) { setSaving(false); return; }
+    if (later && !copiedByNow.current) useBackupStore.getState().markPending(signer.pubkey);
     const notice = name ? await publishName(name, signer.pubkey) : null;
     setSaving(false);
     onComplete(notice);
@@ -310,18 +366,19 @@ function BackupStep({ signer, name, onComplete }: {
 
   const handleStart = () => {
     if (!confirmed) return;
-    void finish();
+    void finish(false);
   };
 
   // "Back up later" escape hatch — runs the SAME login as confirming (this is
   // what saves the key to the keychain and signs in); it only skips the
-  // checkbox gate. The key stays retrievable via Settings → Identity: from the
-  // keychain, or from this session when the keychain did not take it, in
-  // which case `loginWithNsec` says so and Settings repeats it.
-  const handleSkipBackup = () => void finish();
+  // checkbox gate. The account is remembered as not backed up, and a banner
+  // asks until the key has been copied once, from there or from Settings →
+  // Account (which also falls back to this session when the keychain did
+  // not take the key; `loginWithNsec` says so).
+  const handleSkipBackup = () => void finish(true);
 
   return (
-    <Shell step={1} totalSteps={3}>
+    <Shell step={1} totalSteps={steps}>
       <Heading>Save your secret key.</Heading>
       <Body>
         Your <strong className="text-text">secret key</strong> is your password, and nobody can
@@ -339,33 +396,32 @@ function BackupStep({ signer, name, onComplete }: {
             {revealed ? signer.nsec : "••••••••••••••••••••••••••••••••••••••••••••••••"}
           </span>
           <button
-            onClick={() => setRevealed(!revealed)}
+            onClick={toggleReveal}
             className="text-caption text-text-dim hover:text-text transition-colors shrink-0"
           >
             {revealed ? "hide" : "reveal"}
           </button>
-          <button
-            onClick={handleCopy}
-            aria-label="Copy secret key"
-            className="text-caption text-text-dim hover:text-danger transition-colors shrink-0"
-          >
-            {copied ? "copied ✓" : "copy"}
-          </button>
         </div>
       </div>
+      {/* The one thing this step is for, as a button and not a 10px link. */}
+      <Button wrap className="w-full mb-2" onClick={handleCopy} aria-label="Copy secret key">
+        {copied ? <Check /> : <Copy />}{copied ? "Copied. Paste it into your password manager now." : "Copy secret key"}
+      </Button>
       <p className="text-text-dim text-caption mb-6">
         Never share this with anyone. Anyone who has it controls your account.
       </p>
 
-      <label className="flex items-start gap-3 mb-5 cursor-pointer group">
+      <label className={`flex items-start gap-3 mb-5 group ${canConfirm ? "cursor-pointer" : "cursor-not-allowed"}`}>
         <input
           type="checkbox"
           checked={confirmed}
+          disabled={!canConfirm}
           onChange={(e) => setConfirmed(e.target.checked)}
           className="mt-0.5 accent-accent w-4 h-4 shrink-0"
         />
-        <span className="text-text-dim text-body group-hover:text-text transition-colors">
+        <span className={`text-body transition-colors ${canConfirm ? "text-text-dim group-hover:text-text" : "text-text-dim"}`}>
           I've saved my secret key in a safe place and understand that losing it means losing access to my account.
+          {!canConfirm && <span className="block text-caption mt-0.5">Copy or reveal the key first.</span>}
         </span>
       </label>
 
@@ -376,7 +432,7 @@ function BackupStep({ signer, name, onComplete }: {
       </Button>
       <Button variant="ghost" size="lg" className="w-full mt-1" onClick={handleSkipBackup} busy={saving}>I'll back up my key later</Button>
       <p className="text-text-muted text-caption text-center mt-1">
-        You can also copy it later from Settings → Identity, on this computer only.
+        Vega will remind you until you have copied it. You can also copy it later from Settings → Account, on this computer only.
       </p>
     </Shell>
   );
@@ -416,7 +472,7 @@ function LoginStep({ onBack, onComplete }: { onBack: () => void; onComplete: () 
 
   return (
     <Shell>
-      <Heading>Log in with your key.</Heading>
+      <Heading>Sign in with your key.</Heading>
 
       <div role="tablist" className="flex border border-border mb-4 rounded-sm overflow-hidden">
         {(["nsec", "npub", "bunker"] as const).map((m) => (
@@ -454,7 +510,7 @@ function LoginStep({ onBack, onComplete }: { onBack: () => void; onComplete: () 
         <p className="text-text-dim text-caption mb-4">Stored in this computer's keychain. Never sent to any server.</p>
       )}
       {mode === "npub" && (
-        <p className="text-text-dim text-caption mb-4">Read-only mode — you can browse but not post, react, or zap.</p>
+        <p className="text-text-dim text-caption mb-4">Browse as that account. You can read, but not post, reply or zap.</p>
       )}
       {mode === "bunker" && (
         <p className="text-text-dim text-caption mb-4">Connect to nsecBunker, Amber, or similar. Paste your bunker:// URI.</p>
@@ -464,7 +520,7 @@ function LoginStep({ onBack, onComplete }: { onBack: () => void; onComplete: () 
 
       <div className="space-y-2">
         <Button variant="primary" size="lg" className="w-full" onClick={handleLogin} disabled={!value.trim()} busy={loading}>
-          {loading ? (mode === "bunker" ? "Connecting…" : "Logging in…") : "Log in"}
+          {loading ? (mode === "bunker" ? "Connecting…" : "Signing in…") : "Sign in"}
         </Button>
         <Button variant="ghost" size="lg" className="w-full" onClick={onBack}><ArrowLeft />Back</Button>
       </div>
@@ -474,21 +530,33 @@ function LoginStep({ onBack, onComplete }: { onBack: () => void; onComplete: () 
 
 // ─── Orchestrator ────────────────────────────────────────────────────────────
 
-export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
-  const [step, setStep] = useState<Step>("welcome");
+export function OnboardingFlow({ onComplete, start = "welcome", onCancel }: OnboardingFlowProps) {
+  const [step, setStep] = useState<Step>(start);
   const setFeedTab = useUIStore((s) => s.setFeedTab);
+  const firstLaunch = start === "welcome";
+  const steps = firstLaunch ? 3 : 2;
+  // A failed sign-in, or a remote signer that did not answer at startup,
+  // left its error in the store; it must not be drawn on a new account's
+  // backup step.
+  useEffect(() => { if (!firstLaunch) useUserStore.setState({ loginError: null }); }, [firstLaunch]);
   // The key and the name live here, not in a step: going back and forward
   // must not make a second key. From the backup step on, the first may
   // already be saved in a password manager.
-  const [generatedSigner, setGeneratedSigner] = useState<NDKPrivateKeySigner | null>(null);
-  const [name, setName] = useState("");
+  const [generatedSigner, setGeneratedSigner] = useState<NDKPrivateKeySigner | null>(() => (start === "create" ? (draft?.signer ?? NDKPrivateKeySigner.generate()) : null));
+  const [name, setName] = useState(() => draft?.name ?? "");
+  // Kept for the session, so a flow closed at the backup step comes back
+  // with the key that may already be in a password manager.
+  useEffect(() => { if (generatedSigner) draft = { signer: generatedSigner, name }; }, [generatedSigner, name]);
+  const done = () => { draft = null; onComplete(); };
+  /** Back from the first step of a flow opened over the app leaves the flow. */
+  const leave = onCancel ?? (() => setStep("welcome"));
   const [notice, setNotice] = useState<string | null>(null);
 
   if (step === "welcome") {
     return (
       <WelcomeStep
         onCreateNew={() => {
-          setGeneratedSigner((made) => made ?? NDKPrivateKeySigner.generate());
+          setGeneratedSigner((made) => made ?? draft?.signer ?? NDKPrivateKeySigner.generate());
           setStep("create");
         }}
         onHaveKey={() => setStep("login")}
@@ -509,9 +577,10 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
       <NameStep
         signer={generatedSigner}
         name={name}
+        steps={steps}
         onName={setName}
         onNext={() => setStep("backup")}
-        onBack={() => setStep("welcome")}
+        onBack={firstLaunch ? () => setStep("welcome") : leave}
       />
     );
   }
@@ -521,7 +590,14 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
       <BackupStep
         signer={generatedSigner}
         name={name.trim()}
+        steps={steps}
         onComplete={(problem) => {
+          if (!firstLaunch) {
+            // No next step to say it on: a toast is what is left.
+            if (problem) useToastStore.getState().addToast(problem, "error");
+            done();
+            return;
+          }
           setNotice(problem);
           setStep("interests");
         }}
@@ -530,7 +606,7 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
   }
 
   if (step === "interests") {
-    return <InterestsStep notice={notice} onComplete={onComplete} />;
+    return <InterestsStep notice={notice} onComplete={done} />;
   }
 
   if (step === "login") {
@@ -539,9 +615,9 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
         onBack={() => {
           // A failed try here must not be shown on the backup step of a new account.
           useUserStore.setState({ loginError: null });
-          setStep("welcome");
+          leave();
         }}
-        onComplete={onComplete}
+        onComplete={done}
       />
     );
   }

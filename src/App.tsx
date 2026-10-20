@@ -41,19 +41,10 @@ const DebugPanel = lazy(() => import("./components/shared/DebugPanel").then(m =>
 const HelpModal = lazy(() => import("./components/shared/HelpModal").then(m => ({ default: m.HelpModal })));
 import { useUIStore, keptViews, keptHashtags, type View } from "./stores/ui";
 import { KeptView } from "./components/shared/KeptView";
-import { useCanSign } from "./stores/user";
+import { IdentityBanner, BackupBanner } from "./components/shared/Banners";
+import { SignupOverlay } from "./components/shared/SignupOverlay";
 import { getTheme, applyTheme } from "./lib/themes";
 import { useKeyboardShortcuts } from "./hooks/useKeyboardShortcuts";
-
-function ReadOnlyBanner() {
-  const canSign = useCanSign();
-  if (canSign) return null;
-  return (
-    <div className="flex items-center justify-center gap-2 px-4 py-1.5 bg-warning/10 border-b border-warning/30 text-caption shrink-0">
-      <span className="text-warning">Read-only mode — sign in to post, react, and zap</span>
-    </div>
-  );
-}
 
 function App() {
   const currentView = useUIStore((s) => s.currentView);
@@ -158,7 +149,8 @@ function App() {
     <div className="fixed inset-0 flex flex-col bg-bg" style={{ zoom: `${fontSize / 14}` }}>
       <UpdateBanner />
       <ReleaseNoticeBanner />
-      <ReadOnlyBanner />
+      <IdentityBanner />
+      <BackupBanner />
       <div className="flex flex-1 min-h-0">
       <Sidebar />
       <main className="flex-1 min-w-0 h-full overflow-hidden">
@@ -195,6 +187,7 @@ function App() {
       <ToastContainer />
       {showDebugPanel && <DebugPanel onClose={toggleDebugPanel} />}
       {showHelp && <HelpModal onClose={toggleHelp} />}
+      <SignupOverlay />
     </div>
   );
 }
