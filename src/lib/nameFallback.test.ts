@@ -29,7 +29,7 @@ function lines(pattern: RegExp): string[] {
   const found: string[] = [];
   for (const [file, src] of Object.entries(sources)) {
     src.split("\n").forEach((text, i) => {
-      if (pattern.test(text) && !/\bdebug\.(log|warn|error)\(/.test(text)) found.push(`${file.replace("../", "src/")}:${i + 1}: ${text.trim()}`);
+      if (pattern.test(text) && !/\bdebug\.(log|warn|error)\(/.test(text)) found.push(`${file.replace(/^\.\.\//, "src/")}:${i + 1}: ${text.trim()}`);
     });
   }
   return found;
