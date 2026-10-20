@@ -479,6 +479,8 @@ export const RETIRED_VEGA_RELAY = "wss://relay2.veganostr.com";
 const VEGA_RELAY_MIGRATED_KEY = "wrystr_vega_relay_added";
 // October 2026: the strfry relay put in front of the retired one in lists that hold it.
 const STRFRY_RELAY_MIGRATED_KEY = "wrystr_vega_relay_strfry_added";
+/** Whether the list holds this address: an exact comparison of normalized addresses, not a substring test. */
+const holdsRelay = (list: string[], url: string): boolean => list.some((u) => u === url);
 
 export function getStoredRelayUrls(): string[] {
   try {
@@ -496,7 +498,7 @@ export function getStoredRelayUrls(): string[] {
       // One-time: inject Vega relay for existing users
       if (!localStorage.getItem(VEGA_RELAY_MIGRATED_KEY)) {
         localStorage.setItem(VEGA_RELAY_MIGRATED_KEY, "1");
-        if (!deduped.includes(VEGA_RELAY)) {
+        if (!holdsRelay(deduped, VEGA_RELAY)) {
           deduped.unshift(VEGA_RELAY);
           saveRelayUrls(deduped);
         }
@@ -508,7 +510,7 @@ export function getStoredRelayUrls(): string[] {
       if (!localStorage.getItem(STRFRY_RELAY_MIGRATED_KEY)) {
         localStorage.setItem(STRFRY_RELAY_MIGRATED_KEY, "1");
         const retired = deduped.indexOf(RETIRED_VEGA_RELAY);
-        if (retired >= 0 && !deduped.includes(VEGA_RELAY)) {
+        if (retired >= 0 && !holdsRelay(deduped, VEGA_RELAY)) {
           deduped.splice(retired, 0, VEGA_RELAY);
           saveRelayUrls(deduped);
         }
