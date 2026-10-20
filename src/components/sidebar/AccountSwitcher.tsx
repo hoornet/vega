@@ -210,7 +210,7 @@ export function AccountSwitcher() {
         )}
         {open && !confirmTarget && (
           <div className="border-b border-border-subtle">
-            {/* Your places. People and Zap history left the sidebar's list for here; Back returns from them. */}
+            {/* Your places. Zap history left the sidebar's list for here; People is in both; Back returns from them. */}
             <button type="button" onClick={() => { setOpen(false); openProfile(pubkey); }} className="w-full flex items-center gap-2 px-3 py-2 text-text-muted hover:text-text hover:bg-text/8 text-ui transition-colors">
               <UserRound size={16} strokeWidth={1.75} className="w-6 shrink-0" /><span>Profile</span>
             </button>
