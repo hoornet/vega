@@ -34,15 +34,15 @@ afterEach(() => {
 describe("EditProfileForm", () => {
   it("opens on the profile as it is", () => {
     open();
-    expect(field("Square that Circle").value).toBe("Ana K.");
-    expect(field("squarethecircle").value).toBe("ana");
+    expect(field("Your name").value).toBe("Ana K.");
+    expect(field("yourname").value).toBe("ana");
     expect((screen.getByPlaceholderText("Tell people about yourself…") as HTMLTextAreaElement).value).toBe("hello");
   });
 
   it("saves what is in the form, trimmed, with empty fields left out", async () => {
     open();
-    fireEvent.change(field("Square that Circle"), { target: { value: "  Ana Kovač  " } });
-    fireEvent.change(field("squarethecircle"), { target: { value: "   " } });
+    fireEvent.change(field("Your name"), { target: { value: "  Ana Kovač  " } });
+    fireEvent.change(field("yourname"), { target: { value: "   " } });
     await save();
     expect(user.saveProfile).toHaveBeenCalledTimes(1);
     // For the account the form was opened for, whoever is signed in by now.
@@ -79,10 +79,10 @@ describe("EditProfileForm", () => {
   it("says why when no relay took it, and keeps what was typed", async () => {
     user.saveProfile.mockRejectedValue(new Error("Not enough relays received the event (0 published, 1 required)"));
     open();
-    fireEvent.change(field("Square that Circle"), { target: { value: "Ana Kovač" } });
+    fireEvent.change(field("Your name"), { target: { value: "Ana Kovač" } });
     await save();
     expect(screen.getByText("Couldn't publish: none of your relays accepted it. Your changes are still here. Check your relays and try again.")).toBeTruthy();
-    expect(field("Square that Circle").value).toBe("Ana Kovač");
+    expect(field("Your name").value).toBe("Ana Kovač");
     expect(screen.queryByRole("button", { name: "Saved" })).toBeNull();
     expect(onSaved).not.toHaveBeenCalled();
     // And it can be tried again.

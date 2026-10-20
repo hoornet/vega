@@ -235,7 +235,7 @@ export function BookmarkView() {
               : savedHere > 0
                 ? "What you saved is under the other tab."
                 : tab === "notes"
-                  ? "Use the bookmark icon on any note to save it here."
+                  ? "Press the bookmark under any note to keep it here."
                   : "Use Save on any article to add it to your reading list."}
             what={tab === "notes" ? "your saved notes" : "your saved articles"}
             onRetry={() => { if (savedHere > 0) setReloadKey((n) => n + 1); else if (pubkey) void fetchBookmarks(pubkey); }}

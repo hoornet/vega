@@ -3,7 +3,8 @@ import { render, screen, fireEvent, cleanup, act } from "@testing-library/react"
 import type { NDKEvent } from "@nostr-dev-kit/ndk";
 
 vi.mock("../../lib/nostr", () => ({ fetchUserNotesNIP65: vi.fn(), fetchAuthorArticles: vi.fn() }));
-vi.mock("../../stores/user", () => ({ useUserStore: () => ({ pubkey: "me", profile: null }), useCanSign: () => false }));
+const me = vi.hoisted(() => ({ pubkey: "me", profile: null as unknown, ownProfileRead: "pending" as "pending" | "found" | "none" | "unknown", canSign: false }));
+vi.mock("../../stores/user", () => ({ useUserStore: () => me, useCanSign: () => me.canSign }));
 vi.mock("../../stores/mute", () => ({ useMuteStore: () => ({ mutedPubkeys: [] as string[], mute: () => {}, unmute: () => {} }) }));
 const onRelays = vi.hoisted(() => ({ profile: null as Record<string, unknown> | null }));
 vi.mock("../../hooks/useProfile", () => ({ useProfile: () => onRelays.profile }));
@@ -12,7 +13,7 @@ vi.mock("../feed/NoteCard", () => ({ NoteCard: ({ event }: { event: NDKEvent }) 
 vi.mock("../article/ArticleCard", () => ({ ArticleCard: ({ event }: { event: NDKEvent }) => <article>{event.content}</article> }));
 vi.mock("../zap/ZapModal", () => ({ ZapModal: () => null }));
 vi.mock("../shared/ImageLightbox", () => ({ ImageLightbox: () => null }));
-vi.mock("./EditProfileForm", () => ({ EditProfileForm: () => null }));
+vi.mock("./EditProfileForm", () => ({ EditProfileForm: () => <form aria-label="Edit profile" /> }));
 vi.mock("../feed/TextSegments", () => ({
   tryHandleUrlInternally: () => false,
   tryOpenNostrEntity: () => false,
@@ -60,6 +61,115 @@ beforeEach(() => {
 });
 afterEach(() => { cleanup(); vi.useRealTimers(); });
 
+// The own profile before anything is on it: a way to set it up, not an
+// italic hint pointing at a small button in the opposite corner.
+describe("ProfileView: the own profile when empty", () => {
+  const ME = "me";
+  beforeEach(() => { me.profile = null; me.ownProfileRead = "none"; me.canSign = true; relays.notes[ME] = []; relays.articles[ME] = []; });
+  afterEach(() => { me.canSign = false; me.ownProfileRead = "pending"; });
+
+  it("offers to set up a profile that has no name and no bio", async () => {
+    render(<ProfileView />);
+    await open(ME);
+    await settle(0);
+    expect(screen.queryByText(/No bio yet/)).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Set up your profile" }));
+    expect(screen.getByRole("form", { name: "Edit profile" })).toBeTruthy();
+  });
+
+  // A profile that has not loaded is not a missing one: the form would open
+  // on nothing and the save would replace whatever the relays hold.
+  it("offers nothing while the relays have not said whether there is a profile", async () => {
+    for (const read of ["pending", "unknown"] as const) {
+      me.ownProfileRead = read;
+      render(<ProfileView />);
+      await open(ME);
+      await settle(0);
+      expect(screen.queryByRole("button", { name: "Set up your profile" })).toBeNull();
+      expect(screen.queryByText(/No bio yet/)).toBeNull();
+      cleanup();
+    }
+  });
+
+  it("offers to set up a profile that is held but has no name, whatever the relays said", async () => {
+    me.ownProfileRead = "unknown";
+    me.profile = { about: "" };
+    render(<ProfileView />);
+    await open(ME);
+    await settle(0);
+    expect(screen.getByRole("button", { name: "Set up your profile" })).toBeTruthy();
+  });
+
+  it("offers neither setup nor a first note to an account that cannot sign", async () => {
+    me.canSign = false;
+    render(<ProfileView />);
+    await open(ME);
+    await settle();
+    expect(screen.queryByRole("button", { name: "Set up your profile" })).toBeNull();
+    expect(screen.getByText("You haven't posted yet.")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Write your first note" })).toBeNull();
+  });
+
+  // The way Zaps opens it: the view mounts with the request already made,
+  // and its own reset on a new pubkey runs in the same commit.
+  it("opens in the edit form when asked for from elsewhere, once", async () => {
+    act(() => useUIStore.getState().openProfileEditor(ME));
+    render(<ProfileView />);
+    await settle(0);
+    expect(screen.getByRole("form", { name: "Edit profile" })).toBeTruthy();
+    expect(useUIStore.getState().editProfileFor).toBeNull();
+    cleanup();
+    render(<ProfileView />);
+    await settle(0);
+    expect(screen.queryByRole("form", { name: "Edit profile" })).toBeNull();
+  });
+
+  it("does not open the edit form for a request about another account, or for one that cannot sign", async () => {
+    act(() => useUIStore.getState().openProfileEditor(ME));
+    act(() => useUIStore.setState({ selectedPubkey: ALICE }));
+    render(<ProfileView />);
+    await settle(0);
+    expect(screen.queryByRole("form", { name: "Edit profile" })).toBeNull();
+    expect(useUIStore.getState().editProfileFor).toBe(ME);
+    cleanup();
+    me.canSign = false;
+    act(() => useUIStore.setState({ selectedPubkey: ME }));
+    render(<ProfileView />);
+    await settle(0);
+    expect(screen.queryByRole("form", { name: "Edit profile" })).toBeNull();
+    expect(useUIStore.getState().editProfileFor).toBeNull();
+  });
+
+  it("says only that there is no bio once there is a name, a display name included", async () => {
+    onRelays.profile = { displayName: "Me" };
+    me.profile = { displayName: "Me" };
+    render(<ProfileView />);
+    await open(ME);
+    await settle(0);
+    expect(screen.getByText("No bio yet.")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Set up your profile" })).toBeNull();
+  });
+
+  it("offers a first note when there are none, and asks for the compose box", async () => {
+    render(<ProfileView />);
+    await open(ME);
+    await settle();
+    expect(screen.getByText("You haven't posted yet.")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Write your first note" }));
+    expect(useUIStore.getState().currentView).toBe("feed");
+    expect(useUIStore.getState().composeRequest).toBeGreaterThan(0);
+  });
+
+  it("does not offer a first note on someone else's empty profile", async () => {
+    relays.notes[ALICE] = [];
+    render(<ProfileView />);
+    await open(ALICE);
+    await settle();
+    expect(screen.getByText("No notes yet.")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Write your first note" })).toBeNull();
+  });
+});
+
 describe("ProfileView: who it is", () => {
   it("calls an account with no name by its shortened public address, once as the name and once to copy", async () => {
     render(<ProfileView />);
@@ -103,19 +213,19 @@ describe("ProfileView: notes", () => {
     relays.notes[ALICE] = [];
     render(<ProfileView />);
     await settle(2900);
-    expect(screen.queryByText("No notes found.")).toBeNull(); // still asking
+    expect(screen.queryByText("No notes yet.")).toBeNull(); // still asking
     await settle(300);
-    expect(screen.getByText("No notes found.")).toBeTruthy();
+    expect(screen.getByText("No notes yet.")).toBeTruthy();
     expect(fetchUserNotesNIP65).toHaveBeenCalledTimes(2);
   });
 
-  // The whole point: this used to read "No notes found." on someone with a year of posts.
+  // The whole point: this used to read "No notes yet." on someone with a year of posts.
   it("says the relays could not be reached when nobody answered, and asks again on Try again", async () => {
     relays.notes[ALICE] = "silent";
     render(<ProfileView />);
     await settle();
     expect(screen.getByRole("alert").textContent).toContain("so these notes can't be loaded");
-    expect(screen.queryByText("No notes found.")).toBeNull();
+    expect(screen.queryByText("No notes yet.")).toBeNull();
     relays.notes[ALICE] = [note("alice 1")];
     fireEvent.click(screen.getByRole("button", { name: "Try again" }));
     await settle(0);
@@ -179,7 +289,7 @@ describe("ProfileView: articles", () => {
     tab("Articles");
     await settle();
     expect(screen.getByRole("alert").textContent).toContain("so these articles can't be loaded");
-    expect(screen.queryByText("No articles found.")).toBeNull();
+    expect(screen.queryByText("No articles yet.")).toBeNull();
   });
 });
 
@@ -221,7 +331,7 @@ describe("ProfileView: opening one profile from another", () => {
     tab("Articles");
     await settle();
     expect(rows()).toEqual([]);
-    expect(screen.getByText("No articles found.")).toBeTruthy();
+    expect(screen.getByText("No articles yet.")).toBeTruthy();
     expect(vi.mocked(fetchAuthorArticles).mock.calls.map(([pk]) => pk)).toEqual([ALICE, BOB, BOB]);
   });
 

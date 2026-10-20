@@ -1,12 +1,14 @@
 import { useEffect, useState } from "react";
 import { NDKEvent } from "@nostr-dev-kit/ndk";
-import { useUserStore } from "../../stores/user";
+import { useUserStore, useCanSign } from "../../stores/user";
 import { useUIStore } from "../../stores/ui";
 import { fetchZapsReceived, fetchZapsSent } from "../../lib/nostr";
 import { ZapRow, parseReceipt } from "./ZapRow";
 import { ViewHeader } from "../shared/ViewHeader";
 import { Tabs, tabPanelProps } from "../shared/Tabs";
 import { ListState } from "../shared/ListState";
+import { Button } from "../shared/Button";
+import { useLightningStore } from "../../stores/lightning";
 import { fetchMark, wentUnanswered } from "../../lib/listLoad";
 
 // ── Main view ─────────────────────────────────────────────────────────────────
@@ -17,7 +19,9 @@ export function ZapHistoryView() {
   // Reached from the account menu (or a deep link), not from the sidebar: Back only when there is a way back.
   const { viewStack, goBack } = useUIStore();
   const back = viewStack.length > 0 ? goBack : undefined;
-  const { pubkey, loggedIn } = useUserStore();
+  const { pubkey, loggedIn, profile: ownProfile } = useUserStore();
+  const canSign = useCanSign();
+  const nwcUri = useLightningStore((s) => s.nwcUri);
   const [tab, setTab] = useState<Tab>("received");
   const [received, setReceived] = useState<NDKEvent[]>([]);
   const [sent, setSent] = useState<NDKEvent[]>([]);
@@ -64,6 +68,8 @@ export function ZapHistoryView() {
   }
 
   const activeEvents = tab === "received" ? received : sent;
+  // Receiving takes a Lightning address on the profile; sending takes a wallet.
+  const hasLightningAddress = !!(ownProfile?.lud16 || ownProfile?.lud06);
 
   // Compute totals
   const totalReceived = received.reduce((sum, e) => {
@@ -107,6 +113,16 @@ export function ZapHistoryView() {
             state={loading ? "loading" : error !== null ? "error" : unanswered ? "unreachable" : "empty"}
             loadingLabel="Loading zap history…"
             empty={tab === "received" ? "No zaps received yet." : "No zaps sent yet."}
+            emptyHint={tab === "received"
+              ? hasLightningAddress
+                ? "A zap is a small Bitcoin tip sent over Lightning. Zaps people send you show up here."
+                : "A zap is a small Bitcoin tip sent over Lightning. To receive them, add a Lightning address to your profile."
+              : "A zap is a small Bitcoin tip sent over Lightning. Press the bolt under a note to send one."}
+            emptyAction={tab === "received"
+              ? !hasLightningAddress && canSign
+                ? <Button onClick={() => useUIStore.getState().openProfileEditor(pubkey)}>Add a Lightning address</Button>
+                : undefined
+              : nwcUri ? undefined : <Button onClick={() => useUIStore.getState().openSettings("wallet")}>Connect a wallet</Button>}
             what="your zap history"
             error={error ?? undefined}
             onRetry={() => setReloadKey((n) => n + 1)}

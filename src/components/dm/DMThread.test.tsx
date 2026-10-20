@@ -279,3 +279,22 @@ describe("Messages: toasts stay off the box", () => {
     }
   });
 });
+
+// The right pane with nothing picked: what messages are, and how to start one.
+describe("Messages: before a conversation is picked", () => {
+  it("does not say there are no conversations while they load, or when no relay could be reached", async () => {
+    let answer: (events: NDKEvent[]) => void = () => {};
+    vi.mocked(fetchDMConversations).mockImplementationOnce(() => new Promise((resolve) => { answer = resolve; }));
+    const { unmount } = render(<DMView />);
+    await waitFor(() => expect(fetchDMConversations).toHaveBeenCalled());
+    expect(screen.queryByText("No conversations yet.")).toBeNull();
+    await act(async () => { answer([]); });
+    expect(await screen.findByText("No conversations yet.")).toBeTruthy();
+    unmount();
+
+    vi.mocked(ensureConnected).mockResolvedValueOnce(false);
+    render(<DMView />);
+    expect(await screen.findByText(/Couldn't reach any relay/)).toBeTruthy();
+    expect(screen.queryByText("No conversations yet.")).toBeNull();
+  });
+});

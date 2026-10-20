@@ -10,7 +10,7 @@ function newestToastControl(): HTMLElement | null {
 }
 
 export function useKeyboardShortcuts() {
-  const { currentView, setView, goBack, toggleHelp, showHelp, showDebugPanel, toggleDebugPanel } = useUIStore();
+  const { currentView, setView, goBack, toggleHelp, showHelp, showDebugPanel, toggleDebugPanel, requestCompose } = useUIStore();
   const { focusedNoteIndex, setFocusedNoteIndex, notes } = useFeedStore();
 
   useEffect(() => {
@@ -41,8 +41,7 @@ export function useKeyboardShortcuts() {
       if (shortcutBlocked(e.key, dialogOpen)) return;
       switch (e.key) {
         case "n":
-          setView("feed");
-          setTimeout(() => (document.querySelector("[data-compose]") as HTMLTextAreaElement)?.focus(), 50);
+          requestCompose();
           break;
         case "/":
           e.preventDefault();

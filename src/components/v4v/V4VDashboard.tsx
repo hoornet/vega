@@ -2,6 +2,7 @@ import { usePodcastStore } from "../../stores/podcast";
 import { useV4VStore } from "../../stores/v4v";
 import { useLightningStore } from "../../stores/lightning";
 import { useUIStore } from "../../stores/ui";
+import { Button } from "../shared/Button";
 
 function BudgetBar({ label, spent, total }: { label: string; spent: number; total: number }) {
   if (total <= 0) return null;
@@ -70,7 +71,10 @@ export function V4VDashboard() {
         <h2 className="text-text-dim text-micro uppercase tracking-widest mb-3">Now</h2>
 
         {!episode ? (
-          <div className="text-body text-text-dim">No episode playing.</div>
+          <div>
+            <div className="text-body text-text-muted mb-2">Nothing playing.</div>
+            <Button onClick={() => useUIStore.getState().setView("podcasts")}>Browse podcasts</Button>
+          </div>
         ) : !hasRecipients ? (
           <div className="text-body text-text-dim">
             Playing <span className="text-text">{episode.title}</span> — no V4V recipients.

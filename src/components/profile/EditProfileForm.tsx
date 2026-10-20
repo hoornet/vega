@@ -63,10 +63,10 @@ export function EditProfileForm({ pubkey, onSaved }: { pubkey: string; onSaved: 
   return (
     <div className="px-4 py-4 border-b border-border-subtle">
       <div className="grid grid-cols-2 gap-3 mb-3">
-        {field("Display name", displayName, setDisplayName, "Square that Circle")}
-        {field("Username", name, setName, "squarethecircle")}
+        {field("Display name", displayName, setDisplayName, "Your name")}
+        {field("Username", name, setName, "yourname")}
         <Nip05Field value={nip05} onChange={setNip05} pubkey={pubkey} />
-        {field("Lightning address (lud16)", lud16, setLud16, "you@walletofsatoshi.com")}
+        {field("Lightning address (optional) — where tips are sent", lud16, setLud16, "you@yourwallet.com")}
         {field("Website", website, setWebsite, "https://…")}
         <ImageField label="Profile picture" value={picture} onChange={setPicture} />
       </div>

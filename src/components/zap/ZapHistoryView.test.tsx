@@ -8,7 +8,8 @@ vi.mock("../../lib/nostr", () => ({
   fetchZapsSent: vi.fn(),
   fetchNoteById: vi.fn().mockResolvedValue(null),
 }));
-vi.mock("../../stores/user", () => ({ useUserStore: () => ({ pubkey: "me", loggedIn: true }) }));
+const me = vi.hoisted(() => ({ pubkey: "me", loggedIn: true, profile: null as Record<string, unknown> | null, canSign: true }));
+vi.mock("../../stores/user", () => ({ useUserStore: () => me, useCanSign: () => me.canSign }));
 vi.mock("../../hooks/useProfile", () => ({ useProfile: () => null }));
 
 import { ZapHistoryView } from "./ZapHistoryView";
@@ -122,5 +123,83 @@ describe("ZapHistoryView", () => {
     fireEvent.click(screen.getByRole("tab", { name: /Sent/ }));
     expect(screen.getByRole("alert").textContent).toContain("so your zap history can't be loaded");
     expect(screen.queryByText("No zaps sent yet.")).toBeNull();
+  });
+});
+
+// A zap is explained where a new account first meets the word, and the way to
+// send one is offered when no wallet is connected.
+describe("ZapHistoryView: the next step", () => {
+  beforeEach(() => {
+    me.profile = null;
+    me.canSign = true;
+    me.loggedIn = true;
+    vi.mocked(fetchZapsReceived).mockImplementation(answering([]));
+    vi.mocked(fetchZapsSent).mockImplementation(answering([]));
+  });
+  const sentTab = () => fireEvent.click(screen.getByRole("tab", { name: /Sent/ }));
+
+  it("on Sent, says what a zap is and offers a wallet when none is connected, scrolled to in Settings", async () => {
+    const { useLightningStore } = await import("../../stores/lightning");
+    const { useUIStore } = await import("../../stores/ui");
+    useLightningStore.setState({ nwcUri: null });
+    useUIStore.setState({ currentView: "zaps", pendingSettingsGroup: null });
+    render(<ZapHistoryView />);
+    expect(await screen.findByText("No zaps received yet.")).toBeTruthy();
+    sentTab();
+    expect(screen.getByText("No zaps sent yet.")).toBeTruthy();
+    expect(screen.getByText("A zap is a small Bitcoin tip sent over Lightning. Press the bolt under a note to send one.")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Connect a wallet" }));
+    expect(useUIStore.getState().currentView).toBe("settings");
+    expect(useUIStore.getState().pendingSettingsGroup).toBe("wallet");
+  });
+
+  it("on Sent, does not offer a wallet when one is connected", async () => {
+    const { useLightningStore } = await import("../../stores/lightning");
+    useLightningStore.setState({ nwcUri: "nostr+walletconnect://wallet?relay=wss://r&secret=s" });
+    render(<ZapHistoryView />);
+    expect(await screen.findByText("No zaps received yet.")).toBeTruthy();
+    sentTab();
+    expect(screen.queryByRole("button", { name: "Connect a wallet" })).toBeNull();
+  });
+
+  // Receiving takes a Lightning address on the profile, not a wallet connection.
+  it("on Received, offers to add a Lightning address when the profile has none, and opens the edit form for it", async () => {
+    const { useUIStore } = await import("../../stores/ui");
+    useUIStore.setState({ currentView: "zaps", viewStack: [], editProfileFor: null });
+    render(<ZapHistoryView />);
+    expect(await screen.findByText("No zaps received yet.")).toBeTruthy();
+    expect(screen.getByText(/To receive them, add a Lightning address to your profile/)).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Connect a wallet" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Add a Lightning address" }));
+    expect(useUIStore.getState().currentView).toBe("profile");
+    expect(useUIStore.getState().selectedPubkey).toBe("me");
+    expect(useUIStore.getState().editProfileFor).toBe("me");
+  });
+
+  it("on Received, says only that zaps show up here when the profile has an address", async () => {
+    me.profile = { lud16: "me@wallet.example" };
+    render(<ZapHistoryView />);
+    expect(await screen.findByText("No zaps received yet.")).toBeTruthy();
+    expect(screen.getByText(/Zaps people send you show up here/)).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Add a Lightning address" })).toBeNull();
+  });
+
+  it("on Received, offers no address to an account that cannot sign", async () => {
+    me.canSign = false;
+    render(<ZapHistoryView />);
+    expect(await screen.findByText("No zaps received yet.")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Add a Lightning address" })).toBeNull();
+  });
+
+  // Signing out with Zaps open used to render fewer hooks than before and
+  // take the whole app down with it.
+  it("survives signing out and back in while open", async () => {
+    const { rerender } = render(<ZapHistoryView />);
+    expect(await screen.findByText("No zaps received yet.")).toBeTruthy();
+    me.loggedIn = false;
+    expect(() => rerender(<ZapHistoryView />)).not.toThrow();
+    expect(screen.getByText("Log in to see your zap history.")).toBeTruthy();
+    me.loggedIn = true;
+    expect(() => rerender(<ZapHistoryView />)).not.toThrow();
   });
 });

@@ -44,6 +44,16 @@ export function ComposeBox({ onPublished, onNoteInjected, confirmPosted = false 
   const [focused, setFocused] = useState(false);
   const autoResize = useAutoResize(3, 12);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  // "Write a note" from an empty view: the box opens and takes the keyboard.
+  const composeRequest = useUIStore((s) => s.composeRequest);
+  // The box grows when it has focus, so focus is all it takes. Only a request
+  // made while this box exists counts: one from before it mounted is not for it.
+  const seenRequest = useRef(composeRequest);
+  useEffect(() => {
+    if (composeRequest === seenRequest.current) return;
+    seenRequest.current = composeRequest;
+    textareaRef.current?.focus();
+  }, [composeRequest]);
 
   // Collapse the compose box to a single line when it's idle (empty + not
   // focused), expand to full height + toolbar on focus or when there's

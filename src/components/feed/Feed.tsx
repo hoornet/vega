@@ -304,7 +304,7 @@ export function Feed() {
             onChange={(e) => setFeedLanguageFilter(e.target.value || null)}
             className="bg-transparent text-text-dim text-ui border border-border-strong px-1.5 py-0.5 focus:outline-none hover:border-text-dim transition-colors cursor-pointer rounded-lg"
           >
-            <option value="">all scripts</option>
+            <option value="">All scripts</option>
             {FILTER_SCRIPTS.map((s) => (
               <option key={s} value={s}>{s.toLowerCase()}</option>
             ))}
@@ -378,7 +378,7 @@ export function Feed() {
             state={followListState(followsStatus)}
             loadingLabel="Loading the people you follow…"
             empty="You're not following anyone yet."
-            emptyHint="Use search to find people to follow."
+            emptyHint="Follow a few people and their notes will show up here."
             emptyAction={interests.length > 0 ? (
               <div>
                 <p className="text-text-dim text-caption mb-2">Explore your interests:</p>

@@ -60,9 +60,9 @@ export function V4VHistory() {
     return (
       <div className="flex items-center justify-center h-48">
         <div className="text-center">
-          <div className="text-body text-text-dim">No V4V history yet</div>
-          <div className="text-caption text-text-dim/60 mt-1">
-            Start streaming to see your contributions here.
+          <div className="text-body text-text-muted">Nothing streamed yet.</div>
+          <div className="text-caption text-text-dim mt-1">
+            Connect a wallet and turn on auto-stream; the sats you stream to podcasts show up here.
           </div>
         </div>
       </div>

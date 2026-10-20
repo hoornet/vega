@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { render, screen, fireEvent, cleanup, waitFor } from "@testing-library/react";
+import { render, screen, fireEvent, cleanup, waitFor, act } from "@testing-library/react";
 import type { NDKEvent } from "@nostr-dev-kit/ndk";
 
 vi.mock("../../lib/nostr", () => ({ publishNote: vi.fn(), publishPoll: vi.fn() }));
@@ -84,5 +84,20 @@ describe("ComposeBox: saying that a note was posted", () => {
     expect(screen.getByText(/none of your relays accepted it/).textContent).toContain("Your note is still here.");
     expect(screen.queryByText(/Error:/)).toBeNull();
     expect(box().value).toBe("still here");
+  });
+});
+
+describe("ComposeBox: asked for from an empty view", () => {
+  it("takes focus when the request count goes up, and not on mount", () => {
+    useUIStore.setState({ composeRequest: 3 });
+    render(<ComposeBox />);
+    expect(document.activeElement).not.toBe(box());
+    act(() => useUIStore.getState().requestCompose());
+    expect(document.activeElement).toBe(box());
+    // Asked again later, after the user has gone elsewhere.
+    act(() => box().blur());
+    expect(document.activeElement).not.toBe(box());
+    act(() => useUIStore.getState().requestCompose());
+    expect(document.activeElement).toBe(box());
   });
 });
