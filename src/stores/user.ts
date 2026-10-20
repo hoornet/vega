@@ -361,6 +361,13 @@ interface UserState {
    */
   saveProfile: (fields: ProfileFields, pubkey: string) => Promise<void>;
   fetchFollows: () => Promise<void>;
+  /**
+   * A key made in this session follows nobody, and no relay has to say so: it
+   * did not exist a moment ago. Holds the empty list as the base, so the first
+   * Follow publishes a list of one whatever the relays answer, and remembers
+   * it on this computer. Only for a key generated here, never for one typed in.
+   */
+  adoptEmptyContactList: (pubkey: string) => void;
   /** Follow, and say how it ended: see `FollowOutcome`. A failure has already been reported in a toast. */
   follow: (pubkey: string) => Promise<FollowOutcome>;
   unfollow: (pubkey: string) => Promise<FollowOutcome>;
@@ -997,6 +1004,19 @@ export const useUserStore = create<UserState>((set, get) => ({
     } catch (err) {
       debug.warn("Profile published, but it could not be shown here:", err);
     }
+  },
+
+  adoptEmptyContactList: (pubkey) => {
+    if (get().pubkey !== pubkey) return;
+    clearFollowsRetry();
+    // Dated at zero: anything a relay ever returns for this key is newer than it.
+    const list: ContactListSnapshot = { tags: [], content: "", createdAt: 0 };
+    _followsOwner = pubkey;
+    _followsRetryCount = 0;
+    _contactBase = { pubkey, list };
+    _noListConfirmedFor = pubkey;
+    saveCachedContactList(pubkey, list);
+    set({ follows: [], followsStatus: "loaded" });
   },
 
   fetchFollows: async () => {

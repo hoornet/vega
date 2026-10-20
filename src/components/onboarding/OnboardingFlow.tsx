@@ -360,6 +360,10 @@ function BackupStep({ signer, name, steps, onComplete }: {
     // Not signed in: stay, with the reason shown above the button. This used
     // to go on to the next step regardless.
     if (useUserStore.getState().loginError) { setSaving(false); return; }
+    // The key was made a moment ago: it follows nobody, and no relay has to be asked. Asked, "nobody"
+    // needs every relay to answer, and one quiet relay among many left a new account with "Couldn't
+    // reach your relays" and no way to follow anyone.
+    useUserStore.getState().adoptEmptyContactList(signer.pubkey);
     markFirstRun(signer.pubkey);
     if (later && !copiedByNow.current) useBackupStore.getState().markPending(signer.pubkey);
     const notice = name ? await publishName(name, signer.pubkey) : null;
