@@ -4,12 +4,16 @@ import { render, screen, fireEvent, cleanup, within } from "@testing-library/rea
 // The sidebar after the October 2026 UI review: nine destinations in two
 // groups (People came back on 2026-10-19), a Write button, a footer of tools, and the account.
 
-const signer = vi.hoisted(() => ({ canSign: true }));
-vi.mock("../../stores/user", () => ({
-  useCanSign: () => signer.canSign,
-  useUserStore: () => ({ accounts: [{ pubkey: "11".repeat(32), npub: "npub1harpo", name: "Harpo", loginType: "nsec" }], pubkey: "11".repeat(32), loggedIn: true, switchAccount: vi.fn(), removeAccount: vi.fn(), logout: vi.fn() }),
-  readSecretKey: vi.fn(),
-}));
+const signer = vi.hoisted(() => ({ canSign: true, loggedIn: true }));
+vi.mock("../../stores/user", () => {
+  const state = () => ({ accounts: [{ pubkey: "11".repeat(32), npub: "npub1harpo", name: "Harpo", loginType: "nsec" }], pubkey: "11".repeat(32), loggedIn: signer.loggedIn, switchAccount: vi.fn(), removeAccount: vi.fn(), logout: vi.fn() });
+  return {
+    useCanSign: () => signer.canSign,
+    // Applies a selector as the store does, so `useUserStore((st) => st.loggedIn)` gets the boolean, not the state.
+    useUserStore: (select?: (st: ReturnType<typeof state>) => unknown) => (select ? select(state()) : state()),
+    readSecretKey: vi.fn(),
+  };
+});
 vi.mock("../shared/LoginModal", () => ({ LoginModal: () => <div>login dialog</div> }));
 
 import { Sidebar } from "./Sidebar";
@@ -24,6 +28,7 @@ const tools = () => within(screen.getByRole("group", { name: "Tools" })).getAllB
 beforeEach(() => {
   localStorage.clear();
   signer.canSign = true;
+  signer.loggedIn = true;
   useUIStore.setState({ currentView: "feed", sidebarCollapsed: false, showHelp: false, viewStack: [] });
   useDraftStore.setState({ drafts: [], activeDraftId: null });
   useNotificationsStore.setState({ unreadCount: 2, dmUnreadCount: 0, newFollowersCount: 3, newFollowerPubkeys: new Set(["a", "b", "c"]) });
@@ -46,6 +51,14 @@ describe("Sidebar", () => {
     render(<Sidebar />);
     expect(rows()).toEqual(["Home", "People", "Search", "Articles", "Media", "Podcasts"]);
     expect(screen.queryByRole("button", { name: /^Write/ })).toBeNull();
+  });
+
+  // Signed out there is no follow list to show, so People goes with the key-bound rows.
+  it("leaves People out when nobody is signed in", () => {
+    signer.canSign = false;
+    signer.loggedIn = false;
+    render(<Sidebar />);
+    expect(rows()).toEqual(["Home", "Search", "Articles", "Media", "Podcasts"]);
   });
 
   it("has Write as a button with the draft count, not as a row", () => {

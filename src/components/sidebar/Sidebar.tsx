@@ -16,10 +16,11 @@ import { Button } from "../shared/Button";
 // equal rows mixing destinations, ledgers (People, Zaps, Value 4 Value),
 // settings screens and an action; Notifications and Messages sat eighth and
 // ninth under Media and Podcasts; collapsed, the account row was gone and
-// with it your profile, switching and signing out. Now: a Write button, four
-// places you go back to, four places you explore, a footer of four tools, and
-// the account. People and Zap history are in the account menu, Value 4 Value
-// is reached from Podcasts, and the version string is in Settings.
+// with it your profile, switching and signing out. Now: a Write button, five
+// places you go back to (People came back on 2026-10-19, for any signed-in
+// account), four places you explore, a footer of four tools, and the account.
+// Zap history is in the account menu, Value 4 Value is reached from Podcasts,
+// and the version string is in Settings.
 
 interface NavItem {
   id: View;
