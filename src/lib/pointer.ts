@@ -22,3 +22,39 @@ export function isDrag(press: Point | null, release: Point, slop = DRAG_SLOP): b
   if (!press) return false;
   return Math.hypot(release.x - press.x, release.y - press.y) > slop;
 }
+
+// Doing something after the pointer is released.
+//
+// A click is a mousedown and a mouseup on the same element. A layout change
+// between the two moves what is under the pointer, and the mouseup lands
+// elsewhere: no click. The compose box collapsed on blur, which the mousedown
+// of a click below it caused, so the first click on the "start here" card or
+// on the first note did nothing while the box had focus. Anything that
+// changes layout in answer to a blur waits for the release.
+
+let held = false;
+const waiting: (() => void)[] = [];
+
+function release(): void {
+  held = false;
+  const fns = waiting.splice(0);
+  for (const f of fns) f();
+}
+
+if (typeof window !== "undefined") {
+  window.addEventListener("pointerdown", () => { held = true; }, true);
+  window.addEventListener("pointerup", release, true);
+  window.addEventListener("pointercancel", release, true);
+  // A release that never arrives (a native drag or context menu took it, the
+  // window lost focus mid-press) would otherwise hold every later blur until
+  // the next click.
+  window.addEventListener("blur", release);
+  window.addEventListener("dragend", release, true);
+  window.addEventListener("pointermove", (e) => { if (held && e.buttons === 0) release(); }, true);
+}
+
+/** Run `fn` now, or once the pointer button that is down has been released. */
+export function afterPointerRelease(fn: () => void): void {
+  if (held) waiting.push(fn);
+  else fn();
+}

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { DRAG_SLOP, isDrag } from "./pointer";
+import { DRAG_SLOP, isDrag, afterPointerRelease } from "./pointer";
 
 describe("isDrag", () => {
   it("treats a press and release on the same spot as a click", () => {
@@ -24,5 +24,23 @@ describe("isDrag", () => {
   // press that started outside the card) is still a click.
   it("is not a drag when no press was recorded", () => {
     expect(isDrag(null, { x: 500, y: 500 })).toBe(false);
+  });
+});
+
+describe("afterPointerRelease", () => {
+  it("runs at once with no pointer down, and after the release with one", () => {
+    const ran: string[] = [];
+    afterPointerRelease(() => ran.push("now"));
+    expect(ran).toEqual(["now"]);
+    window.dispatchEvent(new Event("pointerdown"));
+    afterPointerRelease(() => ran.push("later"));
+    expect(ran).toEqual(["now"]);
+    window.dispatchEvent(new Event("pointerup"));
+    expect(ran).toEqual(["now", "later"]);
+    // A cancelled press is a release too.
+    window.dispatchEvent(new Event("pointerdown"));
+    afterPointerRelease(() => ran.push("cancelled"));
+    window.dispatchEvent(new Event("pointercancel"));
+    expect(ran).toEqual(["now", "later", "cancelled"]);
   });
 });

@@ -3,6 +3,8 @@ import { NDKPrivateKeySigner } from "@nostr-dev-kit/ndk";
 import { useUserStore } from "../../stores/user";
 import { useUIStore } from "../../stores/ui";
 import { useBackupStore } from "../../stores/backup";
+import { markFirstRun } from "../../stores/firstRun";
+import { saveInterests } from "../../lib/interests";
 import { useToastStore } from "../../stores/toast";
 import { setBrowseOnly } from "../../lib/browseOnly";
 import { ensureConnected } from "../../lib/nostr";
@@ -132,7 +134,7 @@ function InterestsStep({ notice, onComplete }: { notice: string | null; onComple
     });
 
   const handleConfirm = () => {
-    localStorage.setItem("wrystr_interests", JSON.stringify([...selected]));
+    saveInterests(useUserStore.getState().pubkey, [...selected]);
     onComplete();
   };
 
@@ -358,6 +360,7 @@ function BackupStep({ signer, name, steps, onComplete }: {
     // Not signed in: stay, with the reason shown above the button. This used
     // to go on to the next step regardless.
     if (useUserStore.getState().loginError) { setSaving(false); return; }
+    markFirstRun(signer.pubkey);
     if (later && !copiedByNow.current) useBackupStore.getState().markPending(signer.pubkey);
     const notice = name ? await publishName(name, signer.pubkey) : null;
     setSaving(false);

@@ -12,6 +12,10 @@ import { estimateNoteHeight } from "../../lib/feedEstimate";
 import { NoteCard } from "./NoteCard";
 import { ArticleCard } from "../article/ArticleCard";
 import { ComposeBox } from "./ComposeBox";
+import { StartHereCard } from "./StartHereCard";
+import { PeopleToStartWith } from "../shared/PeopleToStartWith";
+import { storedInterests } from "../../lib/interests";
+import { looksLikePayload } from "../../lib/noteFilters";
 import { SkeletonNoteList } from "../shared/Skeleton";
 import { RelayStatusBadge } from "./RelayStatusBadge";
 import { NDKEvent } from "@nostr-dev-kit/ndk";
@@ -21,15 +25,6 @@ import { Button } from "../shared/Button";
 import { RefreshCw } from "lucide-react";
 import { ListState, stateWithoutRows, followListState, didNotLoad } from "../shared/ListState";
 import { loadList, type LoadOutcome } from "../../lib/listLoad";
-
-function storedInterests(): string[] {
-  try {
-    const parsed: unknown = JSON.parse(localStorage.getItem("wrystr_interests") ?? "[]");
-    return Array.isArray(parsed) ? parsed.filter((t): t is string => typeof t === "string") : [];
-  } catch {
-    return [];
-  }
-}
 
 function timeAgo(ts: number): string {
   const sec = Math.floor((Date.now() - ts) / 1000);
@@ -58,6 +53,7 @@ export function Feed() {
   const focusedNoteIndex = useFeedStore((s) => s.focusedNoteIndex);
   const lastUpdated = useFeedStore((s) => s.lastUpdated);
   const loggedIn = useUserStore((s) => s.loggedIn);
+  const ownPubkey = useUserStore((s) => s.pubkey);
   const follows = useUserStore((s) => s.follows);
   const followsStatus = useUserStore((s) => s.followsStatus);
   const fetchFollows = useUserStore((s) => s.fetchFollows);
@@ -165,7 +161,7 @@ export function Feed() {
   // Following shows nothing without a follow list, and why it has none matters.
   const needsFollows = isFollowing && follows.length === 0;
   // Read only when it will be shown. A stored value that does not parse used to throw during render.
-  const interests = needsFollows && followsStatus === "loaded" ? storedInterests() : [];
+  const interests = needsFollows && followsStatus === "loaded" ? storedInterests(ownPubkey) : [];
   const reloadTab = () => {
     if (isTrending) void loadTrendingFeed(true);
     else if (isFollowing) void loadFollowFeed();
@@ -177,12 +173,8 @@ export function Feed() {
     if (mutedPubkeys.includes(event.pubkey)) return false;
     if (contentMatchesMutedKeyword(event.content)) return false;
     if (wotEnabled && wotSet.size > 0 && !wotSet.has(event.pubkey)) return false;
-    const c = event.content.trim();
-    if (!c || c.startsWith("{") || c.startsWith("[")) return false;
-    // Filter out notes that look like base64 blobs or relay protocol messages
-    if (c.length > 500 && /^[A-Za-z0-9+/=]{50,}$/.test(c.slice(0, 100))) return false;
-    if (c.startsWith("nlogpost:") || c.startsWith("T1772")) return false;
-    if (!matchesScriptFilter(event.tags, c, feedLanguageFilter)) return false;
+    if (looksLikePayload(event.content)) return false;
+    if (!matchesScriptFilter(event.tags, event.content.trim(), feedLanguageFilter)) return false;
     return true;
   };
   const filteredNotes = activeNotes.filter(shows);
@@ -344,6 +336,9 @@ export function Feed() {
         />
       )}
 
+      {/* What to do first, for an account made here. Above the list, on every tab. */}
+      <StartHereCard />
+
       {/* Error + new-notes banners — pinned above the scroll area so they never
           offset the virtualizer's coordinate space (its spacer must start at scrollTop 0) */}
       {/* A refresh that fails or goes unanswered leaves the tab as it was
@@ -379,22 +374,27 @@ export function Feed() {
             loadingLabel="Loading the people you follow…"
             empty="You're not following anyone yet."
             emptyHint="Follow a few people and their notes will show up here."
-            emptyAction={interests.length > 0 ? (
-              <div>
-                <p className="text-text-dim text-caption mb-2">Explore your interests:</p>
-                <div className="flex flex-wrap justify-center gap-1.5">
-                  {interests.map((tag) => (
-                    <button
-                      key={tag}
-                      onClick={() => openHashtag(tag)}
-                      className="px-2.5 py-1 text-ui border border-border text-text-dim hover:border-accent/40 hover:text-accent transition-colors rounded-sm"
-                    >
-                      #{tag}
-                    </button>
-                  ))}
-                </div>
+            emptyAction={(
+              <div className="w-full">
+                {interests.length > 0 && (
+                  <div className="mb-4">
+                    <p className="text-text-dim text-caption mb-2">Explore your interests:</p>
+                    <div className="flex flex-wrap justify-center gap-1.5">
+                      {interests.map((tag) => (
+                        <button
+                          key={tag}
+                          onClick={() => openHashtag(tag)}
+                          className="px-2.5 py-1 text-ui border border-border text-text-muted hover:border-accent/40 hover:text-accent transition-colors rounded-sm"
+                        >
+                          #{tag}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                <PeopleToStartWith />
               </div>
-            ) : undefined}
+            )}
             what="the list of people you follow"
             onRetry={() => void fetchFollows()}
           />

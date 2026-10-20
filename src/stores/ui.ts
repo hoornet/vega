@@ -96,12 +96,12 @@ interface UIState {
   feedLanguageFilter: string | null;
   /** Hide RSS-bridge reposts on the Articles Latest tab. Default on. */
   hideRssArticles: boolean;
-  followsTab: "followers" | "following";
+  followsTab: "followers" | "following" | "find";
   fontSize: number;
   easyReadFont: boolean;
   themeId: string;
   setView: (view: View) => void;
-  setFollowsTab: (tab: "followers" | "following") => void;
+  setFollowsTab: (tab: "followers" | "following" | "find") => void;
   /** Switch feed tab. `remember: false` is for defaults the app picks; only the user's own choice is kept across restarts. */
   setFeedTab: (tab: FeedTab, opts?: { remember?: boolean }) => void;
   /** Switch the Articles tab. As with the feed, only the user's own choice is kept across restarts. */

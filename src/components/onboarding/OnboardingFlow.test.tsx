@@ -24,6 +24,7 @@ vi.mock("../../lib/clipboard", () => ({ copyText: (text: string) => copyText(tex
 import { OnboardingFlow, discardSignupDraft } from "./OnboardingFlow";
 import { useToastStore } from "../../stores/toast";
 import { useBackupStore } from "../../stores/backup";
+import { isFirstRun, useFirstRunStore } from "../../stores/firstRun";
 import { shortNpub } from "../../lib/utils";
 
 /** What the interests step says about the step before it, if anything. */
@@ -51,6 +52,7 @@ const finishBackup = async () => {
 };
 
 beforeEach(() => {
+  useFirstRunStore.setState({ accounts: [] });
   vi.clearAllMocks();
   localStorage.clear();
   user.loginError = null;
@@ -382,6 +384,8 @@ describe("the backup step", () => {
     const { NDKPrivateKeySigner } = await import("@nostr-dev-kit/ndk");
     const made = new NDKPrivateKeySigner(user.loginWithNsec.mock.calls[0][0] as string).pubkey;
     expect(useBackupStore.getState().pending).toEqual([made]);
+    // And it gets the "start here" card on the feed.
+    expect(isFirstRun(made)).toBe(true);
   });
 
   // "Later" is still signing in, and the user copies the key meanwhile.
@@ -395,11 +399,12 @@ describe("the backup step", () => {
     expect(useBackupStore.getState().pending).toEqual([]);
   });
 
-  it("does not remember an account whose sign-in failed", async () => {
+  it("does not remember an account whose sign-in failed, and gives it no card", async () => {
     user.loginWithNsec.mockImplementation(async () => { user.loginError = "Login failed"; });
     toBackupStep();
     await finishBackup();
     expect(useBackupStore.getState().pending).toEqual([]);
+    expect(useFirstRunStore.getState().accounts).toEqual([]);
   });
 
   it("does not remember one that copied the key and then chose later", async () => {
@@ -495,11 +500,16 @@ describe("opened over the app", () => {
 });
 
 describe("the rest of the flow", () => {
-  it("finishes onboarding from the interests step", async () => {
+  it("finishes onboarding from the interests step, keeping the topics for this account", async () => {
     toBackupStep("Ana");
     await finishBackup();
+    const { NDKPrivateKeySigner } = await import("@nostr-dev-kit/ndk");
+    const made = new NDKPrivateKeySigner(user.loginWithNsec.mock.calls[0][0] as string).pubkey;
+    Object.assign(user, { pubkey: made });
+    press(/Art/);
     press(/Get started/);
     await waitFor(() => expect(onComplete).toHaveBeenCalledTimes(1));
+    expect(JSON.parse(localStorage.getItem(`wrystr_interests_${made}`)!)).toEqual(["art"]);
   });
 
   it("still leads someone with a key to the sign-in step and back", () => {

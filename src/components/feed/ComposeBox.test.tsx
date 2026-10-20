@@ -101,3 +101,42 @@ describe("ComposeBox: asked for from an empty view", () => {
     expect(document.activeElement).toBe(box());
   });
 });
+
+// The mousedown of a click below the box blurred it; it collapsed; the mouseup
+// landed two lines further up, on something else.
+describe("ComposeBox: collapsing", () => {
+  it("waits for the pointer to be released, and collapses at once on a keyboard blur", () => {
+    render(<ComposeBox />);
+    fireEvent.focus(box());
+    expect(box().rows).toBe(3);
+    window.dispatchEvent(new Event("pointerdown"));
+    fireEvent.blur(box());
+    expect(box().rows).toBe(3);
+    act(() => { window.dispatchEvent(new Event("pointerup")); });
+    expect(box().rows).toBe(1);
+    fireEvent.focus(box());
+    expect(box().rows).toBe(3);
+    fireEvent.blur(box());
+    expect(box().rows).toBe(1);
+  });
+
+  it("stays expanded when the click put focus back inside it", () => {
+    render(<ComposeBox />);
+    fireEvent.focus(box());
+    window.dispatchEvent(new Event("pointerdown"));
+    fireEvent.blur(box());
+    box().focus();
+    act(() => { window.dispatchEvent(new Event("pointerup")); });
+    expect(box().rows).toBe(3);
+  });
+});
+
+describe("ComposeBox: the first-run card", () => {
+  it("has said hello once a note is posted, for an account with a card", async () => {
+    const { useFirstRunStore } = await import("../../stores/firstRun");
+    useFirstRunStore.setState({ accounts: ["me"], hello: [] });
+    render(<ComposeBox />);
+    await post();
+    expect(useFirstRunStore.getState().hello).toEqual(["me"]);
+  });
+});
