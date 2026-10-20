@@ -21,6 +21,7 @@ import { useFeedStore } from "../../stores/feed";
 import { useEscapeToClose } from "../../hooks/useEscapeToClose";
 import { ChevronDown, ChevronRight, Trash2, X } from "lucide-react";
 import { tellPublish } from "../../lib/publishFeedback";
+import { shortNpub } from "../../lib/utils";
 
 function statusColor(status: RelayHealthResult["status"]): string {
   switch (status) {
@@ -126,7 +127,7 @@ function RelayHealthCard({ result, poolConnected, onRemove }: { result: RelayHea
                 {nip11.pubkey && (
                   <div className="col-span-2">
                     <span className="text-text-muted">Pubkey: </span>
-                    <span className="text-text font-mono">{nip11.pubkey.slice(0, 16)}…</span>
+                    <span title={nip11.pubkey} className="text-text font-mono">{shortNpub(nip11.pubkey)}</span>
                   </div>
                 )}
               </div>

@@ -1,6 +1,7 @@
 import { create } from "zustand";
-import { NDKPrivateKeySigner, NDKNip46Signer } from "@nostr-dev-kit/ndk";
-import { getNDK, publishContactList, fetchContactList } from "../lib/nostr";
+import { NDKPrivateKeySigner, NDKNip46Signer, type NDKUserProfile } from "@nostr-dev-kit/ndk";
+import { getNDK, publishContactList, fetchContactList, publishProfile, fetchProfileFromEachRelay, type ProfileFields, type ProfileRead } from "../lib/nostr";
+import { primeProfileCache } from "../hooks/useProfile";
 import {
   contactPubkeys,
   newerContactList,
@@ -34,7 +35,7 @@ import { dbLoadProfile } from "../lib/db";
 import { debug } from "../lib/debug";
 import { copyText } from "../lib/clipboard";
 import { setCurrentAccount } from "../lib/currentAccount";
-import { shortenPubkey, clipText } from "../lib/utils";
+import { shortNpub, clipText, ownName, olderProfile } from "../lib/utils";
 
 /**
  * Bounce every relay currently holding an authenticated session.
@@ -62,6 +63,12 @@ export interface SavedAccount {
   picture?: string;
   loginType?: "nsec" | "pubkey" | "remote-signer";
   signerPayload?: string;
+  /**
+   * When the profile that `name` and `picture` came from was published.
+   * What a relay sends is judged against it when nothing else is held, so a
+   * relay that has not caught up cannot put an older name back.
+   */
+  profileAt?: number;
 }
 
 // In-memory signer cache — survives account switches within a session.
@@ -202,6 +209,19 @@ function saveCachedContactList(pubkey: string, list: ContactListSnapshot): void 
   }
 }
 
+// The same for the account's own profile: asked again a few times when the
+// relays could not say.
+let _profileRetryTimer: ReturnType<typeof setTimeout> | null = null;
+let _profileRetryCount = 0;
+/** Set by the timer for the read it starts: that one goes on with the count, any other starts it again. */
+let _profileRetrying = false;
+const PROFILE_RETRY_DELAYS_MS = [4000, 10000, 30000];
+
+function clearProfileRetry(): void {
+  if (_profileRetryTimer) clearTimeout(_profileRetryTimer);
+  _profileRetryTimer = null;
+}
+
 function clearFollowsRetry(): void {
   if (_followsRetryTimer) clearTimeout(_followsRetryTimer);
   _followsRetryTimer = null;
@@ -234,6 +254,70 @@ function beginFollowsFor(pubkey: string): void {
   );
 }
 
+/**
+ * The profile to show on becoming `pubkey`: the one on screen when it is
+ * already this account's, otherwise none yet.
+ *
+ * Every `set` that changes who is signed in carries this. The profile used
+ * to be left as it was until the new account's fetch came back, so for those
+ * seconds one account was shown under another's name and picture, and it was
+ * only ever cleared because a fetch that found nothing blanked it. That
+ * blanking is gone (see `fetchOwnProfile`), so the clearing is done here,
+ * where it belongs.
+ */
+function profileOnBecoming(pubkey: string): NDKUserProfile | null {
+  const now = useUserStore.getState();
+  // A try waiting for the last account's profile is cleared by the read the
+  // new one starts, and fires for nobody if there is none.
+  return now.pubkey === pubkey ? now.profile : null;
+}
+
+/**
+ * Give the saved account a name or a picture from the copy on this computer,
+ * where it has none. Never the other way: that copy may be old, so it does
+ * not replace or take away what the saved account already has.
+ */
+function fillSavedAccount(pubkey: string, stored: NDKUserProfile): void {
+  const { accounts } = useUserStore.getState();
+  const saved = accounts.find((a) => a.pubkey === pubkey);
+  if (!saved) return;
+  // A copy older than the profile the saved name came from has nothing to add.
+  if (saved.profileAt !== undefined && (stored.created_at ?? 0) < saved.profileAt) return;
+  const name = saved.name || ownName(stored) || undefined;
+  const picture = saved.picture || (typeof stored.picture === "string" && stored.picture ? stored.picture : undefined);
+  if (name === saved.name && picture === saved.picture) return;
+  const next = upsertAccount(accounts, { ...saved, name, picture });
+  useUserStore.setState({ accounts: next });
+  try {
+    persistAccounts(next);
+  } catch { /* shown for this session all the same */ }
+}
+
+/**
+ * Take `profile` as `pubkey`'s: the name and picture kept with the saved
+ * account, and the profile on screen if that account is the one signed in.
+ *
+ * The saved account is found by its key, so a profile that arrives after an
+ * account switch still lands on the right one and never on the current one.
+ */
+function showOwnProfile(pubkey: string, profile: NDKUserProfile): void {
+  const { accounts, pubkey: active } = useUserStore.getState();
+  // On screen first: writing the saved accounts to storage can fail (it is
+  // full), and that must not keep a profile the relays hold off the screen.
+  if (active === pubkey) useUserStore.setState({ profile });
+  const saved = accounts.find((a) => a.pubkey === pubkey);
+  if (!saved) return;
+  const picture = typeof profile.picture === "string" && profile.picture ? profile.picture : undefined;
+  const profileAt = typeof profile.created_at === "number" ? profile.created_at : undefined;
+  const next = upsertAccount(accounts, { ...saved, name: ownName(profile) ?? undefined, picture, profileAt });
+  useUserStore.setState({ accounts: next });
+  try {
+    persistAccounts(next);
+  } catch (err) {
+    debug.warn("Could not save the account's name and picture for the next launch:", err);
+  }
+}
+
 interface UserState {
   pubkey: string | null;
   npub: string | null;
@@ -257,6 +341,12 @@ interface UserState {
   switchAccount: (pubkey: string) => Promise<void>;
   removeAccount: (pubkey: string) => void;
   fetchOwnProfile: () => Promise<void>;
+  /**
+   * Publish `pubkey`'s profile and show it here. Rejects when no relay took
+   * it, or when `pubkey` is not the account signed in, with the profile on
+   * screen unchanged. Once a relay has it, it does not reject.
+   */
+  saveProfile: (fields: ProfileFields, pubkey: string) => Promise<void>;
   fetchFollows: () => Promise<void>;
   /** Follow, and say how it ended: see `FollowOutcome`. A failure has already been reported in a toast. */
   follow: (pubkey: string) => Promise<FollowOutcome>;
@@ -317,7 +407,7 @@ export const useUserStore = create<UserState>((set, get) => ({
       const accounts = upsertAccount(get().accounts, { pubkey, npub, loginType: "nsec" });
       persistAccounts(accounts);
 
-      set({ pubkey, npub, loggedIn: true, loginError: null, accounts });
+      set({ pubkey, npub, profile: profileOnBecoming(pubkey), loggedIn: true, loginError: null, accounts });
 
       // Persist active session
       localStorage.setItem("wrystr_pubkey", pubkey);
@@ -343,7 +433,7 @@ export const useUserStore = create<UserState>((set, get) => ({
         // key can still be copied after this is closed. It names the account
         // because it outlives an account switch.
         useToastStore.getState().addToast(
-          `Vega couldn't save the secret key for ${shortenPubkey(npub)} to this computer's keychain. That account will be signed out when Vega closes, and without the key there is no way back in. Copy it now, or from Settings before Vega closes, and keep it somewhere safe.`,
+          `Vega couldn't save the secret key for ${shortNpub(pubkey)} to this computer's keychain. That account will be signed out when Vega closes, and without the key there is no way back in. Copy it now, or from Settings before Vega closes, and keep it somewhere safe.`,
           "error",
           {
             sticky: true,
@@ -408,7 +498,7 @@ export const useUserStore = create<UserState>((set, get) => ({
       const accounts = upsertAccount(get().accounts, { pubkey, npub, loginType: "pubkey" });
       persistAccounts(accounts);
 
-      set({ pubkey, npub, loggedIn: true, loginError: null, accounts });
+      set({ pubkey, npub, profile: profileOnBecoming(pubkey), loggedIn: true, loginError: null, accounts });
 
       localStorage.setItem("wrystr_pubkey", pubkey);
       localStorage.setItem("wrystr_login_type", "pubkey");
@@ -459,7 +549,7 @@ export const useUserStore = create<UserState>((set, get) => ({
       const accounts = upsertAccount(get().accounts, { pubkey, npub, loginType: "remote-signer", signerPayload });
       persistAccounts(accounts);
 
-      set({ pubkey, npub, loggedIn: true, loginError: null, accounts });
+      set({ pubkey, npub, profile: profileOnBecoming(pubkey), loggedIn: true, loginError: null, accounts });
 
       localStorage.setItem("wrystr_pubkey", pubkey);
       localStorage.setItem("wrystr_login_type", "remote-signer");
@@ -557,7 +647,7 @@ export const useUserStore = create<UserState>((set, get) => ({
           await connectWithTimeout(cachedSigner);
           getNDK().signer = cachedSigner;
           const npub = nip19.npubEncode(savedPubkey);
-          set({ pubkey: savedPubkey, npub, loggedIn: true, loginError: null });
+          set({ pubkey: savedPubkey, npub, profile: profileOnBecoming(savedPubkey), loggedIn: true, loginError: null });
           localStorage.setItem("wrystr_pubkey", savedPubkey);
           localStorage.setItem("wrystr_login_type", "remote-signer");
           useLightningStore.getState().loadNwcForAccount(savedPubkey);
@@ -579,7 +669,7 @@ export const useUserStore = create<UserState>((set, get) => ({
           // someone may have signed in to another account meanwhile.
           getNDK().signer = undefined;
           dropAuthenticatedSessions();
-          set({ pubkey: savedPubkey, npub, loggedIn: false, loginError: nip46RestoreError(err) });
+          set({ pubkey: savedPubkey, npub, profile: profileOnBecoming(savedPubkey), loggedIn: false, loginError: nip46RestoreError(err) });
           useToastStore.getState().addToast(nip46RestoreError(err), "warning", 8000);
           // Read-only, but this account all the same: its podcasts, not the signed-out list.
           usePodcastStore.getState().setActiveAccount(savedPubkey);
@@ -593,7 +683,7 @@ export const useUserStore = create<UserState>((set, get) => ({
       if (cachedSigner) {
         getNDK().signer = cachedSigner;
         const npub = nip19.npubEncode(savedPubkey);
-        set({ pubkey: savedPubkey, npub, loggedIn: true, loginError: null });
+        set({ pubkey: savedPubkey, npub, profile: profileOnBecoming(savedPubkey), loggedIn: true, loginError: null });
         localStorage.setItem("wrystr_pubkey", savedPubkey);
         localStorage.setItem("wrystr_login_type", "nsec");
         useLightningStore.getState().loadNwcForAccount(savedPubkey);
@@ -627,7 +717,7 @@ export const useUserStore = create<UserState>((set, get) => ({
         getNDK().signer = cachedNip46;
         const account = get().accounts.find((a) => a.pubkey === pubkey);
         const npub = account?.npub ?? nip19.npubEncode(pubkey);
-        set({ pubkey, npub, loggedIn: true, loginError: null });
+        set({ pubkey, npub, profile: profileOnBecoming(pubkey), loggedIn: true, loginError: null });
         localStorage.setItem("wrystr_pubkey", pubkey);
         localStorage.setItem("wrystr_login_type", "remote-signer");
         useLightningStore.getState().loadNwcForAccount(pubkey);
@@ -652,7 +742,7 @@ export const useUserStore = create<UserState>((set, get) => ({
       getNDK().signer = cachedSigner;
       const account = get().accounts.find((a) => a.pubkey === pubkey);
       const npub = account?.npub ?? nip19.npubEncode(pubkey);
-      set({ pubkey, npub, loggedIn: true, loginError: null });
+      set({ pubkey, npub, profile: profileOnBecoming(pubkey), loggedIn: true, loginError: null });
       localStorage.setItem("wrystr_pubkey", pubkey);
       localStorage.setItem("wrystr_login_type", "nsec");
       useLightningStore.getState().loadNwcForAccount(pubkey);
@@ -757,41 +847,124 @@ export const useUserStore = create<UserState>((set, get) => ({
   },
 
   fetchOwnProfile: async () => {
+    // Taken before anything is awaited: it is about this call and no other.
+    const isRetry = _profileRetrying;
+    _profileRetrying = false;
     const { pubkey } = get();
     if (!pubkey) return;
 
-    // Instant: load from SQLite cache so name/picture show immediately
+    // Instant: the copy on this computer, so the name and picture show at
+    // once. On screen only: it is not known to be current, so it is not
+    // written to the saved account, which holds what was last confirmed.
     if (!get().profile) {
       try {
-        const cached = await dbLoadProfile(pubkey);
-        if (cached && !get().profile) {
-          const parsed = JSON.parse(cached);
-          set({ profile: parsed });
-          const name = parsed?.displayName || parsed?.name;
-          const picture = parsed?.picture;
-          if (name) {
-            const accounts = upsertAccount(get().accounts, { pubkey, npub: get().npub!, name, picture });
-            persistAccounts(accounts);
-            set({ accounts });
-          }
+        const stored = await dbLoadProfile(pubkey);
+        const kept: unknown = stored ? JSON.parse(stored) : null;
+        // Still this account, and still nothing shown for it: the read took
+        // a moment, and an account switched to meanwhile must not get this
+        // one's name and picture.
+        if (kept && typeof kept === "object" && get().pubkey === pubkey && !get().profile) {
+          set({ profile: kept });
+          fillSavedAccount(pubkey, kept as NDKUserProfile);
         }
       } catch { /* cache miss is fine */ }
     }
 
-    try {
-      const ndk = getNDK();
-      const user = ndk.getUser({ pubkey });
-      await user.fetchProfile();
-      set({ profile: user.profile });
+    // What a relay sent, taken if it is news. Called as each relay answers,
+    // and once more with the newest of them all.
+    const take = (profile: NDKUserProfile) => {
+      // For an account no longer on screen it is dropped: there is nothing
+      // to judge its age against, and it is read again on the way back.
+      if (get().pubkey !== pubkey) return;
+      const shown = get().profile;
+      // Said twice by the read: as its relay answered, and as the newest of all.
+      if (shown === profile) return;
+      // Older than what is shown: a relay that has not caught up, or a read
+      // begun before a save. The save is the newer. With nothing shown (no
+      // copy on this computer), older than what the saved account's name
+      // came from.
+      // The newer of the two: the copy on this computer can be older than
+      // the profile the saved account's name came from, when its write failed.
+      const lastConfirmed = get().accounts.find((a) => a.pubkey === pubkey)?.profileAt;
+      const held = shown && (lastConfirmed === undefined || (shown.created_at ?? 0) >= lastConfirmed) ? shown : lastConfirmed === undefined ? null : { created_at: lastConfirmed };
+      if (olderProfile(profile, held)) return;
+      // On screen first, then to the cards and the copy on this computer: if
+      // that copy cannot be written, the profile is shown all the same.
+      showOwnProfile(pubkey, profile);
+      try {
+        primeProfileCache(pubkey, profile);
+      } catch (err) {
+        debug.warn("Could not keep a copy of the profile on this computer:", err);
+      }
+    };
 
-      // Update cached name/picture in accounts list
-      const name = user.profile?.displayName || user.profile?.name;
-      const picture = user.profile?.picture;
-      const accounts = upsertAccount(get().accounts, { pubkey, npub: get().npub!, name, picture });
-      persistAccounts(accounts);
-      set({ accounts });
+    clearProfileRetry();
+    if (!isRetry) _profileRetryCount = 0;
+    let read: ProfileRead;
+    try {
+      // Each relay on its own: this is what the edit form opens on and the
+      // next save is made from, so it has to be the newest there is.
+      read = await fetchProfileFromEachRelay(pubkey, { onFound: take });
     } catch {
-      // Profile fetch is non-critical
+      read = { status: "unknown" };
+    }
+    if (get().pubkey !== pubkey) return;
+
+    // The count of tries starts again with any read that is not itself a try.
+    if (read.status === "found" && read.fromNetwork) {
+      take(read.profile);
+    } else if (read.status === "found") {
+      // Only the built-in relay answered, with this device's own last copy.
+      // Shown, but the network is still to be read: a newer profile made
+      // elsewhere would otherwise never be seen this session.
+      take(read.profile);
+      askAgain();
+    } else if (read.status === "none") {
+      // Every relay answered and none holds one. What is shown stays (a copy
+      // from this computer is still the account's profile, and the next save
+      // puts it back on the relays), and there is nothing to ask again for.
+    } else {
+      // Could not tell: no relay was up yet, or one never answered. What is
+      // shown stays. This used to blank the profile and take the name out of
+      // the saved account, so the sidebar fell back to a key on a slow start.
+      // Asked again a few times, as the follow list is: without that, a slow
+      // start left the profile unread for the whole session.
+      askAgain();
+    }
+
+    function askAgain() {
+      // Two reads that overlapped would each set a timer; the first to fire
+      // then forgot the other's handle, and nothing could cancel it. One try
+      // waiting is enough for both.
+      if (_profileRetryTimer) return;
+      const delay = PROFILE_RETRY_DELAYS_MS[_profileRetryCount];
+      if (delay === undefined) return;
+      _profileRetryCount++;
+      // The handle is let go of by the read it starts (`clearProfileRetry`).
+      _profileRetryTimer = setTimeout(() => {
+        if (get().pubkey !== pubkey) return;
+        _profileRetrying = true;
+        void get().fetchOwnProfile();
+      }, delay);
+    }
+  },
+
+  saveProfile: async (fields: ProfileFields, pubkey: string) => {
+    // The form was opened for `pubkey`. If another account is signed in by
+    // the time Save is pressed, this is not that account's profile to publish.
+    if (get().pubkey !== pubkey) throw new Error("Not logged in");
+    const profile = await publishProfile(fields, pubkey);
+    // It is out. From here on nothing may reject: a failure to note it here
+    // would be reported as a failure to publish, and tried again.
+    try {
+      // The relays hold it now, so it is shown as published, without asking
+      // them: a fetch straight after a publish can come back empty or with
+      // the profile it replaced. Every card of this account's notes reads
+      // the shared cache, and the next launch reads it from the database.
+      showOwnProfile(pubkey, profile);
+      primeProfileCache(pubkey, profile, "published");
+    } catch (err) {
+      debug.warn("Profile published, but it could not be shown here:", err);
     }
   },
 

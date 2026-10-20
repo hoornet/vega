@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import type { NDKUserProfile } from "@nostr-dev-kit/ndk";
 import { fetchProfile } from "../lib/nostr";
 import { dbLoadProfile, dbSaveProfile } from "../lib/db";
+import { olderProfile } from "../lib/utils";
 
 const PROFILE_CACHE_MAX = 500;
 const profileCache = new Map<string, any>();
@@ -33,19 +34,34 @@ function pruneProfileCache() {
   }
 }
 
-export function invalidateProfileCache(pubkey: string) {
-  profileCache.delete(pubkey);
-  pendingRequests.delete(pubkey);
+/** The copy of a profile kept on this computer, or null: no copy, or one that cannot be read. */
+async function storedProfile(pubkey: string): Promise<NDKUserProfile | null> {
+  const stored = await dbLoadProfile(pubkey);
+  if (!stored) return null;
+  try {
+    const parsed: unknown = JSON.parse(stored);
+    return parsed && typeof parsed === "object" ? (parsed as NDKUserProfile) : null;
+  } catch {
+    return null;
+  }
 }
+
+/** The read of the stored copy for a fetch that is out: one read, for the first paint and to judge what arrives. */
+const storedReads = new Map<string, Promise<NDKUserProfile | null>>();
 
 /**
  * Seed the in-memory cache (and SQLite) with a profile fetched elsewhere in
  * bulk, so cards rendered afterwards don't refetch it one subscription at a
  * time. Only real profiles are primed: a null here would stop the hook from
  * ever asking a relay for that pubkey.
+ *
+ * `from` says where it came from. One that a relay sent does not replace a
+ * newer one already held (see `olderProfile`). One the owner just published
+ * is the newest there is, and is taken as it is.
  */
-export function primeProfileCache(pubkey: string, profile: NDKUserProfile | null | undefined): void {
+export function primeProfileCache(pubkey: string, profile: NDKUserProfile | null | undefined, from: "relay" | "published" = "relay"): void {
   if (!profile) return;
+  if (from === "relay" && olderProfile(profile, profileCache.get(pubkey) as NDKUserProfile | null | undefined)) return;
   profileCache.set(pubkey, profile);
   pruneProfileCache();
   dbSaveProfile(pubkey, JSON.stringify(profile));
@@ -62,13 +78,7 @@ export async function peekCachedProfile(pubkey: string): Promise<NDKUserProfile 
   // reported as unknown and they ask the relays again in their batch.
   const inMemory = profileCache.get(pubkey);
   if (inMemory) return inMemory as NDKUserProfile;
-  const cached = await dbLoadProfile(pubkey);
-  if (!cached) return undefined;
-  try {
-    return JSON.parse(cached) as NDKUserProfile;
-  } catch {
-    return undefined;
-  }
+  return (await storedProfile(pubkey)) ?? undefined;
 }
 
 export function useProfile(pubkey: string) {
@@ -82,21 +92,34 @@ export function useProfile(pubkey: string) {
 
     // Kick off relay fetch (deduplicated + concurrency-throttled)
     if (!pendingRequests.has(pubkey)) {
+      const stored = storedProfile(pubkey);
+      storedReads.set(pubkey, stored);
+      /** What is known without the relays: primed meanwhile, or the copy on this computer. */
+      const held = async () => (profileCache.get(pubkey) as NDKUserProfile | null | undefined) ?? (await stored);
       const request = new Promise<any>((resolve) => {
         const doFetch = () => {
           activeProfileFetches++;
           fetchProfile(pubkey)
-            .then((p) => {
-              const result = p ?? null;
-              profileCache.set(pubkey, result);
+            .then(async (p) => {
+              const arrived = p ?? null;
+              const known = await held();
+              // An older profile, or none, does not replace what is known.
+              // A name on screen from the copy on this computer used to turn
+              // back into a key when a slow relay sent nothing, and a fetch
+              // that was out while the owner saved brought the old one back.
+              const kept = olderProfile(arrived, known) ? known : arrived;
+              profileCache.set(pubkey, kept);
               pruneProfileCache();
-              if (result) dbSaveProfile(pubkey, JSON.stringify(result));
-              resolve(result);
+              if (kept && kept === arrived) dbSaveProfile(pubkey, JSON.stringify(arrived));
+              resolve(kept);
             })
-            .catch(() => resolve(null))
+            // The fetch failed (a profile on the relays that cannot be read
+            // does this). Nothing is cached, so a later card asks again.
+            .catch(async () => resolve((await held()) ?? null))
             .finally(() => {
               activeProfileFetches--;
               pendingRequests.delete(pubkey);
+              storedReads.delete(pubkey);
               runNextProfileFetch();
             });
         };
@@ -113,14 +136,8 @@ export function useProfile(pubkey: string) {
     // Show SQLite cached profile immediately while the relay request is in-flight.
     // `settled` prevents the stale cached value from overwriting a fresh relay result.
     let settled = false;
-    dbLoadProfile(pubkey).then((cached) => {
-      if (!settled && cached && !profileCache.has(pubkey)) {
-        try {
-          setProfile(JSON.parse(cached));
-        } catch {
-          // Corrupt cache entry — ignore
-        }
-      }
+    (storedReads.get(pubkey) ?? storedProfile(pubkey)).then((cached) => {
+      if (!settled && cached && !profileCache.has(pubkey)) setProfile(cached);
     });
 
     pendingRequests.get(pubkey)!.then((p) => {

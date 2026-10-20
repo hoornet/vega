@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { explainPublishError } from "./publishErrors";
+import { explainPublishError, publishFailureReason } from "./publishErrors";
 
 const KEPT = "Your draft is safe.";
 
@@ -70,5 +70,33 @@ describe("explainPublishError", () => {
 
   it("leaves a short reason as it is", () => {
     expect(explainPublishError(new Error("rate-limited: slow down."), "Nothing was sent.")).toBe("Couldn't publish: rate-limited: slow down. Nothing was sent.");
+  });
+});
+
+// The reason on its own, for a sentence that does not end on "try again".
+describe("publishFailureReason", () => {
+  it("is NDK's relay-count failure without the counting", () => {
+    expect(publishFailureReason(new Error("Not enough relays received the event (0 published, 1 required)"))).toBe("none of your relays accepted it");
+  });
+
+  it("names a missing key", () => {
+    expect(publishFailureReason(new Error("Not logged in"))).toBe("you are not signed in with a key that can sign");
+    expect(publishFailureReason(new Error("No signer available"))).toBe("you are not signed in with a key that can sign");
+  });
+
+  it("is someone else's words as they are, trimmed", () => {
+    expect(publishFailureReason(new Error("  socket closed.  "))).toBe("socket closed.");
+    expect(publishFailureReason("relay said no")).toBe("relay said no");
+  });
+
+  it("is cut to the same length as in a full explanation", () => {
+    expect(publishFailureReason(new Error("y".repeat(140)))).toBe("y".repeat(140));
+    expect(publishFailureReason(new Error("y".repeat(141)))).toBe(`${"y".repeat(139)}…`);
+  });
+
+  it("is empty when there is nothing to say", () => {
+    expect(publishFailureReason(undefined)).toBe("");
+    expect(publishFailureReason({})).toBe("");
+    expect(publishFailureReason(new Error("   "))).toBe("");
   });
 });

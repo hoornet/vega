@@ -6,7 +6,8 @@ import { useUserStore } from "../../stores/user";
 import { useMuteStore } from "../../stores/mute";
 import { useDismissedSuggestionsStore } from "../../stores/dismissedSuggestions";
 import { useUIStore } from "../../stores/ui";
-import { shortenPubkey } from "../../lib/utils";
+import { nameOf } from "../../lib/utils";
+import { AvatarInitial } from "../shared/AvatarInitial";
 import { NoteCard } from "../feed/NoteCard";
 import { ArticleCard } from "../article/ArticleCard";
 import { ViewHeader } from "../shared/ViewHeader";
@@ -40,7 +41,7 @@ function parseUserEvent(event: NDKEvent): ParsedUser {
 
 function UserRow({ user }: { user: ParsedUser }) {
   const { openProfile: navToProfile } = useUIStore();
-  const displayName = user.displayName || user.name || shortenPubkey(user.pubkey);
+  const displayName = nameOf(user, user.pubkey);
 
   return (
     <div className="flex items-center gap-3 px-4 py-2.5 border-b border-border-subtle hover:bg-bg-hover transition-colors">
@@ -50,7 +51,7 @@ function UserRow({ user }: { user: ParsedUser }) {
             onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
         ) : (
           <div className="w-9 h-9 rounded-full bg-bg-raised border border-border flex items-center justify-center text-text-dim text-xs">
-            {displayName.charAt(0).toUpperCase()}
+            <AvatarInitial profile={user} />
           </div>
         )}
       </button>
@@ -368,19 +369,19 @@ export function SearchView() {
             )}
             {visibleSuggestions.map((s) => s.profile && (
               <div key={s.pubkey} className="flex items-center gap-3 px-4 py-2.5 border-b border-border-subtle hover:bg-bg-hover transition-colors group/suggestion">
-                <button className="shrink-0 cursor-pointer" aria-label={`View profile of ${s.profile.displayName || s.profile.name || "user"}`} onClick={() => useUIStore.getState().openProfile(s.pubkey)}>
+                <button className="shrink-0 cursor-pointer" aria-label={`View profile of ${nameOf(s.profile, s.pubkey)}`} onClick={() => useUIStore.getState().openProfile(s.pubkey)}>
                   {s.profile.picture ? (
-                    <img src={s.profile.picture} alt={`${s.profile.displayName || s.profile.name || "User"}'s avatar`} className="w-9 h-9 rounded-full object-cover bg-bg-raised"
+                    <img src={s.profile.picture} alt={`${nameOf(s.profile, s.pubkey)}'s avatar`} className="w-9 h-9 rounded-full object-cover bg-bg-raised"
                       onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
                   ) : (
                     <div className="w-9 h-9 rounded-full bg-bg-raised border border-border flex items-center justify-center text-text-dim text-xs">
-                      {(s.profile.displayName || s.profile.name || "?").charAt(0).toUpperCase()}
+                      <AvatarInitial profile={s.profile} />
                     </div>
                   )}
                 </button>
                 <button className="min-w-0 flex-1 cursor-pointer text-left" onClick={() => useUIStore.getState().openProfile(s.pubkey)}>
                   <div className="text-text text-body font-medium truncate">
-                    {s.profile.displayName || s.profile.name || shortenPubkey(s.pubkey)}
+                    {nameOf(s.profile, s.pubkey)}
                   </div>
                   <div className="text-text-dim text-caption">
                     {s.mutualCount} mutual follow{s.mutualCount !== 1 ? "s" : ""}

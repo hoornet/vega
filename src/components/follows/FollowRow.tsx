@@ -1,7 +1,8 @@
 import { useUIStore } from "../../stores/ui";
 import { useProfile } from "../../hooks/useProfile";
 import { useNip05Verified } from "../../hooks/useNip05Verified";
-import { shortenPubkey, profileName } from "../../lib/utils";
+import { nameOf } from "../../lib/utils";
+import { AvatarInitial } from "../shared/AvatarInitial";
 import { FollowButton } from "../shared/FollowButton";
 
 /** A person as a row: avatar, name, NIP-05, "follows you", "new", and the follow button. Shared by People and the Followers tab of Notifications. */
@@ -15,7 +16,7 @@ export function FollowRow({
   isNew?: boolean;
 }) {
   const profile = useProfile(pubkey);
-  const name = profileName(profile, shortenPubkey(pubkey));
+  const name = nameOf(profile, pubkey);
   const avatar = typeof profile?.picture === "string" ? profile.picture : undefined;
   const nip05 = typeof profile?.nip05 === "string" ? profile.nip05 : undefined;
   const verified = useNip05Verified(pubkey, nip05);
@@ -24,7 +25,7 @@ export function FollowRow({
 
   return (
     <div className="flex items-center gap-3 px-4 py-2.5 hover:bg-bg-hover transition-colors">
-      <button className="shrink-0" onClick={() => openProfile(pubkey)}>
+      <button className="shrink-0" aria-label={`View profile of ${name}`} onClick={() => openProfile(pubkey)}>
         {avatar ? (
           <img
             src={avatar}
@@ -35,7 +36,7 @@ export function FollowRow({
           />
         ) : (
           <div className="w-9 h-9 rounded-full bg-bg-raised border border-border flex items-center justify-center text-text-dim text-xs hover:border-accent/40 transition-colors">
-            {name.charAt(0).toUpperCase()}
+            <AvatarInitial profile={profile} />
           </div>
         )}
       </button>

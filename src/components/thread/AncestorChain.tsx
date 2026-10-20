@@ -1,11 +1,12 @@
 import { NDKEvent } from "@nostr-dev-kit/ndk";
 import { useProfile } from "../../hooks/useProfile";
 import { useUIStore } from "../../stores/ui";
-import { shortenPubkey, timeAgo, profileName } from "../../lib/utils";
+import { timeAgo, nameOf } from "../../lib/utils";
+import { AvatarInitial } from "../shared/AvatarInitial";
 
 function AncestorCard({ event }: { event: NDKEvent }) {
   const profile = useProfile(event.pubkey);
-  const name = profileName(profile, shortenPubkey(event.pubkey));
+  const name = nameOf(profile, event.pubkey);
   const avatar = typeof profile?.picture === "string" ? profile.picture : undefined;
   const time = event.created_at ? timeAgo(event.created_at) : "";
   const { openThread } = useUIStore();
@@ -24,7 +25,7 @@ function AncestorCard({ event }: { event: NDKEvent }) {
           <img src={avatar} alt={`${name}'s avatar`} className="w-6 h-6 rounded-full object-cover bg-bg-raised" loading="lazy" />
         ) : (
           <div className="w-6 h-6 rounded-full bg-bg-raised border border-border flex items-center justify-center text-text-dim text-[9px]">
-            {name.charAt(0).toUpperCase()}
+            <AvatarInitial profile={profile} />
           </div>
         )}
       </div>

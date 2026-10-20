@@ -5,7 +5,8 @@ import { useNip05Verified } from "../../hooks/useNip05Verified";
 import { useInView } from "../../hooks/useInView";
 import { useCanSign } from "../../stores/user";
 import { useUIStore } from "../../stores/ui";
-import { timeAgo, shortenPubkey } from "../../lib/utils";
+import { timeAgo, nameOf } from "../../lib/utils";
+import { AvatarInitial } from "../shared/AvatarInitial";
 import { fetchNoteById, ensureConnected } from "../../lib/nostr";
 import { getParentEventId } from "../../lib/threadTree";
 import { NoteContent } from "./NoteContent";
@@ -23,8 +24,7 @@ interface NoteCardProps {
 
 function ParentAuthorName({ pubkey }: { pubkey: string }) {
   const profile = useProfile(pubkey);
-  const raw = profile?.displayName || profile?.name;
-  const name = (typeof raw === "string" ? raw : null) || pubkey.slice(0, 8) + "…";
+  const name = nameOf(profile, pubkey);
   return <span className="text-accent">@{name}</span>;
 }
 
@@ -33,8 +33,7 @@ export const NoteCard = memo(function NoteCard({ event, focused, onReplyInThread
   const inView = useInView(cardRef);
 
   const profile = useProfile(event.pubkey);
-  const rawName = profile?.displayName || profile?.name;
-  const name = (typeof rawName === "string" ? rawName : null) || shortenPubkey(event.pubkey);
+  const name = nameOf(profile, event.pubkey);
   const avatar = profile?.picture;
   const nip05 = typeof profile?.nip05 === "string" ? profile.nip05 : null;
   const verified = useNip05Verified(event.pubkey, nip05, inView);
@@ -97,7 +96,7 @@ export const NoteCard = memo(function NoteCard({ event, focused, onReplyInThread
             />
           ) : (
             <div className="w-9 h-9 rounded-full bg-bg-raised border border-border flex items-center justify-center text-text-dim text-xs hover:border-accent/40 transition-colors">
-              {name.charAt(0).toUpperCase()}
+              <AvatarInitial profile={profile} />
             </div>
           )}
         </button>

@@ -4,7 +4,7 @@ import { useUIStore } from "../../stores/ui";
 import { useProfile } from "../../hooks/useProfile";
 import { ContentSegment } from "../../lib/parsing";
 import { getNDK, fetchWithTimeout } from "../../lib/nostr";
-import { safeHttpUrl } from "../../lib/utils";
+import { safeHttpUrl, nameOf } from "../../lib/utils";
 
 // Returns true if we handled the URL internally (njump.me interception).
 export function tryHandleUrlInternally(url: string): boolean {
@@ -95,10 +95,10 @@ function NaddrName({ kind, pubkey, identifier, fallback }: { kind: number; pubke
 
 export function MentionName({ pubkey, fallback }: { pubkey?: string; fallback: string }) {
   const profile = useProfile(pubkey ?? "");
-  if (!pubkey) return <>{fallback}</>;
-  const raw = profile?.displayName || profile?.name;
-  const name = typeof raw === "string" ? raw : null;
-  return <>{name || fallback}</>;
+  // A mention of a known account reads as every other mention of it does:
+  // its name, or its shortened public address. `fallback` is for a mention
+  // that names no account at all.
+  return <>{pubkey ? nameOf(profile, pubkey) : fallback}</>;
 }
 
 interface RenderTextSegmentsOptions {
@@ -143,7 +143,7 @@ export function renderTextSegments(
             onClick={(e) => { e.stopPropagation(); tryOpenNostrEntity(seg.value); }}
           >
             @{resolveMentions
-              ? <MentionName pubkey={seg.mentionPubkey} fallback={String(seg.display ?? seg.value).slice(0, 12) + "…"} />
+              ? <MentionName pubkey={seg.mentionPubkey} fallback={String(seg.display ?? seg.value)} />
               : String(seg.display ?? seg.value)}
           </span>
         );

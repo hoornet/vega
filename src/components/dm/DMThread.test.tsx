@@ -16,7 +16,12 @@ vi.mock("../../hooks/useProfile", () => ({ useProfile: (pubkey: string) => ({ na
 vi.mock("../../stores/user", () => ({ useUserStore: () => ({ pubkey: "me", loggedIn: true }) }));
 vi.mock("../../stores/ui", () => ({ useUIStore: Object.assign(() => ({ openProfile: vi.fn(), pendingDMPubkey: null }), { setState: vi.fn() }) }));
 vi.mock("../../stores/notifications", () => ({ useNotificationsStore: Object.assign(() => ({}), { getState: () => ({ markDMRead: vi.fn(), computeDMUnread: vi.fn() }) }) }));
-vi.mock("../feed/TextSegments", () => ({ tryHandleUrlInternally: vi.fn(), tryOpenNostrEntity: vi.fn() }));
+vi.mock("../feed/TextSegments", () => ({
+  tryHandleUrlInternally: vi.fn(),
+  tryOpenNostrEntity: vi.fn(),
+  // Stands in for the real one: says which account it was asked to name.
+  MentionName: ({ pubkey, fallback }: { pubkey?: string; fallback: string }) => <>{pubkey ? `the name of ${pubkey.slice(0, 4)}` : fallback}</>,
+}));
 
 import { DMView, ThreadPanel } from "./DMView";
 import { fetchDMConversations, fetchDMThread, sendDM, getNDK, ensureConnected } from "../../lib/nostr";
@@ -47,6 +52,17 @@ beforeEach(() => {
   Element.prototype.scrollIntoView = vi.fn();
 });
 afterEach(cleanup);
+
+// A mention in a message was the start of the key and two ellipses.
+describe("Messages: a mention in a message", () => {
+  it("is shown by the mentioned account's name", async () => {
+    const { nip19 } = await import("@nostr-dev-kit/ndk");
+    vi.mocked(fetchDMThread).mockResolvedValue([message("m1", `ask nostr:${nip19.npubEncode(CHICO)} about it`, ZEPPO)]);
+    render(<ThreadPanel partnerPubkey={ZEPPO} myPubkey={ME} />);
+    expect(await screen.findByText("@the name of 3333")).toBeTruthy();
+    expect(document.body.textContent).not.toContain("……");
+  });
+});
 
 describe("Messages: sending", () => {
   it("empties the box and shows the thread with the message in it", async () => {

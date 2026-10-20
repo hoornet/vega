@@ -5,7 +5,7 @@ import { PollCompose } from "../poll/PollCompose";
 import { useAutoResize } from "../../hooks/useAutoResize";
 import { useUserStore, useCanSign } from "../../stores/user";
 import { useFeedStore } from "../../stores/feed";
-import { shortenPubkey, profileName } from "../../lib/utils";
+import { AvatarInitial } from "../shared/AvatarInitial";
 import { open } from "@tauri-apps/plugin-dialog";
 import { readFile } from "@tauri-apps/plugin-fs";
 import { EmojiPicker } from "../shared/EmojiPicker";
@@ -58,9 +58,8 @@ export function ComposeBox({ onPublished, onNoteInjected, confirmPosted = false 
     }
   }, [expanded]);
 
-  const { profile, npub } = useUserStore();
+  const { profile } = useUserStore();
   const avatar = typeof profile?.picture === "string" ? profile.picture : undefined;
-  const name = profileName(profile, npub ? shortenPubkey(npub) : "");
 
   // Auto-save draft with debounce
   useEffect(() => {
@@ -271,7 +270,7 @@ export function ComposeBox({ onPublished, onNoteInjected, confirmPosted = false 
             />
           ) : (
             <div className="w-9 h-9 rounded-full bg-bg-raised border border-border flex items-center justify-center text-text-dim text-xs">
-              {name.charAt(0).toUpperCase()}
+              <AvatarInitial profile={profile} />
             </div>
           )}
         </div>

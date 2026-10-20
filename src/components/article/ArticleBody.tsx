@@ -2,7 +2,8 @@ import { useEffect, useMemo, useRef, useState, useCallback, type RefObject } fro
 import { renderMarkdown } from "../../lib/markdown";
 import { useUIStore } from "../../stores/ui";
 import { useProfile } from "../../hooks/useProfile";
-import { profileName } from "../../lib/utils";
+import { nameOf } from "../../lib/utils";
+import { AvatarInitial } from "../shared/AvatarInitial";
 import { fitArticleImage, readingMinutes, stripLeadingTitle } from "../../lib/article";
 import { ImageLightbox } from "../shared/ImageLightbox";
 
@@ -28,7 +29,7 @@ export interface ArticleBodyProps {
 function AuthorRow({ pubkey, publishedAt, readingTime }: { pubkey: string; publishedAt: number | null; readingTime: number }) {
   const { openProfile } = useUIStore();
   const profile = useProfile(pubkey);
-  const name = profileName(profile, pubkey.slice(0, 12) + "…");
+  const name = nameOf(profile, pubkey);
   const date = publishedAt
     ? new Date(publishedAt * 1000).toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" })
     : null;
@@ -41,7 +42,7 @@ function AuthorRow({ pubkey, publishedAt, readingTime }: { pubkey: string; publi
             onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
         ) : (
           <span className="w-9 h-9 rounded-full bg-bg-raised border border-border flex items-center justify-center text-text-dim text-ui" aria-hidden>
-            {name.charAt(0).toUpperCase()}
+            <AvatarInitial profile={profile} />
           </span>
         )}
       </button>

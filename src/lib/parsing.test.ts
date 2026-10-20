@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { parseContent } from "./parsing";
+import { nip19 } from "@nostr-dev-kit/ndk";
 
 describe("parseContent", () => {
   it("returns plain text as a single text segment", () => {
@@ -122,6 +123,21 @@ describe("parseContent", () => {
     const mention = result.find((s) => s.type === "mention");
     expect(mention).toBeDefined();
     expect(mention!.value).toBe(npub);
+  });
+
+  // An account is called one thing everywhere, in a mention too.
+  it("shows a mentioned account by its shortened public address until its name is known", () => {
+    const npub = "npub180cvv07tjdrrgpa0j7j7tmnyl2yr6yr7l8j4s3evf6u64th6gkwsyjh6w6";
+    const mention = parseContent(`Hello nostr:${npub}`).find((s) => s.type === "mention")!;
+    expect(mention.mentionPubkey).toBe("3bf0c63fcb93463407af97a5e5ee64fa883d107ef9e558472c4eb9aaaefa459d");
+    expect(mention.display).toBe("npub180c…h6w6");
+  });
+
+  it("shows an nprofile mention as the same account's address, not as the start of the nprofile", () => {
+    const nprofile = nip19.nprofileEncode({ pubkey: "3bf0c63fcb93463407af97a5e5ee64fa883d107ef9e558472c4eb9aaaefa459d", relays: ["wss://relay.example.com"] });
+    const mention = parseContent(`Hello nostr:${nprofile}`).find((s) => s.type === "mention")!;
+    expect(mention.mentionPubkey).toBe("3bf0c63fcb93463407af97a5e5ee64fa883d107ef9e558472c4eb9aaaefa459d");
+    expect(mention.display).toBe("npub180c…h6w6");
   });
 
   it("parses hashtags", () => {

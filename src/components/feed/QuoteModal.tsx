@@ -2,6 +2,9 @@ import { useState, type RefObject } from "react";
 import { NDKEvent } from "@nostr-dev-kit/ndk";
 import { publishQuote } from "../../lib/nostr";
 import { useCanSign } from "../../stores/user";
+import { useProfile } from "../../hooks/useProfile";
+import { nameOf } from "../../lib/utils";
+import { AvatarInitial } from "../shared/AvatarInitial";
 import { useAutoResize } from "../../hooks/useAutoResize";
 import { LoginModal } from "../shared/LoginModal";
 import { Dialog } from "../shared/Dialog";
@@ -12,16 +15,17 @@ import { explainPublishError } from "../../lib/publishErrors";
 
 interface QuoteModalProps {
   event: NDKEvent;
-  authorName: string;
-  authorAvatar?: string;
   onClose: () => void;
   onPublished?: () => void;
   /** Where focus goes when this closes: the button whose menu held "Quote…", which is gone by then. */
   returnFocus?: RefObject<HTMLElement | null>;
 }
 
-export function QuoteModal({ event, authorName, authorAvatar, onClose, onPublished, returnFocus }: QuoteModalProps) {
+export function QuoteModal({ event, onClose, onPublished, returnFocus }: QuoteModalProps) {
   const canSign = useCanSign();
+  const profile = useProfile(event.pubkey);
+  const authorName = nameOf(profile, event.pubkey);
+  const authorAvatar = typeof profile?.picture === "string" ? profile.picture : undefined;
   const [text, setText] = useState("");
   const [publishing, setPublishing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -79,7 +83,7 @@ export function QuoteModal({ event, authorName, authorAvatar, onClose, onPublish
                 <img src={authorAvatar} alt={`${authorName}'s avatar`} className="w-4 h-4 rounded-full object-cover" />
               ) : (
                 <div className="w-4 h-4 rounded-full bg-accent/20 flex items-center justify-center text-accent text-[8px]">
-                  {authorName.charAt(0).toUpperCase()}
+                  <AvatarInitial profile={profile} />
                 </div>
               )}
               <span className="text-text-muted text-caption font-medium">{authorName}</span>

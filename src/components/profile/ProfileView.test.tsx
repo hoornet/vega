@@ -5,14 +5,20 @@ import type { NDKEvent } from "@nostr-dev-kit/ndk";
 vi.mock("../../lib/nostr", () => ({ fetchUserNotesNIP65: vi.fn(), fetchAuthorArticles: vi.fn() }));
 vi.mock("../../stores/user", () => ({ useUserStore: () => ({ pubkey: "me", profile: null }), useCanSign: () => false }));
 vi.mock("../../stores/mute", () => ({ useMuteStore: () => ({ mutedPubkeys: [] as string[], mute: () => {}, unmute: () => {} }) }));
-vi.mock("../../hooks/useProfile", () => ({ useProfile: () => null }));
+const onRelays = vi.hoisted(() => ({ profile: null as Record<string, unknown> | null }));
+vi.mock("../../hooks/useProfile", () => ({ useProfile: () => onRelays.profile }));
 vi.mock("../../hooks/useReputation", () => ({ useReputation: () => ({ data: null, loading: false }) }));
 vi.mock("../feed/NoteCard", () => ({ NoteCard: ({ event }: { event: NDKEvent }) => <article>{event.content}</article> }));
 vi.mock("../article/ArticleCard", () => ({ ArticleCard: ({ event }: { event: NDKEvent }) => <article>{event.content}</article> }));
 vi.mock("../zap/ZapModal", () => ({ ZapModal: () => null }));
 vi.mock("../shared/ImageLightbox", () => ({ ImageLightbox: () => null }));
 vi.mock("./EditProfileForm", () => ({ EditProfileForm: () => null }));
-vi.mock("../feed/TextSegments", () => ({ tryHandleUrlInternally: () => false, tryOpenNostrEntity: () => false }));
+vi.mock("../feed/TextSegments", () => ({
+  tryHandleUrlInternally: () => false,
+  tryOpenNostrEntity: () => false,
+  // Stands in for the real one: says which account it was asked to name.
+  MentionName: ({ pubkey, fallback }: { pubkey?: string; fallback: string }) => <>{pubkey ? `the name of ${pubkey.slice(0, 4)}` : fallback}</>,
+}));
 vi.mock("./ProfileMediaGallery", () => ({ ProfileMediaGallery: ({ notes, loading }: { notes: NDKEvent[]; loading: boolean }) => <p>{loading ? "gallery loading" : `gallery of ${notes.length}`}</p> }));
 vi.mock("../shared/FollowButton", () => ({ FollowButton: () => null }));
 
@@ -34,6 +40,7 @@ const tab = (name: string) => fireEvent.click(screen.getByRole("tab", { name }))
 
 beforeEach(() => {
   vi.useFakeTimers();
+  onRelays.profile = null;
   relays.notes = { [ALICE]: [note("alice 1"), note("alice 2")], [BOB]: [note("bob 1")] };
   relays.articles = { [ALICE]: [note("alice essay")], [BOB]: [] };
   vi.mocked(fetchUserNotesNIP65).mockReset().mockImplementation(async (pubkey: string) => {
@@ -52,6 +59,37 @@ beforeEach(() => {
   useUIStore.setState({ selectedPubkey: ALICE, profileTabs: {} });
 });
 afterEach(() => { cleanup(); vi.useRealTimers(); });
+
+describe("ProfileView: who it is", () => {
+  it("calls an account with no name by its shortened public address, once as the name and once to copy", async () => {
+    render(<ProfileView />);
+    await open(ALICE);
+    await settle(0);
+    const address = (await import("../../lib/utils")).shortNpub(ALICE);
+    expect(address).toMatch(/^npub1.{3}….{4}$/);
+    expect(screen.getAllByText(address)).toHaveLength(2);
+    expect(document.body.textContent).not.toContain(ALICE.slice(0, 8));
+  });
+
+  it("calls an account by its name when it has one", async () => {
+    onRelays.profile = { name: "alice" };
+    render(<ProfileView />);
+    await open(ALICE);
+    await settle(0);
+    expect(screen.getByText("alice")).toBeTruthy();
+  });
+
+  // A mention in a bio was the start of the key and two ellipses.
+  it("shows a mention in the bio by the mentioned account's name", async () => {
+    const { nip19 } = await import("@nostr-dev-kit/ndk");
+    onRelays.profile = { name: "alice", about: `works with nostr:${nip19.npubEncode(BOB)} on things` };
+    render(<ProfileView />);
+    await open(ALICE);
+    await settle(0);
+    expect(screen.getByText("@the name of bbbb")).toBeTruthy();
+    expect(document.body.textContent).not.toContain("……");
+  });
+});
 
 describe("ProfileView: notes", () => {
   it("says it is loading, then shows the notes", async () => {

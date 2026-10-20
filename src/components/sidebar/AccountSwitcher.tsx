@@ -3,15 +3,15 @@ import { useUserStore, SavedAccount, readSecretKey } from "../../stores/user";
 import { useUIStore } from "../../stores/ui";
 import { ChevronsUpDown, LogIn, UserRound, Users, Zap } from "lucide-react";
 import { LoginModal } from "../shared/LoginModal";
-import { shortenPubkey } from "../../lib/utils";
+import { nameOf, ownName } from "../../lib/utils";
+import { AvatarInitial } from "../shared/AvatarInitial";
 import { useEscapeToClose } from "../../hooks/useEscapeToClose";
 import { usePopoverDismiss, type DismissReason } from "../../hooks/usePopoverDismiss";
 import { Button } from "../shared/Button";
 import { copyText } from "../../lib/clipboard";
 
 function Avatar({ account, size = "w-6 h-6", textSize = "text-[10px]" }: { account: SavedAccount; size?: string; textSize?: string }) {
-  const initial = (account.name || account.npub || "?").charAt(0).toUpperCase();
-  // A picture that fails to load falls back to the initial. It used to hide
+  // A picture that fails to load falls back to the placeholder. It used to hide
   // the <img>, which left a button with nothing in it and no size: collapsed,
   // the only account control was gone.
   const [failed, setFailed] = useState(false);
@@ -20,7 +20,7 @@ function Avatar({ account, size = "w-6 h-6", textSize = "text-[10px]" }: { accou
     return (
       <img
         src={account.picture}
-        alt={`${account.name || "Account"} avatar`}
+        alt={`${ownName(account) ?? "Account"} avatar`}
         className={`${size} rounded-full object-cover shrink-0`}
         onError={() => setFailed(true)}
       />
@@ -28,7 +28,7 @@ function Avatar({ account, size = "w-6 h-6", textSize = "text-[10px]" }: { accou
   }
   return (
     <div className={`${size} rounded-full bg-bg-raised border border-border flex items-center justify-center text-text-dim ${textSize} shrink-0`}>
-      {initial}
+      <AvatarInitial profile={account} />
     </div>
   );
 }
@@ -100,7 +100,7 @@ export function CollapsedAccount() {
       {current ? (
         // The avatar expands the sidebar, where the account row and its menu
         // (profile, People, Zap history, switching, signing out) are.
-        <button type="button" onClick={toggleSidebar} title={`${current.name || shortenPubkey(current.npub)}: expand for the account menu`} aria-label="Account: expand the sidebar for the account menu" className="w-8 h-8 rounded-full focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent">
+        <button type="button" onClick={toggleSidebar} title={`${nameOf(current, current.npub)}: expand for the account menu`} aria-label="Account: expand the sidebar for the account menu" className="w-8 h-8 rounded-full focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent">
           <Avatar account={current} size="w-8 h-8" textSize="text-ui" />
         </button>
       ) : (
@@ -124,8 +124,7 @@ export function AccountSwitcher() {
   const current = accounts.find((a) => a.pubkey === pubkey) ?? null;
   const others = accounts.filter((a) => a.pubkey !== pubkey);
 
-  const displayName = (a: SavedAccount) =>
-    a.name || shortenPubkey(a.npub);
+  const displayName = (a: SavedAccount) => nameOf(a, a.pubkey);
 
   const handleSwitch = async (targetPubkey: string) => {
     setOpen(false);

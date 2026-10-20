@@ -3,7 +3,8 @@ import { NDKEvent } from "@nostr-dev-kit/ndk";
 import { useUIStore } from "../../stores/ui";
 import { fetchNoteById } from "../../lib/nostr";
 import { useProfile } from "../../hooks/useProfile";
-import { timeAgo, shortenPubkey, profileName } from "../../lib/utils";
+import { timeAgo, nameOf } from "../../lib/utils";
+import { AvatarInitial } from "../shared/AvatarInitial";
 
 // ── Parsing helpers ──────────────────────────────────────────────────────────
 
@@ -66,7 +67,7 @@ export function ZapRow({
   const { openProfile, openThread } = useUIStore();
   const profile = useProfile(pubkey ?? "");
   const name = pubkey
-    ? profileName(profile, shortenPubkey(pubkey))
+    ? nameOf(profile, pubkey)
     : "anonymous";
   const avatar = typeof profile?.picture === "string" ? profile.picture : undefined;
   const [notePreview, setNotePreview] = useState<string | null>(null);
@@ -112,7 +113,7 @@ export function ZapRow({
             onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
         ) : (
           <div className="w-8 h-8 rounded-full bg-bg-raised border border-border flex items-center justify-center text-text-dim text-xs">
-            {name.charAt(0).toUpperCase()}
+            <AvatarInitial profile={profile} />
           </div>
         )}
       </div>

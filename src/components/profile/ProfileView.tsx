@@ -6,14 +6,15 @@ import { useMuteStore } from "../../stores/mute";
 import { useProfile } from "../../hooks/useProfile";
 import { useReputation } from "../../hooks/useReputation";
 import { fetchUserNotesNIP65, fetchAuthorArticles } from "../../lib/nostr";
-import { shortenPubkey, profileName } from "../../lib/utils";
+import { shortNpub, nameOf } from "../../lib/utils";
+import { AvatarInitial } from "../shared/AvatarInitial";
 import { NoteCard } from "../feed/NoteCard";
 import { ArticleCard } from "../article/ArticleCard";
 import { ZapModal } from "../zap/ZapModal";
 import { ImageLightbox } from "../shared/ImageLightbox";
 import { EditProfileForm } from "./EditProfileForm";
 import { parseContent } from "../../lib/parsing";
-import { tryHandleUrlInternally, tryOpenNostrEntity } from "../feed/TextSegments";
+import { tryHandleUrlInternally, tryOpenNostrEntity, MentionName } from "../feed/TextSegments";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { ProfileMediaGallery } from "./ProfileMediaGallery";
 import { ViewHeader } from "../shared/ViewHeader";
@@ -28,7 +29,7 @@ import { copyText } from "../../lib/clipboard";
 function TopFollowerAvatar({ pubkey }: { pubkey: string }) {
   const profile = useProfile(pubkey);
   const { openProfile } = useUIStore();
-  const name = profileName(profile, pubkey.slice(0, 8) + "…");
+  const name = nameOf(profile, pubkey);
 
   return (
     <button
@@ -45,7 +46,7 @@ function TopFollowerAvatar({ pubkey }: { pubkey: string }) {
         />
       ) : (
         <div className="w-5 h-5 rounded-full bg-bg-raised border border-border flex items-center justify-center text-[8px] text-text-dim">
-          {name.charAt(0).toUpperCase()}
+          <AvatarInitial profile={profile} />
         </div>
       )}
       <span className="text-caption text-text-dim">{name}</span>
@@ -102,7 +103,7 @@ export function ProfileView() {
   const isMuted = mutedPubkeys.includes(pubkey);
   const reputation = useReputation(pubkey);
 
-  const name = profileName(profile, shortenPubkey(pubkey));
+  const name = nameOf(profile, pubkey);
   const avatar = typeof profile?.picture === "string" ? profile.picture : undefined;
   const about = typeof profile?.about === "string" ? profile.about : undefined;
   const aboutSegments = useMemo(() => about ? parseContent(about) : [], [about]);
@@ -194,7 +195,7 @@ export function ProfileView() {
                   <div
                     className="w-16 h-16 rounded-full bg-bg-raised border border-border flex items-center justify-center text-text-dim text-lg"
                   >
-                    {name.charAt(0).toUpperCase()}
+                    <AvatarInitial profile={profile} />
                   </div>
                 )}
               </div>
@@ -220,7 +221,9 @@ export function ProfileView() {
                       if (seg.type === "mention" || seg.type === "naddr") return (
                         <span key={i} className="text-accent hover:text-accent-hover cursor-pointer"
                           onClick={(e) => { e.stopPropagation(); tryOpenNostrEntity(seg.value); }}>
-                          {seg.type === "mention" ? "@" : "🔗 "}{String(seg.display ?? seg.value).slice(0, 20)}…
+                          {seg.type === "mention"
+                            ? <>@<MentionName pubkey={seg.mentionPubkey} fallback={String(seg.display ?? seg.value)} /></>
+                            : <>🔗 {seg.value.slice(0, 20)}…</>}
                         </span>
                       );
                       if (seg.type === "hashtag") return (
@@ -245,7 +248,7 @@ export function ProfileView() {
                   className="text-text-dim text-caption font-mono mt-2 hover:text-accent transition-colors cursor-pointer"
                   title="Copy npub to clipboard"
                 >
-                  {npubCopied ? "copied!" : shortenPubkey(pubkey)}
+                  {npubCopied ? "copied!" : shortNpub(pubkey)}
                 </button>
               </div>
             </div>

@@ -3,7 +3,8 @@ import { nip19, type NDKUserProfile } from "@nostr-dev-kit/ndk";
 import { useUserStore } from "../../stores/user";
 import { fetchProfiles, resolveNip05 } from "../../lib/nostr";
 import { peekCachedProfile, primeProfileCache } from "../../hooks/useProfile";
-import { shortenPubkey, profileName, clipText } from "../../lib/utils";
+import { nameOf, clipText } from "../../lib/utils";
+import { AvatarInitial } from "../shared/AvatarInitial";
 import { Dialog } from "../shared/Dialog";
 import { Button } from "../shared/Button";
 
@@ -193,7 +194,7 @@ export function NewMessageDialog({ onClose, onPick, returnFocus }: { onClose: ()
 }
 
 function PersonRow({ id, pubkey, profile, active, onPick, onHover }: { id: string; pubkey: string; profile: NDKUserProfile | null | undefined; active: boolean; onPick: () => void; onHover: () => void }) {
-  const name = profileName(profile, shortenPubkey(pubkey));
+  const name = nameOf(profile, pubkey);
   const picture = typeof profile?.picture === "string" ? profile.picture : undefined;
   const nip05 = typeof profile?.nip05 === "string" ? profile.nip05 : undefined;
   // An option in a listbox: the field keeps focus, the row is reached by arrow keys or the pointer.
@@ -204,7 +205,7 @@ function PersonRow({ id, pubkey, profile, active, onPick, onHover }: { id: strin
       {picture ? (
         <img src={picture} alt="" className="w-8 h-8 rounded-full object-cover bg-bg-raised shrink-0" loading="lazy" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
       ) : (
-        <span className="w-8 h-8 rounded-full bg-bg-raised border border-border flex items-center justify-center text-text-muted text-caption shrink-0" aria-hidden>{name.charAt(0).toUpperCase()}</span>
+        <span className="w-8 h-8 rounded-full bg-bg-raised border border-border flex items-center justify-center text-text-muted text-caption shrink-0" aria-hidden><AvatarInitial profile={profile} /></span>
       )}
       <span className="min-w-0 flex-1">
         <span className="block text-text text-body font-medium truncate">{name}</span>

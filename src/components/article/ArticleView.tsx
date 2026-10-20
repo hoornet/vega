@@ -10,7 +10,8 @@ import { fetchArticle, fetchAuthorArticles, publishReaction, publishNote } from 
 import { nip19 } from "@nostr-dev-kit/ndk";
 import { useProfile } from "../../hooks/useProfile";
 import { useLoadedList } from "../../hooks/useLoadedList";
-import { profileName } from "../../lib/utils";
+import { nameOf } from "../../lib/utils";
+import { AvatarInitial } from "../shared/AvatarInitial";
 import { articleAddr, getTag, getTags, publishedAt as articlePublishedAt, readingProgress } from "../../lib/article";
 import { useDraftStore } from "../../stores/drafts";
 import { ZapModal } from "../zap/ZapModal";
@@ -52,7 +53,7 @@ function AuthorCard({ pubkey, onZap }: { pubkey: string; onZap: () => void }) {
   const canSign = useCanSign();
   const own = useUserStore((s) => s.pubkey) === pubkey;
   const profile = useProfile(pubkey);
-  const name = profileName(profile, pubkey.slice(0, 12) + "…");
+  const name = nameOf(profile, pubkey);
   const bio = typeof profile?.about === "string" ? profile.about.replace(/\s+/g, " ").trim() : "";
 
   return (
@@ -63,7 +64,7 @@ function AuthorCard({ pubkey, onZap }: { pubkey: string; onZap: () => void }) {
             onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
         ) : (
           <span className="w-12 h-12 rounded-full bg-bg-raised border border-border flex items-center justify-center text-text-dim text-title" aria-hidden>
-            {name.charAt(0).toUpperCase()}
+            <AvatarInitial profile={profile} />
           </span>
         )}
       </button>
@@ -85,7 +86,7 @@ function AuthorCard({ pubkey, onZap }: { pubkey: string; onZap: () => void }) {
 
 function MoreFromAuthor({ pubkey, except }: { pubkey: string; except: string | null }) {
   const profile = useProfile(pubkey);
-  const name = profileName(profile, pubkey.slice(0, 12) + "…");
+  const name = nameOf(profile, pubkey);
   // The body may carry ids of its own (DOMPurify keeps them), so this one is made unique.
   const headingId = useId();
   // Asked a second time after an empty answer, as the profile's own lists are:
@@ -168,7 +169,7 @@ export function ArticleView() {
   const articleTags = event ? getTags(event, "t") : [];
   const authorPubkey = event?.pubkey ?? "";
   const authorProfile = useProfile(authorPubkey);
-  const authorName = profileName(authorProfile, authorPubkey.slice(0, 12) + "…");
+  const authorName = nameOf(authorProfile, authorPubkey);
 
   const addr = event ? articleAddr(event) : null;
   const bookmarked = addr ? isArticleBookmarked(addr) : (event?.id ? isBookmarked(event.id) : false);

@@ -1,8 +1,6 @@
 import { useState } from "react";
 import { useUserStore, useCanSign } from "../../stores/user";
 import { LoginModal } from "../shared/LoginModal";
-import { invalidateProfileCache } from "../../hooks/useProfile";
-import { publishProfile } from "../../lib/nostr";
 import { ImageField } from "./ImageField";
 import { Nip05Field } from "./Nip05Field";
 import { Button } from "../shared/Button";
@@ -11,7 +9,7 @@ import { explainPublishError } from "../../lib/publishErrors";
 
 export function EditProfileForm({ pubkey, onSaved }: { pubkey: string; onSaved: () => void }) {
   const canSign = useCanSign();
-  const { profile, fetchOwnProfile } = useUserStore();
+  const { profile, saveProfile } = useUserStore();
   const safeStr = (v: unknown) => (typeof v === "string" ? v : "");
   const [name, setName] = useState(safeStr(profile?.name));
   const [displayName, setDisplayName] = useState(safeStr(profile?.displayName));
@@ -30,8 +28,7 @@ export function EditProfileForm({ pubkey, onSaved }: { pubkey: string; onSaved: 
     setSaving(true);
     setError(null);
     try {
-      invalidateProfileCache(pubkey);
-      await publishProfile({
+      await saveProfile({
         name: name.trim() || undefined,
         display_name: displayName.trim() || undefined,
         about: about.trim() || undefined,
@@ -40,8 +37,7 @@ export function EditProfileForm({ pubkey, onSaved }: { pubkey: string; onSaved: 
         website: website.trim() || undefined,
         nip05: nip05.trim() || undefined,
         lud16: lud16.trim() || undefined,
-      });
-      await fetchOwnProfile();
+      }, pubkey);
       setSaved(true);
       setTimeout(onSaved, 1000);
     } catch (err) {
