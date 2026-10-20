@@ -1,11 +1,11 @@
 import { useState, useRef, useEffect, type ReactNode } from "react";
 import {
-  Home, Bell, Mail, Bookmark, Search, BookOpen, Image as ImageIcon, Mic2,
+  Home, Bell, Mail, Bookmark, Users, Search, BookOpen, Image as ImageIcon, Mic2,
   Settings, Wifi, CircleHelp, Heart, PenLine, ChevronsLeft, ChevronsRight,
 } from "lucide-react";
 import { widthFromPointer } from "../../lib/sidebarWidth";
 import { useUIStore, type View } from "../../stores/ui";
-import { useCanSign } from "../../stores/user";
+import { useCanSign, useUserStore } from "../../stores/user";
 import { useNotificationsStore } from "../../stores/notifications";
 import { useDraftStore } from "../../stores/drafts";
 import { useBookmarkStore } from "../../stores/bookmark";
@@ -16,10 +16,11 @@ import { Button } from "../shared/Button";
 // equal rows mixing destinations, ledgers (People, Zaps, Value 4 Value),
 // settings screens and an action; Notifications and Messages sat eighth and
 // ninth under Media and Podcasts; collapsed, the account row was gone and
-// with it your profile, switching and signing out. Now: a Write button, four
-// places you go back to, four places you explore, a footer of four tools, and
-// the account. People and Zap history are in the account menu, Value 4 Value
-// is reached from Podcasts, and the version string is in Settings.
+// with it your profile, switching and signing out. Now: a Write button, five
+// places you go back to (People came back on 2026-10-19, for any signed-in
+// account), four places you explore, a footer of four tools, and the account.
+// Zap history is in the account menu, Value 4 Value is reached from Podcasts,
+// and the version string is in Settings.
 
 interface NavItem {
   id: View;
@@ -27,6 +28,8 @@ interface NavItem {
   icon: ReactNode;
   /** Hidden in read-only mode: account-bound, nothing to show without a signer. */
   requiresSigner?: boolean;
+  /** Needs an account, not a key: a read-only account has people to look at too. */
+  requiresAccount?: boolean;
 }
 
 const ICON = { size: 18, strokeWidth: 1.75 } as const;
@@ -37,6 +40,9 @@ const PRIMARY: NavItem[] = [
   { id: "notifications", label: "Notifications", icon: <Bell {...ICON} />, requiresSigner: true },
   { id: "dm", label: "Messages", icon: <Mail {...ICON} />, requiresSigner: true },
   { id: "bookmarks", label: "Bookmarks", icon: <Bookmark {...ICON} />, requiresSigner: true },
+  // Back in the list on 2026-10-19: moved to the account menu by the sidebar review, and twice looked
+  // for here and not found during the first-run check. It stays in the account menu as well.
+  { id: "follows", label: "People", icon: <Users {...ICON} />, requiresAccount: true },
 ];
 /** Where you go to find things. */
 const EXPLORE: NavItem[] = [
@@ -56,12 +62,13 @@ const FOOTER: { id: View | "help"; label: string; icon: ReactNode }[] = [
 export function Sidebar() {
   const { currentView, setView, sidebarCollapsed, toggleSidebar, showHelp, toggleHelp } = useUIStore();
   const canSign = useCanSign();
+  const loggedIn = useUserStore((st) => st.loggedIn);
   // One badge: unread mentions and zaps, plus the new followers (they have no read state of their own).
   const notifUnread = useNotificationsStore((s) => s.unreadCount + s.newFollowerPubkeys.size);
   const dmUnreadCount = useNotificationsStore((s) => s.dmUnreadCount);
   const draftCount = useDraftStore((s) => s.drafts.length);
   const bookmarkUnread = useBookmarkStore((s) => s.unreadArticleCount());
-  const shown = (items: NavItem[]) => items.filter((item) => !item.requiresSigner || canSign);
+  const shown = (items: NavItem[]) => items.filter((item) => (!item.requiresSigner || canSign) && (!item.requiresAccount || loggedIn));
 
   const c = sidebarCollapsed;
 
