@@ -195,6 +195,81 @@ describe("a profile that came in while a fetch for it was out", () => {
   });
 });
 
+// "Nothing" from a fetch is far more often a slow relay, or a network that
+// was off for a moment, than an account with no profile. It used to be
+// cached as null for the whole session: every name fetched while the
+// network was off stayed a key until the app was restarted.
+describe("an account a fetch found nothing for", () => {
+  beforeEach(() => { vi.useFakeTimers({ shouldAdvanceTime: true }); });
+  afterEach(() => { vi.useRealTimers(); });
+  /** Wait for the fetch now out to come back. */
+  const fetched = () => waitFor(() => expect(fetchProfile).toHaveBeenCalled(), { timeout: 2000 });
+
+  it("is not asked for again at once, and is after half a minute", async () => {
+    const pubkey = nextPubkey();
+    fetchProfile.mockResolvedValue(null);
+    const first = renderHook(() => useProfile(pubkey));
+    await fetched();
+    await waitFor(() => expect(first.result.current).toBeNull());
+    cleanup();
+    fetchProfile.mockClear();
+    renderHook(() => useProfile(pubkey));
+    expect(fetchProfile).not.toHaveBeenCalled();
+    cleanup();
+    vi.advanceTimersByTime(30_000);
+    fetchProfile.mockResolvedValue({ name: "ana", created_at: 100 });
+    const later = renderHook(() => useProfile(pubkey));
+    await waitFor(() => expect(later.result.current).toEqual({ name: "ana", created_at: 100 }));
+    expect(fetchProfile).toHaveBeenCalledTimes(1);
+  });
+
+  it("waits longer each time: half a minute, two minutes, then ten", async () => {
+    const pubkey = nextPubkey();
+    fetchProfile.mockResolvedValue(null);
+    const askedAt: number[] = [];
+    const ask = async () => { fetchProfile.mockClear(); renderHook(() => useProfile(pubkey)); if (vi.mocked(fetchProfile).mock.calls.length) { askedAt.push(Date.now()); await fetched(); } cleanup(); };
+    const t0 = Date.now();
+    await ask();
+    for (const step of [29_000, 1_000, 119_000, 1_000, 599_000, 1_000, 599_000, 1_000]) { vi.advanceTimersByTime(step); await ask(); }
+    expect(askedAt.map((t) => Math.round((t - t0) / 1000))).toEqual([0, 30, 150, 750, 1350]);
+  });
+
+  it("is forgotten once a batch brings the profile", async () => {
+    const pubkey = nextPubkey();
+    fetchProfile.mockResolvedValue(null);
+    renderHook(() => useProfile(pubkey));
+    await fetched();
+    cleanup();
+    primeProfileCache(pubkey, { name: "ana", created_at: 100 });
+    fetchProfile.mockClear();
+    const { result } = renderHook(() => useProfile(pubkey));
+    expect(result.current).toEqual({ name: "ana", created_at: 100 });
+    expect(fetchProfile).not.toHaveBeenCalled();
+  });
+
+  it("is not a miss when the copy on this computer is shown", async () => {
+    const pubkey = nextPubkey();
+    onThisComputer({ name: "ana, from disk", created_at: 100 });
+    fetchProfile.mockResolvedValue(null);
+    const { result } = renderHook(() => useProfile(pubkey));
+    await waitFor(() => expect(result.current).toEqual({ name: "ana, from disk", created_at: 100 }));
+    await fetched();
+    cleanup();
+    fetchProfile.mockClear();
+    const again = renderHook(() => useProfile(pubkey));
+    expect(again.result.current).toEqual({ name: "ana, from disk", created_at: 100 });
+    expect(fetchProfile).not.toHaveBeenCalled();
+  });
+
+  it("is still unknown to callers that decide on it", async () => {
+    const pubkey = nextPubkey();
+    fetchProfile.mockResolvedValue(null);
+    renderHook(() => useProfile(pubkey));
+    await fetched();
+    expect(await peekCachedProfile(pubkey)).toBeUndefined();
+  });
+});
+
 // A profile handed to the cache by something else: a batch from the relays,
 // or the owner's own save.
 describe("primeProfileCache", () => {
