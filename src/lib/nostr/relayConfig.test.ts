@@ -1,11 +1,12 @@
 import { describe, it, expect, beforeAll, beforeEach, afterEach } from "vitest";
 import { NDKRelay } from "@nostr-dev-kit/ndk";
 import {
-  getNDK, addRelay, removeRelay, getStoredRelayUrls, RELAY_STORAGE_KEY,
+  getNDK, addRelay, removeRelay, getStoredRelayUrls, RELAY_STORAGE_KEY, RETIRED_VEGA_RELAY,
   isRelayAllowed, isOutboxRelaysEnabled, setOutboxRelaysEnabled,
 } from "./core";
 
 const PUBLIC_RELAY = "wss://relay.damus.io";
+const VEGA_RELAY = "wss://relay.veganostr.com";
 const PRIVATE_RELAY = "wss://private.example.invalid";
 const LOCAL_RELAY = "ws://127.0.0.1:4848";
 
@@ -61,14 +62,16 @@ describe("relay configuration (issue #35)", () => {
   });
 
   it("lets a fresh install remove the Vega relay as its first change", () => {
-    // No stored list and no migration flag: the defaults. The one-time injection for
+    // No stored list and no migration flags: the defaults. The one-time steps for
     // existing users must not read the first saved list as one of theirs.
     localStorage.removeItem("wrystr_vega_relay_added");
+    localStorage.removeItem("wrystr_vega_relay_strfry_added");
     localStorage.removeItem(RELAY_STORAGE_KEY);
-    expect(getStoredRelayUrls()).toContain("wss://relay2.veganostr.com");
-    removeRelay("wss://relay2.veganostr.com");
-    expect(hasUrl(getStoredRelayUrls(), "wss://relay2.veganostr.com")).toBe(false);
-    expect(hasUrl(getStoredRelayUrls(), "wss://relay2.veganostr.com")).toBe(false);
+    expect(getStoredRelayUrls()).toContain(VEGA_RELAY);
+    expect(getStoredRelayUrls()).not.toContain(RETIRED_VEGA_RELAY);
+    removeRelay(VEGA_RELAY);
+    expect(hasUrl(getStoredRelayUrls(), VEGA_RELAY)).toBe(false);
+    expect(hasUrl(getStoredRelayUrls(), VEGA_RELAY)).toBe(false);
   });
 
   it("removes a relay from the stored list whatever form of its address it is given", () => {
@@ -157,5 +160,51 @@ describe("relayConnectionFilter (issue #35 — outbox expansion)", () => {
     expect(isRelayAllowed("wss://added.example.invalid")).toBe(true);
     removeRelay("wss://added.example.invalid");
     expect(isRelayAllowed("wss://added.example.invalid")).toBe(false);
+  });
+});
+
+
+// The Vega relay moved from the Go relay (relay2.veganostr.com, retired) to strfry
+// (relay.veganostr.com) in October 2026. Lists that hold the retired relay get the
+// new one in front of it and keep the old one: until the server makes relay2 an
+// alias of strfry, it is the only relay holding some of what Vega users published.
+describe("the Vega relay moves to strfry", () => {
+  const stored = () => JSON.parse(localStorage.getItem(RELAY_STORAGE_KEY) ?? "null");
+  beforeEach(() => {
+    localStorage.setItem("wrystr_vega_relay_added", "1");
+    localStorage.removeItem("wrystr_vega_relay_strfry_added");
+  });
+
+  it("puts the strfry relay in front of the retired one, keeps the retired one, and saves the list", () => {
+    localStorage.setItem(RELAY_STORAGE_KEY, JSON.stringify([PUBLIC_RELAY, RETIRED_VEGA_RELAY, "wss://nos.lol"]));
+    expect(getStoredRelayUrls()).toEqual([PUBLIC_RELAY, VEGA_RELAY, RETIRED_VEGA_RELAY, "wss://nos.lol"]);
+    expect(stored()).toEqual([PUBLIC_RELAY, VEGA_RELAY, RETIRED_VEGA_RELAY, "wss://nos.lol"]);
+    expect(localStorage.getItem("wrystr_vega_relay_strfry_added")).toBe("1");
+  });
+
+  it("leaves a list alone that the user took the Vega relay out of", () => {
+    localStorage.setItem(RELAY_STORAGE_KEY, JSON.stringify([PUBLIC_RELAY]));
+    expect(getStoredRelayUrls()).toEqual([PUBLIC_RELAY]);
+    expect(stored()).toEqual([PUBLIC_RELAY]);
+    expect(localStorage.getItem("wrystr_vega_relay_strfry_added")).toBe("1");
+  });
+
+  it("leaves a list alone that already has both, in the order the user keeps them", () => {
+    localStorage.setItem(RELAY_STORAGE_KEY, JSON.stringify([RETIRED_VEGA_RELAY, VEGA_RELAY]));
+    expect(getStoredRelayUrls()).toEqual([RETIRED_VEGA_RELAY, VEGA_RELAY]);
+  });
+
+  it("runs once: the strfry relay removed afterwards stays removed", () => {
+    localStorage.setItem(RELAY_STORAGE_KEY, JSON.stringify([RETIRED_VEGA_RELAY]));
+    expect(getStoredRelayUrls()).toEqual([VEGA_RELAY, RETIRED_VEGA_RELAY]);
+    removeRelay(VEGA_RELAY);
+    expect(getStoredRelayUrls()).toEqual([RETIRED_VEGA_RELAY]);
+    expect(getStoredRelayUrls()).toEqual([RETIRED_VEGA_RELAY]);
+  });
+
+  it("a list from before the Vega relay existed gets the strfry relay, not the retired one", () => {
+    localStorage.removeItem("wrystr_vega_relay_added");
+    localStorage.setItem(RELAY_STORAGE_KEY, JSON.stringify([PUBLIC_RELAY]));
+    expect(getStoredRelayUrls()).toEqual([VEGA_RELAY, PUBLIC_RELAY]);
   });
 });

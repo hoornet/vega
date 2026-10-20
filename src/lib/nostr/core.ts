@@ -434,7 +434,7 @@ export function fetchFromRelay(
 export const RELAY_STORAGE_KEY = "wrystr_relays";
 
 export const FALLBACK_RELAYS = [
-  "wss://relay2.veganostr.com",
+  "wss://relay.veganostr.com",
   "wss://relay.damus.io",
   "wss://nos.lol",
   "wss://relay.snort.social",
@@ -442,7 +442,7 @@ export const FALLBACK_RELAYS = [
 
 // Override NDK's default outbox relays (purplepag.es can have DNS issues)
 export const OUTBOX_RELAYS = [
-  "wss://relay2.veganostr.com/",
+  "wss://relay.veganostr.com/",
   "wss://relay.damus.io/",
   "wss://nos.lol/",
   "wss://relay.nostr.band/",
@@ -465,8 +465,22 @@ export function isLocalRelayUrl(url: string): boolean {
   return /^ws:\/\/(127\.0\.0\.1|localhost):/.test(normalizeRelayUrl(url));
 }
 
-const VEGA_RELAY = "wss://relay2.veganostr.com";
+/** Vega's public relay: strfry on relay.veganostr.com. */
+const VEGA_RELAY = "wss://relay.veganostr.com";
+/**
+ * The Go relay that was the default from v0.12.x to v0.16.1. It is being retired
+ * and will become an alias of VEGA_RELAY on the server. Until then it is the only
+ * relay holding some of what Vega users published (gift-wrapped messages and zap
+ * receipts since September 2026 are on none of the public defaults), so a list
+ * that has it keeps it, and a later release takes it out once the alias is up.
+ */
+export const RETIRED_VEGA_RELAY = "wss://relay2.veganostr.com";
+// v0.12.x: the Vega relay added to lists saved before it existed.
 const VEGA_RELAY_MIGRATED_KEY = "wrystr_vega_relay_added";
+// October 2026: the strfry relay put in front of the retired one in lists that hold it.
+const STRFRY_RELAY_MIGRATED_KEY = "wrystr_vega_relay_strfry_added";
+/** Whether the list holds this address: an exact comparison of normalized addresses, not a substring test. */
+const holdsRelay = (list: string[], url: string): boolean => list.some((u) => u === url);
 
 export function getStoredRelayUrls(): string[] {
   try {
@@ -484,8 +498,20 @@ export function getStoredRelayUrls(): string[] {
       // One-time: inject Vega relay for existing users
       if (!localStorage.getItem(VEGA_RELAY_MIGRATED_KEY)) {
         localStorage.setItem(VEGA_RELAY_MIGRATED_KEY, "1");
-        if (!deduped.includes(VEGA_RELAY)) {
+        if (!holdsRelay(deduped, VEGA_RELAY)) {
           deduped.unshift(VEGA_RELAY);
+          saveRelayUrls(deduped);
+        }
+      }
+
+      // One-time: the strfry relay in front of the retired Go relay, which stays (see
+      // RETIRED_VEGA_RELAY). A list the user took the Vega relay out of is left alone,
+      // and so is one that already has both.
+      if (!localStorage.getItem(STRFRY_RELAY_MIGRATED_KEY)) {
+        localStorage.setItem(STRFRY_RELAY_MIGRATED_KEY, "1");
+        const retired = deduped.indexOf(RETIRED_VEGA_RELAY);
+        if (retired >= 0 && !holdsRelay(deduped, VEGA_RELAY)) {
+          deduped.splice(retired, 0, VEGA_RELAY);
           saveRelayUrls(deduped);
         }
       }
@@ -493,10 +519,11 @@ export function getStoredRelayUrls(): string[] {
       return deduped;
     }
     // A fresh install starts from the defaults, which already hold the Vega relay, so there is
-    // nothing to inject later. Without the flag, the first list ever saved (the user's first
+    // nothing to inject later. Without the flags, the first list ever saved (the user's first
     // Remove) was read back as an existing user's and the relay put back at once, under a toast
     // that said "Removed".
     localStorage.setItem(VEGA_RELAY_MIGRATED_KEY, "1");
+    localStorage.setItem(STRFRY_RELAY_MIGRATED_KEY, "1");
   } catch { /* ignore */ }
   return FALLBACK_RELAYS;
 }
