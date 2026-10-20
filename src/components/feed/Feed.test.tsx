@@ -108,6 +108,25 @@ describe("Feed: the first-run card", () => {
 });
 
 describe("Feed: the Following tab", () => {
+  // The first Follow used to empty the tab's empty state, and with it the list of people to start
+  // with: the tab became that one person's notes, and the next person was gone.
+  it("keeps the people to start with above the notes until three are followed", async () => {
+    vi.mocked(fetchFollowFeed).mockImplementation(answering([note("a")]));
+    user.follows = ["friend"];
+    await shown("following");
+    expect(screen.getByText("note a")).toBeTruthy();
+    const list = screen.getByText("people to start with");
+    expect(list.compareDocumentPosition(screen.getByText("note a")) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it("offers nobody to start with once three are followed", async () => {
+    vi.mocked(fetchFollowFeed).mockImplementation(answering([note("a")]));
+    user.follows = ["one", "two", "three"];
+    await shown("following");
+    expect(screen.getByText("note a")).toBeTruthy();
+    expect(screen.queryByText("people to start with")).toBeNull();
+  });
+
   it("shows the notes from the people you follow", async () => {
     vi.mocked(fetchFollowFeed).mockImplementation(answering([note("a"), note("b")]));
     await shown("following");
