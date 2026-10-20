@@ -2,6 +2,11 @@
 
 > Note: entries for v0.12.10 through v0.13.1 live in the [GitHub Releases](https://github.com/hoornet/vega/releases) notes; this file resumes at v0.13.2. The release notes on GitHub are the richer record — this file is the summary.
 
+## v0.16.2 — The Vega relay is strfry (2026-10-20)
+
+### Changed
+- **Vega's public relay is now `wss://relay.veganostr.com`**, a strfry relay, in place of the Go relay at `relay2.veganostr.com`, which is being retired. A fresh install gets the new one. A relay list that holds relay2 gets the new relay added in front of it and keeps relay2 for now: until relay2 becomes an alias of the new relay on the server, it is the only relay holding some of what Vega users published, such as encrypted messages and zap receipts since September. A later version takes relay2 out once the two names point at one relay. A list you took the Vega relay out of is left alone.
+
 ## v0.16.1 — A first day that makes sense (2026-10-20)
 
 ### Added

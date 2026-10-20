@@ -71,6 +71,11 @@
   </branding>
 
   <releases>
+    <release version="0.16.2" date="2026-10-20">
+      <description>
+        <p>Vega's public relay is now relay.veganostr.com, a strfry relay, in place of the Go relay at relay2.veganostr.com, which is being retired. A relay list that holds the old one gets the new one added in front of it and keeps the old one for now.</p>
+      </description>
+    </release>
     <release version="0.16.1" date="2026-10-20">
       <description>
         <p>Creating an account asks for a name, a first screen says what to do next, and there are people to start with until you follow three. The views a new account meets first say what they are for. Names that could not be fetched while offline come back without a restart, and from this version on the update banner shows the notes of every version you skipped.</p>
