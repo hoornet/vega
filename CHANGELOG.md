@@ -2,6 +2,31 @@
 
 > Note: entries for v0.12.10 through v0.13.1 live in the [GitHub Releases](https://github.com/hoornet/vega/releases) notes; this file resumes at v0.13.2. The release notes on GitHub are the richer record — this file is the summary.
 
+## v0.16.1 — A first day that makes sense (2026-10-20)
+
+### Added
+- **Creating an account asks what people should call you.** The name goes out as the account's first profile; if no relay takes it, the flow says so. The welcome screen says what Vega is before it asks for anything.
+- **A "start here" card above the feed** for an account made in Vega: add a picture, write a bio, follow a few people (three ticks it), back up your secret key if you chose to do it later, say hello, and the topics you picked. Dismiss it or finish it; either is for good.
+- **People to start with**: the authors of today's trending notes who have a name and a picture, those posting on your topics first. It sits above the Following feed while you follow fewer than three and stays for the rest of the session, is in People until you follow three, and under Discover people until you follow someone. People has a Find tab, and is back in the sidebar.
+- **Looking around offers a way in**: "Create account" and "I have a key" open the sign-up flow over the app. The sign-in dialog lost its "New account" tab and links to the flow. The amber "Read-only mode" banner is gone; a public-key account is told whose view it is, and someone signed out is offered Sign in.
+- **A reminder until the key is backed up.** The backup step's one action is Copy secret key, and its box cannot be ticked until the key has been copied or seen. "Later" is remembered per account and a banner asks until the key has been copied once.
+- **The empty views a new account meets first say what they are for and offer the next step**: Following, People, Notifications, Zaps, Value 4 Value, and your own profile with no name or bio yet ("Set up your profile") or no notes ("Write your first note").
+
+### Changed
+- **An account with no name is called one thing everywhere**: the two ends of its public address, `npub1z4t…t3pm`. There were four shortenings, three of them cut from the hex key. A placeholder avatar shows the first whole character of the name, and the outline of a person for an account with no name. Mentions in bios and messages show the person's name, as notes do.
+- **From this version on, "What's new" on the update banner shows the notes of every release since the version you have**, newest first. It used to show a fixed text whose newest section was v0.14.0. For this update the notes were put into the updater's file by hand, so the old panel shows them too.
+- "Login" is "Sign in" everywhere, and the "Private key" tab is "Secret key". The topics picked at sign-up are kept per account. The profile editor's placeholders say what goes in each field. Trending hashtags are kept to what someone would write after a hash.
+
+### Fixed
+- **Names fetched while the network was off stayed keys until a restart.** A profile fetch that found nothing was cached for the session; it is now a miss, and the next card for that account asks again after half a minute, then two, then every ten.
+- **A new account could not follow anyone.** Its Following tab said the relays could not be reached: "follows nobody" was confirmed only when every relay had answered, and one quiet relay was enough to leave it unknown, with fifteen of eighteen answering. A key made in the sign-up flow follows nobody, and Vega knows it without asking.
+- **Your own profile**: a name no relay took was shown anyway; a fetch that found nothing blanked the profile and took the name out of the saved account; the previous account's profile stayed on screen after a change of account; an older copy held by a slow relay could replace the one just saved; and a save made after switching accounts could go out under the other account's key. The own profile is now read from each relay on its own, as the follow list is, and a save signs only for the account it was opened for.
+- With the compose box focused and empty, the first click on what was under it did nothing.
+- Removing an account also ends its start-here card and its backup reminder.
+
+### Maintenance
+- README and ROADMAP brought up to date; the install command's `.deb` and `.rpm` names matched none of the release files.
+
 ## v0.16.0 — A reworked interface, and every relay event checked (2026-10-19)
 
 ### Security

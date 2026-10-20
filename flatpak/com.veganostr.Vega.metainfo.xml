@@ -71,6 +71,11 @@
   </branding>
 
   <releases>
+    <release version="0.16.1" date="2026-10-20">
+      <description>
+        <p>Creating an account asks for a name, a first screen says what to do next, and there are people to start with until you follow three. The views a new account meets first say what they are for. Names that could not be fetched while offline come back without a restart, and from this version on the update banner shows the notes of every version you skipped.</p>
+      </description>
+    </release>
     <release version="0.16.0" date="2026-10-19">
       <description>
         <p>A reworked interface, with clearer text and contrast in every theme, a reading typeface for articles, a publish sheet for writers, and a simpler sidebar and Settings. Vega now also checks the signature of every event a relay sends, and changes your mute list and bookmarks on the copy your relays hold instead of replacing it.</p>
