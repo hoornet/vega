@@ -12,6 +12,7 @@ const updater = vi.hoisted(() => ({
     error: null as string | null,
     canSelfUpdate: true,
     kind: "updater",
+    packagedBy: null as string | null,
     install: async () => {},
     dismiss: () => {},
   },
@@ -40,7 +41,62 @@ const TWO_RELEASES: ReleaseNotes[] = [
 describe("UpdateBanner", () => {
   beforeEach(() => {
     notes.fetchNotesSince.mockReset();
-    updater.state = { ...updater.state, available: true, version: "9.0.2", body: null };
+    updater.state = {
+      ...updater.state, available: true, version: "9.0.2", body: null,
+      canSelfUpdate: true, kind: "updater", packagedBy: null,
+    };
+  });
+
+  describe("a Vega that a package manager installed", () => {
+    function packagedBy(by: string | null, kind = "package") {
+      updater.state = { ...updater.state, canSelfUpdate: false, kind, packagedBy: by };
+    }
+
+    it("names the Omarchy repository's command, and says the package takes a day or two", () => {
+      packagedBy("omarchy");
+      render(<UpdateBanner />);
+      expect(screen.getByText("sudo pacman -Syu")).toBeTruthy();
+      expect(screen.getByText(/a day or two/)).toBeTruthy();
+      expect(screen.queryByText(/vega-nostr-git/)).toBeNull();
+      expect(screen.getByRole("button", { name: "Copy command" })).toBeTruthy();
+      expect(screen.queryByRole("button", { name: "Update & restart" })).toBeNull();
+    });
+
+    it("names the AUR package it came from, not the development one", () => {
+      packagedBy("aur");
+      render(<UpdateBanner />);
+      expect(screen.getByText("yay -S vega-nostr")).toBeTruthy();
+      expect(screen.queryByText(/vega-nostr-git/)).toBeNull();
+    });
+
+    it("names the development package for the AUR git package", () => {
+      packagedBy("aur-git");
+      render(<UpdateBanner />);
+      expect(screen.getByText("yay -S vega-nostr-git")).toBeTruthy();
+    });
+
+    it("names the Flatpak command for the Flatpak, which runs from /app and used to be taken for a portable build", () => {
+      packagedBy("flatpak");
+      render(<UpdateBanner />);
+      expect(screen.getByText("flatpak update com.veganostr.Vega")).toBeTruthy();
+      expect(screen.queryByRole("button", { name: "Update & restart" })).toBeNull();
+    });
+
+    it("gives no command when it only knows that pacman is there", () => {
+      packagedBy(null, "pacman");
+      render(<UpdateBanner />);
+      expect(screen.getByText(/your package manager/)).toBeTruthy();
+      expect(screen.queryByText(/vega-nostr/)).toBeNull();
+      expect(screen.queryByRole("button", { name: "Copy command" })).toBeNull();
+      expect(screen.getByRole("button", { name: "View release" })).toBeTruthy();
+    });
+
+    it("gives no command for a packager it does not know", () => {
+      packagedBy("nix");
+      render(<UpdateBanner />);
+      expect(screen.getByText(/your package manager/)).toBeTruthy();
+      expect(screen.queryByRole("button", { name: "Copy command" })).toBeNull();
+    });
   });
 
   it("shows What's new even when the updater sent no notes, and asks for them only when opened", () => {

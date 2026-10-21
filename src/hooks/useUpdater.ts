@@ -7,6 +7,8 @@ import { getProxySettings, remoteDnsProxyUrl } from "../lib/proxy";
 interface InstallInfo {
   can_self_update: boolean;
   kind: string;
+  /** Who built the package, from VEGA_PACKAGED_BY at build time; only with kind "package". */
+  packaged_by?: string | null;
 }
 
 interface UpdateState {
@@ -17,6 +19,7 @@ interface UpdateState {
   error: string | null;
   canSelfUpdate: boolean;
   kind: string;
+  packagedBy: string | null;
   install: () => Promise<void>;
   dismiss: () => void;
 }
@@ -85,6 +88,7 @@ export function useUpdater(): UpdateState {
     error,
     canSelfUpdate: installInfo.can_self_update,
     kind: installInfo.kind,
+    packagedBy: installInfo.packaged_by ?? null,
     install,
     dismiss: () => setDismissed(true),
   };
