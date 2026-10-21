@@ -646,8 +646,10 @@ fn relay_get_stats(state: tauri::State<relay::RelayHandle>) -> Result<serde_json
 /// "Update & restart" button.
 ///
 /// A package recipe says who built the package through `VEGA_PACKAGED_BY` at
-/// build time (`omarchy`, `aur`, `aur-git`), and the banner then names the
-/// command that brings that package up to date. Without it, a binary under
+/// build time (`omarchy`, `aur`, `aur-git`, `flatpak`), and the banner then
+/// names the command that brings that package up to date. The Flatpak needs
+/// it too: it runs from a read-only `/app`, which the path test below took
+/// for a portable build that can replace itself. Without it, a binary under
 /// /usr on a machine with pacman can only be told "your package manager":
 /// until October 2026 it was told `yay -S vega-nostr-git`, which for the
 /// stable AUR package or the Omarchy repository's package replaces it with

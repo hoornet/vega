@@ -52,11 +52,11 @@ describe("UpdateBanner", () => {
       updater.state = { ...updater.state, canSelfUpdate: false, kind, packagedBy: by };
     }
 
-    it("names the Omarchy repository's command, and says the package takes a day", () => {
+    it("names the Omarchy repository's command, and says the package takes a day or two", () => {
       packagedBy("omarchy");
       render(<UpdateBanner />);
       expect(screen.getByText("sudo pacman -Syu")).toBeTruthy();
-      expect(screen.getByText(/within a day/)).toBeTruthy();
+      expect(screen.getByText(/a day or two/)).toBeTruthy();
       expect(screen.queryByText(/vega-nostr-git/)).toBeNull();
       expect(screen.getByRole("button", { name: "Copy command" })).toBeTruthy();
       expect(screen.queryByRole("button", { name: "Update & restart" })).toBeNull();
@@ -73,6 +73,13 @@ describe("UpdateBanner", () => {
       packagedBy("aur-git");
       render(<UpdateBanner />);
       expect(screen.getByText("yay -S vega-nostr-git")).toBeTruthy();
+    });
+
+    it("names the Flatpak command for the Flatpak, which runs from /app and used to be taken for a portable build", () => {
+      packagedBy("flatpak");
+      render(<UpdateBanner />);
+      expect(screen.getByText("flatpak update com.veganostr.Vega")).toBeTruthy();
+      expect(screen.queryByRole("button", { name: "Update & restart" })).toBeNull();
     });
 
     it("gives no command when it only knows that pacman is there", () => {

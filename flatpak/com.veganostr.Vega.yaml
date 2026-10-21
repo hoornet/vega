@@ -52,6 +52,11 @@ modules:
         XDG_CACHE_HOME: /run/build/vega/flatpak-node/cache
         npm_config_cache: /run/build/vega/flatpak-node/npm-cache
         npm_config_offline: "true"
+        # Read by install_info at build time: the app then offers no
+        # "Update & restart" (it runs from a read-only /app, which the
+        # path heuristic took for a portable build) and its update banner
+        # names `flatpak update com.veganostr.Vega`.
+        VEGA_PACKAGED_BY: flatpak
 
     build-commands:
       # Install vendored npm packages (offline)

@@ -30,11 +30,13 @@ export function packagedUpdate(
   if (kind === "package") {
     switch (packagedBy) {
       case "omarchy":
-        return { hint: "Omarchy's package repository has it within a day; update with", command: "sudo pacman -Syu" };
+        return { hint: "Omarchy's package repository gets it in a day or two; update with", command: "sudo pacman -Syu" };
       case "aur":
         return { hint: "Update with", command: "yay -S vega-nostr" };
       case "aur-git":
         return { hint: "Update with", command: "yay -S vega-nostr-git" };
+      case "flatpak":
+        return { hint: "Update with", command: "flatpak update com.veganostr.Vega" };
       default:
         return { hint: "Update with your package manager.", command: null };
     }
