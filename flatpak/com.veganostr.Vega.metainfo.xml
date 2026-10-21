@@ -71,6 +71,11 @@
   </branding>
 
   <releases>
+    <release version="0.16.4" date="2026-10-21">
+      <description>
+        <p>On Arch-based systems the update banner no longer suggests the AUR's development package: a package whose recipe says who built it names that package's update command, and any other is told to update with its package manager. The Flatpak no longer offers to update itself.</p>
+      </description>
+    </release>
     <release version="0.16.3" date="2026-10-21">
       <description>
         <p>relay2.veganostr.com is now a second name for relay.veganostr.com, served by the same relay, so a relay list that still holds the old name gets the new one in its place, once, and Relays marks the list as not shared yet.</p>

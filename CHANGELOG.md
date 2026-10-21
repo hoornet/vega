@@ -2,6 +2,16 @@
 
 > Note: entries for v0.12.10 through v0.13.1 live in the [GitHub Releases](https://github.com/hoornet/vega/releases) notes; this file resumes at v0.13.2. The release notes on GitHub are the richer record — this file is the summary.
 
+## v0.16.4 — The right update command (2026-10-21)
+
+### Fixed
+- **The update banner on a pacman install named the AUR's development package.** Vega under `/usr` or `/opt` on a machine with pacman was told "Update with `yay -S vega-nostr-git`", which for the stable AUR package `vega-nostr`, or the package prepared for Omarchy's repository, offers to replace it with a build of main. Vega now reads `VEGA_PACKAGED_BY` (`omarchy`, `aur`, `aur-git`, `flatpak`), set by the package recipe at build time; `install_info` reports it and the banner names that package's command (`sudo pacman -Syu`, with the banner's note that Omarchy's repository gets it in a day or two; `yay -S vega-nostr`; `yay -S vega-nostr-git`; `flatpak update com.veganostr.Vega`). A package it cannot place says "Update with your package manager." with no command; .deb and .rpm installs are unchanged (#183).
+- **The Flatpak offered "Update & restart"**: it runs from a read-only `/app`, which the path test took for a portable build. Its manifest now sets `VEGA_PACKAGED_BY=flatpak` (#183).
+
+### Maintenance
+- `flatpak/com.veganostr.Vega.desktop`: `StartupWMClass=vega`, the binary's name; Tauri hands GTK no application id, so that is the window's class (#183).
+- CLAUDE.md, release step 6: the AUR recipes export `VEGA_PACKAGED_BY` before `npx tauri build`, from this release's bump on (#183).
+
 ## v0.16.3 — One relay, one name (2026-10-21)
 
 ### Changed
