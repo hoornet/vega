@@ -2,6 +2,15 @@
 
 > Note: entries for v0.12.10 through v0.13.1 live in the [GitHub Releases](https://github.com/hoornet/vega/releases) notes; this file resumes at v0.13.2. The release notes on GitHub are the richer record — this file is the summary.
 
+## v0.16.3 — One relay, one name (2026-10-21)
+
+### Changed
+- **`relay2.veganostr.com` is a second name for `relay.veganostr.com` now**, served by the same relay since 21 October; the old name stays. A relay list that holds relay2 gets `relay.veganostr.com` in its place, once, the same relay under its new name; with both names in it, `relay.veganostr.com` is kept once, where whichever of the two came first stood; a list without relay2 is left alone. The change marks the relay list as not shared yet (shown to an account that can sign): a relay list shared before may still name relay2 on the network, and with Relay reach on Vega then connects to it under that name; sharing the list again updates that copy, and the extra connection can last until Vega next starts. Relay recommendations count relay2 as `relay.veganostr.com` and no longer offer it.
+
+### Maintenance
+- `startLiveFeed` stops the previous subscription through `stopSubscription` (#181). No behaviour change: the live feed starts only after the connection monitor's reset, which disconnects the old pool first, and the auth policy already sweeps such orphans before signing in.
+- Four new release scripts in `scripts/` (`bump-version.sh`, `verify-release.sh`, `build-latest-notes.py`, `latest-json-notes.sh`); the release procedure in CLAUDE.md rewritten and the file audited against the code (#180).
+
 ## v0.16.2 — The Vega relay is strfry (2026-10-20)
 
 ### Changed

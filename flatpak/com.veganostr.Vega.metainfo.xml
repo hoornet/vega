@@ -71,6 +71,11 @@
   </branding>
 
   <releases>
+    <release version="0.16.3" date="2026-10-21">
+      <description>
+        <p>relay2.veganostr.com is now a second name for relay.veganostr.com, served by the same relay, so a relay list that still holds the old name gets the new one in its place, once, and Relays marks the list as not shared yet.</p>
+      </description>
+    </release>
     <release version="0.16.2" date="2026-10-20">
       <description>
         <p>Vega's public relay is now relay.veganostr.com, a strfry relay, in place of the Go relay at relay2.veganostr.com, which is being retired. A relay list that holds the old one gets the new one added in front of it and keeps the old one for now.</p>
