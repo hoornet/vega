@@ -8,5 +8,5 @@ Icon=com.veganostr.Vega
 Terminal=false
 Categories=Network;Chat;
 Keywords=Nostr;Bitcoin;Lightning;Zap;Social;Decentralized;Microblog;Long-form;
-StartupWMClass=Vega
+StartupWMClass=vega
 StartupNotify=true

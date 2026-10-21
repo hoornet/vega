@@ -16,14 +16,41 @@ function plain(version: string): string {
   return version.replace(/^v/i, "");
 }
 
+/**
+ * What a Vega that cannot update itself is told: who packaged it decides the
+ * command. A package built without VEGA_PACKAGED_BY, or found under /usr by
+ * the heuristic alone, gets no command: the one it used to get,
+ * `yay -S vega-nostr-git`, replaced the stable AUR package or the Omarchy
+ * repository's package with the development build.
+ */
+export function packagedUpdate(
+  kind: string,
+  packagedBy: string | null,
+): { hint: string; command: string | null } | null {
+  if (kind === "package") {
+    switch (packagedBy) {
+      case "omarchy":
+        return { hint: "Omarchy's package repository has it within a day; update with", command: "sudo pacman -Syu" };
+      case "aur":
+        return { hint: "Update with", command: "yay -S vega-nostr" };
+      case "aur-git":
+        return { hint: "Update with", command: "yay -S vega-nostr-git" };
+      default:
+        return { hint: "Update with your package manager.", command: null };
+    }
+  }
+  if (kind === "pacman") return { hint: "Update with your package manager.", command: null };
+  return null;
+}
+
 export function UpdateBanner() {
-  const { available, version, body, installing, error, canSelfUpdate, kind, install, dismiss } = useUpdater();
+  const { available, version, body, installing, error, canSelfUpdate, kind, packagedBy, install, dismiss } = useUpdater();
   const [copied, setCopied] = useState(false);
   const [showChangelog, setShowChangelog] = useState(false);
   const [notes, setNotes] = useState<Notes>({ status: "idle" });
   if (!available) return null;
 
-  const aurCmd = "yay -S vega-nostr-git";
+  const packaged = canSelfUpdate ? null : packagedUpdate(kind, packagedBy);
   const installed = pkg.version;
 
   // The notes are read from GitHub the first time the panel is opened, not at every start.
@@ -45,8 +72,13 @@ export function UpdateBanner() {
       <div className="flex items-center justify-between px-4 py-2">
         <span className="text-text">
           Vega {version} is available.
-          {!canSelfUpdate && kind === "pacman" && (
-            <> Update with <code className="text-accent bg-bg-raised px-1 rounded-sm">{aurCmd}</code></>
+          {packaged && (
+            <>
+              {" "}{packaged.hint}
+              {packaged.command && (
+                <> <code className="text-accent bg-bg-raised px-1 rounded-sm">{packaged.command}</code></>
+              )}
+            </>
           )}
           {error && <span className="text-danger ml-1">{error}</span>}
         </span>
@@ -66,9 +98,9 @@ export function UpdateBanner() {
             >
               {installing ? "Installing…" : "Update & restart"}
             </button>
-          ) : kind === "pacman" ? (
+          ) : packaged?.command ? (
             <button
-              onClick={async () => { if (await copyText(aurCmd)) setCopied(true); }}
+              onClick={async () => { if (await copyText(packaged.command as string)) setCopied(true); }}
               className="text-accent hover:text-accent-hover transition-colors"
             >
               {copied ? "Copied" : "Copy command"}

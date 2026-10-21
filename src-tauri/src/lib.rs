@@ -644,8 +644,23 @@ fn relay_get_stats(state: tauri::State<relay::RelayHandle>) -> Result<serde_json
 /// /opt — the updater can't touch it, and doing so would desync the package DB.
 /// In those cases the banner shows manual update guidance instead of a dead
 /// "Update & restart" button.
+///
+/// A package recipe says who built the package through `VEGA_PACKAGED_BY` at
+/// build time (`omarchy`, `aur`, `aur-git`), and the banner then names the
+/// command that brings that package up to date. Without it, a binary under
+/// /usr on a machine with pacman can only be told "your package manager":
+/// until October 2026 it was told `yay -S vega-nostr-git`, which for the
+/// stable AUR package or the Omarchy repository's package replaces it with
+/// the development build.
 #[tauri::command]
 fn install_info() -> serde_json::Value {
+    if let Some(packaged_by) = option_env!("VEGA_PACKAGED_BY").filter(|by| !by.is_empty()) {
+        return serde_json::json!({
+            "can_self_update": false,
+            "kind": "package",
+            "packaged_by": packaged_by,
+        });
+    }
     #[cfg(any(target_os = "windows", target_os = "macos"))]
     {
         serde_json::json!({ "can_self_update": true, "kind": "updater" })
