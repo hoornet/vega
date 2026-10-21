@@ -1,5 +1,5 @@
 import { NDKEvent, NDKFilter, NDKKind } from "@nostr-dev-kit/ndk";
-import { getNDK, fetchWithTimeout, SINGLE_TIMEOUT, publishToNetwork } from "./core";
+import { getNDK, fetchWithTimeout, SINGLE_TIMEOUT, publishToNetwork, RETIRED_VEGA_RELAY, VEGA_RELAY } from "./core";
 
 export interface UserRelayList { read: string[]; write: string[]; }
 
@@ -83,9 +83,16 @@ export async function fetchRelayRecommendations(
 
   for (const result of results) {
     if (result.status !== "fulfilled") continue;
-    const allUrls = Array.from(new Set([...result.value.read, ...result.value.write]));
-    for (const url of allUrls) {
-      const normalized = url.replace(/\/$/, "");
+    // One count per relay per follow, by its normalized address. The retired name of the
+    // Vega relay is the Vega relay (see RETIRED_VEGA_RELAY in core.ts): counted under the
+    // new name, so a list that still names it neither offers a relay the user has nor
+    // offers one relay under two names, and a list naming both counts it once.
+    const named = new Set<string>();
+    for (const url of [...result.value.read, ...result.value.write]) {
+      const stripped = url.replace(/\/$/, "");
+      named.add(stripped === RETIRED_VEGA_RELAY ? VEGA_RELAY : stripped);
+    }
+    for (const normalized of named) {
       if (ownSet.has(normalized)) continue;
       tally.set(normalized, (tally.get(normalized) ?? 0) + 1);
     }
