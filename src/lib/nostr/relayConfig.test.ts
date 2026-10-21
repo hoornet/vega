@@ -4,6 +4,7 @@ import {
   getNDK, addRelay, removeRelay, getStoredRelayUrls, RELAY_STORAGE_KEY, RETIRED_VEGA_RELAY,
   isRelayAllowed, isOutboxRelaysEnabled, setOutboxRelaysEnabled,
 } from "./core";
+import { useRelayListShare } from "../../stores/relayListShare";
 
 const PUBLIC_RELAY = "wss://relay.damus.io";
 const VEGA_RELAY = "wss://relay.veganostr.com";
@@ -65,10 +66,12 @@ describe("relay configuration (issue #35)", () => {
     // No stored list and no migration flags: the defaults. The one-time steps for
     // existing users must not read the first saved list as one of theirs.
     localStorage.removeItem("wrystr_vega_relay_added");
-    localStorage.removeItem("wrystr_vega_relay_strfry_added");
+    localStorage.removeItem("wrystr_vega_relay2_dropped");
     localStorage.removeItem(RELAY_STORAGE_KEY);
     expect(getStoredRelayUrls()).toContain(VEGA_RELAY);
     expect(getStoredRelayUrls()).not.toContain(RETIRED_VEGA_RELAY);
+    expect(localStorage.getItem("wrystr_vega_relay_added")).toBe("1");
+    expect(localStorage.getItem("wrystr_vega_relay2_dropped")).toBe("1");
     removeRelay(VEGA_RELAY);
     expect(hasUrl(getStoredRelayUrls(), VEGA_RELAY)).toBe(false);
     expect(hasUrl(getStoredRelayUrls(), VEGA_RELAY)).toBe(false);
@@ -164,42 +167,65 @@ describe("relayConnectionFilter (issue #35 — outbox expansion)", () => {
 });
 
 
-// The Vega relay moved from the Go relay (relay2.veganostr.com, retired) to strfry
-// (relay.veganostr.com) in October 2026. Lists that hold the retired relay get the
-// new one in front of it and keep the old one: until the server makes relay2 an
-// alias of strfry, it is the only relay holding some of what Vega users published.
+// The Vega relay moved from the Go relay (relay2.veganostr.com) to strfry
+// (relay.veganostr.com) in October 2026, and since 2026-10-21 the old name is an
+// alias of the new relay. A list that holds the old name holds that relay under it,
+// so the name is replaced where it stands, once, and the list is marked as not
+// shared yet, since the published relay list still names the old one.
 describe("the Vega relay moves to strfry", () => {
   const stored = () => JSON.parse(localStorage.getItem(RELAY_STORAGE_KEY) ?? "null");
+  const RENAMED = "wrystr_vega_relay2_dropped";
   beforeEach(() => {
     localStorage.setItem("wrystr_vega_relay_added", "1");
-    localStorage.removeItem("wrystr_vega_relay_strfry_added");
+    localStorage.removeItem(RENAMED);
+    useRelayListShare.getState().mark(false);
   });
 
-  it("puts the strfry relay in front of the retired one, keeps the retired one, and saves the list", () => {
+  it("gives the retired relay the new name where it stands, saves the list, and marks it as not shared", () => {
     localStorage.setItem(RELAY_STORAGE_KEY, JSON.stringify([PUBLIC_RELAY, RETIRED_VEGA_RELAY, "wss://nos.lol"]));
-    expect(getStoredRelayUrls()).toEqual([PUBLIC_RELAY, VEGA_RELAY, RETIRED_VEGA_RELAY, "wss://nos.lol"]);
-    expect(stored()).toEqual([PUBLIC_RELAY, VEGA_RELAY, RETIRED_VEGA_RELAY, "wss://nos.lol"]);
-    expect(localStorage.getItem("wrystr_vega_relay_strfry_added")).toBe("1");
+    expect(getStoredRelayUrls()).toEqual([PUBLIC_RELAY, VEGA_RELAY, "wss://nos.lol"]);
+    expect(stored()).toEqual([PUBLIC_RELAY, VEGA_RELAY, "wss://nos.lol"]);
+    expect(localStorage.getItem(RENAMED)).toBe("1");
+    expect(useRelayListShare.getState().unshared).toBe(true);
   });
 
-  it("leaves a list alone that the user took the Vega relay out of", () => {
+  it("drops the retired name from a list that holds both, keeping the one that comes first", () => {
+    // v0.16.2 put the strfry relay in front of the retired one and kept both, under its own flag.
+    localStorage.setItem("wrystr_vega_relay_strfry_added", "1");
+    localStorage.setItem(RELAY_STORAGE_KEY, JSON.stringify([PUBLIC_RELAY, VEGA_RELAY, RETIRED_VEGA_RELAY, "wss://nos.lol"]));
+    expect(getStoredRelayUrls()).toEqual([PUBLIC_RELAY, VEGA_RELAY, "wss://nos.lol"]);
+    expect(stored()).toEqual([PUBLIC_RELAY, VEGA_RELAY, "wss://nos.lol"]);
+    expect(useRelayListShare.getState().unshared).toBe(true);
+    // In the user's own order, the retired one first: it stays first, under the new name.
+    localStorage.removeItem(RENAMED);
+    localStorage.setItem(RELAY_STORAGE_KEY, JSON.stringify([RETIRED_VEGA_RELAY, PUBLIC_RELAY, VEGA_RELAY]));
+    expect(getStoredRelayUrls()).toEqual([VEGA_RELAY, PUBLIC_RELAY]);
+  });
+
+  it("leaves a list alone that the user took the Vega relay out of, and does not mark it", () => {
     localStorage.setItem(RELAY_STORAGE_KEY, JSON.stringify([PUBLIC_RELAY]));
     expect(getStoredRelayUrls()).toEqual([PUBLIC_RELAY]);
     expect(stored()).toEqual([PUBLIC_RELAY]);
-    expect(localStorage.getItem("wrystr_vega_relay_strfry_added")).toBe("1");
+    expect(localStorage.getItem(RENAMED)).toBe("1");
+    expect(useRelayListShare.getState().unshared).toBe(false);
   });
 
-  it("leaves a list alone that already has both, in the order the user keeps them", () => {
-    localStorage.setItem(RELAY_STORAGE_KEY, JSON.stringify([RETIRED_VEGA_RELAY, VEGA_RELAY]));
-    expect(getStoredRelayUrls()).toEqual([RETIRED_VEGA_RELAY, VEGA_RELAY]);
+  it("collapses the retired name's slash and duplicate forms into one renamed entry", () => {
+    localStorage.setItem(RELAY_STORAGE_KEY, JSON.stringify([RETIRED_VEGA_RELAY + "/", PUBLIC_RELAY, RETIRED_VEGA_RELAY]));
+    expect(getStoredRelayUrls()).toEqual([VEGA_RELAY, PUBLIC_RELAY]);
+    expect(stored()).toEqual([VEGA_RELAY, PUBLIC_RELAY]);
   });
 
-  it("runs once: the strfry relay removed afterwards stays removed", () => {
-    localStorage.setItem(RELAY_STORAGE_KEY, JSON.stringify([RETIRED_VEGA_RELAY]));
-    expect(getStoredRelayUrls()).toEqual([VEGA_RELAY, RETIRED_VEGA_RELAY]);
+  it("runs once: the Vega relay removed afterwards stays removed, and the old name added back by hand stays", () => {
+    localStorage.setItem(RELAY_STORAGE_KEY, JSON.stringify([RETIRED_VEGA_RELAY, PUBLIC_RELAY]));
+    expect(getStoredRelayUrls()).toEqual([VEGA_RELAY, PUBLIC_RELAY]);
     removeRelay(VEGA_RELAY);
-    expect(getStoredRelayUrls()).toEqual([RETIRED_VEGA_RELAY]);
-    expect(getStoredRelayUrls()).toEqual([RETIRED_VEGA_RELAY]);
+    expect(getStoredRelayUrls()).toEqual([PUBLIC_RELAY]);
+    // The user types the old name in again (saved as the Relays view saves it): it is theirs
+    // to keep, under a toast that said "Added", so the step must not touch it a second time.
+    localStorage.setItem(RELAY_STORAGE_KEY, JSON.stringify([PUBLIC_RELAY, RETIRED_VEGA_RELAY]));
+    expect(getStoredRelayUrls()).toEqual([PUBLIC_RELAY, RETIRED_VEGA_RELAY]);
+    expect(getStoredRelayUrls()).toEqual([PUBLIC_RELAY, RETIRED_VEGA_RELAY]);
   });
 
   it("a list from before the Vega relay existed gets the strfry relay, not the retired one", () => {

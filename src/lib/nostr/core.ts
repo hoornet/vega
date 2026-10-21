@@ -3,6 +3,7 @@ import { debug } from "../debug";
 import { clipText } from "../utils";
 import { recordFetchOutcome } from "./fetchTotals";
 import { useToastStore, goToView } from "../../stores/toast";
+import { useRelayListShare } from "../../stores/relayListShare";
 import { guardIncomingEvents } from "./authentic";
 import {
   beginAuthAttempt,
@@ -466,19 +467,23 @@ export function isLocalRelayUrl(url: string): boolean {
 }
 
 /** Vega's public relay: strfry on relay.veganostr.com. */
-const VEGA_RELAY = "wss://relay.veganostr.com";
+export const VEGA_RELAY = "wss://relay.veganostr.com";
 /**
- * The Go relay that was the default from v0.12.x to v0.16.1. It is being retired
- * and will become an alias of VEGA_RELAY on the server. Until then it is the only
- * relay holding some of what Vega users published (gift-wrapped messages and zap
- * receipts since September 2026 are on none of the public defaults), so a list
- * that has it keeps it, and a later release takes it out once the alias is up.
+ * The Go relay that was the default from v0.12.x to v0.16.1. Since 2026-10-21 the
+ * name is an alias of VEGA_RELAY on the server, for good: one relay, two names. A
+ * list that held both names held one relay twice, two sockets and a duplicate in
+ * the shared relay list, so the one-time step below gives the old name the new
+ * one where it stands. Exported for the tests.
  */
 export const RETIRED_VEGA_RELAY = "wss://relay2.veganostr.com";
 // v0.12.x: the Vega relay added to lists saved before it existed.
 const VEGA_RELAY_MIGRATED_KEY = "wrystr_vega_relay_added";
-// October 2026: the strfry relay put in front of the retired one in lists that hold it.
-const STRFRY_RELAY_MIGRATED_KEY = "wrystr_vega_relay_strfry_added";
+// October 2026: the retired name replaced by the strfry relay's in lists that hold it.
+// v0.16.2 had a step in between (`wrystr_vega_relay_strfry_added`) that put the strfry
+// relay in front of the retired one and kept both, while the Go relay was still the only
+// relay holding some of what Vega users had published; this step covers a list that never
+// saw it, and the flag it set is not read any more.
+const RETIRED_RELAY_RENAMED_KEY = "wrystr_vega_relay2_dropped";
 /** Whether the list holds this address: an exact comparison of normalized addresses, not a substring test. */
 const holdsRelay = (list: string[], url: string): boolean => list.some((u) => u === url);
 
@@ -489,7 +494,7 @@ export function getStoredRelayUrls(): string[] {
       // Deduplicate on load (handles legacy duplicates from trailing-slash mismatch)
       const urls: string[] = JSON.parse(stored);
       const seen = new Set<string>();
-      const deduped = urls.map(normalizeRelayUrl).filter((u) => {
+      let list = urls.map(normalizeRelayUrl).filter((u) => {
         if (seen.has(u)) return false;
         seen.add(u);
         return true;
@@ -498,32 +503,43 @@ export function getStoredRelayUrls(): string[] {
       // One-time: inject Vega relay for existing users
       if (!localStorage.getItem(VEGA_RELAY_MIGRATED_KEY)) {
         localStorage.setItem(VEGA_RELAY_MIGRATED_KEY, "1");
-        if (!holdsRelay(deduped, VEGA_RELAY)) {
-          deduped.unshift(VEGA_RELAY);
-          saveRelayUrls(deduped);
+        if (!holdsRelay(list, VEGA_RELAY)) {
+          list.unshift(VEGA_RELAY);
+          saveRelayUrls(list);
         }
       }
 
-      // One-time: the strfry relay in front of the retired Go relay, which stays (see
-      // RETIRED_VEGA_RELAY). A list the user took the Vega relay out of is left alone,
-      // and so is one that already has both.
-      if (!localStorage.getItem(STRFRY_RELAY_MIGRATED_KEY)) {
-        localStorage.setItem(STRFRY_RELAY_MIGRATED_KEY, "1");
-        const retired = deduped.indexOf(RETIRED_VEGA_RELAY);
-        if (retired >= 0 && !holdsRelay(deduped, VEGA_RELAY)) {
-          deduped.splice(retired, 0, VEGA_RELAY);
-          saveRelayUrls(deduped);
+      // One-time: the retired name is the strfry relay (see RETIRED_VEGA_RELAY), so it takes
+      // the new name where it stands, and a list that holds both names keeps the one that
+      // comes first. A list the user took the Vega relay out of is left alone. The list has
+      // changed, so it is marked as not shared yet: the published relay list still names the
+      // old one, and NDK connects to every relay in it until the list is shared anew.
+      if (!localStorage.getItem(RETIRED_RELAY_RENAMED_KEY)) {
+        localStorage.setItem(RETIRED_RELAY_RENAMED_KEY, "1");
+        if (holdsRelay(list, RETIRED_VEGA_RELAY)) {
+          const named = new Set<string>();
+          list = list
+            .map((u) => (u === RETIRED_VEGA_RELAY ? VEGA_RELAY : u))
+            .filter((u) => {
+              if (named.has(u)) return false;
+              named.add(u);
+              return true;
+            });
+          saveRelayUrls(list);
+          // The marker is a courtesy: a store that cannot write must not turn a list
+          // that was just saved into the defaults (the catch below returns those).
+          try { useRelayListShare.getState().mark(true); } catch { /* ignore */ }
         }
       }
 
-      return deduped;
+      return list;
     }
     // A fresh install starts from the defaults, which already hold the Vega relay, so there is
     // nothing to inject later. Without the flags, the first list ever saved (the user's first
     // Remove) was read back as an existing user's and the relay put back at once, under a toast
     // that said "Removed".
     localStorage.setItem(VEGA_RELAY_MIGRATED_KEY, "1");
-    localStorage.setItem(STRFRY_RELAY_MIGRATED_KEY, "1");
+    localStorage.setItem(RETIRED_RELAY_RENAMED_KEY, "1");
   } catch { /* ignore */ }
   return FALLBACK_RELAYS;
 }
