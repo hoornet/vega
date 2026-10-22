@@ -1,6 +1,7 @@
 import NDK, { NDKEvent, NDKFilter, NDKKind, NDKPrivateKeySigner } from "@nostr-dev-kit/ndk";
 import { guardIncomingEvents } from "../nostr/authentic";
 import { withinTime } from "../timeLimit";
+import { clipText } from "../utils";
 
 interface NwcConnection {
   walletPubkey: string;
@@ -31,191 +32,210 @@ export function isValidNwcUri(uri: string): boolean {
   }
 }
 
+/** How long a payment waits for the wallet's relay, and then for the wallet. Tests shorten them. */
+export interface NwcLimits {
+  connectMs?: number;
+  answerMs?: number;
+}
+
+const CONNECT_MS = 8000;
+const ANSWER_MS = 30000;
+/** How long the relay gets to confirm it holds the REQ before the request goes out anyway. */
+const LISTEN_MS = 2000;
+
 /**
  * The wallet did not answer within the wait. The request went out, so the
  * payment may well have been made: callers count it as sent, not failed.
  */
 export class NwcTimeoutError extends Error {
-  constructor(what: string) {
-    super(`${what} timed out (30s)`);
+  constructor(what: string, ms = ANSWER_MS) {
+    super(`${what} timed out (${Math.round(ms / 1000)}s)`);
     this.name = "NwcTimeoutError";
   }
 }
 
-export async function payKeysendViaNWC(
+/**
+ * Lets go of a wallet instance: every relay's socket, its keepalive, state
+ * monitor and sleep detector, and a reconnect still scheduled. Through
+ * connectivity, not relay.disconnect(): that one returns at once for a relay
+ * that never connected and leaves its monitors running for the session, with
+ * the secret still in the instance. And `disconnect()` alone keeps a reconnect
+ * that was scheduled when the relay dropped, which then opens the socket again.
+ */
+function letGo(ndk: NDK | null): void {
+  for (const relay of ndk?.pool?.relays?.values() ?? []) {
+    relay.connectivity.resetReconnectionState();
+    relay.connectivity.disconnect();
+  }
+}
+
+/**
+ * NDK's own words for a publish that got no answer, as opposed to a relay's
+ * reason: no OK in time (`NDKRelayPublisher.publish`), a relay gone while it
+ * was out (`clearPendingPublishes`), and its rejection of every event still
+ * waiting for an OK when the connection goes or AUTH fails
+ * (`rejectPendingAuthPublishes`, "Authentication failed: Relay … disconnected"
+ * on a drop). None of them says what the relay did with the request. NDK is
+ * pinned exactly; `payWallet.test.ts` reads its source for all three.
+ */
+export function isNdkOwnFailure(reason: string): boolean {
+  return /^Timeout: \d+ms$/.test(reason) || /^Relay \S+ disconnected$/.test(reason) || reason.startsWith("Authentication failed: ");
+}
+
+function relayName(relayUrl: string): string {
+  try {
+    return new URL(relayUrl).host || relayUrl;
+  } catch {
+    return relayUrl;
+  }
+}
+
+/**
+ * Publishes a wallet request, and calls `failed` only when nothing can have
+ * reached the wallet: the relay said no (`OK false`), or no relay was connected
+ * at any moment the request could have been written (NDK sends to a relay that
+ * is connected and writes nothing to one that is not, waiting for it to
+ * connect instead). NDK's publish of an ephemeral event resolves with the
+ * relays that took it and never rejects once it has sent, so the set is read,
+ * and the relay's reason comes from the failure event. A missing OK is not a
+ * "no": the relay may have passed the request on and confirm late, so the
+ * caller's own wait decides.
+ */
+function sendRequest(ndk: NDK, requestEvent: NDKEvent, relayUrl: string, failed: (err: Error) => void): void {
+  const relays = Array.from(ndk.pool.relays.values());
+  let written = relays.some((r) => r.connected);
+  for (const relay of relays) relay.once("connect", () => { written = true; });
+  let refusal = "";
+  requestEvent.on("relay:publish:failed", (_relay: unknown, err: unknown) => {
+    const reason = err instanceof Error ? err.message : String(err);
+    if (!isNdkOwnFailure(reason)) refusal = reason;
+  });
+  requestEvent.publish().then(
+    (took) => {
+      if (took.size > 0) return;
+      if (refusal) failed(new Error(`Your wallet's relay (${relayName(relayUrl)}) refused the request: ${clipText(refusal, 90)}`));
+      else if (!written) failed(new Error(`Your wallet's relay (${relayName(relayUrl)}) could not be reached`));
+    },
+    // Thrown before anything was sent.
+    (err: unknown) => failed(err instanceof Error ? err : new Error(String(err))),
+  );
+}
+
+/**
+ * One payment request (NIP-47) on an instance of its own, let go of when the
+ * wallet answers, refuses, or the wait runs out. Resolves with the preimage.
+ *
+ * - **The wait for the relay has a limit.** NDK's `connect()` without one
+ *   resolves only once the relay has connected, so a wallet relay that was down
+ *   held the payment for good: the zap dialog said "timed out" after its own
+ *   45 s, and podcast streaming, which pays one round at a time, stopped paying
+ *   for the rest of the episode without a word. A relay still not up after the
+ *   limit is a failure: nothing went out.
+ * - **The relay holds the REQ before the request goes out**, as in the probe: a
+ *   wallet can answer within milliseconds (a refusal always does), the reply is
+ *   ephemeral, and NDK sends REQs on a short delay to batch them. A reply that
+ *   reached the relay before the REQ was gone, and the payment ran out its wait
+ *   as a timeout, which streaming counts as sent.
+ * - **It fails before the wallet's answer only when nothing reached the
+ *   wallet**: the relay said no (`OK false`), or no relay was connected at any
+ *   moment the request could have been written. NDK never rejects the publish
+ *   of an ephemeral event, and a NIP-47 request is one (kind 23194): it
+ *   resolves with the relays that took it, an empty set when none did, so the
+ *   set and the relay's reason are read. The code waited on a rejection that
+ *   could not come, and a relay that refused the request left the payment to
+ *   run out its wait as a timeout, which streaming counts as sent. A missing
+ *   OK is not a "no": NDK writes the request to a connected relay at once, and
+ *   a busy relay may pass it on and confirm late, so the wallet's answer or the
+ *   wait decides. A payment failed there could be made again and paid twice.
+ * - **The subscription is not stopped on its own.** The instance is let go of,
+ *   which ends it with its sockets; a bare `sub.stop()` before EOSE is the orphan
+ *   hazard (CLAUDE.md, "Orphan relay subscriptions"), and nothing reconnects a
+ *   relay that was let go of to discharge one.
+ */
+async function payViaNWC(
+  nwcUri: string,
+  method: "pay_invoice" | "pay_keysend",
+  params: Record<string, unknown>,
+  what: string,
+  limits: NwcLimits = {},
+): Promise<string> {
+  const { walletPubkey, relayUrl, secret } = parseNwcUri(nwcUri);
+  const connectMs = limits.connectMs ?? CONNECT_MS;
+  const answerMs = limits.answerMs ?? ANSWER_MS;
+
+  const ndk = guardIncomingEvents(new NDK({
+    explicitRelayUrls: [relayUrl],
+    enableOutboxModel: false,
+    // A wallet relay that requires NIP-42 would otherwise never connect,
+    // the same way the main pool could not before #48. Unconditional true
+    // is right *here* and nowhere else: this instance signs as the wallet
+    // connection secret, not the user's identity key, so the privacy
+    // reasoning behind the "My relays only" scope does not apply — the key
+    // is already scoped to this one wallet. See #54.
+    relayAuthDefaultPolicy: async () => true,
+  }));
+  const signer = new NDKPrivateKeySigner(secret);
+  ndk.signer = signer;
+
+  try {
+    await ndk.connect(connectMs);
+    if (!Array.from(ndk.pool.relays.values()).some((r) => r.connected)) {
+      throw new Error(`Your wallet's relay (${relayName(relayUrl)}) could not be reached`);
+    }
+
+    const walletUser = ndk.getUser({ pubkey: walletPubkey });
+    const requestEvent = new NDKEvent(ndk);
+    requestEvent.kind = NDKKind.NostrWalletConnectReq;
+    requestEvent.content = await signer.encrypt(walletUser, JSON.stringify({ method, params }), "nip04");
+    requestEvent.tags = [["p", walletPubkey]];
+    await requestEvent.sign();
+
+    const filter: NDKFilter = {
+      kinds: [NDKKind.NostrWalletConnectRes],
+      authors: [walletPubkey],
+      "#e": [requestEvent.id!],
+    };
+    const sub = ndk.subscribe(filter, { closeOnEose: false, groupable: false });
+    await new Promise<void>((resolve) => {
+      const clock = setTimeout(resolve, LISTEN_MS);
+      sub.on("eose", () => { clearTimeout(clock); resolve(); });
+    });
+
+    return await new Promise<string>((resolve, reject) => {
+      const clock = setTimeout(() => reject(new NwcTimeoutError(what, answerMs)), answerMs);
+      sub.on("event", async (event: NDKEvent) => {
+        clearTimeout(clock);
+        try {
+          const response = JSON.parse(await signer.decrypt(walletUser, event.content, "nip04"));
+          if (response.error) reject(new Error(response.error.message || `${what} failed`));
+          else resolve(response.result?.preimage ?? "");
+        } catch (err) {
+          reject(err);
+        }
+      });
+      sendRequest(ndk, requestEvent, relayUrl, (err) => { clearTimeout(clock); reject(err); });
+    });
+  } finally {
+    letGo(ndk);
+  }
+}
+
+export function payKeysendViaNWC(
   nwcUri: string,
   pubkey: string,
   amountMsats: number,
   tlvRecords?: { type: number; value: string }[],
+  limits?: NwcLimits,
 ): Promise<string> {
-  const { walletPubkey, relayUrl, secret } = parseNwcUri(nwcUri);
-
-  const ndk = guardIncomingEvents(new NDK({
-    explicitRelayUrls: [relayUrl],
-    enableOutboxModel: false,
-    // A wallet relay that requires NIP-42 would otherwise never connect,
-    // the same way the main pool could not before #48. Unconditional true
-    // is right *here* and nowhere else: this instance signs as the wallet
-    // connection secret, not the user's identity key, so the privacy
-    // reasoning behind the "My relays only" scope does not apply — the key
-    // is already scoped to this one wallet. See #54.
-    relayAuthDefaultPolicy: async () => true,
-  }));
-  const signer = new NDKPrivateKeySigner(secret);
-  ndk.signer = signer;
-  await ndk.connect();
-
-  await new Promise<void>((resolve) => {
-    const check = () => {
-      const relays = Array.from(ndk.pool?.relays?.values() ?? []);
-      if (relays.some((r) => r.connected)) resolve();
-      else setTimeout(check, 200);
-    };
-    setTimeout(() => resolve(), 8000);
-    check();
-  });
-
-  const walletUser = ndk.getUser({ pubkey: walletPubkey });
-
-  const params: Record<string, unknown> = {
-    pubkey,
-    amount: amountMsats,
-  };
+  const params: Record<string, unknown> = { pubkey, amount: amountMsats };
   if (tlvRecords && tlvRecords.length > 0) {
-    params.tlv_records = tlvRecords.map((r) => ({
-      type: r.type,
-      value: r.value,
-    }));
+    params.tlv_records = tlvRecords.map((r) => ({ type: r.type, value: r.value }));
   }
-
-  const requestContent = JSON.stringify({ method: "pay_keysend", params });
-  const encrypted = await signer.encrypt(walletUser, requestContent, "nip04");
-
-  const requestEvent = new NDKEvent(ndk);
-  requestEvent.kind = NDKKind.NostrWalletConnectReq;
-  requestEvent.content = encrypted;
-  requestEvent.tags = [["p", walletPubkey]];
-  await requestEvent.sign();
-
-  return new Promise((resolve, reject) => {
-    const timeout = setTimeout(() => {
-      sub.stop();
-      reject(new NwcTimeoutError("NWC keysend"));
-    }, 30000);
-
-    const filter: NDKFilter = {
-      kinds: [NDKKind.NostrWalletConnectRes],
-      authors: [walletPubkey],
-      "#e": [requestEvent.id!],
-    };
-
-    const sub = ndk.subscribe(filter, { closeOnEose: false });
-
-    sub.on("event", async (event: NDKEvent) => {
-      clearTimeout(timeout);
-      sub.stop();
-      try {
-        const decrypted = await signer.decrypt(walletUser, event.content, "nip04");
-        const response = JSON.parse(decrypted);
-        if (response.error) {
-          reject(new Error(response.error.message || "NWC keysend failed"));
-        } else {
-          resolve(response.result?.preimage ?? "");
-        }
-      } catch (err) {
-        reject(err);
-      }
-    });
-
-    // A request no relay took is a failure, not a wallet that did not answer.
-    requestEvent.publish().catch((err: unknown) => {
-      clearTimeout(timeout);
-      sub.stop();
-      reject(err instanceof Error ? err : new Error(String(err)));
-    });
-  });
+  return payViaNWC(nwcUri, "pay_keysend", params, "NWC keysend", limits);
 }
 
-export async function payInvoiceViaNWC(nwcUri: string, bolt11: string): Promise<string> {
-  const { walletPubkey, relayUrl, secret } = parseNwcUri(nwcUri);
-
-  const ndk = guardIncomingEvents(new NDK({
-    explicitRelayUrls: [relayUrl],
-    enableOutboxModel: false,
-    // A wallet relay that requires NIP-42 would otherwise never connect,
-    // the same way the main pool could not before #48. Unconditional true
-    // is right *here* and nowhere else: this instance signs as the wallet
-    // connection secret, not the user's identity key, so the privacy
-    // reasoning behind the "My relays only" scope does not apply — the key
-    // is already scoped to this one wallet. See #54.
-    relayAuthDefaultPolicy: async () => true,
-  }));
-  const signer = new NDKPrivateKeySigner(secret);
-  ndk.signer = signer;
-  await ndk.connect();
-
-  // Wait briefly for relay connection
-  await new Promise<void>((resolve) => {
-    const check = () => {
-      const relays = Array.from(ndk.pool?.relays?.values() ?? []);
-      if (relays.some((r) => r.connected)) resolve();
-      else setTimeout(check, 200);
-    };
-    setTimeout(() => resolve(), 8000); // timeout fallback
-    check();
-  });
-
-  const walletUser = ndk.getUser({ pubkey: walletPubkey });
-  const requestContent = JSON.stringify({
-    method: "pay_invoice",
-    params: { invoice: bolt11 },
-  });
-
-  const encrypted = await signer.encrypt(walletUser, requestContent, "nip04");
-
-  const requestEvent = new NDKEvent(ndk);
-  requestEvent.kind = NDKKind.NostrWalletConnectReq;
-  requestEvent.content = encrypted;
-  requestEvent.tags = [["p", walletPubkey]];
-  await requestEvent.sign();
-
-  return new Promise((resolve, reject) => {
-    const timeout = setTimeout(() => {
-      sub.stop();
-      reject(new NwcTimeoutError("NWC payment"));
-    }, 30000);
-
-    const filter: NDKFilter = {
-      kinds: [NDKKind.NostrWalletConnectRes],
-      authors: [walletPubkey],
-      "#e": [requestEvent.id!],
-    };
-
-    const sub = ndk.subscribe(filter, { closeOnEose: false });
-
-    sub.on("event", async (event: NDKEvent) => {
-      clearTimeout(timeout);
-      sub.stop();
-      try {
-        const decrypted = await signer.decrypt(walletUser, event.content, "nip04");
-        const response = JSON.parse(decrypted);
-        if (response.error) {
-          reject(new Error(response.error.message || "NWC payment failed"));
-        } else {
-          resolve(response.result?.preimage ?? "");
-        }
-      } catch (err) {
-        reject(err);
-      }
-    });
-
-    // A request no relay took is a failure, not a wallet that did not answer.
-    requestEvent.publish().catch((err: unknown) => {
-      clearTimeout(timeout);
-      sub.stop();
-      reject(err instanceof Error ? err : new Error(String(err)));
-    });
-  });
+export function payInvoiceViaNWC(nwcUri: string, bolt11: string, limits?: NwcLimits): Promise<string> {
+  return payViaNWC(nwcUri, "pay_invoice", { invoice: bolt11 }, "NWC payment", limits);
 }
 
 /** What a wallet's reply to the probe says: it is there and this code is known to it, it refused the code, or nothing came back. */
@@ -271,7 +291,7 @@ export async function probeWallet(nwcUri: string, timeoutMs = 10000): Promise<Pr
           resolve("refused");
         }
       });
-      requestEvent.publish().catch(() => { clearTimeout(timer); sub.stop(); resolve("unreachable"); });
+      sendRequest(instance, requestEvent, relayUrl, () => { clearTimeout(timer); sub.stop(); resolve("unreachable"); });
     });
   };
   try {
@@ -279,9 +299,6 @@ export async function probeWallet(nwcUri: string, timeoutMs = 10000): Promise<Pr
   } catch {
     return "unreachable";
   } finally {
-    // Through connectivity, not relay.disconnect(): that one returns at once for a relay that never
-    // connected and leaves its state monitor, sleep detector and any reconnect timer running for the
-    // session, with the secret still in the instance.
-    for (const relay of (ndk as NDK | null)?.pool?.relays?.values() ?? []) relay.connectivity.disconnect();
+    letGo(ndk);
   }
 }

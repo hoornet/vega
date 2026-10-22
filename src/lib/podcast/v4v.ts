@@ -43,9 +43,9 @@ function getRecipients(episode: PodcastEpisode): V4VRecipient[] {
 }
 
 /**
- * How a payment ended. "sent": the request reached the wallet's relay and the
- * wallet did not answer in time; the sats have most likely left, so it is
- * counted. Until October 2026 it was a failure, and the counter stayed at zero
+ * How a payment ended. "sent": the request went out, or may have (the relay
+ * did not say no), and the wallet did not answer in time; the sats have most
+ * likely left, so it is counted. Until October 2026 it was a failure, and the counter stayed at zero
  * while 1-sat payments were arriving.
  */
 export type PayOutcome = { outcome: "paid" | "sent" } | { outcome: "failed"; reason: string };
