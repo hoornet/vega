@@ -3,9 +3,9 @@
 [advisories]
 ignore = [
   # quick-xml quadratic attribute scan / unbounded namespace allocation.
-  # Reached only build-time via `plist`, and for XML *writing* via
-  # `tauri-winrt-notification` — neither parses untrusted input. Revisit if
-  # either dependency starts reading XML off the network.
+  # Reached only through `plist`, which parses no untrusted input
+  # (`tauri-winrt-notification` stopped using quick-xml in 0.8). Revisit if
+  # anything starts reading XML off the network.
   "RUSTSEC-2026-0194",
   "RUSTSEC-2026-0195",
   # zip 4.x extraction advisories (symlink targets outside the destination,
