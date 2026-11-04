@@ -1,11 +1,7 @@
 # Advisories accepted with a written reason. An entry without one is an entry
 # nobody will ever dare remove, so the reason is the point of the file.
+#
+# Empty since November 2026: plist 1.10.3 brought quick-xml 0.42, which fixes
+# RUSTSEC-2026-0194 and 0195, the two entries this list held.
 [advisories]
-ignore = [
-  # quick-xml quadratic attribute scan / unbounded namespace allocation.
-  # Reached only through `plist`, which parses no untrusted input
-  # (`tauri-winrt-notification` stopped using quick-xml in 0.8). Revisit if
-  # anything starts reading XML off the network.
-  "RUSTSEC-2026-0194",
-  "RUSTSEC-2026-0195",
-]
+ignore = []

@@ -1,8 +1,7 @@
 import { fetchWithProxy as fetch } from "../proxy";
 import type { PodcastEpisode } from "../../types/podcast";
 import { enrichWithV4V } from "./podcastIndexV4V";
-
-export const FOUNTAIN_REGEX = /fountain\.fm\/(episode|show)\/([a-zA-Z0-9-]+)/;
+import { fountainLink } from "../parsing";
 
 const CACHE_KEY = "wrystr_fountain_cache";
 
@@ -21,6 +20,9 @@ function saveCache(cache: Record<string, PodcastEpisode>) {
 }
 
 export async function resolveFountainEpisode(url: string): Promise<PodcastEpisode | null> {
+  // Only Fountain's own pages: what comes back is shown as a Fountain episode. Checked before
+  // the cache too, so an entry an older build saved for another host is never shown.
+  if (!fountainLink(url)) return null;
   const cache = loadCache();
   if (cache[url]) return cache[url];
 

@@ -96,6 +96,26 @@ describe("parseContent", () => {
     expect(result[0].mediaType).toBe("playlist");
   });
 
+  it("parses Fountain episode and show links on Fountain's own host", () => {
+    const episode = parseContent("https://fountain.fm/episode/AbC123-x");
+    expect(episode[0]).toMatchObject({ type: "fountain", mediaType: "episode", mediaId: "AbC123-x" });
+    const show = parseContent("https://www.fountain.fm/show/xyz?ref=share");
+    expect(show[0]).toMatchObject({ type: "fountain", mediaType: "show", mediaId: "xyz" });
+  });
+
+  it("keeps a link that only mentions fountain.fm an ordinary link", () => {
+    // The Fountain card fetches the page it links to and shows it as Fountain's.
+    for (const url of [
+      "https://evil.example/fountain.fm/episode/abc",
+      "https://evil.example/?u=fountain.fm/episode/abc",
+      "https://fountain.fm.evil.example/episode/abc",
+      "https://fountain.fm@evil.example/episode/abc",
+      "https://notfountain.fm/episode/abc",
+    ]) {
+      expect(parseContent(url)[0].type, url).toBe("link");
+    }
+  });
+
   it("parses Vimeo URLs", () => {
     const result = parseContent("https://vimeo.com/123456789");
     expect(result[0].type).toBe("vimeo");
