@@ -15,7 +15,6 @@ const YOUTUBE_REGEX = /(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be
 const TIDAL_REGEX = /tidal\.com\/(?:browse\/)?(?:track|album|playlist)\/([a-zA-Z0-9-]+)/;
 const SPOTIFY_REGEX = /open\.spotify\.com\/(track|album|playlist|episode|show)\/([a-zA-Z0-9]+)/;
 const VIMEO_REGEX = /vimeo\.com\/(\d+)/;
-const FOUNTAIN_REGEX = /fountain\.fm\/(episode|show)\/([a-zA-Z0-9-]+)/;
 const NOSTR_MENTION_REGEX = /nostr:(npub1[a-z0-9]+|note1[a-z0-9]+|nevent1[a-z0-9]+|nprofile1[a-z0-9]+|naddr1[a-z0-9]+)/gi;
 const HASHTAG_REGEX = /(?<=\s|^)#(\w{2,})/g;
 
@@ -29,6 +28,25 @@ export interface ContentSegment {
   naddrKind?: number;     // event kind for naddr references
   naddrPubkey?: string;   // author pubkey for naddr references
   naddrIdentifier?: string; // "d" tag for naddr references
+}
+
+/**
+ * A Fountain episode or show link, judged by the URL's host, not by a substring.
+ * The card fetches the page it links to and shows its title, artwork and audio as
+ * Fountain's, through plugin-http, so `https://evil.example/fountain.fm/episode/x`
+ * (or `https://fountain.fm@evil.example/...`) must stay an ordinary link.
+ */
+export function fountainLink(url: string): { mediaType: string; mediaId: string } | null {
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return null;
+  }
+  if (parsed.protocol !== "https:" && parsed.protocol !== "http:") return null;
+  if (parsed.hostname !== "fountain.fm" && parsed.hostname !== "www.fountain.fm") return null;
+  const path = parsed.pathname.match(/^\/(episode|show)\/([a-zA-Z0-9-]+)/);
+  return path ? { mediaType: path[1], mediaId: path[2] } : null;
 }
 
 export function parseContent(content: string): ContentSegment[] {
@@ -67,6 +85,7 @@ export function parseContent(content: string): ContentSegment[] {
       const vimeoMatch = cleaned.match(VIMEO_REGEX);
       const spotifyMatch = cleaned.match(SPOTIFY_REGEX);
       const tidalMatch = cleaned.match(TIDAL_REGEX);
+      const fountain = fountainLink(cleaned);
 
       if (ytMatch) {
         allMatches.push({
@@ -94,12 +113,11 @@ export function parseContent(content: string): ContentSegment[] {
           length: cleaned.length,
           segment: { type: "tidal", value: cleaned, mediaType: tidalTypeMatch?.[1] ?? "track", mediaId: tidalMatch[1] },
         });
-      } else if (FOUNTAIN_REGEX.test(cleaned)) {
-        const fmMatch = cleaned.match(FOUNTAIN_REGEX);
+      } else if (fountain) {
         allMatches.push({
           index: match.index,
           length: cleaned.length,
-          segment: { type: "fountain", value: cleaned, mediaType: fmMatch?.[1] ?? "episode", mediaId: fmMatch?.[2] },
+          segment: { type: "fountain", value: cleaned, mediaType: fountain.mediaType, mediaId: fountain.mediaId },
         });
       } else {
         // Shorten display URL
