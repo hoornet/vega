@@ -5,10 +5,29 @@ use tauri::{
     menu::{Menu, MenuItem},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
     WebviewUrl, WebviewWindowBuilder,
-    Manager, WindowEvent,
+    AppHandle, Emitter, Manager, Runtime, WindowEvent,
 };
 
+mod launch;
 mod relay;
+
+/// Brings the main window forward: shown (closing it hides it to the tray), out of a
+/// minimised state, and focused.
+fn show_main_window<R: Runtime>(app: &AppHandle<R>) {
+    if let Some(w) = app.get_webview_window("main") {
+        let _ = w.show();
+        let _ = w.unminimize();
+        let _ = w.set_focus();
+    }
+}
+
+/// The launch commands not yet acted on, for the frontend to run (see `launch.rs`).
+#[tauri::command]
+fn take_launch_commands(
+    pending: tauri::State<'_, launch::PendingLaunch>,
+) -> Result<Vec<launch::LaunchCommand>, String> {
+    Ok(pending.take())
+}
 
 // ── Data directory migration ────────────────────────────────────────────────
 
@@ -700,7 +719,24 @@ pub fn run() {
     // therefore always find a non-empty destination and skip, stranding user data.
     migrate_legacy_data_dirs();
 
-    tauri::Builder::default()
+    let pending = launch::PendingLaunch::default();
+    pending.push(launch::parse(&launch::own_args()));
+    let mut builder = tauri::Builder::default().manage(pending);
+
+    // The first plugin, as the plugin asks: a second launch must reach the running Vega
+    // before anything else of its own starts.
+    #[cfg(desktop)]
+    if launch::single_instance_enabled() {
+        builder = builder.plugin(tauri_plugin_single_instance::init(|app, args, _cwd| {
+            if let Some(pending) = app.try_state::<launch::PendingLaunch>() {
+                pending.push(launch::parse(&args));
+            }
+            show_main_window(app);
+            let _ = app.emit("launch-command", ());
+        }));
+    }
+
+    builder
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
@@ -765,12 +801,7 @@ pub fn run() {
                 .show_menu_on_left_click(false) // left click → show window, right click → menu
                 .on_menu_event(|app, event| match event.id.as_ref() {
                     "quit" => app.exit(0),
-                    "show" => {
-                        if let Some(w) = app.get_webview_window("main") {
-                            let _ = w.show();
-                            let _ = w.set_focus();
-                        }
-                    }
+                    "show" => show_main_window(app),
                     _ => {}
                 })
                 .on_tray_icon_event(|tray, event| {
@@ -780,11 +811,7 @@ pub fn run() {
                         ..
                     } = event
                     {
-                        let app = tray.app_handle();
-                        if let Some(w) = app.get_webview_window("main") {
-                            let _ = w.show();
-                            let _ = w.set_focus();
-                        }
+                        show_main_window(tray.app_handle());
                     }
                 })
                 .build(app)?;
@@ -824,6 +851,7 @@ pub fn run() {
             relay_get_port,
             relay_get_stats,
             install_info,
+            take_launch_commands,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
