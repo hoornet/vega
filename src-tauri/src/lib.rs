@@ -20,6 +20,56 @@ mod relay;
 const LEGACY_IDENTIFIER: &str = "com.hoornet.vega";
 const APP_IDENTIFIER: &str = "com.veganostr.Vega";
 
+/// SQLite keeps one database in up to four files: the database itself and, beside it,
+/// `-wal` and `-shm` (WAL mode) or `-journal` (rollback mode). They are one unit. A WAL
+/// holds committed pages the database file does not have yet, and SQLite applies the WAL
+/// it finds beside a database without checking that it belongs to that database.
+/// Separated from its WAL, a database loses its newest transactions. Paired with another
+/// database's WAL, it reads as the other database's newest pages laid over its own: its
+/// tables can vanish without a single error, or its trees point at pages it does not
+/// have. In November 2026 a development machine's `vega.db` had tree pages pointing far
+/// past the end of the file, after years of renames that moved databases one file at a
+/// time.
+const SQLITE_COMPANIONS: [&str; 3] = ["-wal", "-shm", "-journal"];
+
+/// The database a file belongs to: `vega.db-wal` belongs to `vega.db`; anything else to
+/// itself.
+fn sqlite_base(name: &str) -> &str {
+    SQLITE_COMPANIONS
+        .iter()
+        .find_map(|suffix| name.strip_suffix(suffix).filter(|base| !base.is_empty()))
+        .unwrap_or(name)
+}
+
+/// A database's own path followed by its companions' paths.
+fn sqlite_family(db: &std::path::Path) -> Vec<std::path::PathBuf> {
+    let mut family = vec![db.to_path_buf()];
+    for suffix in SQLITE_COMPANIONS {
+        let mut name = db.as_os_str().to_owned();
+        name.push(suffix);
+        family.push(name.into());
+    }
+    family
+}
+
+/// Rename a database together with its companions, or not at all. Nothing moves if any
+/// name in `to`'s family is taken: a database beside another database's WAL is exactly
+/// the damage this prevents. Returns whether anything moved.
+fn rename_sqlite(from: &std::path::Path, to: &std::path::Path) -> std::io::Result<bool> {
+    if sqlite_family(to).iter().any(|p| p.exists()) {
+        return Ok(false);
+    }
+    // The database first. If a companion then fails to move, the database has lost its
+    // newest transactions (which every rename did before this). The opposite order
+    // could leave a WAL waiting beside no database at all.
+    for (src, dest) in sqlite_family(from).iter().zip(sqlite_family(to)) {
+        if src.exists() {
+            std::fs::rename(src, &dest)?;
+        }
+    }
+    Ok(true)
+}
+
 /// Move the contents of `<parent>/com.hoornet.vega` into `<parent>/com.veganostr.Vega`.
 ///
 /// Entry-by-entry rather than a single directory rename, because the destination is
@@ -30,6 +80,11 @@ const APP_IDENTIFIER: &str = "com.veganostr.Vega";
 ///
 /// An entry that already exists at the destination is never overwritten — real data
 /// always wins over the legacy copy — so this is safe to retry on every launch.
+///
+/// A database moves with its `-wal`, `-shm` and `-journal` or stays with them (see
+/// `SQLITE_COMPANIONS`). If any of those names is taken at the destination, the whole
+/// set stays behind. Moving one file at a time used to pair a legacy WAL with the
+/// destination's own database.
 fn migrate_dir(new_dir: &std::path::Path) {
     let Some(parent) = new_dir.parent() else {
         return;
@@ -56,18 +111,39 @@ fn migrate_dir(new_dir: &std::path::Path) {
         return;
     };
 
-    let (mut moved, mut left) = (0usize, 0usize);
+    // Group the entries by the database they belong to; anything that is not a database
+    // is a group of one.
+    let mut groups: std::collections::BTreeMap<std::ffi::OsString, Vec<std::ffi::OsString>> =
+        std::collections::BTreeMap::new();
     for entry in entries.flatten() {
-        let dest = new_dir.join(entry.file_name());
-        if dest.exists() {
-            left += 1; // Never clobber: whatever is already there is the live copy.
+        let name = entry.file_name();
+        let base = name
+            .to_str()
+            .map(|n| std::ffi::OsString::from(sqlite_base(n)))
+            .unwrap_or_else(|| name.clone());
+        groups.entry(base).or_default().push(name);
+    }
+
+    let (mut moved, mut left) = (0usize, 0usize);
+    for (base, mut names) in groups {
+        // Never clobber: whatever is already there is the live copy. Nor move a legacy
+        // file next to it, where SQLite would take it for that database's. (A WAL with
+        // no database at all is harmless: SQLite deletes it when it creates one.)
+        if sqlite_family(&new_dir.join(&base)).iter().any(|p| p.exists()) {
+            left += names.len();
             continue;
         }
-        match std::fs::rename(entry.path(), &dest) {
-            Ok(()) => moved += 1,
-            Err(e) => {
-                left += 1;
-                eprintln!("[migrate] could not move {}: {e}", entry.path().display());
+        names.sort_by_key(|n| *n != base); // the database before its companions
+        for name in names {
+            match std::fs::rename(legacy_dir.join(&name), new_dir.join(&name)) {
+                Ok(()) => moved += 1,
+                Err(e) => {
+                    left += 1;
+                    eprintln!(
+                        "[migrate] could not move {}: {e}",
+                        legacy_dir.join(&name).display()
+                    );
+                }
             }
         }
     }
@@ -271,16 +347,84 @@ fn delete_nsec(pubkey: String) -> Result<(), String> {
 
 struct DbState(Mutex<Connection>);
 
+/// Open a database and read every page of it once. `quick_check` finds what a query
+/// would trip over later: tree pages that point past the end of the file, pages used
+/// twice, a header that is not SQLite's. It reads the whole file (milliseconds for a
+/// cache of a few MB) but does not compare indexes with their tables, which is what
+/// makes `integrity_check` slow. A verdict other than "ok" comes back as
+/// SQLITE_CORRUPT, with the first problem as the message.
+fn open_checked(path: &std::path::Path) -> rusqlite::Result<Connection> {
+    let conn = Connection::open(path)?;
+    let verdict = conn.query_row("PRAGMA quick_check(1)", [], |row| row.get::<_, String>(0));
+    if matches!(&verdict, Ok(v) if v == "ok") {
+        return Ok(conn);
+    }
+    // The last connection to close checkpoints the WAL into the database and deletes it.
+    // A damaged database is kept for a look, so it must stay exactly as it was found.
+    conn.set_db_config(rusqlite::config::DbConfig::SQLITE_DBCONFIG_NO_CKPT_ON_CLOSE, true)
+        .ok();
+    Err(match verdict {
+        Ok(v) => rusqlite::Error::SqliteFailure(
+            rusqlite::ffi::Error::new(rusqlite::ffi::SQLITE_CORRUPT),
+            Some(v.replace('\n', "; ")),
+        ),
+        Err(e) => e,
+    })
+}
+
+/// Whether an error means the file itself is damaged, not that it is busy, locked or
+/// unreadable for a reason that will pass. Only damage may move a database aside: a
+/// second Vega holding the file, or a permissions problem, must not cost the cache.
+fn is_damage(e: &rusqlite::Error) -> bool {
+    matches!(
+        e.sqlite_error_code(),
+        Some(rusqlite::ffi::ErrorCode::DatabaseCorrupt | rusqlite::ffi::ErrorCode::NotADatabase)
+    )
+}
+
+/// Move a database and its companions out of the way, to `<name>.<why>-<unix time>` in
+/// the same directory. The companions keep their suffixes, so the set still opens as
+/// one database if anyone wants to look at what went wrong. Nothing is deleted.
+fn set_aside(db: &std::path::Path, why: &str) {
+    let stamp = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_secs())
+        .unwrap_or(0);
+    let mut aside = db.as_os_str().to_owned();
+    aside.push(format!(".{why}-{stamp}"));
+    let aside = std::path::PathBuf::from(aside);
+    match rename_sqlite(db, &aside) {
+        Ok(true) => eprintln!("[db] set {} aside as {}", db.display(), aside.display()),
+        Ok(false) => eprintln!("[db] could not set {} aside: {} is taken", db.display(), aside.display()),
+        Err(e) => eprintln!("[db] could not set {} aside: {e}", db.display()),
+    }
+}
+
 fn open_db(data_dir: std::path::PathBuf) -> rusqlite::Result<Connection> {
     std::fs::create_dir_all(&data_dir).ok();
-    // Try new name first, fall back to legacy name for migration
-    let new_path = data_dir.join("vega.db");
+    let path = data_dir.join("vega.db");
+
+    // The name before v0.10.0. Renamed with its WAL: until November 2026 only the
+    // database moved, and whatever was still in its WAL was lost.
     let legacy_path = data_dir.join("wrystr.db");
-    if !new_path.exists() && legacy_path.exists() {
-        std::fs::rename(&legacy_path, &new_path).ok();
+    if !path.exists() && legacy_path.exists() {
+        if let Err(e) = rename_sqlite(&legacy_path, &path) {
+            eprintln!("[db] could not rename {}: {e}", legacy_path.display());
+        }
     }
-    let path = new_path;
-    let conn = Connection::open(path)?;
+
+    // The cache is a cache: when it is damaged, keep it for a look and start a fresh
+    // one. Before this, a damaged table failed every query, the commands turned the
+    // failure into a string the frontend ignored, and the cache stayed silently off.
+    let conn = match open_checked(&path) {
+        Ok(conn) => conn,
+        Err(e) if is_damage(&e) => {
+            eprintln!("[db] {} is damaged ({e}); starting a fresh cache", path.display());
+            set_aside(&path, "corrupt");
+            Connection::open(&path)?
+        }
+        Err(e) => return Err(e),
+    };
     conn.execute_batch(
         "PRAGMA journal_mode=WAL;
          CREATE TABLE IF NOT EXISTS notes (
@@ -831,7 +975,10 @@ pub fn run() {
 
 #[cfg(test)]
 mod tests {
-    use super::{enabled_proxy_url, migrate_dir, ProxySettings, APP_IDENTIFIER, LEGACY_IDENTIFIER};
+    use super::{
+        enabled_proxy_url, is_damage, migrate_dir, open_db, sqlite_base, ProxySettings,
+        APP_IDENTIFIER, LEGACY_IDENTIFIER,
+    };
     use std::fs;
     use std::path::{Path, PathBuf};
     use std::sync::atomic::{AtomicU32, Ordering};
@@ -993,5 +1140,270 @@ mod tests {
     #[test]
     fn updater_http_client_supports_socks5h_proxy_urls() {
         assert!(reqwest::Proxy::all("socks5h://127.0.0.1:9050").is_ok());
+    }
+
+    // ── A database, its WAL, and a damaged cache ────────────────────────────
+
+    /// Put `<dir>/<name>` on disk as a crash leaves it: a WAL-mode database whose table
+    /// `table` exists only in the WAL. Without its WAL the table is simply not there.
+    fn db_with_table_only_in_its_wal(dir: &Path, name: &str, table: &str) {
+        let staging = dir.join(format!("staging-{name}"));
+        fs::create_dir_all(&staging).unwrap();
+        let conn = rusqlite::Connection::open(staging.join(name)).unwrap();
+        conn.execute_batch(&format!(
+            "PRAGMA journal_mode=WAL; PRAGMA wal_autocheckpoint=0;
+             CREATE TABLE {table} (v TEXT); INSERT INTO {table} VALUES ('{table}');"
+        ))
+        .unwrap();
+        // Copied while the connection is open: closing would checkpoint the WAL into the
+        // database and delete it.
+        for suffix in ["", "-wal", "-shm"] {
+            fs::copy(
+                staging.join(format!("{name}{suffix}")),
+                dir.join(format!("{name}{suffix}")),
+            )
+            .unwrap();
+        }
+        drop(conn);
+        fs::remove_dir_all(&staging).ok();
+    }
+
+    fn tables(db: &Path) -> Vec<String> {
+        let conn = rusqlite::Connection::open(db).unwrap();
+        let mut stmt = conn
+            .prepare("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")
+            .unwrap();
+        let names = stmt
+            .query_map([], |row| row.get(0))
+            .unwrap()
+            .collect::<Result<Vec<String>, _>>()
+            .unwrap();
+        names
+    }
+
+    fn set_aside_files(dir: &Path, why: &str) -> Vec<String> {
+        let mut names: Vec<String> = fs::read_dir(dir)
+            .unwrap()
+            .flatten()
+            .map(|e| e.file_name().to_string_lossy().into_owned())
+            .filter(|n| n.starts_with(&format!("vega.db.{why}-")))
+            .collect();
+        names.sort();
+        names
+    }
+
+    #[test]
+    fn companion_files_belong_to_their_database() {
+        assert_eq!(sqlite_base("vega.db-wal"), "vega.db");
+        assert_eq!(sqlite_base("vega.db-shm"), "vega.db");
+        assert_eq!(sqlite_base("relay.db-journal"), "relay.db");
+        assert_eq!(sqlite_base("vega.db"), "vega.db");
+        assert_eq!(sqlite_base("localstorage"), "localstorage");
+        assert_eq!(sqlite_base("-wal"), "-wal");
+    }
+
+    /// The pairing that one-file-at-a-time migration made possible: the destination
+    /// already holds a `vega.db` (a build with the new identifier ran first), the legacy
+    /// directory holds another `vega.db` with its WAL. Moving that WAL alone lays the
+    /// legacy database's pages over the live one, and its tables are gone.
+    #[test]
+    fn a_legacy_wal_is_never_paired_with_the_live_database() {
+        let root = scratch_root();
+        let legacy = root.join(LEGACY_IDENTIFIER);
+        let new = root.join(APP_IDENTIFIER);
+        fs::create_dir_all(&legacy).unwrap();
+        fs::create_dir_all(&new).unwrap();
+        db_with_table_only_in_its_wal(&legacy, "vega.db", "legacy_notes");
+        rusqlite::Connection::open(new.join("vega.db"))
+            .unwrap()
+            .execute_batch("CREATE TABLE live_notes (v TEXT);")
+            .unwrap();
+
+        migrate_dir(&new);
+
+        assert!(!new.join("vega.db-wal").exists(), "the legacy WAL must not move beside the live database");
+        assert_eq!(tables(&new.join("vega.db")), ["live_notes"]);
+        assert!(legacy.join("vega.db").exists() && legacy.join("vega.db-wal").exists(), "the legacy set stays together");
+        fs::remove_dir_all(&root).ok();
+    }
+
+    #[test]
+    fn a_legacy_database_moves_with_its_wal() {
+        let root = scratch_root();
+        let legacy = root.join(LEGACY_IDENTIFIER);
+        let new = root.join(APP_IDENTIFIER);
+        fs::create_dir_all(&legacy).unwrap();
+        write(&new.join("WebKitCache").join("blob"), "webview"); // the destination exists
+        db_with_table_only_in_its_wal(&legacy, "relay.db", "events");
+
+        migrate_dir(&new);
+
+        assert_eq!(tables(&new.join("relay.db")), ["events"], "rows that were only in the WAL arrive");
+        assert!(!legacy.exists(), "drained legacy dir should be removed");
+        fs::remove_dir_all(&root).ok();
+    }
+
+    #[test]
+    fn the_pre_v0_10_name_is_renamed_with_its_wal() {
+        let dir = scratch_root();
+        db_with_table_only_in_its_wal(&dir, "wrystr.db", "kept");
+
+        let conn = open_db(dir.clone()).unwrap();
+        let v: String = conn
+            .query_row("SELECT v FROM kept", [], |row| row.get(0))
+            .expect("the table that was only in wrystr.db's WAL");
+        assert_eq!(v, "kept");
+        assert!(!dir.join("wrystr.db-wal").exists());
+        drop(conn);
+        fs::remove_dir_all(&dir).ok();
+    }
+
+    #[test]
+    fn a_healthy_cache_is_kept() {
+        let dir = scratch_root();
+        open_db(dir.clone())
+            .unwrap()
+            .execute("INSERT INTO profiles VALUES ('pk', '{}', 1)", [])
+            .unwrap();
+
+        let conn = open_db(dir.clone()).unwrap();
+        let n: i64 = conn.query_row("SELECT COUNT(*) FROM profiles", [], |row| row.get(0)).unwrap();
+        assert_eq!(n, 1);
+        assert!(set_aside_files(&dir, "corrupt").is_empty());
+        drop(conn);
+        fs::remove_dir_all(&dir).ok();
+    }
+
+    /// A cache with 2000 notes, closed (checkpointed, no WAL left). Returns the page
+    /// number of the notes table's root, an interior page at that size.
+    fn cache_with_notes(dir: &Path) -> u64 {
+        let mut conn = open_db(dir.to_path_buf()).unwrap();
+        let tx = conn.transaction().unwrap();
+        let raw = "x".repeat(400);
+        for i in 0..2000 {
+            tx.execute(
+                "INSERT INTO notes VALUES (?1, 'pk', ?2, 1, ?3)",
+                rusqlite::params![format!("id{i}"), i, raw],
+            )
+            .unwrap();
+        }
+        tx.commit().unwrap();
+        let root: i64 = conn
+            .query_row("SELECT rootpage FROM sqlite_master WHERE name='notes'", [], |row| row.get(0))
+            .unwrap();
+        root as u64
+    }
+
+    /// Opens on a fresh cache, with exactly one damaged database kept beside it,
+    /// unchanged (any -wal and -shm SQLite made while checking it go along with it).
+    fn assert_set_aside_and_replaced(dir: &Path, damaged: &[u8]) {
+        let conn = open_db(dir.to_path_buf()).unwrap();
+        let n: i64 = conn.query_row("SELECT COUNT(*) FROM notes", [], |row| row.get(0)).unwrap();
+        assert_eq!(n, 0, "a fresh cache");
+        let aside = set_aside_files(dir, "corrupt");
+        let databases: Vec<&String> =
+            aside.iter().filter(|n| sqlite_base(n) == n.as_str()).collect();
+        assert_eq!(databases.len(), 1, "{aside:?}");
+        assert!(fs::read(dir.join(databases[0])).unwrap() == damaged, "kept as it was");
+    }
+
+    /// The shape found on a development machine: a tree page whose child pointer leads
+    /// past the end of the file. quick_check answers this with a verdict ("invalid page
+    /// number …"), not an error, and every query on the table failed until then: the
+    /// commands turned the failure into a string the frontend ignored.
+    #[test]
+    fn a_tree_pointing_past_the_end_of_the_file_is_set_aside() {
+        let dir = scratch_root();
+        let root = cache_with_notes(&dir);
+        let bytes = point_past_the_end(&dir.join("vega.db"), root);
+
+        assert_set_aside_and_replaced(&dir, &bytes);
+        fs::remove_dir_all(&dir).ok();
+    }
+
+    /// Point the right-most child of the notes table's root (offset 8 of an interior
+    /// page's header) far past the end of the file. Returns the damaged file's bytes.
+    fn point_past_the_end(db: &Path, root: u64) -> Vec<u8> {
+        let mut bytes = fs::read(db).unwrap();
+        let page = ((root - 1) * 4096) as usize;
+        assert_eq!(bytes[page], 0x05, "the notes table's root is an interior table page");
+        bytes[page + 8..page + 12].copy_from_slice(&0x00ff_ffffu32.to_be_bytes());
+        fs::write(db, &bytes).unwrap();
+        bytes
+    }
+
+    /// Damage in a database whose WAL still holds a write, as a crash leaves it. Both are
+    /// set aside as found: closing the checking connection used to checkpoint the WAL
+    /// into the damaged file first, and the WAL was gone.
+    #[test]
+    fn a_damaged_database_is_kept_with_its_wal_as_found() {
+        let work = scratch_root();
+        let root = cache_with_notes(&work);
+        point_past_the_end(&work.join("vega.db"), root);
+        let dir = scratch_root();
+        let conn = rusqlite::Connection::open(work.join("vega.db")).unwrap();
+        conn.execute_batch(
+            "PRAGMA wal_autocheckpoint=0; INSERT INTO profiles VALUES ('pk', '{}', 1);",
+        )
+        .unwrap(); // the profiles tree is intact
+        for suffix in ["", "-wal", "-shm"] {
+            fs::copy(work.join(format!("vega.db{suffix}")), dir.join(format!("vega.db{suffix}")))
+                .unwrap();
+        }
+        drop(conn);
+        let main = fs::read(dir.join("vega.db")).unwrap();
+        let wal = fs::read(dir.join("vega.db-wal")).unwrap();
+        assert!(!wal.is_empty());
+
+        drop(open_db(dir.clone()).unwrap());
+
+        let aside = set_aside_files(&dir, "corrupt"); // sorted: the database, -shm, -wal
+        assert_eq!(aside.len(), 3, "{aside:?}");
+        assert!(fs::read(dir.join(&aside[0])).unwrap() == main, "the database as found");
+        assert!(aside[2].ends_with("-wal"));
+        assert!(fs::read(dir.join(&aside[2])).unwrap() == wal, "its WAL as found");
+        fs::remove_dir_all(&work).ok();
+        fs::remove_dir_all(&dir).ok();
+    }
+
+    /// A file cut short: here SQLite reports the damage as an error, not a verdict.
+    #[test]
+    fn a_truncated_cache_is_set_aside() {
+        let dir = scratch_root();
+        cache_with_notes(&dir);
+        let db = dir.join("vega.db");
+        fs::OpenOptions::new().write(true).open(&db).unwrap().set_len(8 * 4096).unwrap();
+        let bytes = fs::read(&db).unwrap();
+
+        assert_set_aside_and_replaced(&dir, &bytes);
+        fs::remove_dir_all(&dir).ok();
+    }
+
+    #[test]
+    fn a_file_that_is_not_a_database_is_set_aside() {
+        let dir = scratch_root();
+        fs::write(dir.join("vega.db"), vec![b'x'; 8192]).unwrap();
+
+        assert_set_aside_and_replaced(&dir, &[b'x'; 8192]);
+        fs::remove_dir_all(&dir).ok();
+    }
+
+    /// A busy or locked database, or one that cannot be opened, is not damaged: a second
+    /// Vega holding the file must not cost anyone their cache.
+    #[test]
+    fn only_damage_counts_as_damage() {
+        let err = |code| rusqlite::Error::SqliteFailure(rusqlite::ffi::Error::new(code), None);
+        assert!(is_damage(&err(rusqlite::ffi::SQLITE_CORRUPT)));
+        assert!(is_damage(&err(rusqlite::ffi::SQLITE_NOTADB)));
+        for code in [
+            rusqlite::ffi::SQLITE_BUSY,
+            rusqlite::ffi::SQLITE_LOCKED,
+            rusqlite::ffi::SQLITE_CANTOPEN,
+            rusqlite::ffi::SQLITE_PERM,
+            rusqlite::ffi::SQLITE_IOERR,
+            rusqlite::ffi::SQLITE_READONLY,
+        ] {
+            assert!(!is_damage(&err(code)), "code {code}");
+        }
     }
 }
