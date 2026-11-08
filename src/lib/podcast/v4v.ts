@@ -1,6 +1,7 @@
 import { fetchWithProxy as fetch } from "../proxy";
 import type { PodcastEpisode, V4VRecipient } from "../../types/podcast";
 import { payInvoiceViaNWC, payKeysendViaNWC, NwcTimeoutError } from "../lightning/nwc";
+import { invoiceAmountProblem } from "../lightning/invoice";
 import { clipText } from "../utils";
 import { useV4VStore } from "../../stores/v4v";
 import { useToastStore } from "../../stores/toast";
@@ -31,7 +32,8 @@ async function fetchLnurlPayInvoice(lud16: string, amountMsats: number): Promise
     const invoiceRes = await fetch(`${callbackUrl}${separator}amount=${amountMsats}`);
     if (!invoiceRes.ok) return null;
     const invoiceData = await invoiceRes.json();
-    return invoiceData.pr ?? null;
+    // JSON from the recipient's server: an invoice is a string, and anything else is no invoice.
+    return typeof invoiceData?.pr === "string" && invoiceData.pr ? invoiceData.pr : null;
   } catch {
     return null;
   }
@@ -76,8 +78,12 @@ async function payRecipient(
   const isNodePubkey = /^[0-9a-f]{66}$/i.test(recipient.address);
 
   if (isLnAddress) {
+    const from = clipText(recipient.address, 60);
     const invoice = await fetchLnurlPayInvoice(recipient.address, amountMsats);
-    if (!invoice) return { outcome: "failed", reason: `no invoice came from ${recipient.address}` };
+    if (!invoice) return { outcome: "failed", reason: `no invoice came from ${from}` };
+    // The wallet pays what the invoice says, not what was asked for.
+    const problem = invoiceAmountProblem(invoice, amountMsats);
+    if (problem) return { outcome: "failed", reason: `the invoice from ${from} ${problem}` };
     return settle(payInvoiceViaNWC(nwcUri, invoice));
   }
 

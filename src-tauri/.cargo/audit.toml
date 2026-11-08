@@ -1,21 +1,7 @@
 # Advisories accepted with a written reason. An entry without one is an entry
 # nobody will ever dare remove, so the reason is the point of the file.
+#
+# Empty since November 2026: plist 1.10.3 brought quick-xml 0.42, which fixes
+# RUSTSEC-2026-0194 and 0195, the two entries this list held.
 [advisories]
-ignore = [
-  # quick-xml quadratic attribute scan / unbounded namespace allocation.
-  # Reached only build-time via `plist`, and for XML *writing* via
-  # `tauri-winrt-notification` — neither parses untrusted input. Revisit if
-  # either dependency starts reading XML off the network.
-  "RUSTSEC-2026-0194",
-  "RUSTSEC-2026-0195",
-  # zip 4.x extraction advisories (symlink targets outside the destination,
-  # SUID/SGID bits kept, permissions applied through symlinks). The only use
-  # is tauri-plugin-updater's Windows path, `extract_zip`, on an update
-  # archive whose minisign signature has already been verified against the
-  # app's updater public key, so the archive is ours and the Unix permission
-  # cases do not apply there. The fix is zip 9, which the updater does not
-  # yet accept; drop these when a tauri-plugin-updater release moves to it.
-  "RUSTSEC-2026-0367",
-  "RUSTSEC-2026-0368",
-  "RUSTSEC-2026-0369",
-]
+ignore = []

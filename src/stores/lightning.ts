@@ -1,7 +1,8 @@
 import { create } from "zustand";
-import { NDKEvent, NDKUser, NDKZapper, LnPayCb } from "@nostr-dev-kit/ndk";
+import { NDKEvent, NDKUser, NDKZapper } from "@nostr-dev-kit/ndk";
 import { getNDK } from "../lib/nostr";
-import { payInvoiceViaNWC, isValidNwcUri, probeWallet } from "../lib/lightning/nwc";
+import { isValidNwcUri, probeWallet } from "../lib/lightning/nwc";
+import { zapPayment, zapFailure, zapTookTooLong } from "../lib/lightning/zap";
 import { withinTime } from "../lib/timeLimit";
 
 const NWC_STORAGE_KEY = "wrystr_nwc_uri";
@@ -101,30 +102,26 @@ export const useLightningStore = create<LightningState>(() => ({
       target = ndk.getUser({ pubkey: targetSpec.pubkey });
     }
 
-    const lnPay: LnPayCb = async ({ pr }) => {
-      const preimage = await payInvoiceViaNWC(nwcUri, pr);
-      return { preimage };
-    };
-
+    // Pays only an invoice for the amount asked for: the recipient's server picks what it says.
+    const payment = zapPayment(nwcUri);
     const zapper = new NDKZapper(target, amountSats * 1000, "msat", {
       comment,
-      lnPay,
+      lnPay: payment.lnPay,
       ndk,
     });
+    // Where NDK says why a recipient could not be paid before the payment step was reached.
+    const notices: string[] = [];
+    zapper.on("notice", (message) => notices.push(message));
 
     return new Promise((resolve, reject) => {
-      const timeout = setTimeout(() => {
-        reject(new Error("Zap timed out after 45 seconds"));
-      }, 45000);
+      // NDK goes on after this: a wallet already asked may still pay, and one not asked yet is not.
+      const timeout = setTimeout(() => reject(zapTookTooLong(payment)), 45000);
 
       zapper.on("complete", (results) => {
         clearTimeout(timeout);
-        const errors = Array.from(results.values()).filter((r) => r instanceof Error);
-        if (errors.length > 0) {
-          reject(errors[0]);
-        } else {
-          resolve();
-        }
+        const failure = zapFailure(Array.from(results.values()), payment.failures, notices);
+        if (failure) reject(failure);
+        else resolve();
       });
 
       zapper.zap().then(() => {

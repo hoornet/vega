@@ -12,12 +12,21 @@ vi.mock("../lightning/nwc", async () => {
   };
   return { ...actual, payInvoiceViaNWC: vi.fn(pay), payKeysendViaNWC: vi.fn(pay) };
 });
-const lnurl = vi.hoisted(() => ({ invoice: "lnbc1..." as string | null }));
+// The recipient's server. By default it answers with an invoice for exactly the amount asked
+// (`amount=`, in millisatoshis; one millisatoshi is ten pico-bitcoin, `p`).
+// Each address's server has its own callback, so `host` says whose invoice is asked for.
+type InvoiceFor = (msats: number, host: string) => string | null;
+const exact: InvoiceFor = (msats) => `lnbc${msats * 10}p1pvjluez`;
+const lnurl = vi.hoisted(() => ({ invoice: null as unknown as (msats: number, host: string) => string | null }));
 vi.mock("../proxy", () => ({
-  fetchWithProxy: async (url: string) => ({
-    ok: lnurl.invoice !== null,
-    json: async () => (url.includes("/.well-known/") ? { callback: "https://pay.example/cb" } : { pr: lnurl.invoice }),
-  }),
+  fetchWithProxy: async (url: string) => {
+    const request = new URL(url);
+    const invoice = lnurl.invoice(Number(request.searchParams.get("amount")), request.host);
+    return {
+      ok: invoice !== null,
+      json: async () => (url.includes("/.well-known/") ? { callback: `https://${request.host}/cb` } : { pr: invoice }),
+    };
+  },
 }));
 
 import { startStreaming, stopStreaming, boost } from "./v4v";
@@ -37,7 +46,7 @@ const fiveMinutes = async () => { await vi.advanceTimersByTimeAsync(5 * 60000 + 
 beforeEach(() => {
   vi.useFakeTimers();
   wallet.answer = "paid";
-  lnurl.invoice = "lnbc1...";
+  lnurl.invoice = exact;
   useV4VStore.setState({ currentEpisodeSats: 0, unconfirmedSats: 0, lastFailure: null, capReachedReason: null, perEpisodeCap: 0, weeklyBudget: 0 });
   useToastStore.setState({ toasts: [] });
   vi.mocked(payInvoiceViaNWC).mockClear();
@@ -50,6 +59,7 @@ describe("streaming: what is counted", () => {
     startStreaming(episode, 10, NWC, (sats) => counted.push(sats));
     await fiveMinutes();
     expect(counted).toEqual([50]);
+    expect(payInvoiceViaNWC).toHaveBeenCalledWith(NWC, "lnbc500000p1pvjluez");
     expect(useV4VStore.getState().currentEpisodeSats).toBe(50);
     expect(useV4VStore.getState().unconfirmedSats).toBe(0);
     expect(toasts()).toEqual([]);
@@ -94,12 +104,34 @@ describe("streaming: what is counted", () => {
   });
 
   it("says when no invoice came, without asking the wallet", async () => {
-    lnurl.invoice = null;
+    lnurl.invoice = () => null;
     startStreaming(episode, 10, NWC, () => {});
     await fiveMinutes();
     expect(payInvoiceViaNWC).not.toHaveBeenCalled();
     expect(useV4VStore.getState().lastFailure?.reason).toBe("no invoice came from host@pay.example");
     expect(toasts()).toHaveLength(1);
+  });
+
+  // The wallet pays what the invoice says, not what was asked for. Until October 2026 a server
+  // could ask for any amount, and the caps counted the sats asked for, not the sats paid.
+  it("does not pay an invoice for another amount than it asked for, and says what it asked for", async () => {
+    lnurl.invoice = (msats, host) => exact(msats * 10, host);
+    const counted: number[] = [];
+    startStreaming(episode, 10, NWC, (sats) => counted.push(sats));
+    await fiveMinutes();
+    expect(payInvoiceViaNWC).not.toHaveBeenCalled();
+    expect(counted).toEqual([]);
+    expect(useV4VStore.getState().currentEpisodeSats).toBe(0);
+    expect(useV4VStore.getState().lastFailure?.reason).toBe("the invoice from host@pay.example asks for 500 sats, not 50 sats");
+    expect(toasts()).toEqual(["Couldn't pay Host: the invoice from host@pay.example asks for 500 sats, not 50 sats. Streaming goes on."]);
+  });
+
+  it("does not pay an invoice that names no amount, which would let the wallet choose", async () => {
+    lnurl.invoice = () => "lnbc1pvjluez";
+    startStreaming(episode, 10, NWC, () => {});
+    await fiveMinutes();
+    expect(payInvoiceViaNWC).not.toHaveBeenCalled();
+    expect(useV4VStore.getState().lastFailure?.reason).toBe("the invoice from host@pay.example names no amount");
   });
 
   it("starts each episode with a clean slate", async () => {
@@ -140,5 +172,25 @@ describe("boost", () => {
     wallet.answer = "error";
     expect(await boost(episode, 21, NWC)).toBe(0);
     expect(useV4VStore.getState().lastFailure?.reason).toBe("Insufficient balance");
+  });
+
+  // `pr` is JSON from the recipient's server. Read as a string, a number threw out of the round,
+  // the Boost button stayed busy and the recipients after it were never paid.
+  it("takes an answer that is not an invoice for no invoice, and pays the next recipient", async () => {
+    const two = {
+      ...episode,
+      value: [{ name: "Bad", address: "x@bad.example", split: 50 }, { name: "Good", address: "y@good.example", split: 50 }],
+    } as unknown as PodcastEpisode;
+    lnurl.invoice = ((msats: number, host: string) => (host === "bad.example" ? 5 : exact(msats, host))) as unknown as InvoiceFor;
+    expect(await boost(two, 20, NWC)).toBe(10);
+    expect(payInvoiceViaNWC).toHaveBeenCalledTimes(1);
+    expect(useV4VStore.getState().lastFailure).toMatchObject({ recipient: "Bad", reason: "no invoice came from x@bad.example" });
+  });
+
+  it("does not pay an invoice for another amount", async () => {
+    lnurl.invoice = (msats, host) => exact(msats * 10, host);
+    expect(await boost(episode, 21, NWC)).toBe(0);
+    expect(payInvoiceViaNWC).not.toHaveBeenCalled();
+    expect(useV4VStore.getState().lastFailure?.reason).toBe("the invoice from host@pay.example asks for 210 sats, not 21 sats");
   });
 });
