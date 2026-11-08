@@ -52,20 +52,49 @@ fn sqlite_family(db: &std::path::Path) -> Vec<std::path::PathBuf> {
     family
 }
 
+/// Renames one file or directory: `std::fs::rename`, except in tests that make a
+/// rename fail on purpose.
+type Rename<'a> = dyn FnMut(&std::path::Path, &std::path::Path) -> std::io::Result<()> + 'a;
+
+fn rename_file(from: &std::path::Path, to: &std::path::Path) -> std::io::Result<()> {
+    std::fs::rename(from, to)
+}
+
 /// Rename a database together with its companions, or not at all. Nothing moves if any
 /// name in `to`'s family is taken: a database beside another database's WAL is exactly
-/// the damage this prevents. Returns whether anything moved.
-fn rename_sqlite(from: &std::path::Path, to: &std::path::Path) -> std::io::Result<bool> {
+/// the damage this prevents; `Ok(false)` says so. If a rename fails, the files already
+/// moved are moved back, so the set ends up whole under one name or the other. Only a
+/// failure to move one back leaves it split, and the error then says so. A crash between
+/// two renames splits it too: renames are not a transaction (see `open_db`).
+fn rename_sqlite(
+    from: &std::path::Path,
+    to: &std::path::Path,
+    rename: &mut Rename<'_>,
+) -> std::io::Result<bool> {
     if sqlite_family(to).iter().any(|p| p.exists()) {
         return Ok(false);
     }
-    // The database first. If a companion then fails to move, the database has lost its
-    // newest transactions (which every rename did before this). The opposite order
-    // could leave a WAL waiting beside no database at all.
-    for (src, dest) in sqlite_family(from).iter().zip(sqlite_family(to)) {
-        if src.exists() {
-            std::fs::rename(src, &dest)?;
+    let mut moved: Vec<(std::path::PathBuf, std::path::PathBuf)> = Vec::new();
+    for (src, dest) in sqlite_family(from).into_iter().zip(sqlite_family(to)) {
+        if !src.exists() {
+            continue;
         }
+        if let Err(e) = rename(&src, &dest) {
+            for (home, now_at) in moved.iter().rev() {
+                if let Err(back) = rename(now_at, home) {
+                    return Err(std::io::Error::new(
+                        e.kind(),
+                        format!(
+                            "could not move {} ({e}), nor move {} back ({back}): the set is split",
+                            src.display(),
+                            now_at.display()
+                        ),
+                    ));
+                }
+            }
+            return Err(e);
+        }
+        moved.push((src, dest));
     }
     Ok(true)
 }
@@ -83,9 +112,14 @@ fn rename_sqlite(from: &std::path::Path, to: &std::path::Path) -> std::io::Resul
 ///
 /// A database moves with its `-wal`, `-shm` and `-journal` or stays with them (see
 /// `SQLITE_COMPANIONS`). If any of those names is taken at the destination, the whole
-/// set stays behind. Moving one file at a time used to pair a legacy WAL with the
+/// set stays behind, and so does a set one of whose files cannot be moved (the next
+/// launch tries again). Moving one file at a time used to pair a legacy WAL with the
 /// destination's own database.
 fn migrate_dir(new_dir: &std::path::Path) {
+    migrate_dir_with(new_dir, &mut rename_file)
+}
+
+fn migrate_dir_with(new_dir: &std::path::Path, rename: &mut Rename<'_>) {
     let Some(parent) = new_dir.parent() else {
         return;
     };
@@ -125,25 +159,19 @@ fn migrate_dir(new_dir: &std::path::Path) {
     }
 
     let (mut moved, mut left) = (0usize, 0usize);
-    for (base, mut names) in groups {
+    for (base, names) in groups {
         // Never clobber: whatever is already there is the live copy. Nor move a legacy
-        // file next to it, where SQLite would take it for that database's. (A WAL with
-        // no database at all is harmless: SQLite deletes it when it creates one.)
-        if sqlite_family(&new_dir.join(&base)).iter().any(|p| p.exists()) {
-            left += names.len();
-            continue;
-        }
-        names.sort_by_key(|n| *n != base); // the database before its companions
-        for name in names {
-            match std::fs::rename(legacy_dir.join(&name), new_dir.join(&name)) {
-                Ok(()) => moved += 1,
-                Err(e) => {
-                    left += 1;
-                    eprintln!(
-                        "[migrate] could not move {}: {e}",
-                        legacy_dir.join(&name).display()
-                    );
-                }
+        // file next to it, where SQLite would take it for that database's:
+        // `rename_sqlite` moves nothing when any name of the set is taken.
+        match rename_sqlite(&legacy_dir.join(&base), &new_dir.join(&base), rename) {
+            Ok(true) => moved += names.len(),
+            Ok(false) => left += names.len(),
+            Err(e) => {
+                left += names.len();
+                eprintln!(
+                    "[migrate] could not move {}: {e}",
+                    legacy_dir.join(&base).display()
+                );
             }
         }
     }
@@ -384,8 +412,9 @@ fn is_damage(e: &rusqlite::Error) -> bool {
 
 /// Move a database and its companions out of the way, to `<name>.<why>-<unix time>` in
 /// the same directory. The companions keep their suffixes, so the set still opens as
-/// one database if anyone wants to look at what went wrong. Nothing is deleted.
-fn set_aside(db: &std::path::Path, why: &str) {
+/// one database if anyone wants to look at what went wrong. Nothing is deleted. An error
+/// means the set is still where it was, or split if the error says so.
+fn set_aside(db: &std::path::Path, why: &str, rename: &mut Rename<'_>) -> Result<(), String> {
     let stamp = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .map(|d| d.as_secs())
@@ -393,24 +422,50 @@ fn set_aside(db: &std::path::Path, why: &str) {
     let mut aside = db.as_os_str().to_owned();
     aside.push(format!(".{why}-{stamp}"));
     let aside = std::path::PathBuf::from(aside);
-    match rename_sqlite(db, &aside) {
-        Ok(true) => eprintln!("[db] set {} aside as {}", db.display(), aside.display()),
-        Ok(false) => eprintln!("[db] could not set {} aside: {} is taken", db.display(), aside.display()),
-        Err(e) => eprintln!("[db] could not set {} aside: {e}", db.display()),
+    match rename_sqlite(db, &aside, rename) {
+        Ok(true) => {
+            eprintln!("[db] set {} aside as {}", db.display(), aside.display());
+            Ok(())
+        }
+        Ok(false) => Err(format!("could not set {} aside: {} is taken", db.display(), aside.display())),
+        Err(e) => Err(format!("could not set {} aside: {e}", db.display())),
     }
 }
 
+/// An error that keeps the cache off for this session; `run()` falls back to memory and
+/// the next start tries again.
+fn cache_unavailable(why: String) -> rusqlite::Error {
+    rusqlite::Error::SqliteFailure(
+        rusqlite::ffi::Error::new(rusqlite::ffi::SQLITE_CANTOPEN),
+        Some(why),
+    )
+}
+
 fn open_db(data_dir: std::path::PathBuf) -> rusqlite::Result<Connection> {
+    open_db_with(data_dir, &mut rename_file)
+}
+
+fn open_db_with(
+    data_dir: std::path::PathBuf,
+    rename: &mut Rename<'_>,
+) -> rusqlite::Result<Connection> {
     std::fs::create_dir_all(&data_dir).ok();
     let path = data_dir.join("vega.db");
+
+    // A WAL with no database beside it is what a set-aside cut short leaves (Vega killed
+    // between two renames, or a rename back that failed). SQLite deletes such a WAL when
+    // it creates the database, so it is set aside first, and kept.
+    if !path.exists() && sqlite_family(&path)[1..].iter().any(|p| p.exists()) {
+        set_aside(&path, "orphaned", rename).map_err(cache_unavailable)?;
+    }
 
     // The name before v0.10.0. Renamed with its WAL: until November 2026 only the
     // database moved, and whatever was still in its WAL was lost.
     let legacy_path = data_dir.join("wrystr.db");
     if !path.exists() && legacy_path.exists() {
-        if let Err(e) = rename_sqlite(&legacy_path, &path) {
-            eprintln!("[db] could not rename {}: {e}", legacy_path.display());
-        }
+        rename_sqlite(&legacy_path, &path, rename).map_err(|e| {
+            cache_unavailable(format!("could not rename {}: {e}", legacy_path.display()))
+        })?;
     }
 
     // The cache is a cache: when it is damaged, keep it for a look and start a fresh
@@ -419,8 +474,10 @@ fn open_db(data_dir: std::path::PathBuf) -> rusqlite::Result<Connection> {
     let conn = match open_checked(&path) {
         Ok(conn) => conn,
         Err(e) if is_damage(&e) => {
-            eprintln!("[db] {} is damaged ({e}); starting a fresh cache", path.display());
-            set_aside(&path, "corrupt");
+            eprintln!("[db] {} is damaged ({e})", path.display());
+            // Only once the whole set has moved: SQLite would delete a WAL left beside
+            // the new database.
+            set_aside(&path, "corrupt", rename).map_err(cache_unavailable)?;
             Connection::open(&path)?
         }
         Err(e) => return Err(e),
@@ -857,8 +914,10 @@ pub fn run() {
 
             // ── SQLite ───────────────────────────────────────────────────────
             let data_dir = app.path().app_data_dir()?;
-            let conn = open_db(data_dir.clone())
-                .unwrap_or_else(|_| Connection::open_in_memory().expect("in-memory SQLite"));
+            let conn = open_db(data_dir.clone()).unwrap_or_else(|e| {
+                eprintln!("[db] no cache this session: {e}");
+                Connection::open_in_memory().expect("in-memory SQLite")
+            });
             app.manage(DbState(Mutex::new(conn)));
 
             // ── Embedded relay ──────────────────────────────────────────────
@@ -976,8 +1035,8 @@ pub fn run() {
 #[cfg(test)]
 mod tests {
     use super::{
-        enabled_proxy_url, is_damage, migrate_dir, open_db, sqlite_base, ProxySettings,
-        APP_IDENTIFIER, LEGACY_IDENTIFIER,
+        enabled_proxy_url, is_damage, migrate_dir, migrate_dir_with, open_db, open_db_with,
+        rename_sqlite, sqlite_base, ProxySettings, APP_IDENTIFIER, LEGACY_IDENTIFIER,
     };
     use std::fs;
     use std::path::{Path, PathBuf};
@@ -1332,15 +1391,12 @@ mod tests {
         bytes
     }
 
-    /// Damage in a database whose WAL still holds a write, as a crash leaves it. Both are
-    /// set aside as found: closing the checking connection used to checkpoint the WAL
-    /// into the damaged file first, and the WAL was gone.
-    #[test]
-    fn a_damaged_database_is_kept_with_its_wal_as_found() {
+    /// Put a damaged `vega.db` in `dir` whose WAL still holds a write, as a crash leaves
+    /// it. Returns the bytes of the database and of its WAL.
+    fn damaged_cache_with_wal(dir: &Path) -> (Vec<u8>, Vec<u8>) {
         let work = scratch_root();
         let root = cache_with_notes(&work);
         point_past_the_end(&work.join("vega.db"), root);
-        let dir = scratch_root();
         let conn = rusqlite::Connection::open(work.join("vega.db")).unwrap();
         conn.execute_batch(
             "PRAGMA wal_autocheckpoint=0; INSERT INTO profiles VALUES ('pk', '{}', 1);",
@@ -1351,19 +1407,157 @@ mod tests {
                 .unwrap();
         }
         drop(conn);
+        fs::remove_dir_all(&work).ok();
         let main = fs::read(dir.join("vega.db")).unwrap();
         let wal = fs::read(dir.join("vega.db-wal")).unwrap();
         assert!(!wal.is_empty());
+        (main, wal)
+    }
 
-        drop(open_db(dir.clone()).unwrap());
-
-        let aside = set_aside_files(&dir, "corrupt"); // sorted: the database, -shm, -wal
+    /// The damaged set was set aside whole, and as found.
+    fn assert_kept_as_found(dir: &Path, main: &[u8], wal: &[u8]) {
+        let aside = set_aside_files(dir, "corrupt"); // sorted: the database, -shm, -wal
         assert_eq!(aside.len(), 3, "{aside:?}");
         assert!(fs::read(dir.join(&aside[0])).unwrap() == main, "the database as found");
         assert!(aside[2].ends_with("-wal"));
         assert!(fs::read(dir.join(&aside[2])).unwrap() == wal, "its WAL as found");
-        fs::remove_dir_all(&work).ok();
+    }
+
+    /// Both are set aside as found: closing the checking connection used to checkpoint
+    /// the WAL into the damaged file first, and the WAL was gone.
+    #[test]
+    fn a_damaged_database_is_kept_with_its_wal_as_found() {
+        let dir = scratch_root();
+        let (main, wal) = damaged_cache_with_wal(&dir);
+
+        drop(open_db(dir.clone()).unwrap());
+
+        assert_kept_as_found(&dir, &main, &wal);
         fs::remove_dir_all(&dir).ok();
+    }
+
+    // ── Renames that fail ───────────────────────────────────────────────────
+
+    /// A rename that fails for a path ending in `suffix` and does every other one.
+    fn failing_on(suffix: &'static str) -> impl FnMut(&Path, &Path) -> std::io::Result<()> {
+        move |from, to| {
+            if from.to_string_lossy().ends_with(suffix) {
+                Err(std::io::Error::other("injected failure"))
+            } else {
+                fs::rename(from, to)
+            }
+        }
+    }
+
+    fn snapshot(dir: &Path, names: &[&str]) -> Vec<Option<Vec<u8>>> {
+        names.iter().map(|n| fs::read(dir.join(n)).ok()).collect()
+    }
+
+    /// Whichever file fails to move, the set ends up whole where it was: whatever moved
+    /// before the failure is moved back.
+    #[test]
+    fn a_set_that_cannot_move_whole_stays_where_it_was() {
+        let set = ["x.db", "x.db-wal", "x.db-shm"];
+        for failing in set {
+            let dir = scratch_root();
+            db_with_table_only_in_its_wal(&dir, "x.db", "t");
+            let before = snapshot(&dir, &set);
+
+            let result = rename_sqlite(&dir.join("x.db"), &dir.join("y.db"), &mut failing_on(failing));
+
+            assert!(result.is_err(), "{failing}: the failure is reported");
+            assert_eq!(snapshot(&dir, &set), before, "{failing}: the set is where it was");
+            assert_eq!(
+                snapshot(&dir, &["y.db", "y.db-wal", "y.db-shm"]),
+                [None, None, None],
+                "{failing}: nothing under the new name"
+            );
+            fs::remove_dir_all(&dir).ok();
+        }
+    }
+
+    #[test]
+    fn a_set_split_by_a_failed_move_back_says_so() {
+        let dir = scratch_root();
+        db_with_table_only_in_its_wal(&dir, "x.db", "t");
+        let mut failed = false;
+        let mut rename = |from: &Path, to: &Path| {
+            if failed || from.to_string_lossy().ends_with("-wal") {
+                failed = true;
+                return Err(std::io::Error::other("injected failure"));
+            }
+            fs::rename(from, to)
+        };
+
+        let err = rename_sqlite(&dir.join("x.db"), &dir.join("y.db"), &mut rename).unwrap_err();
+
+        assert!(err.to_string().contains("the set is split"), "{err}");
+        fs::remove_dir_all(&dir).ok();
+    }
+
+    /// A damaged cache whose WAL cannot be set aside with it: no fresh cache is made, since
+    /// SQLite would delete the WAL left beside it, and the damaged set waits, untouched,
+    /// for the next start.
+    #[test]
+    fn no_fresh_cache_while_the_damaged_one_cannot_be_set_aside() {
+        let dir = scratch_root();
+        let (main, wal) = damaged_cache_with_wal(&dir);
+
+        assert!(open_db_with(dir.clone(), &mut failing_on("-wal")).is_err());
+
+        assert!(fs::read(dir.join("vega.db")).unwrap() == main, "the database where it was");
+        assert!(fs::read(dir.join("vega.db-wal")).unwrap() == wal, "its WAL where it was");
+        assert!(set_aside_files(&dir, "corrupt").is_empty());
+
+        drop(open_db(dir.clone()).unwrap()); // the next start
+        assert_kept_as_found(&dir, &main, &wal);
+        fs::remove_dir_all(&dir).ok();
+    }
+
+    /// What a set-aside cut short leaves: a WAL with no database. It is kept, not deleted
+    /// by SQLite as the fresh database is made.
+    #[test]
+    fn a_wal_with_no_database_is_set_aside() {
+        let dir = scratch_root();
+        db_with_table_only_in_its_wal(&dir, "vega.db", "t");
+        fs::remove_file(dir.join("vega.db")).unwrap();
+        let wal = fs::read(dir.join("vega.db-wal")).unwrap();
+
+        let conn = open_db(dir.clone()).unwrap();
+
+        let n: i64 = conn.query_row("SELECT COUNT(*) FROM notes", [], |row| row.get(0)).unwrap();
+        assert_eq!(n, 0, "a fresh cache");
+        let aside = set_aside_files(&dir, "orphaned");
+        let kept = aside.iter().find(|n| n.ends_with("-wal")).expect("the WAL set aside");
+        assert!(fs::read(dir.join(kept)).unwrap() == wal, "{aside:?}");
+        drop(conn);
+        fs::remove_dir_all(&dir).ok();
+    }
+
+    /// A legacy set one of whose files cannot be moved stays whole in the legacy directory
+    /// (the WAL used to move on without its database), and moves at the next start.
+    #[test]
+    fn a_legacy_set_that_cannot_move_whole_waits_for_the_next_start() {
+        for failing in ["vega.db", "vega.db-wal"] {
+            let root = scratch_root();
+            let legacy = root.join(LEGACY_IDENTIFIER);
+            let new = root.join(APP_IDENTIFIER);
+            fs::create_dir_all(&legacy).unwrap();
+            write(&new.join("WebKitCache").join("blob"), "webview");
+            db_with_table_only_in_its_wal(&legacy, "vega.db", "legacy_notes");
+
+            migrate_dir_with(&new, &mut failing_on(failing));
+
+            for name in ["vega.db", "vega.db-wal", "vega.db-shm"] {
+                assert!(legacy.join(name).exists(), "{failing}: {name} stays in the legacy dir");
+                assert!(!new.join(name).exists(), "{failing}: {name} not in the new dir");
+            }
+
+            migrate_dir(&new);
+            assert_eq!(tables(&new.join("vega.db")), ["legacy_notes"], "{failing}");
+            assert!(!legacy.exists(), "{failing}: drained at the next start");
+            fs::remove_dir_all(&root).ok();
+        }
     }
 
     /// A file cut short: here SQLite reports the damage as an error, not a verdict.
