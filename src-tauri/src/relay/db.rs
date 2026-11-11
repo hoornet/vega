@@ -11,10 +11,28 @@ const MAX_KIND1_EVENTS: usize = 5_000;
 /// 7 days — remote relays have anything older.
 const KIND1_TTL_SECS: i64 = 7 * 24 * 3600;
 
+/// The built-in relay's tables. A new table goes here too: `vega.db` holding one of
+/// them is how a WAL from this database applied to that one is recognised.
+pub const RELAY_TABLES: &[&str] = &["event_tags", "events"];
+
+/// Opened as `vega.db` is, through `open_or_set_aside`: checked, and set aside for a
+/// fresh one when damaged or when it holds the cache's tables. What it holds came from
+/// the relays and comes back with the catch-up sync. If it cannot be set aside, the
+/// relay does not start this session.
 pub fn open_relay_db(data_dir: &Path) -> rusqlite::Result<Connection> {
     std::fs::create_dir_all(data_dir).ok();
     let path = data_dir.join("relay.db");
-    let conn = Connection::open(path)?;
+    let rename: &mut crate::Rename<'_> = &mut crate::rename_file;
+    crate::set_aside_orphans(&path, rename)?;
+    let conn = crate::open_or_set_aside(&path, crate::CACHE_TABLES, rename)?;
+    create_relay_tables(&conn)?;
+
+    evict_old_events(&conn)?;
+
+    Ok(conn)
+}
+
+pub(crate) fn create_relay_tables(conn: &Connection) -> rusqlite::Result<()> {
     conn.execute_batch(
         "PRAGMA journal_mode=WAL;
          PRAGMA foreign_keys=ON;
@@ -41,11 +59,7 @@ pub fn open_relay_db(data_dir: &Path) -> rusqlite::Result<Connection> {
 
          CREATE INDEX IF NOT EXISTS idx_tags_name_value ON event_tags(tag_name, tag_value);
          CREATE INDEX IF NOT EXISTS idx_tags_event ON event_tags(event_id);",
-    )?;
-
-    evict_old_events(&conn)?;
-
-    Ok(conn)
+    )
 }
 
 /// Remove stale text notes on startup to keep the relay cache bounded.
