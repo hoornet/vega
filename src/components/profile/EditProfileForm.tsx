@@ -6,6 +6,7 @@ import { Nip05Field } from "./Nip05Field";
 import { Button } from "../shared/Button";
 import { Check } from "lucide-react";
 import { explainPublishError } from "../../lib/publishErrors";
+import { useUnsentText } from "../../hooks/useUnsentText";
 
 export function EditProfileForm({ pubkey, onSaved }: { pubkey: string; onSaved: () => void }) {
   const canSign = useCanSign();
@@ -23,6 +24,10 @@ export function EditProfileForm({ pubkey, onSaved }: { pubkey: string; onSaved: 
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
+  // What the form opened on, to tell changes from it.
+  const [opened] = useState(() => [name, displayName, about, picture, banner, website, nip05, lud16]);
+  const changed = [name, displayName, about, picture, banner, website, nip05, lud16].some((v, i) => v !== opened[i]);
+  useUnsentText(changed && !saved, "profile");
 
   const handleSave = async () => {
     setSaving(true);

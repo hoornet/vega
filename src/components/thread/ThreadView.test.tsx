@@ -29,6 +29,7 @@ import { useUIStore } from "../../stores/ui";
 import { fetchThreadEvents, publishReply } from "../../lib/nostr";
 import { useToastStore } from "../../stores/toast";
 import { recordFetchOutcome } from "../../lib/nostr/fetchTotals";
+import { hasUnsentText } from "../../lib/unsentText";
 
 const ROOT = { id: "root", content: "the note", created_at: 1000, kind: 1, pubkey: "author", tags: [] } as unknown as NDKEvent;
 const reply = (id: string) => ({ id, content: `reply ${id}`, created_at: 1100, kind: 1, pubkey: "someone", tags: [["e", "root", "", "root"]] }) as unknown as NDKEvent;
@@ -104,6 +105,20 @@ describe("ThreadView: replying to the note", () => {
     fireEvent.click(screen.getByRole("button", { name: "Reply" }));
     await waitFor(() => expect(vi.mocked(publishReply)).toHaveBeenCalled());
   };
+
+  // `vega --compose` must not show the feed over it (src/lib/unsentText.ts).
+  it("holds a reply being written until the view goes", async () => {
+    account.canSign = true;
+    vi.mocked(fetchThreadEvents).mockImplementation(answering([]));
+    const { unmount } = render(<ThreadView />);
+    await settled();
+    fireEvent.click(screen.getByRole("button", { name: "reply to this" }));
+    expect(hasUnsentText()).toBe(false);
+    fireEvent.change(screen.getByPlaceholderText("Write a reply…"), { target: { value: "half a thought" } });
+    expect(hasUnsentText()).toBe(true);
+    unmount();
+    expect(hasUnsentText()).toBe(false);
+  });
 
   // There was no catch: the button came back and nothing said the reply had not gone out.
   it("says so when the reply reached no relay, and keeps what was written", async () => {

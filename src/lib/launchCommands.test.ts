@@ -30,6 +30,8 @@ vi.mock("@tauri-apps/api/event", () => ({
 
 import { listenForLaunchCommands, runLaunchCommand } from "./launchCommands";
 import { useUIStore } from "../stores/ui";
+import { useToastStore } from "../stores/toast";
+import { holdUnsentText } from "./unsentText";
 
 const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
 const arrive = (command: string) => { tauri.queue.push(command); for (const h of tauri.handlers) h(); };
@@ -134,5 +136,25 @@ describe("runLaunchCommand", () => {
     } finally {
       dialog.remove();
     }
+  });
+
+  it("moves nothing while a view holds text not sent yet, and says why", () => {
+    useUIStore.setState({ currentView: "dm" });
+    useToastStore.setState({ toasts: [] });
+    const letGo = holdUnsentText("message");
+    try {
+      runLaunchCommand("compose");
+      const s = useUIStore.getState();
+      expect(s.currentView).toBe("dm");
+      expect(s.composeRequest).toBe(0);
+      expect(s.composePendingUntil).toBe(0);
+      expect(useToastStore.getState().toasts.map((t) => t.message)).toEqual([
+        "Your message isn't sent yet, so Vega didn't open a new note. Send or clear it first.",
+      ]);
+    } finally {
+      letGo();
+    }
+    runLaunchCommand("compose");
+    expect(useUIStore.getState().currentView).toBe("feed");
   });
 });

@@ -1,8 +1,10 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { useUIStore } from "../stores/ui";
+import { useToastStore } from "../stores/toast";
 import { debug } from "./debug";
 import { MODAL_SELECTOR } from "./escapeKey";
+import { unsentTextNotice } from "./unsentText";
 
 /**
  * How long `vega --compose` waits for a compose box that is not there yet. On a cold start the box
@@ -23,6 +25,15 @@ export function runLaunchCommand(command: LaunchCommand): void {
       // An open dialog is what needs the user: the window comes forward and nothing moves behind
       // the dialog, as the `n` shortcut is held back (useKeyboardShortcuts).
       if (document.querySelector(MODAL_SELECTOR)) return;
+      // So does text not sent yet in a view the feed would replace: leaving would lose it, and the
+      // request came from another window, where nobody could see it (src/lib/unsentText.ts).
+      {
+        const notice = unsentTextNotice();
+        if (notice) {
+          useToastStore.getState().addToast(notice, "info", { autoCloseMs: 6000, key: "launch:compose-held" });
+          return;
+        }
+      }
       useUIStore.getState().requestComposeWhenReady(COMPOSE_HOLD_MS);
       break;
   }

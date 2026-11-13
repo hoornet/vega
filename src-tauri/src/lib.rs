@@ -13,6 +13,11 @@ mod relay;
 
 /// Brings the main window forward: shown (closing it hides it to the tray), out of a
 /// minimised state, and focused.
+///
+/// On Linux the focus can come to nothing when the window was hidden or minimised: tao
+/// asks for focus only if the window is visible and not minimised at that moment, and
+/// `show` and `unminimize` are queued, not done (tao 0.37.1, `set_focus`). So the window
+/// can come back while the keyboard stays in the app the user was in.
 fn show_main_window<R: Runtime>(app: &AppHandle<R>) {
     if let Some(w) = app.get_webview_window("main") {
         let _ = w.show();
@@ -22,11 +27,20 @@ fn show_main_window<R: Runtime>(app: &AppHandle<R>) {
 }
 
 /// The launch commands not yet acted on, for the frontend to run (see `launch.rs`).
+///
+/// Handing a command out asks for focus again. The hand-over's own request can come to
+/// nothing (see `show_main_window`), and a command such as `--compose` is for typing. By
+/// the time the frontend takes it, the window has been shown.
 #[tauri::command]
 fn take_launch_commands(
+    app: AppHandle,
     pending: tauri::State<'_, launch::PendingLaunch>,
 ) -> Result<Vec<launch::LaunchCommand>, String> {
-    Ok(pending.take())
+    let commands = pending.take();
+    if !commands.is_empty() {
+        show_main_window(&app);
+    }
+    Ok(commands)
 }
 
 // ── Data directory migration ────────────────────────────────────────────────

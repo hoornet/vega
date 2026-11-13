@@ -36,6 +36,7 @@ vi.mock("./ArticleCard", () => ({ ArticleCard: ({ event }: { event: NDKEvent }) 
 
 import { ArticleView } from "./ArticleView";
 import { useUIStore } from "../../stores/ui";
+import { hasUnsentText } from "../../lib/unsentText";
 
 const article = (d: string, tags: string[][], content: string) =>
   ({ id: `id-${d}`, kind: 30023, pubkey: "writer", content, created_at: 1_700_000_000, tags: [["d", d], ...tags] }) as unknown as NDKEvent;
@@ -153,6 +154,17 @@ describe("ArticleView", () => {
     const box = screen.getByRole("textbox", { name: "Comment" });
     expect(footer.compareDocumentPosition(box) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(screen.getByRole("heading", { level: 1 }).compareDocumentPosition(box) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  // `vega --compose` must not show the feed over it (src/lib/unsentText.ts).
+  it("holds a comment being written until the view goes", () => {
+    const { unmount } = open(MAIN);
+    fireEvent.click(screen.getAllByRole("button", { name: "Comment" })[1]);
+    expect(hasUnsentText()).toBe(false);
+    fireEvent.change(screen.getByRole("textbox", { name: "Comment" }), { target: { value: "good piece" } });
+    expect(hasUnsentText()).toBe(true);
+    unmount();
+    expect(hasUnsentText()).toBe(false);
   });
 
   it("ends with the writer: name, bio on one line, Follow and Zap", () => {

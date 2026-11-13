@@ -25,6 +25,7 @@ vi.mock("../feed/TextSegments", () => ({
 
 import { DMView, ThreadPanel } from "./DMView";
 import { fetchDMConversations, fetchDMThread, sendDM, getNDK, ensureConnected } from "../../lib/nostr";
+import { hasUnsentText } from "../../lib/unsentText";
 
 const ME = "me";
 const ZEPPO = "22".repeat(32);
@@ -65,6 +66,21 @@ describe("Messages: a mention in a message", () => {
 });
 
 describe("Messages: sending", () => {
+  // `vega --compose` must not show the feed over it (src/lib/unsentText.ts).
+  it("holds a message being written until it is sent or the conversation goes", async () => {
+    const { unmount } = render(<ThreadPanel partnerPubkey={ZEPPO} myPubkey={ME} />);
+    await loaded();
+    expect(hasUnsentText()).toBe(false);
+    type("not done yet");
+    expect(hasUnsentText()).toBe(true);
+    fireEvent.click(send());
+    await waitFor(() => expect(hasUnsentText()).toBe(false));
+    type("another");
+    expect(hasUnsentText()).toBe(true);
+    unmount();
+    expect(hasUnsentText()).toBe(false);
+  });
+
   it("empties the box and shows the thread with the message in it", async () => {
     render(<ThreadPanel partnerPubkey={ZEPPO} myPubkey={ME} />);
     await loaded();
