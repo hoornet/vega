@@ -15,6 +15,7 @@ import { Button } from "../shared/Button";
 import { explainPublishError } from "../../lib/publishErrors";
 import { useToastStore } from "../../stores/toast";
 import { useUIStore } from "../../stores/ui";
+import { MODAL_SELECTOR } from "../../lib/escapeKey";
 
 const COMPOSE_DRAFT_KEY = "wrystr_compose_draft";
 
@@ -55,8 +56,16 @@ export function ComposeBox({ onPublished, onNoteInjected, confirmPosted = false 
   useEffect(() => {
     if (composeRequest === seenRequest.current) return;
     seenRequest.current = composeRequest;
+    // This box takes it, so a box mounted later does not take it a second time.
+    useUIStore.getState().takePendingCompose();
     textareaRef.current?.focus();
   }, [composeRequest]);
+  // Except a request from outside Vega (`vega --compose`), which waits for the box for a while:
+  // on a cold start the box mounts only once the session is restored.
+  // A dialog that opened meanwhile keeps the keyboard, and the request is dropped.
+  useEffect(() => {
+    if (useUIStore.getState().takePendingCompose() && !document.querySelector(MODAL_SELECTOR)) textareaRef.current?.focus();
+  }, []);
 
   // Collapse the compose box to a single line when it's idle (empty + not
   // focused), expand to full height + toolbar on focus or when there's

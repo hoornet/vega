@@ -19,6 +19,7 @@ import { Check } from "lucide-react";
 import { ListState } from "../shared/ListState";
 import { fetchMark, wentUnanswered } from "../../lib/listLoad";
 import { tellPublish } from "../../lib/publishFeedback";
+import { useUnsentText } from "../../hooks/useUnsentText";
 
 export function ThreadView() {
   const { selectedNote, goBack } = useUIStore();
@@ -37,6 +38,7 @@ export function ThreadView() {
   const [repliesLoading, setRepliesLoading] = useState(true);
   const [showRootReply, setShowRootReply] = useState(false);
   const [replyText, setReplyText] = useState("");
+  useUnsentText(replyText, "reply");
   const [replying, setReplying] = useState(false);
   const [replySent, setReplySent] = useState(false);
   const [showReplyEmoji, setShowReplyEmoji] = useState(false);
