@@ -408,29 +408,60 @@ fn delete_nsec(pubkey: String) -> Result<(), String> {
 
 struct DbState(Mutex<Connection>);
 
+/// The tables of the cache, `vega.db`. Neither database has ever dropped a table, and
+/// the two share no name: see `holds_foreign_tables`.
+const CACHE_TABLES: &[&str] = &["bookmarked_notes", "followers", "notes", "notifications", "profiles"];
+
 /// Open a database and read every page of it once. `quick_check` finds what a query
 /// would trip over later: tree pages that point past the end of the file, pages used
 /// twice, a header that is not SQLite's. It reads the whole file (milliseconds for a
 /// cache of a few MB) but does not compare indexes with their tables, which is what
-/// makes `integrity_check` slow. A verdict other than "ok" comes back as
-/// SQLITE_CORRUPT, with the first problem as the message.
-fn open_checked(path: &std::path::Path) -> rusqlite::Result<Connection> {
+/// makes `integrity_check` slow. Then the database must not hold any of `foreign`, the
+/// other database's tables. Either failure comes back as SQLITE_CORRUPT, with what was
+/// found as the message.
+fn open_checked(path: &std::path::Path, foreign: &[&str]) -> rusqlite::Result<Connection> {
     let conn = Connection::open(path)?;
-    let verdict = conn.query_row("PRAGMA quick_check(1)", [], |row| row.get::<_, String>(0));
-    if matches!(&verdict, Ok(v) if v == "ok") {
-        return Ok(conn);
+    if let Err(e) = check_db(&conn, foreign) {
+        // The last connection to close checkpoints the WAL into the database and deletes
+        // it. A damaged database is kept for a look, so it must stay exactly as found.
+        conn.set_db_config(rusqlite::config::DbConfig::SQLITE_DBCONFIG_NO_CKPT_ON_CLOSE, true)
+            .ok();
+        return Err(e);
     }
-    // The last connection to close checkpoints the WAL into the database and deletes it.
-    // A damaged database is kept for a look, so it must stay exactly as it was found.
-    conn.set_db_config(rusqlite::config::DbConfig::SQLITE_DBCONFIG_NO_CKPT_ON_CLOSE, true)
-        .ok();
-    Err(match verdict {
-        Ok(v) => rusqlite::Error::SqliteFailure(
-            rusqlite::ffi::Error::new(rusqlite::ffi::SQLITE_CORRUPT),
-            Some(v.replace('\n', "; ")),
-        ),
-        Err(e) => e,
-    })
+    Ok(conn)
+}
+
+fn check_db(conn: &Connection, foreign: &[&str]) -> rusqlite::Result<()> {
+    let corrupt = |why: String| {
+        rusqlite::Error::SqliteFailure(rusqlite::ffi::Error::new(rusqlite::ffi::SQLITE_CORRUPT), Some(why))
+    };
+    let verdict: String = conn.query_row("PRAGMA quick_check(1)", [], |row| row.get(0))?;
+    if verdict != "ok" {
+        return Err(corrupt(verdict.replace('\n', "; ")));
+    }
+    let found = holds_foreign_tables(conn, foreign)?;
+    if !found.is_empty() {
+        return Err(corrupt(format!("it holds {}, another database's tables", found.join(", "))));
+    }
+    Ok(())
+}
+
+/// Which of `foreign` the database holds. A WAL that reached another database (the
+/// renames before November 2026 could move one without its database) is applied with no
+/// error, and when it rewrites every page the result is the other database, whole:
+/// `quick_check` says ok, this database's tables are gone, and Vega used to create them
+/// again beside the other one's. The other database's tables are what is left to see.
+fn holds_foreign_tables(conn: &Connection, foreign: &[&str]) -> rusqlite::Result<Vec<String>> {
+    let mut stmt = conn.prepare("SELECT name FROM sqlite_master WHERE type = 'table' ORDER BY name")?;
+    let names = stmt.query_map([], |row| row.get::<_, String>(0))?;
+    let mut found = Vec::new();
+    for name in names {
+        let name = name?;
+        if foreign.contains(&name.as_str()) {
+            found.push(name);
+        }
+    }
+    Ok(found)
 }
 
 /// Whether an error means the file itself is damaged, not that it is busy, locked or
@@ -465,8 +496,8 @@ fn set_aside(db: &std::path::Path, why: &str, rename: &mut Rename<'_>) -> Result
     }
 }
 
-/// An error that keeps the cache off for this session; `run()` falls back to memory and
-/// the next start tries again.
+/// An error that keeps a database off the disk for this session: `run()` keeps the cache
+/// in memory, the built-in relay does not start, and the next start tries again.
 fn cache_unavailable(why: String) -> rusqlite::Error {
     rusqlite::Error::SqliteFailure(
         rusqlite::ffi::Error::new(rusqlite::ffi::SQLITE_CANTOPEN),
@@ -478,19 +509,46 @@ fn open_db(data_dir: std::path::PathBuf) -> rusqlite::Result<Connection> {
     open_db_with(data_dir, &mut rename_file)
 }
 
+/// A WAL with no database beside it is what a set-aside cut short leaves (Vega killed
+/// between two renames, or a rename back that failed). SQLite deletes such a WAL when it
+/// creates the database, so it is set aside first, and kept.
+fn set_aside_orphans(path: &std::path::Path, rename: &mut Rename<'_>) -> rusqlite::Result<()> {
+    if !path.exists() && sqlite_family(path)[1..].iter().any(|p| p.exists()) {
+        set_aside(path, "orphaned", rename).map_err(cache_unavailable)?;
+    }
+    Ok(())
+}
+
+/// Open one of Vega's databases, `vega.db` or `relay.db`. Both hold copies of what the
+/// relays have: when one is damaged, or holds the other's tables, it is kept for a look
+/// and a fresh one starts. Before this, a damaged table failed every query, the commands
+/// turned the failure into a string the frontend ignored, and the cache stayed silently
+/// off. A database that is busy, locked or cannot be opened is left alone (`is_damage`).
+fn open_or_set_aside(
+    path: &std::path::Path,
+    foreign: &[&str],
+    rename: &mut Rename<'_>,
+) -> rusqlite::Result<Connection> {
+    match open_checked(path, foreign) {
+        Ok(conn) => Ok(conn),
+        Err(e) if is_damage(&e) => {
+            eprintln!("[db] {} is damaged ({e})", path.display());
+            // Only once the whole set has moved: SQLite would delete a WAL left beside
+            // the new database.
+            set_aside(path, "corrupt", rename).map_err(cache_unavailable)?;
+            Connection::open(path)
+        }
+        Err(e) => Err(e),
+    }
+}
+
 fn open_db_with(
     data_dir: std::path::PathBuf,
     rename: &mut Rename<'_>,
 ) -> rusqlite::Result<Connection> {
     std::fs::create_dir_all(&data_dir).ok();
     let path = data_dir.join("vega.db");
-
-    // A WAL with no database beside it is what a set-aside cut short leaves (Vega killed
-    // between two renames, or a rename back that failed). SQLite deletes such a WAL when
-    // it creates the database, so it is set aside first, and kept.
-    if !path.exists() && sqlite_family(&path)[1..].iter().any(|p| p.exists()) {
-        set_aside(&path, "orphaned", rename).map_err(cache_unavailable)?;
-    }
+    set_aside_orphans(&path, rename)?;
 
     // The name before v0.10.0. Renamed with its WAL: until November 2026 only the
     // database moved, and whatever was still in its WAL was lost.
@@ -501,20 +559,23 @@ fn open_db_with(
         })?;
     }
 
-    // The cache is a cache: when it is damaged, keep it for a look and start a fresh
-    // one. Before this, a damaged table failed every query, the commands turned the
-    // failure into a string the frontend ignored, and the cache stayed silently off.
-    let conn = match open_checked(&path) {
-        Ok(conn) => conn,
-        Err(e) if is_damage(&e) => {
-            eprintln!("[db] {} is damaged ({e})", path.display());
-            // Only once the whole set has moved: SQLite would delete a WAL left beside
-            // the new database.
-            set_aside(&path, "corrupt", rename).map_err(cache_unavailable)?;
-            Connection::open(&path)?
-        }
-        Err(e) => return Err(e),
-    };
+    let conn = open_or_set_aside(&path, relay::db::RELAY_TABLES, rename)?;
+    create_cache_tables(&conn)?;
+    Ok(conn)
+}
+
+/// The cache for a session that could not open the one on disk (a damaged cache that
+/// could not be set aside): the same tables, in memory, gone at exit. The next start
+/// tries the disk again. An in-memory connection with no tables failed every command,
+/// which left the cache off for the session.
+fn cache_in_memory() -> rusqlite::Result<Connection> {
+    let conn = Connection::open_in_memory()?;
+    create_cache_tables(&conn)?;
+    Ok(conn)
+}
+
+/// The cache's tables. A new table goes into `CACHE_TABLES` too.
+fn create_cache_tables(conn: &Connection) -> rusqlite::Result<()> {
     conn.execute_batch(
         "PRAGMA journal_mode=WAL;
          CREATE TABLE IF NOT EXISTS notes (
@@ -555,8 +616,7 @@ fn open_db_with(
              cached_at    INTEGER NOT NULL
          );
          CREATE INDEX IF NOT EXISTS idx_bookmarks_owner ON bookmarked_notes(owner_pubkey);",
-    )?;
-    Ok(conn)
+    )
 }
 
 #[tauri::command]
@@ -964,10 +1024,12 @@ pub fn run() {
 
             // ── SQLite ───────────────────────────────────────────────────────
             let data_dir = app.path().app_data_dir()?;
-            let conn = open_db(data_dir.clone()).unwrap_or_else(|e| {
-                eprintln!("[db] no cache this session: {e}");
-                Connection::open_in_memory().expect("in-memory SQLite")
-            });
+            let conn = open_db(data_dir.clone())
+                .or_else(|e| {
+                    eprintln!("[db] the cache is in memory this session: {e}");
+                    cache_in_memory()
+                })
+                .expect("an in-memory SQLite cache");
             app.manage(DbState(Mutex::new(conn)));
 
             // ── Embedded relay ──────────────────────────────────────────────
@@ -1077,9 +1139,11 @@ pub fn run() {
 #[cfg(test)]
 mod tests {
     use super::{
-        enabled_proxy_url, is_damage, migrate_dir, migrate_dir_with, open_db, open_db_with,
-        rename_sqlite, sqlite_base, ProxySettings, APP_IDENTIFIER, LEGACY_IDENTIFIER,
+        cache_in_memory, create_cache_tables, enabled_proxy_url, is_damage, migrate_dir,
+        migrate_dir_with, open_db, open_db_with, rename_sqlite, sqlite_base, ProxySettings,
+        APP_IDENTIFIER, CACHE_TABLES, LEGACY_IDENTIFIER,
     };
+    use crate::relay::db::{create_relay_tables, open_relay_db, RELAY_TABLES};
     use std::fs;
     use std::path::{Path, PathBuf};
     use std::sync::atomic::{AtomicU32, Ordering};
@@ -1270,7 +1334,10 @@ mod tests {
     }
 
     fn tables(db: &Path) -> Vec<String> {
-        let conn = rusqlite::Connection::open(db).unwrap();
+        table_names(&rusqlite::Connection::open(db).unwrap())
+    }
+
+    fn table_names(conn: &rusqlite::Connection) -> Vec<String> {
         let mut stmt = conn
             .prepare("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")
             .unwrap();
@@ -1282,12 +1349,12 @@ mod tests {
         names
     }
 
-    fn set_aside_files(dir: &Path, why: &str) -> Vec<String> {
+    fn set_aside_files(dir: &Path, base: &str, why: &str) -> Vec<String> {
         let mut names: Vec<String> = fs::read_dir(dir)
             .unwrap()
             .flatten()
             .map(|e| e.file_name().to_string_lossy().into_owned())
-            .filter(|n| n.starts_with(&format!("vega.db.{why}-")))
+            .filter(|n| n.starts_with(&format!("{base}.{why}-")))
             .collect();
         names.sort();
         names
@@ -1370,7 +1437,7 @@ mod tests {
         let conn = open_db(dir.clone()).unwrap();
         let n: i64 = conn.query_row("SELECT COUNT(*) FROM profiles", [], |row| row.get(0)).unwrap();
         assert_eq!(n, 1);
-        assert!(set_aside_files(&dir, "corrupt").is_empty());
+        assert!(set_aside_files(&dir, "vega.db", "corrupt").is_empty());
         drop(conn);
         fs::remove_dir_all(&dir).ok();
     }
@@ -1401,7 +1468,7 @@ mod tests {
         let conn = open_db(dir.to_path_buf()).unwrap();
         let n: i64 = conn.query_row("SELECT COUNT(*) FROM notes", [], |row| row.get(0)).unwrap();
         assert_eq!(n, 0, "a fresh cache");
-        let aside = set_aside_files(dir, "corrupt");
+        let aside = set_aside_files(dir, "vega.db", "corrupt");
         let databases: Vec<&String> =
             aside.iter().filter(|n| sqlite_base(n) == n.as_str()).collect();
         assert_eq!(databases.len(), 1, "{aside:?}");
@@ -1457,8 +1524,8 @@ mod tests {
     }
 
     /// The damaged set was set aside whole, and as found.
-    fn assert_kept_as_found(dir: &Path, main: &[u8], wal: &[u8]) {
-        let aside = set_aside_files(dir, "corrupt"); // sorted: the database, -shm, -wal
+    fn assert_kept_as_found(dir: &Path, base: &str, main: &[u8], wal: &[u8]) {
+        let aside = set_aside_files(dir, base, "corrupt"); // sorted: the database, -shm, -wal
         assert_eq!(aside.len(), 3, "{aside:?}");
         assert!(fs::read(dir.join(&aside[0])).unwrap() == main, "the database as found");
         assert!(aside[2].ends_with("-wal"));
@@ -1474,7 +1541,7 @@ mod tests {
 
         drop(open_db(dir.clone()).unwrap());
 
-        assert_kept_as_found(&dir, &main, &wal);
+        assert_kept_as_found(&dir, "vega.db", &main, &wal);
         fs::remove_dir_all(&dir).ok();
     }
 
@@ -1549,10 +1616,10 @@ mod tests {
 
         assert!(fs::read(dir.join("vega.db")).unwrap() == main, "the database where it was");
         assert!(fs::read(dir.join("vega.db-wal")).unwrap() == wal, "its WAL where it was");
-        assert!(set_aside_files(&dir, "corrupt").is_empty());
+        assert!(set_aside_files(&dir, "vega.db", "corrupt").is_empty());
 
         drop(open_db(dir.clone()).unwrap()); // the next start
-        assert_kept_as_found(&dir, &main, &wal);
+        assert_kept_as_found(&dir, "vega.db", &main, &wal);
         fs::remove_dir_all(&dir).ok();
     }
 
@@ -1569,7 +1636,7 @@ mod tests {
 
         let n: i64 = conn.query_row("SELECT COUNT(*) FROM notes", [], |row| row.get(0)).unwrap();
         assert_eq!(n, 0, "a fresh cache");
-        let aside = set_aside_files(&dir, "orphaned");
+        let aside = set_aside_files(&dir, "vega.db", "orphaned");
         let kept = aside.iter().find(|n| n.ends_with("-wal")).expect("the WAL set aside");
         assert!(fs::read(dir.join(kept)).unwrap() == wal, "{aside:?}");
         drop(conn);
@@ -1641,5 +1708,147 @@ mod tests {
         ] {
             assert!(!is_damage(&err(code)), "code {code}");
         }
+    }
+
+    // ── The cache in memory, relay.db, and each database's tables ───────────
+
+    /// A session that cannot open the cache on disk gets the same tables in memory. The
+    /// commands failed against the in-memory database `run()` used to fall back to,
+    /// which had none.
+    #[test]
+    fn the_cache_in_memory_has_the_cache_tables() {
+        let conn = cache_in_memory().unwrap();
+        assert_eq!(table_names(&conn), CACHE_TABLES);
+        conn.execute("INSERT INTO notes VALUES ('id', 'pk', 1, 1, '{}')", []).unwrap();
+    }
+
+    /// The lists the foreign-table check reads are the tables each schema makes, and no
+    /// name is in both: a database holding one of the other's tables is not its own.
+    #[test]
+    fn each_database_knows_its_own_tables() {
+        let dir = scratch_root();
+        drop(open_db(dir.clone()).unwrap());
+        drop(open_relay_db(&dir).unwrap());
+        assert_eq!(tables(&dir.join("vega.db")), CACHE_TABLES);
+        assert_eq!(tables(&dir.join("relay.db")), RELAY_TABLES);
+        assert!(CACHE_TABLES.iter().all(|t| !RELAY_TABLES.contains(t)));
+        fs::remove_dir_all(&dir).ok();
+    }
+
+    /// The WAL that `create` leaves in a new database called `name`, before the first
+    /// checkpoint: it holds every page of the database.
+    fn wal_of(name: &str, create: fn(&rusqlite::Connection) -> rusqlite::Result<()>) -> Vec<u8> {
+        let work = scratch_root();
+        let conn = rusqlite::Connection::open(work.join(name)).unwrap();
+        conn.execute_batch("PRAGMA journal_mode=WAL; PRAGMA wal_autocheckpoint=0;").unwrap();
+        create(&conn).unwrap();
+        let wal = fs::read(work.join(format!("{name}-wal"))).unwrap();
+        drop(conn);
+        fs::remove_dir_all(&work).ok();
+        wal
+    }
+
+    /// Put `wal` beside the closed database `<dir>/<base>`, as the renames before November
+    /// 2026 could. Returns the database's bytes.
+    fn beside_a_foreign_wal(dir: &Path, base: &str, wal: &[u8]) -> Vec<u8> {
+        assert!(!dir.join(format!("{base}-wal")).exists(), "the database was closed");
+        fs::remove_file(dir.join(format!("{base}-shm"))).ok();
+        fs::write(dir.join(format!("{base}-wal")), wal).unwrap();
+        fs::read(dir.join(base)).unwrap()
+    }
+
+    /// `vega.db` beside `relay.db`'s WAL. SQLite applies it without a word, and since it
+    /// rewrites every page, quick_check finds nothing wrong: the file is the relay's
+    /// database now. Before this, Vega created the cache's tables again beside the relay's
+    /// and went on. Now the set is kept as found and a fresh cache starts.
+    #[test]
+    fn a_cache_holding_the_relays_tables_is_set_aside() {
+        let dir = scratch_root();
+        drop(open_db(dir.clone()).unwrap());
+        let wal = wal_of("relay.db", create_relay_tables);
+        let main = beside_a_foreign_wal(&dir, "vega.db", &wal);
+        {
+            let conn = rusqlite::Connection::open(dir.join("vega.db")).unwrap();
+            let verdict: String = conn.query_row("PRAGMA quick_check", [], |row| row.get(0)).unwrap();
+            assert_eq!(verdict, "ok", "quick_check alone does not see it");
+            assert_eq!(table_names(&conn), RELAY_TABLES, "the cache's tables are gone");
+            conn.set_db_config(rusqlite::config::DbConfig::SQLITE_DBCONFIG_NO_CKPT_ON_CLOSE, true)
+                .unwrap(); // leave the WAL where it is
+        }
+
+        let conn = open_db(dir.clone()).unwrap();
+
+        assert_eq!(table_names(&conn), CACHE_TABLES, "a fresh cache, with none of the relay's tables");
+        assert_kept_as_found(&dir, "vega.db", &main, &wal);
+        drop(conn);
+        fs::remove_dir_all(&dir).ok();
+    }
+
+    /// And the other way round: `relay.db` beside the cache's WAL.
+    #[test]
+    fn a_relay_db_holding_the_caches_tables_is_set_aside() {
+        let dir = scratch_root();
+        drop(open_relay_db(&dir).unwrap());
+        let wal = wal_of("vega.db", create_cache_tables);
+        let main = beside_a_foreign_wal(&dir, "relay.db", &wal);
+
+        let conn = open_relay_db(&dir).unwrap();
+
+        assert_eq!(table_names(&conn), RELAY_TABLES, "a fresh relay.db, with none of the cache's tables");
+        assert_kept_as_found(&dir, "relay.db", &main, &wal);
+        drop(conn);
+        fs::remove_dir_all(&dir).ok();
+    }
+
+    #[test]
+    fn a_healthy_relay_db_is_kept() {
+        let dir = scratch_root();
+        open_relay_db(&dir)
+            .unwrap()
+            .execute("INSERT INTO events VALUES ('id', 'pk', 1, 0, '', 'sig', '{}')", [])
+            .unwrap();
+
+        let conn = open_relay_db(&dir).unwrap();
+
+        let n: i64 = conn.query_row("SELECT COUNT(*) FROM events", [], |row| row.get(0)).unwrap();
+        assert_eq!(n, 1);
+        assert!(set_aside_files(&dir, "relay.db", "corrupt").is_empty());
+        drop(conn);
+        fs::remove_dir_all(&dir).ok();
+    }
+
+    /// relay.db was opened without a check until November 2026: a damaged one failed the
+    /// relay's every query, or kept it from starting at all.
+    #[test]
+    fn a_damaged_relay_db_is_set_aside() {
+        let dir = scratch_root();
+        fs::write(dir.join("relay.db"), vec![b'x'; 8192]).unwrap();
+
+        let conn = open_relay_db(&dir).unwrap();
+
+        assert_eq!(table_names(&conn), RELAY_TABLES, "a fresh relay.db");
+        let aside = set_aside_files(&dir, "relay.db", "corrupt");
+        let databases: Vec<&String> = aside.iter().filter(|n| sqlite_base(n) == n.as_str()).collect();
+        assert_eq!(databases.len(), 1, "{aside:?}");
+        assert!(fs::read(dir.join(databases[0])).unwrap() == vec![b'x'; 8192], "kept as it was");
+        drop(conn);
+        fs::remove_dir_all(&dir).ok();
+    }
+
+    #[test]
+    fn a_relay_wal_with_no_database_is_set_aside() {
+        let dir = scratch_root();
+        db_with_table_only_in_its_wal(&dir, "relay.db", "t");
+        fs::remove_file(dir.join("relay.db")).unwrap();
+        let wal = fs::read(dir.join("relay.db-wal")).unwrap();
+
+        let conn = open_relay_db(&dir).unwrap();
+
+        assert_eq!(table_names(&conn), RELAY_TABLES, "a fresh relay.db");
+        let aside = set_aside_files(&dir, "relay.db", "orphaned");
+        let kept = aside.iter().find(|n| n.ends_with("-wal")).expect("the WAL set aside");
+        assert!(fs::read(dir.join(kept)).unwrap() == wal, "{aside:?}");
+        drop(conn);
+        fs::remove_dir_all(&dir).ok();
     }
 }
