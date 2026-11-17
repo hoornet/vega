@@ -13,6 +13,7 @@ vi.mock("./ImageField", () => ({ ImageField: ({ label }: { label: string }) => <
 vi.mock("./Nip05Field", () => ({ Nip05Field: () => <div>verified name</div> }));
 
 import { EditProfileForm } from "./EditProfileForm";
+import { hasUnsentText } from "../../lib/unsentText";
 
 const ME = "aa".repeat(32);
 const onSaved = vi.fn();
@@ -37,6 +38,16 @@ describe("EditProfileForm", () => {
     expect(field("Your name").value).toBe("Ana K.");
     expect(field("yourname").value).toBe("ana");
     expect((screen.getByPlaceholderText("Tell people about yourself…") as HTMLTextAreaElement).value).toBe("hello");
+  });
+
+  // `vega --compose` must not show the feed over it (src/lib/unsentText.ts).
+  it("holds changes not saved yet, and not the profile it opened on", () => {
+    open();
+    expect(hasUnsentText()).toBe(false);
+    fireEvent.change(field("Your name"), { target: { value: "Ana" } });
+    expect(hasUnsentText()).toBe(true);
+    fireEvent.change(field("Your name"), { target: { value: "Ana K." } });
+    expect(hasUnsentText()).toBe(false);
   });
 
   it("saves what is in the form, trimmed, with empty fields left out", async () => {

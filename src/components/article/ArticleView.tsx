@@ -23,6 +23,7 @@ import { ArticleCard } from "./ArticleCard";
 import { ArrowLeft, Bookmark, Check, Heart, Link, MessageCircle, Pencil, Repeat2, Zap } from "lucide-react";
 import { copyText } from "../../lib/clipboard";
 import { tellPublish } from "../../lib/publishFeedback";
+import { useUnsentText } from "../../hooks/useUnsentText";
 
 // The reader. Its typography lives in index.css under `.reader-page`,
 // `.reader` and `.prose-article`: sizes in em on a fluid base, so the measure
@@ -127,6 +128,7 @@ export function ArticleView() {
   const [reacted, setReacted] = useState(false);
   const [showComment, setShowComment] = useState(false);
   const [commentText, setCommentText] = useState("");
+  useUnsentText(commentText, "comment");
   const autoResize = useAutoResize(3, 10);
   const { isBookmarked, addBookmark, removeBookmark, isArticleBookmarked, addArticleBookmark, removeArticleBookmark, markArticleRead } = useBookmarkStore();
 

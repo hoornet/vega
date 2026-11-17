@@ -45,6 +45,7 @@ import { IdentityBanner, BackupBanner } from "./components/shared/Banners";
 import { SignupOverlay } from "./components/shared/SignupOverlay";
 import { getTheme, applyTheme } from "./lib/themes";
 import { useKeyboardShortcuts } from "./hooks/useKeyboardShortcuts";
+import { listenForLaunchCommands } from "./lib/launchCommands";
 
 function App() {
   const currentView = useUIStore((s) => s.currentView);
@@ -74,6 +75,9 @@ function App() {
   );
 
   useKeyboardShortcuts();
+
+  // `vega --compose` and the like, from this launch's command line and from later launches (src/lib/launchCommands.ts).
+  useEffect(() => listenForLaunchCommands(), []);
 
   // The text-size preset is a CSS zoom on the window's root box below (not on <html>: engines differ on
   // what root zoom does to viewport units). Portals at <body> carry it themselves (BodyPortal).

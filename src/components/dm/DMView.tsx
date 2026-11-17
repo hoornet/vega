@@ -18,6 +18,7 @@ import { Button } from "../shared/Button";
 import { Plus, MessageSquarePlus } from "lucide-react";
 import { NewMessageDialog } from "./NewMessageDialog";
 import { explainPublishError } from "../../lib/publishErrors";
+import { useUnsentText } from "../../hooks/useUnsentText";
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -217,6 +218,7 @@ export function ThreadPanel({
   const [messages, setMessages] = useState<NDKEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [text, setText] = useState("");
+  useUnsentText(text, "message");
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);

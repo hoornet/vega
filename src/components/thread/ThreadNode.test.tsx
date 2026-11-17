@@ -16,6 +16,7 @@ vi.mock("../feed/NoteCard", () => ({
 import { ThreadNodeComponent } from "./ThreadNode";
 import { publishReply } from "../../lib/nostr";
 import { useToastStore } from "../../stores/toast";
+import { hasUnsentText } from "../../lib/unsentText";
 
 const ROOT = { id: "root", content: "the note", created_at: 1000, kind: 1, pubkey: "author", tags: [] } as unknown as NDKEvent;
 const REPLY = { id: "r1", content: "a reply", created_at: 1100, kind: 1, pubkey: "alice", tags: [["e", "root", "", "root"]] } as unknown as NDKEvent;
@@ -40,6 +41,17 @@ beforeEach(() => {
 afterEach(cleanup);
 
 describe("ThreadNode: replying to a reply", () => {
+  // `vega --compose` must not show the feed over it (src/lib/unsentText.ts).
+  it("holds a reply being written until the box goes", () => {
+    const { unmount } = render(<ThreadNodeComponent node={node} rootEvent={ROOT} onReplyPublished={onReplyPublished} mutedPubkeys={[]} contentMatchesMutedKeyword={() => false} />);
+    fireEvent.click(screen.getByRole("button", { name: "reply to this" }));
+    expect(hasUnsentText()).toBe(false);
+    fireEvent.change(box(), { target: { value: "half a thought" } });
+    expect(hasUnsentText()).toBe(true);
+    unmount();
+    expect(hasUnsentText()).toBe(false);
+  });
+
   // There was no catch: the button came back and nothing said the reply had not gone out.
   it("says so when the reply reached no relay, and keeps what was written", async () => {
     vi.mocked(publishReply).mockRejectedValue(new Error("Not enough relays received the event (0 published, 1 required)"));

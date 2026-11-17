@@ -11,6 +11,7 @@ import { readFile } from "@tauri-apps/plugin-fs";
 import { Button } from "../shared/Button";
 import { Check } from "lucide-react";
 import { explainPublishError } from "../../lib/publishErrors";
+import { useUnsentText } from "../../hooks/useUnsentText";
 
 interface InlineReplyBoxProps {
   event: NDKEvent;
@@ -22,6 +23,9 @@ export function InlineReplyBox({ event, name, rootEvent }: InlineReplyBoxProps) 
   const canSign = useCanSign();
   const [replyText, setReplyText] = useState("");
   const [attachments, setAttachments] = useState<string[]>([]);
+  // A reply under a note in a list (a profile, a search, a hashtag) is lost when the view goes, so it holds
+  // `vega --compose` back as the thread's boxes do (src/lib/unsentText.ts).
+  useUnsentText(replyText.trim().length > 0 || attachments.length > 0, "reply");
   const [replying, setReplying] = useState(false);
   const [replyError, setReplyError] = useState<string | null>(null);
   const [replySent, setReplySent] = useState(false);

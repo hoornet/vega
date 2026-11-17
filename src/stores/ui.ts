@@ -90,6 +90,13 @@ interface UIState {
   signup: "create" | "login" | null;
   /** Goes up each time something asks for the compose box ("Write a note"); the box takes focus when it changes. */
   composeRequest: number;
+  /**
+   * Until when a request from outside Vega (`vega --compose`) waits for a compose box that is not
+   * there yet; 0 for none. The box ignores a request made before it mounted, on purpose: an empty
+   * view's "Write a note" is for the box on screen. A launch is not: on a cold start the box mounts
+   * only once the session is restored, seconds later with a remote signer.
+   */
+  composePendingUntil: number;
   /** The account whose profile should open in its edit form ("Add a Lightning address"); taken by the view once it has. */
   editProfileFor: string | null;
   showDebugPanel: boolean;
@@ -125,6 +132,10 @@ interface UIState {
   openSignup: (step: "create" | "login") => void;
   /** Show the feed with the compose box focused. */
   requestCompose: () => void;
+  /** `requestCompose`, and a box that mounts within `holdMs` takes the request too (`takePendingCompose`). */
+  requestComposeWhenReady: (holdMs: number) => void;
+  /** Whether a request is still waiting for a box, and from now on not: the box that asks has taken it. */
+  takePendingCompose: () => boolean;
   /** Show the account's profile with the edit form open. */
   openProfileEditor: (pubkey: string) => void;
   closeSignup: () => void;
@@ -225,6 +236,7 @@ export const useUIStore = create<UIState>((set, get) => ({
   showHelp: false,
   signup: null,
   composeRequest: 0,
+  composePendingUntil: 0,
   editProfileFor: null,
   showDebugPanel: false,
   feedLanguageFilter: localStorage.getItem(SCRIPT_FILTER_KEY) || null,
@@ -247,6 +259,12 @@ export const useUIStore = create<UIState>((set, get) => ({
   },
   openSignup: (step) => set({ signup: step }),
   requestCompose: () => set((s) => ({ currentView: "feed", viewStack: [], composeRequest: s.composeRequest + 1 })),
+  requestComposeWhenReady: (holdMs) => set((s) => ({ currentView: "feed", viewStack: [], composeRequest: s.composeRequest + 1, composePendingUntil: Date.now() + holdMs })),
+  takePendingCompose: () => {
+    const waiting = get().composePendingUntil > Date.now();
+    if (get().composePendingUntil !== 0) set({ composePendingUntil: 0 });
+    return waiting;
+  },
   openProfileEditor: (pubkey) => { get().openProfile(pubkey); set({ editProfileFor: pubkey }); },
   closeSignup: () => set({ signup: null }),
   setFeedTab: (feedTab, opts) => {

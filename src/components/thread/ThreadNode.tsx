@@ -10,6 +10,7 @@ import { useAutoResize } from "../../hooks/useAutoResize";
 import { Button } from "../shared/Button";
 import { Check } from "lucide-react";
 import { tellPublish } from "../../lib/publishFeedback";
+import { useUnsentText } from "../../hooks/useUnsentText";
 
 interface ThreadNodeProps {
   node: ThreadNodeType;
@@ -31,6 +32,7 @@ function InlineThreadReply({ replyTo, rootEvent, onPublished }: {
   const profile = useProfile(replyTo.pubkey);
   const name = nameOf(profile, replyTo.pubkey);
   const [text, setText] = useState("");
+  useUnsentText(text, "reply");
   const [replying, setReplying] = useState(false);
   const [sent, setSent] = useState(false);
   const [showEmoji, setShowEmoji] = useState(false);

@@ -102,6 +102,55 @@ describe("ComposeBox: asked for from an empty view", () => {
   });
 });
 
+// `vega --compose` on a cold start: the request comes before the box exists, which mounts only
+// once the session is restored. A plain request from before the box is still not for it (above).
+describe("ComposeBox: asked for from outside Vega", () => {
+  it("takes a request that came before it mounted, once", () => {
+    useUIStore.setState({ composeRequest: 0, composePendingUntil: 0 });
+    useUIStore.getState().requestComposeWhenReady(60_000);
+    const { unmount } = render(<ComposeBox />);
+    expect(document.activeElement).toBe(box());
+    act(() => box().blur());
+    unmount();
+    // A box mounted again later does not take the same request a second time.
+    render(<ComposeBox />);
+    expect(document.activeElement).not.toBe(box());
+  });
+
+  it("drops a waiting request when a dialog opened meanwhile", () => {
+    useUIStore.setState({ composeRequest: 0, composePendingUntil: 0 });
+    useUIStore.getState().requestComposeWhenReady(60_000);
+    const dialog = document.createElement("div");
+    dialog.setAttribute("role", "dialog");
+    dialog.setAttribute("aria-modal", "true");
+    document.body.appendChild(dialog);
+    try {
+      render(<ComposeBox />);
+      expect(document.activeElement).not.toBe(box());
+      expect(useUIStore.getState().composePendingUntil).toBe(0);
+    } finally {
+      dialog.remove();
+    }
+  });
+
+  it("lets a request go once it has waited too long", () => {
+    useUIStore.setState({ composeRequest: 5, composePendingUntil: Date.now() - 1 });
+    render(<ComposeBox />);
+    expect(document.activeElement).not.toBe(box());
+    expect(useUIStore.getState().composePendingUntil).toBe(0);
+  });
+
+  it("is taken by a box already on screen, and not again by one mounted after", () => {
+    useUIStore.setState({ composeRequest: 0, composePendingUntil: 0 });
+    const first = render(<ComposeBox />);
+    act(() => useUIStore.getState().requestComposeWhenReady(60_000));
+    expect(useUIStore.getState().composePendingUntil).toBe(0);
+    first.unmount();
+    render(<ComposeBox />);
+    expect(document.activeElement).not.toBe(box());
+  });
+});
+
 // The mousedown of a click below the box blurred it; it collapsed; the mouseup
 // landed two lines further up, on something else.
 describe("ComposeBox: collapsing", () => {
