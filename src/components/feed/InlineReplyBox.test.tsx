@@ -13,12 +13,35 @@ vi.mock("../../stores/user", () => ({ useCanSign: () => true }));
 
 import { InlineReplyBox } from "./InlineReplyBox";
 import { publishReply } from "../../lib/nostr";
+import { hasUnsentText } from "../../lib/unsentText";
 
 const NOTE = { id: "note", pubkey: "author", content: "hello", kind: 1, tags: [] } as unknown as NDKEvent;
 const box = () => screen.getByPlaceholderText("Reply to Alice…") as HTMLTextAreaElement;
 
 beforeEach(() => { vi.mocked(publishReply).mockReset(); });
 afterEach(cleanup);
+
+// A reply typed under a note on a profile or in a search went with the view when `vega --compose`
+// showed the feed (Greptile on #185).
+describe("InlineReplyBox: a reply being written", () => {
+  it("holds vega --compose back until it is sent, cleared, or the box goes", async () => {
+    vi.mocked(publishReply).mockResolvedValue({} as NDKEvent);
+    const { unmount } = render(<InlineReplyBox event={NOTE} name="Alice" />);
+    expect(hasUnsentText()).toBe(false);
+    fireEvent.change(box(), { target: { value: "half a thought" } });
+    expect(hasUnsentText()).toBe(true);
+    fireEvent.change(box(), { target: { value: "   " } });
+    expect(hasUnsentText()).toBe(false);
+    fireEvent.change(box(), { target: { value: "my reply" } });
+    fireEvent.click(screen.getByRole("button", { name: "Reply" }));
+    await waitFor(() => expect(box().value).toBe(""));
+    expect(hasUnsentText()).toBe(false);
+    fireEvent.change(box(), { target: { value: "another" } });
+    expect(hasUnsentText()).toBe(true);
+    unmount();
+    expect(hasUnsentText()).toBe(false);
+  });
+});
 
 describe("InlineReplyBox: a reply that did not go out", () => {
   // It used to read "Failed: Error: Not enough relays received the event (0 published, 1 required)".
