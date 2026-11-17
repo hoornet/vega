@@ -26,6 +26,7 @@ import { Button } from "../shared/Button";
 import { RefreshCw } from "lucide-react";
 import { ListState, stateWithoutRows, followListState, didNotLoad } from "../shared/ListState";
 import { loadList, type LoadOutcome } from "../../lib/listLoad";
+import { InHomeFeed } from "../../hooks/useUnsentText";
 
 function timeAgo(ts: number): string {
   const sec = Math.floor((Date.now() - ts) / 1000);
@@ -294,6 +295,7 @@ export function Feed() {
   }, [virtualItems, filteredNotes.length, tab, loadOlderNotes]);
 
   return (
+    <InHomeFeed.Provider value={true}>
     <div className="h-full flex flex-col">
       {/* Header */}
       <ViewHeader
@@ -480,5 +482,6 @@ export function Feed() {
         )}
       </div>
     </div>
+    </InHomeFeed.Provider>
   );
 }

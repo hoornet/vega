@@ -14,6 +14,7 @@ vi.mock("../../stores/user", () => ({ useCanSign: () => true }));
 import { InlineReplyBox } from "./InlineReplyBox";
 import { publishReply } from "../../lib/nostr";
 import { hasUnsentText } from "../../lib/unsentText";
+import { InHomeFeed } from "../../hooks/useUnsentText";
 
 const NOTE = { id: "note", pubkey: "author", content: "hello", kind: 1, tags: [] } as unknown as NDKEvent;
 const box = () => screen.getByPlaceholderText("Reply to Alice…") as HTMLTextAreaElement;
@@ -39,6 +40,12 @@ describe("InlineReplyBox: a reply being written", () => {
     fireEvent.change(box(), { target: { value: "another" } });
     expect(hasUnsentText()).toBe(true);
     unmount();
+    expect(hasUnsentText()).toBe(false);
+  });
+
+  it("holds nothing under a note in the home feed, which the command shows and never unmounts", () => {
+    render(<InHomeFeed.Provider value={true}><InlineReplyBox event={NOTE} name="Alice" /></InHomeFeed.Provider>);
+    fireEvent.change(box(), { target: { value: "half a thought" } });
     expect(hasUnsentText()).toBe(false);
   });
 });

@@ -1,6 +1,7 @@
 import { describe, it, expect, afterEach } from "vitest";
+import type { ReactNode } from "react";
 import { renderHook, cleanup } from "@testing-library/react";
-import { useUnsentText } from "./useUnsentText";
+import { useUnsentText, InHomeFeed } from "./useUnsentText";
 import { hasUnsentText, unsentTextNotice, type UnsentKind } from "../lib/unsentText";
 
 afterEach(cleanup);
@@ -15,6 +16,13 @@ describe("useUnsentText", () => {
     rerender({ t: "a reply", k: "reply" });
     expect(hasUnsentText()).toBe(true);
     rerender({ t: "", k: "reply" });
+    expect(hasUnsentText()).toBe(false);
+  });
+
+  // The feed is what the command shows, and it is never unmounted (Greptile on #185).
+  it("holds nothing in the home feed, where the text stays", () => {
+    const wrapper = ({ children }: { children: ReactNode }) => <InHomeFeed.Provider value={true}>{children}</InHomeFeed.Provider>;
+    renderHook(() => useUnsentText("a reply", "reply"), { wrapper });
     expect(hasUnsentText()).toBe(false);
   });
 
