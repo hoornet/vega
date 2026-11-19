@@ -33,7 +33,7 @@ Linux also needs GStreamer plugins for audio/video playback — see the README.
 - `src/stores/` — Zustand, one store per domain.
 - `src/components/` — grouped by feature (`feed/`, `article/`, `thread/`, `profile/`, …).
 - `src/lib/lightning/` — NWC and payments.
-- `src-tauri/src/` — Rust: keychain, SQLite, the embedded relay.
+- `src-tauri/src/` — Rust: keychain, SQLite, the embedded relay (`relay/`), and the commands a second launch hands to the running Vega (`launch.rs`).
 
 `CLAUDE.md` is the authoritative architecture document and is kept current. Read it before a non-trivial change — it also records the mistakes that already cost us releases, which is the fastest way to avoid repeating them.
 
@@ -41,7 +41,7 @@ Linux also needs GStreamer plugins for audio/video playback — see the README.
 
 - Functional React components only.
 - **Never `any`.** Types go in `src/types/`.
-- Tailwind classes only — no inline styles (the one exception is unavoidable `WebkitUserSelect`).
+- Tailwind classes only. Inline styles are for `WebkitUserSelect` and for values computed at runtime (the text-size zoom, the sidebar's dragged width, the virtual list's row positions), nothing a class can express.
 - All NDK access through `src/lib/nostr/`. All Lightning through `src/lib/lightning/`.
 - New feature domain → new Zustand store.
 - Rust commands return `Result<T, String>`.
@@ -55,6 +55,7 @@ These are real, each one cost us time or a release:
 - **Startup and lifecycle changes need the real binary**, not unit tests. A data migration once had four passing tests and would still have wiped every Linux user's data — the defect was in *when* it ran.
 - **Some breakage only appears in built bundles.** CommonJS-only libraries can resolve to a namespace object under Vite/Rolldown and throw React #130, which never reproduces in `npm run tauri dev`. If you add a CJS dependency rendered as JSX, guard it and test a production build.
 - **WebKitGTK on Linux does not evict decoded bitmaps** the way Chromium does. Anything that multiplies `<img>` elements per feed page translates roughly linearly into memory. Validate "render this as an image" heuristics against a real content-type check.
+- **A release build hands itself to a Vega that is already running, and exits.** Only one Vega runs per user session (a D-Bus name on Linux), whatever its data directory, so a release build run in a scratch profile next to your installed Vega shows nothing and looks broken. Quit the installed Vega first. Debug builds (`npm run tauri dev`) stay out of this unless `VEGA_SINGLE_INSTANCE` is set.
 - **`package-lock.json` is a version file.** CI runs `npm ci`, which *fails* on a package.json/lockfile mismatch rather than reconciling it.
 
 ## Tests

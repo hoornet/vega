@@ -34,7 +34,8 @@ Published versions are never re-tagged — a bad release is superseded by a high
 - Relay privacy — anything causing Vega to contact a relay the user did not configure while **Relay reach** is off, or to answer a NIP-42 AUTH challenge outside the scope the **Relay authentication** setting allows
 - NIP-46 remote signing
 - Rendering of untrusted content from relays (articles, notes, profile fields)
-- The Tauri IPC surface and Rust commands
+- The Tauri IPC surface and Rust commands, including the command line a second launch hands to the running Vega (over the session bus on Linux)
+- Lightning payments: NWC, zaps, and podcast streaming paying more, or someone else, than the user asked
 
 ## Out of scope
 
@@ -45,7 +46,11 @@ Published versions are never re-tagged — a bad release is superseded by a high
 ## Existing measures
 
 - Private keys live in the OS keychain, never in app storage or localStorage
-- Release builds run `npm ci --ignore-scripts`; the lockfile is the source of truth
+- Every event a relay sends is checked before the app sees it: its signature, and that its id is the hash of its own contents. NDK's sampling of signatures is switched off
+- A Lightning invoice is paid only when its amount is the amount Vega asked for
+- The Rust HTTP client trusts a root certificate list compiled into Vega; when a certificate authority is distrusted, the list is updated and a release goes out
+- Release builds run `npm ci --ignore-scripts` and Cargo runs with `--locked`; the lockfiles are the source of truth
+- `cargo audit` runs weekly, and Dependabot and Aikido watch the dependencies
 - All GitHub Actions are pinned to commit SHAs
 - `@nostr-dev-kit/ndk` is pinned exactly, no caret range
 - Secret scanning with push protection, and a pre-commit hook (`scripts/check-no-leaks.sh`) blocking credentials and private hostnames
