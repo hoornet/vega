@@ -135,7 +135,7 @@ A Nostr client trusts nothing a relay says: an event counts because its author s
 - `src/lib/nostr/` — NDK wrapper split into domain modules (`core.ts`, `notes.ts`, `social.ts`, `articles.ts`, `engagement.ts`, `dms.ts`, `lists.ts` (mute, bookmark and podcast lists; `bookmarks.ts` and `muting.ts` went in #142), `search.ts`, `relays.ts`, `trending.ts`, `vertex.ts`, `authentic.ts`, `fetchTotals.ts`, `nip46.ts`, `podcasts.ts`, `polls.ts`, `relayAuth.ts`, `relayInfo.ts`, `wot.ts`); barrel `index.ts` re-exports all; all Nostr calls go through here
 - `src/lib/themes.ts` — Color theme definitions (7 themes) and `applyTheme()` utility
 - `src/lib/lightning/` — NWC client (`nwc.ts`); Lightning payment logic
-- `src/hooks/` — eighteen hooks, among them `useProfile.ts` (profile cache with miss retries), `useReactions.ts` (grouped emoji reactions with throttled fetch queue), `useReputation.ts` (Vertex WoT with cache), `useLoadedList.ts`, `useModal.ts`, `usePopoverDismiss.ts`, `useStartingPeople.ts`
+- `src/hooks/` — nineteen hooks, among them `useProfile.ts` (profile cache with miss retries), `useReactions.ts` (grouped emoji reactions with throttled fetch queue), `useReputation.ts` (Vertex WoT with cache), `useLoadedList.ts`, `useModal.ts`, `usePopoverDismiss.ts`, `useStartingPeople.ts`, `useUnsentText.ts`
 - `src/lib/debug.ts` — Dev-only logger (silent in production builds)
 - `src/components/feed/` — Feed, NoteCard, NoteContent, NoteActions, InlineReplyBox, TextSegments, MediaCards, ComposeBox
 - `src/components/profile/` — ProfileView, EditProfileForm, ImageField, Nip05Field, ProfileMediaGallery
@@ -154,6 +154,8 @@ A Nostr client trusts nothing a relay says: an event counts because its author s
 **Backend** (`src-tauri/`): Rust + Tauri 2.0
 
 - `src-tauri/src/lib.rs` — Tauri app init and command registration
+- `src-tauri/src/launch.rs` — the commands a second launch hands to the running Vega (`--compose`); see "One Vega at a time"
+- `src-tauri/src/relay/` — the embedded relay
 - Rust commands must return `Result<T, String>`
 - OS keychain via `keyring` crate — `store_nsec`, `load_nsec`, `delete_nsec` commands
 - SQLite note/profile cache via `rusqlite`
@@ -164,7 +166,7 @@ A Nostr client trusts nothing a relay says: an event counts because its author s
 
 - Functional React components only — no class components
 - Never use `any` — define types in `src/types/`
-- Tailwind classes only — no inline styles, except the unavoidable ones: WebkitUserSelect, the text-size zoom on the root box, the sidebar's dragged width
+- Tailwind classes only — inline styles only for WebkitUserSelect and values computed at runtime: the text-size zoom on the root box, the sidebar's dragged width, the virtual list's row positions, a progress bar's width, theme previews
 - Private keys stored in OS keychain via Rust `keyring` crate; nsec persists across restarts
 - New Zustand stores per domain when adding features
 - NDK interactions only through `src/lib/nostr/` wrapper
@@ -218,6 +220,7 @@ A Nostr client trusts nothing a relay says: an event counts because its author s
 - Media players (video/audio inline, YouTube/Vimeo/Spotify cards)
 - Multi-account switcher with keychain-backed session restore
 - System tray, keyboard shortcuts, auto-updater
+- **One Vega at a time, `vega --compose`** — a second launch hands its command line to the running Vega; see "One Vega at a time, and launching it from outside"
 - **Update banner changelog** — "What's new" on the update banner reads the GitHub release notes of every release since the installed version (newest first, `src/lib/releaseNotes.ts`, fetched once when the panel is opened through the proxy-aware HTTP path), and falls back to the updater body only if it has a section for the offered version. Before October 2026 it sliced `latest.json`'s `notes`, which is the workflow's fixed text, so the newest section it could ever show was v0.14.0
 - **Mute-aware search** (v0.13.2) — search results (notes/articles by pubkey + keyword, people by pubkey) honour the mute list, not just the feed
 - **Collapsing compose box** (v0.13.2) — single line when idle, expands on focus; uses focus-within blur semantics so toolbar clicks don't collapse it. **It collapses only after the pointer is released** (`afterPointerRelease`, `src/lib/pointer.ts`): the mousedown of a click below it blurred the box, it collapsed, everything under it moved up two lines, and the mouseup landed on something else, so the first click on the "start here" card, or on the first note, did nothing while the box had focus

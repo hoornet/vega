@@ -37,7 +37,7 @@ full NIP coverage, performance that feels native.
 - Types in `src/types/` — never use `any`
 - NDK interactions only through `src/lib/nostr/` wrapper
 - Lightning/NWC only through `src/lib/lightning/` wrapper
-- Tailwind classes only — no inline styles (except unavoidable WebkitUserSelect)
+- Tailwind classes only — inline styles only for `WebkitUserSelect` and values computed at runtime (the text-size zoom, the sidebar's dragged width, the virtual list's row positions, a progress bar's width, theme previews)
 
 ### Rust
 - Commands return `Result<T, String>`
@@ -56,7 +56,7 @@ full NIP coverage, performance that feels native.
 - Do NOT add dependencies without checking if the existing stack covers it
 - Do NOT store private keys anywhere except the OS keychain
 - Do NOT expose Lightning credentials to the frontend/JS layer
-- Do NOT use inline styles — use Tailwind classes
+- Do NOT use inline styles for anything a Tailwind class can express
 - Do NOT add paywalls to core social/protocol features
 
 ---
