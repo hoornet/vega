@@ -17,10 +17,10 @@ export const MAX_HINT_RELAYS = 3;
  * private one, or a public IPv4 address. A link can come from any web page, and a hint is a
  * place it asks Vega to connect to, so nothing on this computer or its network is one: not
  * `localhost` or a bare name, not `.local`, not a private, loopback, link-local or shared IPv4
- * range, not an IPv6 literal (all the local ones are literals). `URL` has already turned an IPv4
- * address written as one number or in hex into dotted form; the caller drops a trailing dot, which
- * `URL` keeps (`localhost.` is `localhost`). A public name that resolves to a private address is
- * not caught: that would need the DNS answer, which a webview cannot see.
+ * range, not an IPv6 literal (all the local ones are literals). `host` is as `URL` reads it, which
+ * has turned an IPv4 address written short, as one number or in hex into dotted form. A public
+ * name that resolves to a private address is not caught: that would need the DNS answer, which a
+ * webview cannot see.
  */
 function publicHost(host: string): boolean {
   if (host.startsWith("[") || !host.includes(".")) return false;
@@ -55,9 +55,19 @@ export function safeHintRelays(relays: readonly string[] | undefined): string[] 
     } catch {
       continue;
     }
-    const host = url.hostname.replace(/\.+$/, "");
-    if (url.protocol !== "wss:" || url.username || url.password || !publicHost(host)) continue;
-    const relay = normalizeRelayUrl(`wss://${host}${url.port ? `:${url.port}` : ""}${url.pathname}`);
+    if (url.protocol !== "wss:" || url.username || url.password) continue;
+    // A trailing dot is the same host to DNS, and `URL` keeps it (`localhost.`); with empty labels
+    // it does not read the host as an address at all (`127.1..`), and without the dots the same
+    // host is one (`127.1` is 127.0.0.1). So the dots go, the address is read again, and the host
+    // is judged as that second reading has it, which is how the relay connection will read it too.
+    let final: URL;
+    try {
+      final = new URL(`wss://${url.hostname.replace(/\.+$/, "")}${url.port ? `:${url.port}` : ""}${url.pathname}`);
+    } catch {
+      continue;
+    }
+    if (!publicHost(final.hostname)) continue;
+    const relay = normalizeRelayUrl(`wss://${final.host}${final.pathname}`);
     if (!kept.includes(relay)) kept.push(relay);
   }
   return kept;

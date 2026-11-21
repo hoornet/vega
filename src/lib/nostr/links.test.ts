@@ -74,6 +74,12 @@ describe("safeHintRelays", () => {
       "wss://printer.example.local.",
       "wss://127.0.0.1.",
       "wss://192.168.1.10..",
+      // Short, numeric and hex IPv4 with empty labels: not an address to `URL` until the dots go.
+      "wss://127.1..:8443",
+      "wss://0x7f.1..",
+      "wss://2130706433..",
+      "wss://10.1..",
+      "wss://192.168.1..",
     ])).toEqual([]);
   });
 
