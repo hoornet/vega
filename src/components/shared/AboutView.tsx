@@ -16,8 +16,10 @@ const QRCode =
   (QRCodeImport as unknown as { default?: typeof QRCodeImport }).default ??
   QRCodeImport;
 
-const DEV_NPUB   = "npub1ezt7xcq87ljj65jkjsuagwll4yp75tacgkuyjdhkw6mza8j3azfq2vrvl6";
-const DEV_PUBKEY = "c897e36007f7e52d52569439d43bffa903ea2fb845b84936f676b62e9e51e892";
+// The account the developer posts as (Harpo, jure@getalby.com). Until November 2026 this was a key
+// with no profile on the relays, so the npub shown here led nowhere and "Zap" went to it.
+export const DEV_NPUB   = "npub1z4tqm54fnaprwjr4le73sj5cacfpe6zuylawrr9hcfgupruhs0asnzt3pm";
+export const DEV_PUBKEY = "15560dd2a99f42374875fe7d184a98ee121ce85c27fae18cb7c251c08f9783fb";
 const LIGHTNING_ADDRESS = "jure@getalby.com";
 const BITCOIN_ADDRESS = "bc1qcgaupf80j28ca537xjlcs9dm9s03khezjs7crp";
 const KOFI_URL = "https://ko-fi.com/jure";
@@ -78,7 +80,7 @@ export function AboutView() {
           <p className="text-text-muted text-body mb-3">
             Send sats directly from Vega using your connected Lightning wallet.
           </p>
-          <Button variant="primary" tone="zap" size="lg" onClick={() => setShowZap(true)}><Zap />Zap hoornet</Button>
+          <Button variant="primary" tone="zap" size="lg" onClick={() => setShowZap(true)}><Zap />Zap Harpo</Button>
           <p className="text-text-dim text-micro mt-2 font-mono break-all">{DEV_NPUB}</p>
         </section>
 
@@ -156,7 +158,7 @@ export function AboutView() {
       {showZap && (
         <ZapModal
           target={{ type: "profile", pubkey: DEV_PUBKEY }}
-          recipientName="hoornet"
+          recipientName="Harpo"
           onClose={() => setShowZap(false)}
         />
       )}
