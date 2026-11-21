@@ -1005,9 +1005,65 @@ fn autostart_unavailable() -> Option<&'static str> {
     None
 }
 
+/// The login entry's name, for good: the entry keeps it if the product name ever changes, and on
+/// Linux it is the file `~/.config/autostart/Vega.desktop`.
+const AUTOSTART_NAME: &str = "Vega";
+
+/// Whether a desktop entry's own keys switch it off, as a desktop's startup settings do instead
+/// of deleting it: `Hidden=true` (the XDG autostart specification; KDE and XFCE write it),
+/// `X-systemd-skip=true` (systemd's generator, which uwsm runs the entries through, skips both)
+/// and `X-GNOME-Autostart-enabled=false` (gnome-session, MATE and Cinnamon). Only the
+/// `[Desktop Entry]` group counts, spaces around `=` are ignored, and the last value of a key wins.
+#[cfg(any(target_os = "linux", test))]
+fn desktop_entry_switched_off(contents: &str) -> bool {
+    let (mut in_entry, mut hidden, mut skipped, mut gnome_off) = (false, false, false, false);
+    for line in contents.lines().map(str::trim) {
+        if line.starts_with('[') {
+            in_entry = line == "[Desktop Entry]";
+            continue;
+        }
+        if !in_entry || line.starts_with('#') {
+            continue;
+        }
+        let Some((key, value)) = line.split_once('=') else {
+            continue;
+        };
+        let value = value.trim();
+        match key.trim() {
+            "Hidden" => hidden = value == "true",
+            "X-systemd-skip" => skipped = value == "true",
+            "X-GNOME-Autostart-enabled" => gnome_off = value == "false",
+            _ => {}
+        }
+    }
+    hidden || skipped || gnome_off
+}
+
+/// Whether the login entry exists and will start Vega. auto-launch (0.6.0) answers only the
+/// first half on Linux: it checks that the file exists, and an entry the desktop's startup
+/// settings switched off (above) still reads as on, so the switch would say Vega starts at login
+/// while it does not. Windows needs nothing more: auto-launch reads the Task Manager's
+/// `StartupApproved` override there. A file that cannot be read is taken at auto-launch's word.
+fn login_entry_on(app: &AppHandle) -> Result<bool, String> {
+    use tauri_plugin_autostart::ManagerExt;
+    let exists = app.autolaunch().is_enabled().map_err(|e| e.to_string())?;
+    #[cfg(target_os = "linux")]
+    if exists {
+        let entry = dirs::home_dir().map(|home| {
+            home.join(".config")
+                .join("autostart")
+                .join(format!("{AUTOSTART_NAME}.desktop"))
+        });
+        if let Some(Ok(contents)) = entry.map(std::fs::read_to_string) {
+            return Ok(!desktop_entry_switched_off(&contents));
+        }
+    }
+    Ok(exists)
+}
+
 #[derive(serde::Serialize)]
 struct AutostartStatus {
-    /// Whether a login entry for Vega exists (on Linux, `~/.config/autostart/Vega.desktop`).
+    /// Whether a login entry for Vega exists and is not switched off (`login_entry_on`).
     enabled: bool,
     /// Why this build cannot write one: `development` or `flatpak`.
     unavailable: Option<&'static str>,
@@ -1015,16 +1071,15 @@ struct AutostartStatus {
 
 #[tauri::command]
 async fn autostart_status(app: AppHandle) -> Result<AutostartStatus, String> {
-    use tauri_plugin_autostart::ManagerExt;
-    let enabled = app.autolaunch().is_enabled().map_err(|e| e.to_string())?;
     Ok(AutostartStatus {
-        enabled,
+        enabled: login_entry_on(&app)?,
         unavailable: autostart_unavailable(),
     })
 }
 
-/// Writes or removes the login entry and returns whether it exists afterwards. Removing is
-/// always allowed; writing only where `autostart_unavailable` says nothing.
+/// Writes or removes the login entry and returns whether it is on afterwards. Removing is
+/// always allowed; writing only where `autostart_unavailable` says nothing. Writing replaces the
+/// whole file, so an entry the desktop had switched off is switched on again.
 #[tauri::command]
 async fn set_autostart(app: AppHandle, on: bool) -> Result<bool, String> {
     use tauri_plugin_autostart::ManagerExt;
@@ -1037,7 +1092,44 @@ async fn set_autostart(app: AppHandle, on: bool) -> Result<bool, String> {
     } else {
         autolaunch.disable().map_err(|e| e.to_string())?;
     }
-    autolaunch.is_enabled().map_err(|e| e.to_string())
+    login_entry_on(&app)
+}
+
+#[cfg(test)]
+mod autostart_tests {
+    use super::desktop_entry_switched_off;
+
+    /// What auto-launch 0.6.0 writes, as found in `~/.config/autostart/Vega.desktop`.
+    const WRITTEN: &str = "[Desktop Entry]\nType=Application\nVersion=1.0\nName=Vega\n\
+        Comment=Vega startup script\nExec=/usr/bin/vega --hidden\nStartupNotify=false\nTerminal=false";
+
+    /// Whether the written entry with `extra` lines after it reads as switched off.
+    fn off_with(extra: &str) -> bool {
+        desktop_entry_switched_off(&format!("{WRITTEN}\n{extra}"))
+    }
+
+    #[test]
+    fn the_entry_vega_writes_is_on() {
+        assert!(!desktop_entry_switched_off(WRITTEN));
+    }
+
+    #[test]
+    fn an_entry_the_desktop_switched_off_is_off() {
+        assert!(off_with("Hidden=true"));
+        assert!(off_with("Hidden = true\n"));
+        assert!(off_with("X-systemd-skip=true"));
+        assert!(off_with("X-GNOME-Autostart-enabled=false"));
+    }
+
+    #[test]
+    fn only_a_switched_off_value_in_the_entry_group_counts() {
+        assert!(!off_with("Hidden=false"));
+        assert!(!off_with("X-GNOME-Autostart-enabled=true"));
+        assert!(!off_with("#Hidden=true"));
+        assert!(!off_with("[Desktop Action quit]\nHidden=true"));
+        // The last value of a key wins, as desktop-entry readers take it.
+        assert!(!off_with("Hidden=true\nHidden=false"));
+    }
 }
 
 // ── App entry ────────────────────────────────────────────────────────────────
@@ -1074,14 +1166,13 @@ pub fn run() {
     }
 
     // Writes and removes the login entry behind "Start Vega when I log in", which starts Vega
-    // with `--hidden`. Named "Vega" for good, so the entry keeps its name if the product name
-    // ever changes. The plugin's own commands are not granted to the webview: `set_autostart`
-    // decides when an entry may be written.
+    // with `--hidden`, under `AUTOSTART_NAME`. The plugin's own commands are not granted to the
+    // webview: `set_autostart` decides when an entry may be written.
     #[cfg(desktop)]
     {
         builder = builder.plugin(
             tauri_plugin_autostart::Builder::new()
-                .app_name("Vega")
+                .app_name(AUTOSTART_NAME)
                 .arg("--hidden")
                 .build(),
         );
