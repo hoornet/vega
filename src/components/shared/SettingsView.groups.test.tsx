@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, fireEvent, cleanup, within } from "@testing-library/react";
 
-// Settings after the October 2026 UI review: six groups in a fixed order,
+// Settings after the October 2026 UI review: groups in a fixed order (seven since the Assistant, November 2026),
 // Advanced closed until asked, the relay privacy switches gone to Relays, and
 // nothing hidden when empty.
 
@@ -38,9 +38,9 @@ afterEach(cleanup);
 describe("Settings", () => {
   it("is six groups, daily things first, with a row of jumps", () => {
     render(<SettingsView />);
-    expect(groupTitles()).toEqual(["Appearance", "Account", "Wallet for zaps", "Notifications", "What you see", "Advanced"]);
+    expect(groupTitles()).toEqual(["Appearance", "Account", "Wallet for zaps", "Notifications", "What you see", "Assistant", "Advanced"]);
     const jumps = within(screen.getByRole("navigation", { name: "Settings sections" })).getAllByRole("button").map((b) => b.getAttribute("aria-label"));
-    expect(jumps).toEqual(["Go to Appearance", "Go to Account", "Go to Wallet for zaps", "Go to Notifications", "Go to What you see", "Go to Advanced"]);
+    expect(jumps).toEqual(["Go to Appearance", "Go to Account", "Go to Wallet for zaps", "Go to Notifications", "Go to What you see", "Go to Assistant", "Go to Advanced"]);
   });
 
   it("offers starting at login with the notifications, which arrive only while Vega runs", () => {

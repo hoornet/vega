@@ -5473,6 +5473,7 @@ dependencies = [
  "keyring",
  "reqwest 0.13.5",
  "rusqlite",
+ "rustls",
  "secp256k1",
  "serde",
  "serde_json",

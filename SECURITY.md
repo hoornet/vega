@@ -36,6 +36,7 @@ Published versions are never re-tagged — a bad release is superseded by a high
 - Rendering of untrusted content from relays (articles, notes, profile fields)
 - The Tauri IPC surface and Rust commands, including the command line a second launch hands to the running Vega (over the session bus on Linux) and `nostr:` links from other apps, which may only open a profile, a note or an article
 - Lightning payments: NWC, zaps, and podcast streaming paying more, or someone else, than the user asked
+- The assistant: its API keys (kept in the OS keychain and sent only to the address they were saved for) and anything it sends to a model or publishes
 
 ## Out of scope
 

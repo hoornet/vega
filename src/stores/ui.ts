@@ -53,7 +53,7 @@ export function keptHashtags(s: Pick<UIState, "currentView" | "viewStack" | "pen
 
 export type ProfileTab = "notes" | "articles" | "media";
 /** The ids of Settings' groups, as `GROUPS` in SettingsView names them. */
-export type SettingsGroupId = "appearance" | "account" | "wallet" | "notifications" | "what-you-see" | "advanced";
+export type SettingsGroupId = "appearance" | "account" | "wallet" | "notifications" | "what-you-see" | "assistant" | "advanced";
 /** How many profiles' tabs are remembered for the session. */
 const PROFILE_TABS_KEPT = 200;
 

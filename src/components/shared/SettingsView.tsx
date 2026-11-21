@@ -21,6 +21,7 @@ import { nameOf } from "../../lib/utils";
 import { refreshProxySettingsCache, type ProxySettings } from "../../lib/proxy";
 import { NWCWizard } from "./NWCWizard";
 import { StartAtLoginSection } from "./StartAtLoginSection";
+import { AssistantSection } from "./AssistantSection";
 import { getNotificationSettings, saveNotificationSettings, ensurePermission } from "../../lib/notifications";
 import { ViewHeader } from "./ViewHeader";
 import { Switch } from "./Switch";
@@ -804,6 +805,7 @@ const GROUPS = [
   { id: "wallet", title: "Wallet for zaps" },
   { id: "notifications", title: "Notifications" },
   { id: "what-you-see", title: "What you see" },
+  { id: "assistant", title: "Assistant" },
   { id: "advanced", title: "Advanced" },
 ] as const;
 
@@ -897,6 +899,9 @@ export function SettingsView() {
             <MutedKeywordsSection />
             <WoTSection />
             <ArticlesSection />
+          </Group>
+          <Group id="assistant" title="Assistant">
+            <AssistantSection />
           </Group>
 
           {/* Advanced is closed until asked: proxy, local relay and diagnostics are for the few who know they need them. */}
