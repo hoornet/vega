@@ -89,16 +89,18 @@ package() {
         "$pkgdir/usr/share/icons/hicolor/256x256/apps/vega.png"
 
     # Desktop entry. WEBKIT_DISABLE_DMABUF_RENDERER=1 is required on Wayland —
-    # without it the WebKit DMA-BUF renderer produces a blank window.
+    # without it the WebKit DMA-BUF renderer produces a blank window. MimeType and
+    # %u make Vega a handler of nostr: links, which arrive as its argument.
     install -Dm644 /dev/stdin \
         "$pkgdir/usr/share/applications/vega.desktop" << 'EOF'
 [Desktop Entry]
 Name=Vega
 Comment=Nostr desktop client
-Exec=env WEBKIT_DISABLE_DMABUF_RENDERER=1 /usr/bin/vega
+Exec=env WEBKIT_DISABLE_DMABUF_RENDERER=1 /usr/bin/vega %u
 Icon=vega
 Type=Application
 Categories=Network;InstantMessaging;
+MimeType=x-scheme-handler/nostr;
 StartupNotify=true
 EOF
 

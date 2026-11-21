@@ -49,3 +49,9 @@ webkit2gtk = "2.0"
 [target.'cfg(any(target_os = "macos", windows, target_os = "linux"))'.dependencies]
 tauri-plugin-single-instance = "2.5.4"
 tauri-plugin-autostart = "2.7.0"
+
+# Delivers `nostr:` links on macOS, where they arrive as an Apple Event instead of on the command
+# line. Linux and Windows hand a link over as an argument (`launch.rs`), and every package claims
+# the scheme from `plugins > deep-link` in tauri.conf.json whether or not this crate is built.
+[target.'cfg(target_os = "macos")'.dependencies]
+tauri-plugin-deep-link = "2.6.3"

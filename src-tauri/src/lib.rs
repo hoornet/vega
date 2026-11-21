@@ -43,6 +43,29 @@ fn take_launch_commands(
     Ok(commands)
 }
 
+/// Puts what a `nostr:` link names in the launch queue and tells the frontend, as a second
+/// launch's command line does. On macOS a link comes as an Apple Event through the deep-link
+/// plugin, not on a command line; Linux and Windows never call this (`launch::parse` reads the
+/// link there), but it is compiled everywhere, so the macOS path is checked on every build. One
+/// link at most, as on a command line.
+#[cfg_attr(not(target_os = "macos"), allow(dead_code))]
+fn open_links<R: Runtime>(app: &AppHandle<R>, links: impl IntoIterator<Item = String>) {
+    let commands: Vec<_> = links
+        .into_iter()
+        .filter_map(|link| launch::link(&link))
+        .take(1)
+        .map(launch::LaunchCommand::Open)
+        .collect();
+    if commands.is_empty() {
+        return;
+    }
+    if let Some(pending) = app.try_state::<launch::PendingLaunch>() {
+        pending.push(commands);
+    }
+    show_main_window(app);
+    let _ = app.emit("launch-command", ());
+}
+
 // ── Data directory migration ────────────────────────────────────────────────
 
 // The app identifier changed from `com.hoornet.vega` to `com.veganostr.Vega` in
@@ -1165,6 +1188,15 @@ pub fn run() {
         }));
     }
 
+    // On macOS a `nostr:` link arrives as an Apple Event, not on a command line: the deep-link
+    // plugin turns it into an event, which `.setup` below hands to `open_links`. Linux and
+    // Windows need no plugin, and every package claims the scheme from tauri.conf.json
+    // (`plugins > deep-link`), which Tauri's bundler reads whether or not this crate is built.
+    #[cfg(target_os = "macos")]
+    {
+        builder = builder.plugin(tauri_plugin_deep_link::init());
+    }
+
     // Writes and removes the login entry behind "Start Vega when I log in", which starts Vega
     // with `--hidden`, under `AUTOSTART_NAME`. The plugin's own commands are not granted to the
     // webview: `set_autostart` decides when an entry may be written.
@@ -1188,6 +1220,20 @@ pub fn run() {
         .plugin(tauri_plugin_notification::init())
         .setup(move |app| {
             let main_window = create_main_window(app, !hidden)?;
+
+            // macOS: a link the plugin got before this listener existed is kept by it
+            // (`get_current`), and one that comes later reaches the listener. Not both.
+            #[cfg(target_os = "macos")]
+            {
+                use tauri_plugin_deep_link::DeepLinkExt;
+                if let Ok(Some(urls)) = app.deep_link().get_current() {
+                    open_links(app.handle(), urls.iter().map(|url| url.to_string()));
+                }
+                let handle = app.handle().clone();
+                app.deep_link().on_open_url(move |event| {
+                    open_links(&handle, event.urls().iter().map(|url| url.to_string()));
+                });
+            }
 
             // ── SQLite ───────────────────────────────────────────────────────
             let data_dir = app.path().app_data_dir()?;

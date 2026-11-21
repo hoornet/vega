@@ -3,10 +3,10 @@
  * profile changes. Those views are not kept mounted (`KEPT_VIEWS` in the ui store), and their
  * boxes hold the text in component state, so it goes when the view does.
  *
- * A request from outside Vega to open the compose box (`vega --compose`) shows the feed, which
- * would leave the view. It comes from another window, where nobody can see what is open here,
- * so it waits while anything is held (`launchCommands.ts`). The boxes say what they hold through
- * `useUnsentText` (`src/hooks/`).
+ * A request from outside Vega to open the compose box (`vega --compose`) shows the feed, and a
+ * `nostr:` link opens a profile, a note or an article; either would leave the view. Both come
+ * from another window, where nobody can see what is open here, so they wait while anything is
+ * held (`launchCommands.ts`). The boxes say what they hold through `useUnsentText` (`src/hooks/`).
  *
  * The `n` shortcut and the sidebar still leave such a view as they always have: both are pressed
  * inside the window, in front of the text.
@@ -27,16 +27,22 @@ export function hasUnsentText(): boolean {
   return held.size > 0;
 }
 
-const NOTICE: Record<UnsentKind, string> = {
-  message: "Your message isn't sent yet, so Vega didn't open a new note. Send or clear it first.",
-  reply: "Your reply isn't sent yet, so Vega didn't open a new note. Send or clear it first.",
-  comment: "Your comment isn't sent yet, so Vega didn't open a new note. Send or clear it first.",
-  profile: "Your profile changes aren't saved yet, so Vega didn't open a new note. Save or cancel them first.",
+/** What is held, and what to do with it, for each kind of text. */
+const HELD: Record<UnsentKind, [string, string]> = {
+  message: ["Your message isn't sent yet", "Send or clear it first."],
+  reply: ["Your reply isn't sent yet", "Send or clear it first."],
+  comment: ["Your comment isn't sent yet", "Send or clear it first."],
+  profile: ["Your profile changes aren't saved yet", "Save or cancel them first."],
 };
 
-/** Why a new note was not opened, for the text held most recently; null when nothing is held. */
-export function unsentTextNotice(): string | null {
+/**
+ * Why something from outside was not opened (`what`: "a new note" for `vega --compose`, "the link"
+ * for a `nostr:` link), for the text held most recently; null when nothing is held.
+ */
+export function unsentTextNotice(what = "a new note"): string | null {
   let last: UnsentKind | null = null;
   for (const kind of held.values()) last = kind;
-  return last ? NOTICE[last] : null;
+  if (!last) return null;
+  const [state, step] = HELD[last];
+  return `${state}, so Vega didn't open ${what}. ${step}`;
 }

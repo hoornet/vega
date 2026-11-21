@@ -15,6 +15,12 @@
 //! The login entry that "Start Vega when I log in" writes starts Vega that way. Handed to a Vega
 //! that is already running, it does nothing at all: the login entry ran while Vega was open.
 //!
+//! A `nostr:` link (NIP-21) is a command too: clicking one in a browser or another app starts
+//! `vega nostr:nevent1…` on Linux and Windows, which this reads like `--compose` (on macOS the link
+//! arrives as an Apple Event instead, through the deep-link plugin, into the same queue). Anyone
+//! can make a link, a web page included, so only its shape is accepted here, and the frontend
+//! only opens what it names: a profile, a note or an article, never anything that publishes.
+//!
 //! Commands wait in a queue until the frontend takes them (`take_launch_commands`), and the
 //! frontend is told when one arrives (the `launch-command` event). An event sent before the
 //! webview listens is lost; a queue is not.
@@ -23,23 +29,62 @@ use serde::Serialize;
 use std::sync::Mutex;
 
 /// One thing a command line asked for.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub enum LaunchCommand {
     /// Open the compose box.
     Compose,
+    /// Open what a `nostr:` link names, as `link` returns it.
+    Open(String),
+}
+
+/// The NIP-19 references a link may open: a profile, a note, an article. Anything else, an
+/// `nsec` above all, is not a link Vega opens, and is dropped without being kept or echoed.
+const OPENABLE: [&str; 5] = ["npub1", "nprofile1", "note1", "nevent1", "naddr1"];
+
+/// The bech32 alphabet, which is all a reference holds after its prefix.
+const BECH32: &str = "qpzry9x8gf2tvdw0s3jn54khce6mua7l";
+
+/// The longest reference a link may hold. An `nevent` or `naddr` with relay hints runs to a few
+/// hundred characters; this leaves room for that, not for a command line built to be large.
+const MAX_REFERENCE: usize = 2000;
+
+/// A `nostr:` link as Vega will open it, `nostr:` and the reference in lower case, or `None`
+/// for anything else. Only the shape is checked here; the frontend decodes the reference.
+/// `nostr://…`, which some apps write, is read as `nostr:…`.
+pub fn link(arg: &str) -> Option<String> {
+    if !arg.get(..6)?.eq_ignore_ascii_case("nostr:") {
+        return None;
+    }
+    let reference = arg[6..].trim_start_matches('/').to_ascii_lowercase();
+    if reference.len() > MAX_REFERENCE {
+        return None;
+    }
+    let prefix = OPENABLE.iter().find(|p| reference.starts_with(**p))?;
+    let data = &reference[prefix.len()..];
+    if data.is_empty() || !data.chars().all(|c| BECH32.contains(c)) {
+        return None;
+    }
+    Some(format!("nostr:{reference}"))
 }
 
 /// The commands on a command line. The first argument is the program and is skipped, and
 /// anything not known is ignored: a launcher that adds arguments of its own changes nothing.
+/// One link at most: a click hands over one, and a line holding many is not a click.
 pub fn parse(args: &[String]) -> Vec<LaunchCommand> {
-    args.iter()
-        .skip(1)
-        .filter_map(|arg| match arg.as_str() {
-            "--compose" => Some(LaunchCommand::Compose),
-            _ => None,
-        })
-        .collect()
+    let mut commands = Vec::new();
+    let mut linked = false;
+    for arg in args.iter().skip(1) {
+        if arg == "--compose" {
+            commands.push(LaunchCommand::Compose);
+        } else if !linked {
+            if let Some(link) = link(arg) {
+                commands.push(LaunchCommand::Open(link));
+                linked = true;
+            }
+        }
+    }
+    commands
 }
 
 /// Whether a command line asks Vega to start without a window (`--hidden`). As with `parse`,
@@ -147,5 +192,68 @@ mod tests {
     #[test]
     fn the_frontend_reads_the_command_as_a_plain_word() {
         assert_eq!(serde_json::to_string(&LaunchCommand::Compose).unwrap(), "\"compose\"");
+    }
+
+    /// The example public key of NIP-19 itself.
+    const NPUB: &str = "npub10elfcs4fr0l0r8af98jlmgdh9c8tcxjvz9qkw038js35mp4dma8qzvjptg";
+
+    fn open(reference: &str) -> Vec<LaunchCommand> {
+        vec![LaunchCommand::Open(format!("nostr:{reference}"))]
+    }
+
+    #[test]
+    fn reads_a_nostr_link_as_a_command() {
+        assert_eq!(parse(&args(&["vega", &format!("nostr:{NPUB}")])), open(NPUB));
+        for prefix in ["nprofile1", "note1", "nevent1", "naddr1"] {
+            let reference = format!("{prefix}qqsx3xd");
+            assert_eq!(parse(&args(&["vega", &format!("nostr:{reference}")])), open(&reference));
+        }
+        // A link is a command for the window.
+        assert!(brings_forward(&args(&["vega", "--hidden", &format!("nostr:{NPUB}")])));
+    }
+
+    #[test]
+    fn a_link_is_read_in_lower_case_and_nostr_slash_slash_is_nostr() {
+        let upper = format!("NOSTR:{}", NPUB.to_uppercase());
+        assert_eq!(parse(&args(&["vega", &upper])), open(NPUB));
+        assert_eq!(parse(&args(&["vega", &format!("nostr://{NPUB}")])), open(NPUB));
+    }
+
+    #[test]
+    fn a_secret_key_or_anything_else_is_not_a_link() {
+        for arg in [
+            "nostr:nsec1qqsx3xdqqsx3xd",
+            "nostr:ncryptsec1qqsx3xd",
+            "nostr:nrelay1qqsx3xd",
+            "nostr:",
+            "nostr:npub1",
+            "nostr:npub1abc$def",
+            "nostr:npub1abcbio",
+            "https://njump.me/npub1abc",
+            NPUB,
+            "nost",
+        ] {
+            assert_eq!(parse(&args(&["vega", arg])), vec![], "{arg}");
+        }
+        let long = format!("nostr:nevent1{}", "q".repeat(MAX_REFERENCE));
+        assert_eq!(parse(&args(&["vega", &long])), vec![]);
+    }
+
+    #[test]
+    fn one_link_per_command_line() {
+        let note = "note1qqsx3xd";
+        assert_eq!(
+            parse(&args(&["vega", &format!("nostr:{NPUB}"), "--compose", &format!("nostr:{note}")])),
+            vec![LaunchCommand::Open(format!("nostr:{NPUB}")), LaunchCommand::Compose]
+        );
+    }
+
+    #[test]
+    fn the_frontend_reads_a_link_as_open() {
+        let command = LaunchCommand::Open(format!("nostr:{NPUB}"));
+        assert_eq!(
+            serde_json::to_string(&command).unwrap(),
+            format!("{{\"open\":\"nostr:{NPUB}\"}}")
+        );
     }
 }

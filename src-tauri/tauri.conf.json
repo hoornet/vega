@@ -25,7 +25,11 @@
       "icons/128x128@2x.png",
       "icons/icon.icns",
       "icons/icon.ico"
-    ]
+    ],
+    "linux": {
+      "deb": { "desktopTemplate": "linux/vega.desktop" },
+      "rpm": { "desktopTemplate": "linux/vega.desktop" }
+    }
   },
   "plugins": {
     "updater": {
@@ -37,6 +41,11 @@
     },
     "http": {
       "scopeRedirects": true
+    },
+    "deep-link": {
+      "desktop": {
+        "schemes": ["nostr"]
+      }
     }
   }
 }

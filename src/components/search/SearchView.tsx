@@ -1,11 +1,12 @@
 import { useState, useRef, useEffect } from "react";
-import { NDKEvent, nip19 } from "@nostr-dev-kit/ndk";
-import { fetchFollowSuggestions, fetchProfile, advancedSearch, fetchTrendingHashtags, fetchNoteById } from "../../lib/nostr";
+import { NDKEvent } from "@nostr-dev-kit/ndk";
+import { fetchFollowSuggestions, fetchProfile, advancedSearch, fetchTrendingHashtags } from "../../lib/nostr";
 import { parseSearchQuery, describeSearch } from "../../lib/search";
 import { useUserStore, useCanSign } from "../../stores/user";
 import { useMuteStore } from "../../stores/mute";
 import { useDismissedSuggestionsStore } from "../../stores/dismissedSuggestions";
 import { useUIStore } from "../../stores/ui";
+import { readNostrReference, openNostrReference } from "../../lib/nostrLinks";
 import { nameOf } from "../../lib/utils";
 import { AvatarInitial } from "../shared/AvatarInitial";
 import { NoteCard } from "../feed/NoteCard";
@@ -159,34 +160,12 @@ export function SearchView() {
     if (!q) return;
     if (overrideQuery) setQuery(overrideQuery);
 
-    // Bare npub/nprofile → navigate directly to profile
-    if (/^(npub1|nprofile1)[a-z0-9]+$/i.test(q)) {
-      try {
-        const decoded = nip19.decode(q);
-        const pubkey = decoded.type === "npub" ? decoded.data
-          : decoded.type === "nprofile" ? decoded.data.pubkey : null;
-        if (pubkey) {
-          useUIStore.getState().openProfile(pubkey);
-          return;
-        }
-      } catch { /* not valid, fall through to normal search */ }
-    }
-
-    // Bare note1/nevent1/naddr1 → navigate directly to thread/article
-    if (/^(note1|nevent1|naddr1)[a-z0-9]+$/i.test(q)) {
-      try {
-        const decoded = nip19.decode(q);
-        if (decoded.type === "note") {
-          const event = await fetchNoteById(decoded.data);
-          if (event) { useUIStore.getState().openThread(event); return; }
-        } else if (decoded.type === "nevent") {
-          const event = await fetchNoteById(decoded.data.id);
-          if (event) { useUIStore.getState().openThread(event); return; }
-        } else if (decoded.type === "naddr") {
-          useUIStore.getState().openArticle(q);
-          return;
-        }
-      } catch { /* not valid, fall through to normal search */ }
+    // A bare reference (npub, nprofile, note, nevent, naddr) opens what it names, as a `nostr:` link
+    // from another app does (src/lib/nostrLinks.ts). One that cannot be opened is searched for.
+    const reference = readNostrReference(q);
+    if (reference) {
+      const outcome = await openNostrReference(reference);
+      if (outcome.status === "opened") return;
     }
     setLoading(true);
     setSearched(false);

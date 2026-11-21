@@ -76,8 +76,12 @@ check "Internal or superseded hostname" \
   "[a-z0-9.-]*exe\.xyz"
 # .local/.internal only count as a hostname in an actual host position; bare
 # ".local" is far too common (~/.local/share, *.local in .gitignore, `...local]`).
+# A host whose last label before them is `example` (`printer.example.local`) is
+# an illustration: tests that refuse local hosts need one. Line-wise, like the
+# IP exclusions below.
 check "Internal .local/.internal host" \
-  "(https?|wss?)://[a-z0-9.-]+\.(local|internal)\b|@[a-z0-9.-]+\.(local|internal)\b"
+  "(https?|wss?)://[a-z0-9.-]+\.(local|internal)\b|@[a-z0-9.-]+\.(local|internal)\b" \
+  "(://|@)([a-z0-9-]+\.)*example\.(local|internal)\b"
 
 # Public IPs — loopback, link-local, RFC1918, docs ranges and version-like
 # strings are all excluded. Loopback is the whole of 127.0.0.0/8, not just
