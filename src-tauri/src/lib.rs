@@ -354,11 +354,15 @@ fn save_proxy_settings(app: tauri::AppHandle, settings: ProxySettings) -> Result
     std::fs::write(path, raw).map_err(|e| e.to_string())
 }
 
-fn create_main_window(app: &tauri::App) -> tauri::Result<tauri::WebviewWindow> {
+/// The main window. Hidden (`visible` false) for a start with `--hidden`, the login entry's: the
+/// webview loads and runs as it does behind the tray after the window is closed, and the tray,
+/// a second launch or a command shows it (`show_main_window`).
+fn create_main_window(app: &tauri::App, visible: bool) -> tauri::Result<tauri::WebviewWindow> {
     let mut builder = WebviewWindowBuilder::new(app, "main", WebviewUrl::App("index.html".into()))
         .title("Vega")
         .inner_size(1200.0, 800.0)
-        .min_inner_size(900.0, 600.0);
+        .min_inner_size(900.0, 600.0)
+        .visible(visible);
 
     match enabled_proxy_url(&load_proxy_settings_from_disk(app.handle())) {
         Ok(Some(url)) => {
@@ -983,6 +987,59 @@ fn install_info() -> serde_json::Value {
     }
 }
 
+// ── Start at login ──────────────────────────────────────────────────────────
+
+/// Why this build does not offer "Start Vega when I log in", if it does not. The login entry
+/// starts the very binary that wrote it (`current_exe`): from a development build that is a
+/// build under `target/`, and in the Flatpak a path inside the sandbox that nothing outside it
+/// can start, written where nothing outside it reads (that needs the Background portal).
+fn autostart_unavailable() -> Option<&'static str> {
+    if cfg!(debug_assertions) {
+        return Some("development");
+    }
+    if option_env!("VEGA_PACKAGED_BY") == Some("flatpak")
+        || (cfg!(target_os = "linux") && std::path::Path::new("/.flatpak-info").exists())
+    {
+        return Some("flatpak");
+    }
+    None
+}
+
+#[derive(serde::Serialize)]
+struct AutostartStatus {
+    /// Whether a login entry for Vega exists (on Linux, `~/.config/autostart/Vega.desktop`).
+    enabled: bool,
+    /// Why this build cannot write one: `development` or `flatpak`.
+    unavailable: Option<&'static str>,
+}
+
+#[tauri::command]
+async fn autostart_status(app: AppHandle) -> Result<AutostartStatus, String> {
+    use tauri_plugin_autostart::ManagerExt;
+    let enabled = app.autolaunch().is_enabled().map_err(|e| e.to_string())?;
+    Ok(AutostartStatus {
+        enabled,
+        unavailable: autostart_unavailable(),
+    })
+}
+
+/// Writes or removes the login entry and returns whether it exists afterwards. Removing is
+/// always allowed; writing only where `autostart_unavailable` says nothing.
+#[tauri::command]
+async fn set_autostart(app: AppHandle, on: bool) -> Result<bool, String> {
+    use tauri_plugin_autostart::ManagerExt;
+    let autolaunch = app.autolaunch();
+    if on {
+        if let Some(why) = autostart_unavailable() {
+            return Err(format!("this build cannot start at login ({why})"));
+        }
+        autolaunch.enable().map_err(|e| e.to_string())?;
+    } else {
+        autolaunch.disable().map_err(|e| e.to_string())?;
+    }
+    autolaunch.is_enabled().map_err(|e| e.to_string())
+}
+
 // ── App entry ────────────────────────────────────────────────────────────────
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -994,8 +1051,10 @@ pub fn run() {
     // therefore always find a non-empty destination and skip, stranding user data.
     migrate_legacy_data_dirs();
 
+    let own_args = launch::own_args();
+    let hidden = launch::starts_hidden(&own_args);
     let pending = launch::PendingLaunch::default();
-    pending.push(launch::parse(&launch::own_args()));
+    pending.push(launch::parse(&own_args));
     let mut builder = tauri::Builder::default().manage(pending);
 
     // The first plugin, as the plugin asks: a second launch must reach the running Vega
@@ -1006,9 +1065,26 @@ pub fn run() {
             if let Some(pending) = app.try_state::<launch::PendingLaunch>() {
                 pending.push(launch::parse(&args));
             }
-            show_main_window(app);
+            // `--hidden` alone is the login entry running while Vega is open: leave the window.
+            if launch::brings_forward(&args) {
+                show_main_window(app);
+            }
             let _ = app.emit("launch-command", ());
         }));
+    }
+
+    // Writes and removes the login entry behind "Start Vega when I log in", which starts Vega
+    // with `--hidden`. Named "Vega" for good, so the entry keeps its name if the product name
+    // ever changes. The plugin's own commands are not granted to the webview: `set_autostart`
+    // decides when an entry may be written.
+    #[cfg(desktop)]
+    {
+        builder = builder.plugin(
+            tauri_plugin_autostart::Builder::new()
+                .app_name("Vega")
+                .arg("--hidden")
+                .build(),
+        );
     }
 
     builder
@@ -1019,8 +1095,8 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_notification::init())
-        .setup(|app| {
-            let main_window = create_main_window(app)?;
+        .setup(move |app| {
+            let main_window = create_main_window(app, !hidden)?;
 
             // ── SQLite ───────────────────────────────────────────────────────
             let data_dir = app.path().app_data_dir()?;
@@ -1131,6 +1207,8 @@ pub fn run() {
             relay_get_stats,
             install_info,
             take_launch_commands,
+            autostart_status,
+            set_autostart,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -11,6 +11,10 @@
 //! The first launch's own command line is read the same way, so `vega --compose` works whether
 //! or not Vega was running.
 //!
+//! `--hidden` is not a command: it says how the first launch starts, in the tray with no window.
+//! The login entry that "Start Vega when I log in" writes starts Vega that way. Handed to a Vega
+//! that is already running, it does nothing at all: the login entry ran while Vega was open.
+//!
 //! Commands wait in a queue until the frontend takes them (`take_launch_commands`), and the
 //! frontend is told when one arrives (the `launch-command` event). An event sent before the
 //! webview listens is lost; a queue is not.
@@ -36,6 +40,18 @@ pub fn parse(args: &[String]) -> Vec<LaunchCommand> {
             _ => None,
         })
         .collect()
+}
+
+/// Whether a command line asks Vega to start without a window (`--hidden`). As with `parse`,
+/// the first argument is the program and is not read.
+pub fn starts_hidden(args: &[String]) -> bool {
+    args.iter().skip(1).any(|arg| arg == "--hidden")
+}
+
+/// Whether a second launch should bring the window forward: always, unless all it says is
+/// `--hidden`. A command on the same line still wins, since a command is for the window.
+pub fn brings_forward(args: &[String]) -> bool {
+    !starts_hidden(args) || !parse(args).is_empty()
 }
 
 /// This process's own command line, without failing on an argument that is not UTF-8
@@ -100,6 +116,23 @@ mod tests {
             parse(&args(&["vega", "--gapplication-service", "--compose", "%U", "compose"])),
             vec![LaunchCommand::Compose]
         );
+    }
+
+    #[test]
+    fn hidden_is_read_after_the_program_and_is_not_a_command() {
+        assert!(starts_hidden(&args(&["/usr/bin/vega", "--hidden"])));
+        assert!(!starts_hidden(&args(&["--hidden"])));
+        assert!(!starts_hidden(&args(&["vega", "--compose"])));
+        assert_eq!(parse(&args(&["vega", "--hidden"])), vec![]);
+    }
+
+    #[test]
+    fn a_second_launch_that_only_says_hidden_leaves_the_window_alone() {
+        assert!(!brings_forward(&args(&["vega", "--hidden"])));
+        assert!(brings_forward(&args(&["vega"])));
+        assert!(brings_forward(&args(&["vega", "--compose"])));
+        // A command is for the window, whatever else is on the line.
+        assert!(brings_forward(&args(&["vega", "--hidden", "--compose"])));
     }
 
     #[test]

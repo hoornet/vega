@@ -20,6 +20,7 @@ import { useProfile } from "../../hooks/useProfile";
 import { nameOf } from "../../lib/utils";
 import { refreshProxySettingsCache, type ProxySettings } from "../../lib/proxy";
 import { NWCWizard } from "./NWCWizard";
+import { StartAtLoginSection } from "./StartAtLoginSection";
 import { getNotificationSettings, saveNotificationSettings, ensurePermission } from "../../lib/notifications";
 import { ViewHeader } from "./ViewHeader";
 import { Switch } from "./Switch";
@@ -889,6 +890,7 @@ export function SettingsView() {
           </Group>
           <Group id="notifications" title="Notifications">
             <NotificationSection />
+            <StartAtLoginSection />
           </Group>
           <Group id="what-you-see" title="What you see">
             <MuteSection />
