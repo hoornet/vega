@@ -34,7 +34,7 @@ Published versions are never re-tagged — a bad release is superseded by a high
 - Relay privacy — anything causing Vega to contact a relay the user did not configure while **Relay reach** is off, or to answer a NIP-42 AUTH challenge outside the scope the **Relay authentication** setting allows
 - NIP-46 remote signing
 - Rendering of untrusted content from relays (articles, notes, profile fields)
-- The Tauri IPC surface and Rust commands, including the command line a second launch hands to the running Vega (over the session bus on Linux)
+- The Tauri IPC surface and Rust commands, including the command line a second launch hands to the running Vega (over the session bus on Linux) and `nostr:` links from other apps, which may only open a profile, a note or an article
 - Lightning payments: NWC, zaps, and podcast streaming paying more, or someone else, than the user asked
 
 ## Out of scope

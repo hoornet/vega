@@ -37,6 +37,11 @@
     },
     "http": {
       "scopeRedirects": true
+    },
+    "deep-link": {
+      "desktop": {
+        "schemes": ["nostr"]
+      }
     }
   }
 }

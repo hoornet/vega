@@ -63,7 +63,7 @@ Bugs found during testing are fixed before Phase N+1 starts. A release is cut be
 
 ## Up next
 
-- **Vega from outside the window** — `vega --compose` and starting at login, hidden in the tray, are on main and come with the next release; next on the same path are `nostr:` links that open in Vega and a bar button for Omarchy that opens the compose box
+- **Vega from outside the window** — `vega --compose`, starting at login hidden in the tray, and `nostr:` links that open in Vega are on main and come with the next release; next on the same path is a bar button for Omarchy that opens the compose box
 - **Custom feeds / lists** (NIP-51)
 - **NIP-96 file storage** integration
 - **WoT-powered feed ranking** — use Web of Trust scores to rank, not just filter, the feed

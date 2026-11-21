@@ -17,3 +17,4 @@ export type { PollVotes } from "./polls";
 export { verifyReputation } from "./vertex";
 export type { ReputationResult, ReputationEntry } from "./vertex";
 export { fetchReplaceableList, publishReplaceableList, relaysToAsk, type ListResult } from "./lists";
+export { fetchLinkedEvent, safeHintRelays, MAX_HINT_RELAYS } from "./links";

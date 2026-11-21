@@ -1,10 +1,11 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { useUIStore } from "../stores/ui";
-import { useToastStore } from "../stores/toast";
+import { useToastStore, goToView } from "../stores/toast";
 import { debug } from "./debug";
 import { MODAL_SELECTOR } from "./escapeKey";
 import { unsentTextNotice } from "./unsentText";
+import { readNostrReference, openNostrReference } from "./nostrLinks";
 
 /**
  * How long `vega --compose` waits for a compose box that is not there yet. On a cold start the box
@@ -14,12 +15,86 @@ export const COMPOSE_HOLD_MS = 60_000;
 
 /**
  * What a launch of Vega asked for (`src-tauri/src/launch.rs`): `vega --compose` is
- * "compose". A second launch hands its command line to the running Vega and exits, so this
- * is how a bar button, a keybinding or a script asks Vega for something.
+ * "compose", and a `nostr:` link is `{ open: "nostr:…" }`. A second launch hands its command
+ * line to the running Vega and exits, so this is how a bar button, a keybinding, a script or a
+ * link clicked in another app asks Vega for something.
  */
-export type LaunchCommand = "compose";
+export type LaunchCommand = "compose" | { open: string };
+
+/** The toast that stands for one link, from "Opening…" to what became of it. */
+const LINK_TOAST = "launch:link";
+
+let ready = false;
+let waitingLink: string | null = null;
+let latestLink = 0;
+
+/**
+ * Says that the app is past onboarding, and opens the link that was waiting for it, if any. Until
+ * then a link waits, the newest one: someone may install Vega because they clicked a `nostr:` link,
+ * and should land on what they clicked once they have a key. App calls this.
+ */
+export function launchCommandsReady(): void {
+  ready = true;
+  const link = waitingLink;
+  waitingLink = null;
+  if (link) openLinkFromOutside(link);
+}
+
+/**
+ * Opens a `nostr:` link handed over from outside: what it names, never more (`openNostrReference`).
+ * An open dialog and text not sent yet hold it, as they hold `--compose`, with a toast that says
+ * so, since the click happened in another window. A newer link wins over a lookup still running.
+ */
+export function openLinkFromOutside(link: string): void {
+  if (!ready) {
+    waitingLink = link;
+    return;
+  }
+  const toasts = useToastStore.getState();
+  if (document.querySelector(MODAL_SELECTOR)) {
+    toasts.addToast("A dialog is open, so Vega didn't open the link. Close it, then open the link again.", "info", { key: LINK_TOAST });
+    return;
+  }
+  const notice = unsentTextNotice("the link");
+  if (notice) {
+    toasts.addToast(notice, "info", { autoCloseMs: 6000, key: LINK_TOAST });
+    return;
+  }
+  const reference = readNostrReference(link);
+  if (!reference) {
+    toasts.addToast("Vega can't open that link. It opens links to people, notes and articles.", "error", { key: LINK_TOAST });
+    return;
+  }
+  const mine = ++latestLink;
+  const stillWanted = () => mine === latestLink;
+  if (reference.kind !== "profile") toasts.addToast("Opening the link…", "info", { autoCloseMs: 15_000, key: LINK_TOAST });
+  openNostrReference(reference, stillWanted)
+    .then((outcome) => {
+      if (outcome.status === "superseded") return;
+      if (outcome.status === "opened") {
+        useToastStore.getState().removeByKey(LINK_TOAST);
+        return;
+      }
+      const where = outcome.hintsUnasked
+        ? " The link names other relays, which Vega asks only with Relay reach on."
+        : "";
+      useToastStore.getState().addToast(
+        `Couldn't find that ${outcome.what} on your relays.${where}`,
+        "error",
+        { key: LINK_TOAST, ...(outcome.hintsUnasked ? { action: { label: "Relays", run: goToView("relays") } } : {}) },
+      );
+    })
+    .catch((err) => {
+      debug.warn("[launch] could not open a link:", err);
+      if (stillWanted()) useToastStore.getState().addToast("Couldn't open that link.", "error", { key: LINK_TOAST });
+    });
+}
 
 export function runLaunchCommand(command: LaunchCommand): void {
+  if (typeof command === "object") {
+    if (typeof command.open === "string") openLinkFromOutside(command.open);
+    return;
+  }
   switch (command) {
     case "compose":
       // An open dialog is what needs the user: the window comes forward and nothing moves behind
