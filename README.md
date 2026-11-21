@@ -149,6 +149,7 @@ minisign -Vm Vega_X.Y.Z_amd64.deb -p vega.pub
 - **Profile banner polish** — hero-height banner with click-to-lightbox, avatar overlaps banner edge with ring
 - **System tray** — close button hides to tray; "Quit" in tray menu to fully exit
 - **One Vega at a time, and `vega --compose`** (from v0.16.5; v0.16.4 and earlier start a second copy instead, so don't bind it to a key yet) — launching Vega again brings the running window forward instead of starting a second copy; `vega --compose` opens the compose box, so a launcher, a keybinding or a bar button can start a note. Text you have not sent yet stays where it is: Vega comes forward and tells you why it did not switch. On Hyprland, a Vega on another workspace takes focus only with `misc:focus_on_activate` on (Omarchy turns it on)
+- **Start Vega when I log in** (from v0.16.5) — a switch in Settings → Notifications starts Vega in the tray, with no window, so notifications arrive from the moment you log in; not in the Flatpak yet
 - **Collapsible & resizable sidebar** — nine places (Home, Notifications, Messages, Bookmarks, People, Search, Articles, Media, Podcasts), a Write button with your draft count, and Settings, Relays, Keyboard shortcuts and Support at the foot; Zap history is in the account menu; collapse to icon-only mode, or drag the right edge to set the width (double-click to reset; remembered between sessions)
 - **Collapsing compose box** — sits as a single line when idle and expands to full height with the toolbar when you focus it, keeping the top of the feed compact
 - **Update banner with changelog** — when an update is available, "What's new" shows the release notes of every version since the one you have, newest first, with a link to the full changelog on GitHub
@@ -213,7 +214,7 @@ npm run tauri build     # production binary
 See [ROADMAP.md](./ROADMAP.md) for the full prioritised next steps.
 
 Up next:
-- `nostr:` links that open in Vega, and an option to start at login, hidden in the tray
+- `nostr:` links that open in Vega
 - A bar button for Omarchy that opens the compose box
 - Custom feeds / lists
 - NIP-96 file storage

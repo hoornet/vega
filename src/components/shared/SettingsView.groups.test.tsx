@@ -43,6 +43,12 @@ describe("Settings", () => {
     expect(jumps).toEqual(["Go to Appearance", "Go to Account", "Go to Wallet for zaps", "Go to Notifications", "Go to What you see", "Go to Advanced"]);
   });
 
+  it("offers starting at login with the notifications, which arrive only while Vega runs", () => {
+    render(<SettingsView />);
+    const group = document.getElementById("settings-notifications") as HTMLElement;
+    expect(within(group).getByRole("switch", { name: "Start Vega when I log in" })).toBeTruthy();
+  });
+
   it("keeps Advanced closed, with one line saying what is in it, until asked", () => {
     render(<SettingsView />);
     expect(screen.getByText("Proxy, local relay, diagnostics. Most people never need these.")).toBeTruthy();
