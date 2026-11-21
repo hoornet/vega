@@ -158,5 +158,18 @@ describe("Settings → Assistant", () => {
     fireEvent.keyDown(field, { key: "Enter" });
     await waitFor(() => expect(client.saveAssistantKey).toHaveBeenCalledWith("claude", "https://api.anthropic.com", "sk-ant-x"));
   });
+
+  it("a model edited while the key saves does not undo the save", async () => {
+    settings({ enabled: true, preset: "claude" });
+    let finish!: () => void;
+    client.saveAssistantKey.mockReturnValue(new Promise<void>((resolve) => { finish = resolve; }));
+    render(<AssistantSection />);
+    fireEvent.change(await screen.findByLabelText("API key"), { target: { value: "sk-ant-x" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save key" }));
+    fireEvent.change(screen.getByLabelText("Model name"), { target: { value: "claude-haiku-5-5" } });
+    client.assistantKeyStatus.mockResolvedValue("https://api.anthropic.com");
+    finish();
+    expect(await screen.findByText("Saved in your keychain.")).toBeTruthy();
+  });
 });
 

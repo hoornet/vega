@@ -542,7 +542,9 @@ async fn stream_answer(
                         answer.push_str(piece);
                         on_text(piece);
                     }
-                    if answer.len() >= limits.max_answer {
+                    // Cut short (the cap, or a character that does not fit): stop here, or a later
+                    // piece that does fit would be appended after the gap.
+                    if piece.len() < text.len() || answer.len() >= limits.max_answer {
                         break 'stream;
                     }
                 }
@@ -987,5 +989,18 @@ mod tests {
         assert_eq!(err, "The server sent Vega to another address, which it does not follow with your request. Check the address.");
         std::thread::sleep(Duration::from_millis(300));
         assert!(!reached.load(Ordering::Relaxed), "the redirect was followed");
+    }
+
+    #[tokio::test]
+    async fn an_answer_cut_inside_a_character_ends_there() {
+        let limits = Limits { max_answer: 6, ..LIMITS };
+        let mut all = openai_text("Hello");
+        all.extend(openai_text("ö"));
+        all.extend(openai_text("x"));
+        let base = serve("200 OK", vec![all]);
+        let answer = stream_answer(&local_client(), &ask(ProviderKind::OpenAi), &base, None, &Cancel::default(), limits, |_| {})
+            .await
+            .unwrap();
+        assert_eq!(answer, "Hello");
     }
 }

@@ -56,6 +56,9 @@ export function AssistantSection() {
   const current = useRef(inputs);
   current.current = inputs;
   const target = `${settings.preset}|${provider.baseUrl}`;
+  // A key is about the provider and the address only: a model edited while it saves changes nothing.
+  const currentTarget = useRef(target);
+  currentTarget.current = target;
 
   // A key typed for one destination is never saved for another: a change of provider or address
   // clears it, and the results that were about the last one.
@@ -94,17 +97,17 @@ export function AssistantSection() {
   const saveKey = async () => {
     const slot = preset.keySlot;
     if (!slot || !keyInput.trim()) return;
-    const started = current.current;
+    const started = currentTarget.current;
     setKeyBusy(true);
     setKeyError(null);
     try {
       await saveAssistantKey(slot, provider.baseUrl, keyInput);
       const saved = await assistantKeyStatus(slot);
-      if (current.current !== started) return;
+      if (currentTarget.current !== started) return;
       setKeyInput("");
       setKeyFor(saved);
     } catch (e) {
-      if (current.current === started) setKeyError(`Couldn't save the key: ${reason(e)}`);
+      if (currentTarget.current === started) setKeyError(`Couldn't save the key: ${reason(e)}`);
     } finally {
       setKeyBusy(false);
     }
@@ -113,14 +116,14 @@ export function AssistantSection() {
   const removeKey = async () => {
     const slot = preset.keySlot;
     if (!slot) return;
-    const started = current.current;
+    const started = currentTarget.current;
     setKeyBusy(true);
     setKeyError(null);
     try {
       await forgetAssistantKey(slot);
-      if (current.current === started) setKeyFor(null);
+      if (currentTarget.current === started) setKeyFor(null);
     } catch (e) {
-      if (current.current === started) setKeyError(`Couldn't remove the key: ${reason(e)}`);
+      if (currentTarget.current === started) setKeyError(`Couldn't remove the key: ${reason(e)}`);
     } finally {
       setKeyBusy(false);
     }
