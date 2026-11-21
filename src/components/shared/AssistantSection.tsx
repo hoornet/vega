@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Switch } from "./Switch";
 import { Button } from "./Button";
 import { useAssistantStore } from "../../stores/assistant";
+import { forgetSessionConsent } from "../assistant/useAssistantBox";
 import { PRESETS, PRESET_ORDER, activeProvider, normalizeAddress } from "../../lib/assistant/settings";
 import type { PresetId } from "../../types/assistant";
 import {
@@ -293,7 +294,7 @@ export function AssistantSection() {
           />
           <Switch
             checked={settings.askBeforeCloud}
-            onChange={(on) => update({ askBeforeCloud: on, ...(on ? {} : { trustedProviders: [] }) })}
+            onChange={(on) => { if (on) forgetSessionConsent(); update({ askBeforeCloud: on, ...(on ? {} : { trustedProviders: [] }) }); }}
             label="Ask before sending to a model that is not on this computer"
             hint="Once for each provider. Messages, keys and the notes of people you mute are never sent."
           />
@@ -301,7 +302,7 @@ export function AssistantSection() {
           {settings.askBeforeCloud && settings.trustedProviders.length > 0 && (
             <div className="flex flex-wrap items-center gap-2">
               <p className="text-text-muted text-caption">Not asking again about: {settings.trustedProviders.map(providerLabel).join(", ")}</p>
-              <Button size="sm" variant="ghost" onClick={() => update({ trustedProviders: [] })}>Ask again</Button>
+              <Button size="sm" variant="ghost" onClick={() => { forgetSessionConsent(); update({ trustedProviders: [] }); }}>Ask again</Button>
             </div>
           )}
         </div>

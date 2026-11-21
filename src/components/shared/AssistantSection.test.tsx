@@ -14,6 +14,7 @@ const client = vi.hoisted(() => ({
 vi.mock("../../lib/assistant/client", () => client);
 
 import { AssistantSection } from "./AssistantSection";
+import * as box from "../assistant/useAssistantBox";
 import { useAssistantStore } from "../../stores/assistant";
 import { DEFAULT_ASSISTANT_SETTINGS, readAssistantSettings } from "../../lib/assistant/settings";
 
@@ -176,8 +177,11 @@ describe("Settings → Assistant", () => {
     settings({ enabled: true, trustedProviders: ["https://api.anthropic.com", "https://openrouter.ai/api/v1"] });
     render(<AssistantSection />);
     expect(screen.getByText("Not asking again about: Anthropic, openrouter.ai")).toBeTruthy();
+    const forget = vi.spyOn(box, "forgetSessionConsent");
     fireEvent.click(screen.getByRole("button", { name: "Ask again" }));
     expect(readAssistantSettings().trustedProviders).toEqual([]);
+    // This session's yes goes too, or the question still would not be asked until a restart.
+    expect(forget).toHaveBeenCalled();
     expect(screen.queryByText(/Not asking again/)).toBeNull();
   });
 });

@@ -20,7 +20,7 @@ vi.mock("../../lib/assistant/client", () => client);
 
 import { ComposeBox } from "../feed/ComposeBox";
 import { AssistantSourceProvider } from "./source";
-import { forgetSessionConsent } from "./useAssistantBox";
+import { forgetSessionConsent, agreedThisSessionTo } from "./useAssistantBox";
 import { publishNote, fetchUserNotes } from "../../lib/nostr";
 import { useAssistantStore } from "../../stores/assistant";
 import { useMuteStore } from "../../stores/mute";
@@ -250,3 +250,32 @@ describe("in my tone", () => {
     expect(fetchUserNotes).not.toHaveBeenCalled();
   });
 });
+
+describe("what the reviewers found", () => {
+  it("Stop while the question is still being put together sends nothing", async () => {
+    let notesArrive!: (v: never[]) => void;
+    vi.mocked(fetchUserNotes).mockReturnValue(new Promise((r) => { notesArrive = r; }) as never);
+    renderBox();
+    type("@vega draft a reply in my tone");
+    fireEvent.click(askButton());
+    fireEvent.click(await screen.findByRole("button", { name: "Stop" }));
+    await act(async () => notesArrive([]));
+    await new Promise((r) => setTimeout(r, 0));
+    expect(client.askAssistant).not.toHaveBeenCalled();
+    expect(screen.getByText("Stopped before anything arrived.")).toBeTruthy();
+  });
+
+  it("Send without Don't ask again is remembered for this session only, and Ask again forgets it", async () => {
+    settings({ preset: "claude" });
+    renderBox();
+    type("@vega hi");
+    fireEvent.click(askButton());
+    fireEvent.click(await screen.findByRole("button", { name: "Send" }));
+    await waitFor(() => expect(client.askAssistant).toHaveBeenCalled());
+    expect(agreedThisSessionTo("https://api.anthropic.com")).toBe(true);
+    expect(useAssistantStore.getState().settings.trustedProviders).toEqual([]);
+    forgetSessionConsent();
+    expect(agreedThisSessionTo("https://api.anthropic.com")).toBe(false);
+  });
+});
+

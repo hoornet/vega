@@ -42,9 +42,14 @@ const IDLE: AnswerState = { status: "idle", text: "", error: null, needsSettings
 /** Providers the user agreed to in this session, by address: asked once each. */
 const agreedThisSession = new Set<string>();
 
-/** For tests. */
+/** Asks again about every provider: Settings' "Ask again", and the switch turned back on. */
 export function forgetSessionConsent(): void {
   agreedThisSession.clear();
+}
+
+/** Whether a provider was agreed to in this session. */
+export function agreedThisSessionTo(address: string): boolean {
+  return agreedThisSession.has(address);
 }
 
 /** Who a provider sends to, in the user's words. */
@@ -234,6 +239,9 @@ export function useAssistantBox({ text, source, onUse }: Options) {
   };
 
   const stop = () => {
+    // A question still being put together (fetching the user's notes, the names) must not go out
+    // after Stop: the next step checks the turn. What has arrived stays on the card.
+    turn.current += 1;
     stopRunning();
     setAnswer((a) => (a.status === "waiting" || a.status === "streaming" ? { ...a, status: "stopped" } : a));
   };

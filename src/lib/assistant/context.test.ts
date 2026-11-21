@@ -168,3 +168,43 @@ describe("askMessages", () => {
     expect(messages[0].content).toContain("The user asks: translate [a key, removed]");
   });
 });
+
+describe("buildPack, what the reviewers found", () => {
+  const nsec = "nsec1" + "q".repeat(58);
+
+  it("blanks a key in an article's title, an author's name and a profile's name", () => {
+    const article = buildPack(
+      { kind: "article", title: `My key ${nsec}`, summary: "", pubkey: "x", publishedAt: 1000, body: "text" },
+      { nameOf: () => `named ${nsec}`, hidden: nobodyHidden },
+    );
+    expect(article.text).not.toContain(nsec);
+    const profile = buildPack(
+      { kind: "profile", pubkey: "x", about: "", nip05: "", notes: [] },
+      { nameOf: () => nsec, hidden: nobodyHidden },
+    );
+    expect(profile.text).not.toContain(nsec);
+    expect(askMessages("hi", { text: `leak ${nsec}`, label: "", notes: 0, cut: 0 })[0].content).not.toContain(nsec);
+  });
+
+  it("a long article fits a model on this computer, cut short rather than sent whole", () => {
+    const body = "Opening words. " + "w".repeat(20000);
+    const pack = buildPack(
+      { kind: "article", title: "Long", summary: "A summary", pubkey: "alice", publishedAt: 1000, body },
+      { nameOf, hidden: nobodyHidden, draft: "d".repeat(5000), maxChars: LIMITS.localChars },
+    );
+    expect(pack.text.length).toBeLessThanOrEqual(LIMITS.localChars);
+    expect(pack.text).toContain("Opening words.");
+    expect(pack.text).toContain("<draft>");
+    expect(pack.text).toContain("</article>");
+  });
+
+  it("a date out of range reads as unknown, and does not throw", () => {
+    const pack = buildPack(
+      { kind: "article", title: "T", summary: "", pubkey: "alice", publishedAt: 99999999999999, body: "b" },
+      { nameOf, hidden: nobodyHidden },
+    );
+    expect(pack.text).toContain('time="unknown time"');
+    expect(() => buildPack({ kind: "note", note: note("alice", "x", Number.NaN) }, { nameOf, hidden: nobodyHidden })).not.toThrow();
+  });
+});
+

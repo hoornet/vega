@@ -79,12 +79,14 @@ function asData(text: string, max: number): string {
 }
 
 function when(seconds: number): string {
-  if (!seconds) return "unknown time";
-  return new Date(seconds * 1000).toISOString().slice(0, 16).replace("T", " ") + " UTC";
+  // A date from a relay can be anything: one out of range must not throw while the line under the box is drawn.
+  const date = new Date(seconds * 1000);
+  if (!seconds || !Number.isFinite(seconds) || Number.isNaN(date.getTime())) return "unknown time";
+  return date.toISOString().slice(0, 16).replace("T", " ") + " UTC";
 }
 
 function attr(value: string): string {
-  return value.replace(/["<>\n\r]/g, " ").slice(0, 80);
+  return redactSecrets(value).replace(/["<>\n\r]/g, " ").slice(0, 80);
 }
 
 interface Item {
@@ -94,15 +96,14 @@ interface Item {
   note: boolean;
   createdAt: number;
   text: string;
+  /** Draws a kept item again with its body cut to `room` characters, when the pack is still too large. */
+  redraw?: (room: number) => string;
+  room?: number;
 }
 
 function noteItem(note: PackNote, nameOf: (pk: string) => string, keep: boolean, tag = "note"): Item {
-  return {
-    keep,
-    note: true,
-    createdAt: note.createdAt,
-    text: `<${tag} author="${attr(nameOf(note.pubkey))}" time="${when(note.createdAt)}">\n${asData(note.content, LIMITS.perNote)}\n</${tag}>`,
-  };
+  const redraw = (room: number) => `<${tag} author="${attr(nameOf(note.pubkey))}" time="${when(note.createdAt)}">\n${asData(note.content, room)}\n</${tag}>`;
+  return { keep, note: true, createdAt: note.createdAt, text: redraw(LIMITS.perNote), redraw, room: LIMITS.perNote };
 }
 
 function plural(n: number, one: string, many: string): string {
@@ -134,14 +135,11 @@ export function buildPack(source: PackSource, options: PackOptions): ContextPack
       break;
     }
     case "article": {
-      items.push({
-        keep: true,
-        note: false,
-        createdAt: source.publishedAt,
-        text: `<article title="${attr(source.title)}" author="${attr(nameOf(source.pubkey))}" time="${when(source.publishedAt)}">\n${
+      const redraw = (room: number) =>
+        `<article title="${attr(source.title)}" author="${attr(nameOf(source.pubkey))}" time="${when(source.publishedAt)}">\n${
           source.summary ? `Summary: ${asData(source.summary, 600)}\n\n` : ""
-        }${asData(source.body, LIMITS.articleBody)}\n</article>`,
-      });
+        }${asData(source.body, room)}\n</article>`;
+      items.push({ keep: true, note: false, createdAt: source.publishedAt, text: redraw(LIMITS.articleBody), redraw, room: LIMITS.articleBody });
       intro = "A long-form article on Nostr.";
       label = () => "This article";
       break;
@@ -185,33 +183,51 @@ export function buildPack(source: PackSource, options: PackOptions): ContextPack
   const myItems = mine.map((n) => noteItem(n, () => "the user", false, "note"));
 
   const draft = options.draft?.trim();
+  const draftRedraw = (room: number) => `<draft>\n${asData(draft ?? "", room)}\n</draft>`;
   const draftItem: Item | null = draft
-    ? { keep: true, note: false, createdAt: Number.MAX_SAFE_INTEGER, text: `<draft>\n${asData(draft, LIMITS.perNote * 2)}\n</draft>` }
+    ? { keep: true, note: false, createdAt: Number.MAX_SAFE_INTEGER, text: draftRedraw(LIMITS.perNote * 2), redraw: draftRedraw, room: LIMITS.perNote * 2 }
     : null;
+
+  // The whole pack as sent, measured as sent: the markers and the introduction count too. Redacted
+  // again as a whole, for a key in a name or a title.
+  const assemble = () => {
+    const parts = [`<context>\n${intro}${answering}\n\n${items.map((i) => i.text).join("\n\n")}\n</context>`];
+    if (myItems.length > 0) parts.push(`<context>\nThe user's own recent notes, to match their tone.\n\n${myItems.map((i) => i.text).join("\n\n")}\n</context>`);
+    if (draftItem) parts.push(draftItem.text);
+    return redactSecrets(parts.join("\n\n"));
+  };
 
   // Over the limit: leave out the oldest notes that are not kept, from the context and from the
   // user's own alike, until it fits.
   const max = options.maxChars ?? LIMITS.cloudChars;
-  const size = () => [...items, ...myItems, ...(draftItem ? [draftItem] : [])].reduce((sum, i) => sum + i.text.length + 2, 0);
   let cut = 0;
-  while (size() > max) {
+  while (assemble().length > max) {
     const pool = [...items.map((i, at) => ({ i, at, from: items })), ...myItems.map((i, at) => ({ i, at, from: myItems }))].filter((x) => !x.i.keep);
     if (pool.length === 0) break;
     const oldest = pool.reduce((a, b) => (b.i.createdAt < a.i.createdAt ? b : a));
     oldest.from.splice(oldest.at, 1);
     cut += 1;
   }
+  // Still over with only kept things left (a long article for a model on this computer): cut the
+  // longest of them shorter, never below a few hundred characters.
+  const MIN_ROOM = 300;
+  let text = assemble();
+  while (text.length > max) {
+    const shrinkable = [...items, ...(draftItem ? [draftItem] : [])].filter((i) => i.redraw && (i.room ?? 0) > MIN_ROOM);
+    if (shrinkable.length === 0) break;
+    const longest = shrinkable.reduce((a, b) => (b.text.length > a.text.length ? b : a));
+    longest.room = Math.max(MIN_ROOM, (longest.room ?? 0) - (text.length - max) - 50);
+    longest.text = longest.redraw!(longest.room);
+    text = assemble();
+  }
+
   let said = label(items.filter((i) => i.note).length);
   if (myItems.length > 0) said += `, ${plural(myItems.length, "note", "notes")} of yours`;
   if (draftItem) said += ", your draft";
   if (cut > 0) said += `, the oldest ${plural(cut, "note", "notes")} left out`;
 
-  const parts = [`<context>\n${intro}${answering}\n\n${items.map((i) => i.text).join("\n\n")}\n</context>`];
-  if (myItems.length > 0) parts.push(`<context>\nThe user's own recent notes, to match their tone.\n\n${myItems.map((i) => i.text).join("\n\n")}\n</context>`);
-  if (draftItem) parts.push(draftItem.text);
-
   return {
-    text: parts.join("\n\n"),
+    text,
     label: said,
     notes: items.filter((i) => i.note).length + myItems.length,
     cut,
@@ -239,7 +255,7 @@ export const SYSTEM_PROMPT = [
 /** The messages for one question about a pack. */
 export function askMessages(question: string, pack: ContextPack): ChatMessage[] {
   const q = redactSecrets(question.trim()) || "What is this about?";
-  return [{ role: "user", content: `${pack.text}\n\nThe user asks: ${q}` }];
+  return [{ role: "user", content: `${redactSecrets(pack.text)}\n\nThe user asks: ${q}` }];
 }
 
 /** Whether the question asks for the user's own tone, which brings their recent notes along. */
