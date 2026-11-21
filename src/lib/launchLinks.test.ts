@@ -115,6 +115,35 @@ describe("a nostr: link from outside", () => {
     expect(toasts()[0].action).toBeUndefined();
   });
 
+  it("asks again before it moves: a reply begun while the link was loading holds it, and says so", async () => {
+    let finish!: (outcome: unknown) => void;
+    opener.open.mockImplementation((_reference: unknown, stillWanted: () => boolean) =>
+      new Promise((resolve) => { finish = () => resolve(stillWanted() ? { status: "opened" } : { status: "superseded" }); }));
+    const { openLinkFromOutside, launchCommandsReady, toasts, holdUnsentText } = await load();
+    launchCommandsReady();
+    openLinkFromOutside(NOTE_LINK);
+    const stillWanted = opener.open.mock.calls[0][1] as () => boolean;
+    expect(stillWanted()).toBe(true);
+    const release = holdUnsentText("message");
+    expect(stillWanted()).toBe(false);
+    finish(undefined);
+    await settle();
+    expect(toasts().map((t) => t.message)).toEqual([
+      "Your message isn't sent yet, so Vega didn't open the link. Send or clear it first.",
+    ]);
+    release();
+  });
+
+  it("asks again before it moves: a dialog opened while the link was loading holds it", async () => {
+    opener.open.mockReturnValue(new Promise(() => {}));
+    const { openLinkFromOutside, launchCommandsReady } = await load();
+    launchCommandsReady();
+    openLinkFromOutside(NOTE_LINK);
+    const stillWanted = opener.open.mock.calls[0][1] as () => boolean;
+    document.body.innerHTML = '<div role="dialog" aria-modal="true"></div>';
+    expect(stillWanted()).toBe(false);
+  });
+
   it("lets a newer link win over a lookup still running", async () => {
     const { openLinkFromOutside, launchCommandsReady } = await load();
     launchCommandsReady();

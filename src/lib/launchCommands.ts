@@ -40,10 +40,20 @@ export function launchCommandsReady(): void {
   if (link) openLinkFromOutside(link);
 }
 
+/** Why a link cannot open now: an open dialog or text not sent yet (as for `--compose`), or null. */
+function linkHeldBack(): string | null {
+  if (document.querySelector(MODAL_SELECTOR)) {
+    return "A dialog is open, so Vega didn't open the link. Close it, then open the link again.";
+  }
+  return unsentTextNotice("the link");
+}
+
 /**
  * Opens a `nostr:` link handed over from outside: what it names, never more (`openNostrReference`).
  * An open dialog and text not sent yet hold it, as they hold `--compose`, with a toast that says
- * so, since the click happened in another window. A newer link wins over a lookup still running.
+ * so, since the click happened in another window. They are asked again once the lookup is done,
+ * right before anything moves: a reply begun while "Opening the link…" was up would otherwise be
+ * lost. A newer link wins over a lookup still running.
  */
 export function openLinkFromOutside(link: string): void {
   if (!ready) {
@@ -51,13 +61,9 @@ export function openLinkFromOutside(link: string): void {
     return;
   }
   const toasts = useToastStore.getState();
-  if (document.querySelector(MODAL_SELECTOR)) {
-    toasts.addToast("A dialog is open, so Vega didn't open the link. Close it, then open the link again.", "info", { key: LINK_TOAST });
-    return;
-  }
-  const notice = unsentTextNotice("the link");
-  if (notice) {
-    toasts.addToast(notice, "info", { autoCloseMs: 6000, key: LINK_TOAST });
+  const held = linkHeldBack();
+  if (held) {
+    toasts.addToast(held, "info", { autoCloseMs: 6000, key: LINK_TOAST });
     return;
   }
   const reference = readNostrReference(link);
@@ -66,11 +72,16 @@ export function openLinkFromOutside(link: string): void {
     return;
   }
   const mine = ++latestLink;
-  const stillWanted = () => mine === latestLink;
+  const newest = () => mine === latestLink;
   if (reference.kind !== "profile") toasts.addToast("Opening the link…", "info", { autoCloseMs: 15_000, key: LINK_TOAST });
-  openNostrReference(reference, stillWanted)
+  openNostrReference(reference, () => newest() && linkHeldBack() === null)
     .then((outcome) => {
-      if (outcome.status === "superseded") return;
+      if (outcome.status === "superseded") {
+        // Not superseded but held back: say why, as before the lookup.
+        const heldNow = newest() ? linkHeldBack() : null;
+        if (heldNow) useToastStore.getState().addToast(heldNow, "info", { autoCloseMs: 6000, key: LINK_TOAST });
+        return;
+      }
       if (outcome.status === "opened") {
         useToastStore.getState().removeByKey(LINK_TOAST);
         return;
@@ -86,7 +97,7 @@ export function openLinkFromOutside(link: string): void {
     })
     .catch((err) => {
       debug.warn("[launch] could not open a link:", err);
-      if (stillWanted()) useToastStore.getState().addToast("Couldn't open that link.", "error", { key: LINK_TOAST });
+      if (newest()) useToastStore.getState().addToast("Couldn't open that link.", "error", { key: LINK_TOAST });
     });
 }
 

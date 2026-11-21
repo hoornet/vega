@@ -69,7 +69,17 @@ describe("safeHintRelays", () => {
       "wss://nas.home.arpa",
       "wss://user:secret@relay.example.com",
       "not a url",
+      // A trailing dot is the same host to DNS, and `URL` keeps it.
+      "wss://localhost.",
+      "wss://printer.example.local.",
+      "wss://127.0.0.1.",
+      "wss://192.168.1.10..",
     ])).toEqual([]);
+  });
+
+  it("reads a public host with a trailing dot as the same relay", () => {
+    expect(safeHintRelays(["wss://relay.example.com.", "wss://relay.example.com"])).toEqual(["wss://relay.example.com"]);
+    expect(safeHintRelays(["wss://relay.example.com.:7777/inbox"])).toEqual(["wss://relay.example.com:7777/inbox"]);
   });
 
   it("asks at most three", () => {

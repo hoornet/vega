@@ -18,8 +18,9 @@ export const MAX_HINT_RELAYS = 3;
  * place it asks Vega to connect to, so nothing on this computer or its network is one: not
  * `localhost` or a bare name, not `.local`, not a private, loopback, link-local or shared IPv4
  * range, not an IPv6 literal (all the local ones are literals). `URL` has already turned an IPv4
- * address written as one number or in hex into dotted form. A public name that resolves to a
- * private address is not caught: that would need the DNS answer, which a webview cannot see.
+ * address written as one number or in hex into dotted form; the caller drops a trailing dot, which
+ * `URL` keeps (`localhost.` is `localhost`). A public name that resolves to a private address is
+ * not caught: that would need the DNS answer, which a webview cannot see.
  */
 function publicHost(host: string): boolean {
   if (host.startsWith("[") || !host.includes(".")) return false;
@@ -54,8 +55,9 @@ export function safeHintRelays(relays: readonly string[] | undefined): string[] 
     } catch {
       continue;
     }
-    if (url.protocol !== "wss:" || url.username || url.password || !publicHost(url.hostname)) continue;
-    const relay = normalizeRelayUrl(`wss://${url.host}${url.pathname}`);
+    const host = url.hostname.replace(/\.+$/, "");
+    if (url.protocol !== "wss:" || url.username || url.password || !publicHost(host)) continue;
+    const relay = normalizeRelayUrl(`wss://${host}${url.port ? `:${url.port}` : ""}${url.pathname}`);
     if (!kept.includes(relay)) kept.push(relay);
   }
   return kept;
