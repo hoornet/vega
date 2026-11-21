@@ -62,3 +62,21 @@ export interface AskHandle {
   /** Stops the answer; `done` resolves with what arrived. */
   cancel: () => void;
 }
+
+/** A note as the pack takes it. */
+export interface PackNote {
+  id: string;
+  pubkey: string;
+  /** Seconds, as on the event. */
+  createdAt: number;
+  kind: number;
+  content: string;
+}
+
+export type PackSource =
+  /** The thread's notes, root first; `replyTo` is the note the box answers. */
+  | { kind: "thread"; notes: PackNote[]; replyTo?: PackNote }
+  | { kind: "article"; title: string; summary: string; pubkey: string; publishedAt: number; body: string }
+  | { kind: "profile"; pubkey: string; about: string; nip05: string; notes: PackNote[]; replyTo?: PackNote }
+  | { kind: "feed"; notes: PackNote[] }
+  | { kind: "note"; note: PackNote };

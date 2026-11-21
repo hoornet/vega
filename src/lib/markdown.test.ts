@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { renderMarkdown } from "./markdown";
+import { renderMarkdown, renderAnswerMarkdown } from "./markdown";
 
 /**
  * Characterization tests for article rendering (NIP-23).
@@ -86,5 +86,17 @@ describe("renderMarkdown", () => {
 
   it("returns a string for empty input rather than throwing", () => {
     expect(typeof renderMarkdown("")).toBe("string");
+  });
+});
+
+describe("renderAnswerMarkdown", () => {
+  it("keeps text and links, and drops everything that would load by itself", () => {
+    const html = renderAnswerMarkdown(
+      '**Hi** [site](https://example.com)\n\n![pixel](https://track.example/p.gif)\n\n<img src="https://track.example/a.gif"><iframe src="https://x.example"></iframe><video poster="https://x.example/p.jpg"></video><p style="background:url(https://x.example/b)">styled</p>',
+    );
+    expect(html).toContain("<strong>Hi</strong>");
+    expect(html).toContain('href="https://example.com"');
+    expect(html).toContain("styled");
+    expect(html).not.toMatch(/<img|<iframe|<video|style=|track\.example|x\.example/);
   });
 });

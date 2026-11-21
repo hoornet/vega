@@ -12,6 +12,7 @@ import { estimateNoteHeight } from "../../lib/feedEstimate";
 import { NoteCard } from "./NoteCard";
 import { ArticleCard } from "../article/ArticleCard";
 import { ComposeBox } from "./ComposeBox";
+import { AssistantSourceProvider, toPackNote } from "../assistant/source";
 import { StartHereCard } from "./StartHereCard";
 import { PeopleToStartWith } from "../shared/PeopleToStartWith";
 import { FOLLOWS_TO_START } from "../../stores/firstRun";
@@ -351,6 +352,11 @@ export function Feed() {
 
       {/* Compose */}
       {loggedIn && !!getNDK().signer && (
+        // `@vega` in the box asks about the notes on screen now (the rows the list has drawn).
+        <AssistantSourceProvider source={() => {
+          const drawn = virtualItems.map((vi) => filteredNotes[vi.index]).filter(Boolean);
+          return { kind: "feed", notes: (drawn.length > 0 ? drawn : filteredNotes).slice(0, 30).map(toPackNote) };
+        }}>
         <ComposeBox
           onPublished={isFollowing ? undefined : loadFeed}
           onNoteInjected={isFollowing ? (event) => setFollowNotes((prev) => [event, ...prev]) : undefined}
@@ -360,6 +366,7 @@ export function Feed() {
           // script filter. Then too the box emptied and nothing else changed.
           confirmPosted={(event) => isTrending || !shows(event)}
         />
+        </AssistantSourceProvider>
       )}
 
       {/* What to do first, for an account made here. Above the list, on every tab. */}

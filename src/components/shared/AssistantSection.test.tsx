@@ -171,5 +171,13 @@ describe("Settings → Assistant", () => {
     finish();
     expect(await screen.findByText("Saved in your keychain.")).toBeTruthy();
   });
-});
 
+  it("shows the providers it will not ask about again, and Ask again forgets them", () => {
+    settings({ enabled: true, trustedProviders: ["https://api.anthropic.com", "https://openrouter.ai/api/v1"] });
+    render(<AssistantSection />);
+    expect(screen.getByText("Not asking again about: Anthropic, openrouter.ai")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Ask again" }));
+    expect(readAssistantSettings().trustedProviders).toEqual([]);
+    expect(screen.queryByText(/Not asking again/)).toBeNull();
+  });
+});

@@ -11,6 +11,9 @@ import { Button } from "../shared/Button";
 import { Check } from "lucide-react";
 import { tellPublish } from "../../lib/publishFeedback";
 import { useUnsentText } from "../../hooks/useUnsentText";
+import { replySource, useAssistantSource } from "../assistant/source";
+import { useAssistantBox } from "../assistant/useAssistantBox";
+import { AssistantPanel, AskVegaButton } from "../assistant/AssistantPanel";
 
 interface ThreadNodeProps {
   node: ThreadNodeType;
@@ -38,8 +41,16 @@ function InlineThreadReply({ replyTo, rootEvent, onPublished }: {
   const [showEmoji, setShowEmoji] = useState(false);
   const ref = useRef<HTMLTextAreaElement>(null);
   const autoResize = useAutoResize(2, 8);
+  // `@vega` asks about the thread, with this note marked as the one answered.
+  const assistant = useAssistantBox({
+    text,
+    source: replySource(useAssistantSource(), replyTo),
+    onUse: (draft) => { setText(draft); ref.current?.focus(); },
+  });
 
   const handleSubmit = async () => {
+    // A question for Vega is never a reply. The publish path refuses it too (`publishToNetwork`).
+    if (assistant.active) return void assistant.ask();
     if (!text.trim() || replying) return;
     setReplying(true);
     const rootArg = replyTo.id !== rootEvent.id
@@ -100,10 +111,15 @@ function InlineThreadReply({ replyTo, rootEvent, onPublished }: {
             />
           )}
         </div>
-        <Button variant="primary" onClick={handleSubmit} disabled={!text.trim() && !replying} busy={replying}>
-          {sent && <Check />}{sent ? "Replied" : replying ? "Posting…" : "Reply"}
-        </Button>
+        {assistant.active ? (
+          <AskVegaButton onClick={() => void assistant.ask()} busy={assistant.running} />
+        ) : (
+          <Button variant="primary" onClick={handleSubmit} disabled={!text.trim() && !replying} busy={replying}>
+            {sent && <Check />}{sent ? "Replied" : replying ? "Posting…" : "Reply"}
+          </Button>
+        )}
       </div>
+      {(assistant.active || assistant.panel.answer.status !== "idle") && <AssistantPanel {...assistant.panel} />}
     </div>
   );
 }

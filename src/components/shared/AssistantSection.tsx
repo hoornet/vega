@@ -297,8 +297,25 @@ export function AssistantSection() {
             label="Ask before sending to a model that is not on this computer"
             hint="Once for each provider. Messages, keys and the notes of people you mute are never sent."
           />
+          {/* "Don't ask again" was otherwise invisible, and undone only by switching this off and on. */}
+          {settings.askBeforeCloud && settings.trustedProviders.length > 0 && (
+            <div className="flex flex-wrap items-center gap-2">
+              <p className="text-text-muted text-caption">Not asking again about: {settings.trustedProviders.map(providerLabel).join(", ")}</p>
+              <Button size="sm" variant="ghost" onClick={() => update({ trustedProviders: [] })}>Ask again</Button>
+            </div>
+          )}
         </div>
       )}
     </section>
   );
+}
+
+/** A provider not asked about, by the name the question used: "Anthropic", or the server's host. */
+function providerLabel(address: string): string {
+  if (address === normalizeAddress(PRESETS.claude.defaultBaseUrl)) return "Anthropic";
+  try {
+    return new URL(address).host;
+  } catch {
+    return address;
+  }
 }
