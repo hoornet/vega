@@ -1,8 +1,9 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Switch } from "./Switch";
 import { Button } from "./Button";
 import { useAssistantStore } from "../../stores/assistant";
-import { PRESETS, PRESET_ORDER, activeProvider, type PresetId } from "../../lib/assistant/settings";
+import { PRESETS, PRESET_ORDER, activeProvider, normalizeAddress } from "../../lib/assistant/settings";
+import type { PresetId } from "../../types/assistant";
 import {
   assistantKeyStatus,
   forgetAssistantKey,
@@ -20,9 +21,11 @@ function reason(err: unknown): string {
   return endSentence(clipText(String(err), 200));
 }
 
-/** Two addresses are the same when they differ only by a trailing slash. */
+/** Two addresses are the same when Rust would save them as the same (`normalize_base`). */
 function sameAddress(a: string | null | undefined, b: string): boolean {
-  return !!a && a.replace(/\/+$/, "") === b.replace(/\/+$/, "");
+  if (!a) return false;
+  const left = normalizeAddress(a);
+  return left !== null && left === normalizeAddress(b);
 }
 
 type TestState = { state: "idle" } | { state: "testing" } | { state: "ok" } | { state: "failed"; reason: string };
@@ -46,14 +49,32 @@ export function AssistantSection() {
   const [modelsBusy, setModelsBusy] = useState(false);
   const [modelsError, setModelsError] = useState<string | null>(null);
   const [test, setTest] = useState<TestState>({ state: "idle" });
+  // Which provider, address and model the results on screen belong to. Save, Remove, Find models
+  // and Test each note it when they start and drop their result if it has moved on by the time
+  // they finish: a slow Ollama test must not say Claude is connected.
+  const inputs = `${settings.preset}|${provider.baseUrl}|${provider.model}`;
+  const current = useRef(inputs);
+  current.current = inputs;
+  const target = `${settings.preset}|${provider.baseUrl}`;
 
-  // What the keychain holds for this provider, read again when the provider changes.
+  // A key typed for one destination is never saved for another: a change of provider or address
+  // clears it, and the results that were about the last one.
   useEffect(() => {
-    setKeyFor(undefined);
+    setKeyInput("");
     setKeyError(null);
     setModels([]);
     setModelsError(null);
     setTest({ state: "idle" });
+  }, [target]);
+
+  // A changed model makes the last Test's verdict stale.
+  useEffect(() => {
+    setTest({ state: "idle" });
+  }, [provider.model]);
+
+  // What the keychain holds for this provider, read again when the provider changes.
+  useEffect(() => {
+    setKeyFor(undefined);
     if (!preset.keySlot || !settings.enabled) return;
     let live = true;
     assistantKeyStatus(preset.keySlot)
@@ -71,52 +92,62 @@ export function AssistantSection() {
   const keySaved = sameAddress(keyFor, provider.baseUrl);
 
   const saveKey = async () => {
-    if (!preset.keySlot || !keyInput.trim()) return;
+    const slot = preset.keySlot;
+    if (!slot || !keyInput.trim()) return;
+    const started = current.current;
     setKeyBusy(true);
     setKeyError(null);
     try {
-      await saveAssistantKey(preset.keySlot, provider.baseUrl, keyInput);
+      await saveAssistantKey(slot, provider.baseUrl, keyInput);
+      const saved = await assistantKeyStatus(slot);
+      if (current.current !== started) return;
       setKeyInput("");
-      setKeyFor(await assistantKeyStatus(preset.keySlot));
+      setKeyFor(saved);
     } catch (e) {
-      setKeyError(`Couldn't save the key: ${reason(e)}`);
+      if (current.current === started) setKeyError(`Couldn't save the key: ${reason(e)}`);
     } finally {
       setKeyBusy(false);
     }
   };
 
   const removeKey = async () => {
-    if (!preset.keySlot) return;
+    const slot = preset.keySlot;
+    if (!slot) return;
+    const started = current.current;
     setKeyBusy(true);
     setKeyError(null);
     try {
-      await forgetAssistantKey(preset.keySlot);
-      setKeyFor(null);
+      await forgetAssistantKey(slot);
+      if (current.current === started) setKeyFor(null);
     } catch (e) {
-      setKeyError(`Couldn't remove the key: ${reason(e)}`);
+      if (current.current === started) setKeyError(`Couldn't remove the key: ${reason(e)}`);
     } finally {
       setKeyBusy(false);
     }
   };
 
   const findModels = async () => {
+    const started = current.current;
     setModelsBusy(true);
     setModelsError(null);
     try {
       const found = await listAssistantModels(provider);
+      if (current.current !== started) return;
       setModels(found);
       if (found.length === 0) setModelsError("The server lists no models.");
       else if (!provider.model) setModel(found[0]);
     } catch (e) {
-      setModelsError(`Couldn't list the models: ${reason(e)}`);
+      if (current.current === started) setModelsError(`Couldn't list the models: ${reason(e)}`);
     } finally {
       setModelsBusy(false);
     }
   };
 
   const runTest = async () => {
+    const started = current.current;
     setTest({ state: "testing" });
     const result = await testAssistant(provider);
+    if (current.current !== started) return;
     setTest(result.ok ? { state: "ok" } : { state: "failed", reason: reason(result.reason) });
   };
 
@@ -220,7 +251,8 @@ export function AssistantSection() {
                       spellCheck={false}
                       onChange={(e) => setKeyInput(e.target.value)}
                       onKeyDown={(e) => {
-                        if (e.key === "Enter") saveKey();
+                        // Enter that picks an input method's candidate is not a save (CLAUDE.md, "Names").
+                        if (e.key === "Enter" && !e.nativeEvent.isComposing && e.keyCode !== 229) saveKey();
                       }}
                     />
                     <Button size="sm" onClick={saveKey} busy={keyBusy} disabled={!keyInput.trim() || !provider.baseUrl}>

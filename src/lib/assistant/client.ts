@@ -1,31 +1,11 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
-import type { ActiveProvider } from "./settings";
+import type { ActiveProvider, AskHandle, AskOptions } from "../../types/assistant";
 
 /**
  * Talking to the model, through Rust (`src-tauri/src/assistant.rs`): Rust holds the keys, sends the
  * request and streams the answer back as `assistant-chunk` events. Nothing here sees a key.
  */
-
-export interface ChatMessage {
-  role: "user" | "assistant";
-  content: string;
-}
-
-export interface AskOptions {
-  system: string;
-  messages: ChatMessage[];
-  maxTokens?: number;
-  /** Each piece of the answer as it arrives. */
-  onText?: (text: string) => void;
-}
-
-export interface AskHandle {
-  /** The whole answer once it ends, or the reason it failed, as a sentence. */
-  done: Promise<string>;
-  /** Stops the answer; `done` resolves with what arrived. */
-  cancel: () => void;
-}
 
 let counter = 0;
 
@@ -95,11 +75,12 @@ export function listAssistantModels(provider: ActiveProvider): Promise<string[]>
 /** One tiny request: whether the provider answers, with this address, model and key. */
 export async function testAssistant(provider: ActiveProvider): Promise<{ ok: true } | { ok: false; reason: string }> {
   try {
-    await askAssistant(provider, {
+    const answer = await askAssistant(provider, {
       system: "You are a connection test. Reply with the single word OK.",
       messages: [{ role: "user", content: "Are you there?" }],
       maxTokens: 8,
     }).done;
+    if (!answer.trim()) return { ok: false, reason: "The server answered, but the model said nothing. Check the model name." };
     return { ok: true };
   } catch (err) {
     return { ok: false, reason: String(err) };

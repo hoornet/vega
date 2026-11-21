@@ -1,5 +1,7 @@
 import { describe, it, expect, beforeEach } from "vitest";
+import { vi } from "vitest";
 import {
+  normalizeAddress,
   activeProvider,
   assistantEnabled,
   invocationQuestion,
@@ -71,3 +73,31 @@ describe("the active provider", () => {
     for (const url of ["https://api.anthropic.com", "http://192.168.1.5", "http://localhost.example", "nonsense"]) expect(isLocalAddress(url), url).toBe(false);
   });
 });
+
+describe("review fixes", () => {
+  it("a name that starts with 127. is not this computer, but a short loopback address is", () => {
+    expect(isLocalAddress("https://127.models.example/v1")).toBe(false);
+    expect(isLocalAddress("http://127.1:11434/v1")).toBe(true);
+  });
+
+  it("compares addresses as Rust saves them", () => {
+    expect(normalizeAddress("https://API.Example.com:443/v1/")).toBe("https://api.example.com/v1");
+    expect(normalizeAddress("http://localhost:11434/v1")).toBe("http://localhost:11434/v1");
+    expect(normalizeAddress("not an address")).toBeNull();
+  });
+
+  it("settings that could not be saved still hold, so the publish guard sees the switch as shown", () => {
+    const setItem = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+      throw new Error("QuotaExceededError");
+    });
+    try {
+      writeAssistantSettings({ ...DEFAULT_ASSISTANT_SETTINGS, enabled: true });
+      expect(assistantEnabled()).toBe(true);
+    } finally {
+      setItem.mockRestore();
+    }
+    writeAssistantSettings({ ...DEFAULT_ASSISTANT_SETTINGS });
+    expect(assistantEnabled()).toBe(false);
+  });
+});
+

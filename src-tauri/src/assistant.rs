@@ -24,10 +24,25 @@ use tauri::{AppHandle, Emitter, Url};
 /// The keychain service for assistant keys. Not `wrystr`: see the module comment.
 const KEY_SERVICE: &str = "vega-assistant";
 
-/// How long an answer may go quiet before it is given up on.
-const IDLE: Duration = Duration::from_secs(60);
-/// The longest answer kept: past this, the stream is cut and what arrived is returned.
-const MAX_ANSWER: usize = 64 * 1024;
+/// How long the waits of a request are, and how much of an answer is kept.
+#[derive(Clone, Copy)]
+struct Limits {
+    /// Until the server's response begins. Long: a local model on a slow machine is loaded first.
+    headers: Duration,
+    /// Between two pieces of an answer.
+    idle: Duration,
+    /// The longest answer kept: past this the stream is cut and what arrived is returned.
+    max_answer: usize,
+    /// The longest a line may grow while its end has not arrived.
+    max_line: usize,
+}
+
+const LIMITS: Limits = Limits {
+    headers: Duration::from_secs(180),
+    idle: Duration::from_secs(60),
+    max_answer: 64 * 1024,
+    max_line: 256 * 1024,
+};
 /// The most a request may carry, in characters of message text.
 const MAX_REQUEST: usize = 200_000;
 /// The most a model list may hold, and the longest name kept.
@@ -75,9 +90,29 @@ struct SavedKey {
     key: String,
 }
 
-/// Requests still streaming, by id, with the flag that stops them.
+/// How a request is told to stop: a flag for the checks between reads, and a wake-up for a read
+/// that is waiting, so Stop does not wait for the server to send something.
 #[derive(Default)]
-pub struct Requests(Mutex<HashMap<String, Arc<AtomicBool>>>);
+pub struct Cancel {
+    flag: AtomicBool,
+    wake: tokio::sync::Notify,
+}
+
+impl Cancel {
+    pub fn cancel(&self) {
+        self.flag.store(true, Ordering::Relaxed);
+        // Keeps a permit when nothing waits yet, so a stop that lands between two reads is not lost.
+        self.wake.notify_one();
+    }
+
+    fn is_cancelled(&self) -> bool {
+        self.flag.load(Ordering::Relaxed)
+    }
+}
+
+/// Requests still streaming, by id, with what stops them.
+#[derive(Default)]
+pub struct Requests(Mutex<HashMap<String, Arc<Cancel>>>);
 
 #[derive(Clone, Serialize)]
 struct Chunk<'a> {
@@ -106,12 +141,23 @@ pub fn normalize_base(raw: &str) -> Result<String, String> {
     Ok(url.as_str().trim_end_matches('/').to_string())
 }
 
-/// The key a request may carry: the saved one when it was saved for this very address, none
-/// when nothing is saved, and a refusal when it was saved for another address.
+/// Whether a key may be sent to `base`: over https, or over http to this computer only. Anyone on
+/// the way could read a key sent over plain http elsewhere.
+fn key_may_travel(base: &str) -> Result<(), String> {
+    let url: Url = base.parse().map_err(|_| "That is not a web address.".to_string())?;
+    if url.scheme() == "https" || is_loopback(&url) {
+        Ok(())
+    } else {
+        Err("A key is only sent over https, or to a server on this computer.".into())
+    }
+}
+
+/// The key a request may carry: the saved one when it was saved for this very address (and may
+/// travel there), none when nothing is saved, and a refusal when it was saved for another address.
 fn key_for(saved: Option<SavedKey>, base: &str) -> Result<Option<String>, String> {
     match saved {
         None => Ok(None),
-        Some(saved) if saved.base_url == base => Ok(Some(saved.key)),
+        Some(saved) if saved.base_url == base => key_may_travel(base).map(|()| Some(saved.key)),
         Some(saved) => Err(format!(
             "The key in your keychain was saved for {}, not {}. Save it again for this address.",
             saved.base_url, base
@@ -149,6 +195,7 @@ fn load_saved(slot: &str) -> Result<Option<SavedKey>, String> {
 #[tauri::command]
 pub fn assistant_save_key(slot: String, base_url: String, key: String) -> Result<(), String> {
     let base = normalize_base(&base_url)?;
+    key_may_travel(&base)?;
     let key = key.trim();
     if key.is_empty() || key.len() > 512 || key.chars().any(char::is_whitespace) {
         return Err("That does not look like an API key.".into());
@@ -206,14 +253,35 @@ fn ensure_tls_provider() {
     }
 }
 
-fn client(app: &AppHandle, base: &str) -> Result<reqwest::Client, String> {
+/// What every assistant client starts from. **Redirects are not followed**: reqwest drops
+/// `Authorization` on a redirect to another host but not `x-api-key`, so a server (or anyone
+/// answering in its place) could send Claude's key on to a host of its choosing; and no model API
+/// needs one. A redirect is reported as such (`status_problem`).
+fn client_builder() -> reqwest::ClientBuilder {
     ensure_tls_provider();
+    reqwest::Client::builder()
+        .connect_timeout(Duration::from_secs(15))
+        .redirect(reqwest::redirect::Policy::none())
+}
+
+/// The user's proxy for the assistant's requests, with `socks5://` read as `socks5h://`: the proxy
+/// looks the name up, so the model server's name never goes to the local resolver. A user who set
+/// a proxy wants the request hidden, and plain `socks5` leaks which server was asked.
+fn assistant_proxy(url: &str) -> String {
+    match url.strip_prefix("socks5://") {
+        Some(rest) => format!("socks5h://{rest}"),
+        None => url.to_string(),
+    }
+}
+
+fn client(app: &AppHandle, base: &str) -> Result<reqwest::Client, String> {
     let url: Url = base.parse().map_err(|_| "That is not a web address.".to_string())?;
-    let mut builder = reqwest::Client::builder().connect_timeout(Duration::from_secs(15));
+    let mut builder = client_builder();
     if is_loopback(&url) {
         builder = builder.no_proxy();
     } else if let Some(proxy) = crate::enabled_proxy_url(&crate::load_proxy_settings_from_disk(app))? {
-        builder = builder.proxy(reqwest::Proxy::all(proxy.as_str()).map_err(|e| e.to_string())?);
+        let proxy = assistant_proxy(proxy.as_str());
+        builder = builder.proxy(reqwest::Proxy::all(&proxy).map_err(|e| e.to_string())?);
     }
     builder.build().map_err(|e| e.to_string())
 }
@@ -317,6 +385,7 @@ pub fn status_problem(status: u16, body: &str) -> String {
         })
         .map(|m| clip(&m, 200));
     let what = match status {
+        300..=399 => "The server sent Vega to another address, which it does not follow with your request. Check the address.".to_string(),
         401 | 403 => "The key was not accepted.".to_string(),
         404 => "The address or the model was not found.".to_string(),
         429 => "Too many requests: the provider asks you to wait.".to_string(),
@@ -393,7 +462,7 @@ pub async fn assistant_ask(
         return Err("No API key is saved for this provider. Add one in Settings → Assistant.".into());
     }
 
-    let cancelled = Arc::new(AtomicBool::new(false));
+    let cancelled = Arc::new(Cancel::default());
     requests
         .0
         .lock()
@@ -402,20 +471,22 @@ pub async fn assistant_ask(
     let _registered = Registered { requests: requests.inner(), id: request.id.clone() };
 
     let http = client(&app, &base)?;
-    stream_answer(&http, &request, &base, key.as_deref(), &cancelled, |text| {
+    stream_answer(&http, &request, &base, key.as_deref(), &cancelled, LIMITS, |text| {
         let _ = app.emit("assistant-chunk", Chunk { id: &request.id, text });
     })
     .await
 }
 
-/// Sends the request and reads the answer as it streams, handing each piece to `on_text`. Stops
-/// at the stream's end, at `cancelled`, or at `MAX_ANSWER`, and returns what arrived.
+/// Sends the request and reads the answer as it streams, handing each piece to `on_text`. Stops at
+/// the stream's end, at a cancel (returning what arrived, at once, even mid-read), or at
+/// `limits.max_answer`.
 async fn stream_answer(
     http: &reqwest::Client,
     request: &AskRequest,
     base: &str,
     key: Option<&str>,
-    cancelled: &AtomicBool,
+    cancel: &Cancel,
+    limits: Limits,
     mut on_text: impl FnMut(&str),
 ) -> Result<String, String> {
     let call = with_key(
@@ -425,7 +496,14 @@ async fn stream_answer(
         request.kind,
         key,
     );
-    let mut response = call.send().await.map_err(|e| send_problem(&e))?;
+    let sent = tokio::select! {
+        biased;
+        _ = cancel.wake.notified() => return Ok(String::new()),
+        sent = tokio::time::timeout(limits.headers, call.send()) => sent,
+    };
+    let mut response = sent
+        .map_err(|_| "The model server did not answer in time.".to_string())?
+        .map_err(|e| send_problem(&e))?;
     if !response.status().is_success() {
         let body = read_capped(&mut response, 4096).await;
         return Err(status_problem(response.status().as_u16(), &body));
@@ -433,12 +511,19 @@ async fn stream_answer(
 
     let mut pending: Vec<u8> = Vec::new();
     let mut answer = String::new();
+    // A page that is not a stream (an HTML page from a wrong address, answered with 200) has no
+    // `data:` line at all: that is not an empty answer, it is no answer.
+    let mut saw_data = false;
     'stream: loop {
-        if cancelled.load(Ordering::Relaxed) || answer.len() >= MAX_ANSWER {
+        if cancel.is_cancelled() || answer.len() >= limits.max_answer {
             break;
         }
-        let next = tokio::time::timeout(IDLE, response.chunk())
-            .await
+        let next = tokio::select! {
+            biased;
+            _ = cancel.wake.notified() => break 'stream,
+            next = tokio::time::timeout(limits.idle, response.chunk()) => next,
+        };
+        let next = next
             .map_err(|_| "The model stopped answering.".to_string())?
             .map_err(|e| send_problem(&e))?;
         let Some(bytes) = next else { break };
@@ -447,25 +532,52 @@ async fn stream_answer(
         while let Some(end) = pending.iter().position(|b| *b == b'\n') {
             let line: Vec<u8> = pending.drain(..=end).collect();
             let line = String::from_utf8_lossy(&line);
-            match read_stream_line(request.kind, line.trim_end()) {
+            let line = line.trim_end();
+            saw_data |= line.starts_with("data:");
+            match read_stream_line(request.kind, line) {
                 StreamLine::Text(text) => {
-                    answer.push_str(&text);
-                    on_text(&text);
+                    let room = limits.max_answer.saturating_sub(answer.len());
+                    let piece = clip_bytes(&text, room);
+                    if !piece.is_empty() {
+                        answer.push_str(piece);
+                        on_text(piece);
+                    }
+                    if answer.len() >= limits.max_answer {
+                        break 'stream;
+                    }
                 }
                 StreamLine::Done => break 'stream,
                 StreamLine::Error(message) => return Err(format!("The model stopped with an error: {message}")),
                 StreamLine::Nothing => {}
             }
         }
+        if pending.len() > limits.max_line {
+            return Err("The model server sent something that is not an answer.".into());
+        }
+    }
+    if !saw_data && !cancel.is_cancelled() {
+        return Err("The server answered, but not with a model's reply. Check the address and the model.".into());
     }
     Ok(answer)
+}
+
+/// The longest start of `text` that fits in `max` bytes without cutting a character.
+fn clip_bytes(text: &str, max: usize) -> &str {
+    if text.len() <= max {
+        return text;
+    }
+    let mut end = max;
+    while !text.is_char_boundary(end) {
+        end -= 1;
+    }
+    &text[..end]
 }
 
 /// Stops a request that is still streaming. What arrived so far is kept by the caller.
 #[tauri::command]
 pub fn assistant_cancel(requests: tauri::State<'_, Requests>, id: String) -> Result<(), String> {
-    if let Some(flag) = requests.0.lock().map_err(|e| e.to_string())?.get(&id) {
-        flag.store(true, Ordering::Relaxed);
+    if let Some(cancel) = requests.0.lock().map_err(|e| e.to_string())?.get(&id) {
+        cancel.cancel();
     }
     Ok(())
 }
@@ -627,9 +739,10 @@ mod tests {
         assert!(body.get("system").is_none());
     }
 
-    /// A one-shot HTTP server on this computer: answers the first request with `status` and
-    /// `chunks`, written one by one with a pause, then closes. Returns its base URL.
-    fn serve(status: &'static str, chunks: Vec<Vec<u8>>) -> String {
+    /// A one-shot HTTP server on this computer: reads the first request, then answers with `status`
+    /// (or, for None, never answers) and writes each chunk after its pause in milliseconds.
+    /// Returns its base URL.
+    fn serve_script(status: Option<&'static str>, chunks: Vec<(u64, Vec<u8>)>) -> String {
         use std::io::{Read, Write};
         let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
         let port = listener.local_addr().unwrap().port();
@@ -642,15 +755,33 @@ mod tests {
                 if n == 0 { return; }
                 seen.extend_from_slice(&buf[..n]);
             }
+            let Some(status) = status else {
+                std::thread::sleep(std::time::Duration::from_secs(5));
+                return;
+            };
             let head = format!("HTTP/1.1 {status}\r\ncontent-type: text/event-stream\r\nconnection: close\r\n\r\n");
-            socket.write_all(head.as_bytes()).unwrap();
-            for chunk in chunks {
+            if socket.write_all(head.as_bytes()).is_err() { return; }
+            for (pause, chunk) in chunks {
+                std::thread::sleep(std::time::Duration::from_millis(pause));
                 if socket.write_all(&chunk).is_err() { return; }
                 let _ = socket.flush();
-                std::thread::sleep(std::time::Duration::from_millis(20));
             }
         });
         format!("http://127.0.0.1:{port}/v1")
+    }
+
+    fn serve(status: &'static str, chunks: Vec<Vec<u8>>) -> String {
+        serve_script(Some(status), chunks.into_iter().map(|c| (20, c)).collect())
+    }
+
+    fn cancelled() -> Cancel {
+        let cancel = Cancel::default();
+        cancel.cancel();
+        cancel
+    }
+
+    fn openai_text(text: &str) -> Vec<u8> {
+        format!("data: {{\"choices\":[{{\"delta\":{{\"content\":\"{text}\"}}}}]}}\n").into_bytes()
     }
 
     fn ask(kind: ProviderKind) -> AskRequest {
@@ -667,8 +798,7 @@ mod tests {
     }
 
     fn local_client() -> reqwest::Client {
-        ensure_tls_provider();
-        reqwest::Client::builder().no_proxy().build().unwrap()
+        client_builder().no_proxy().build().unwrap()
     }
 
     #[tokio::test]
@@ -680,7 +810,7 @@ mod tests {
         let chunks = vec![line1[..10].to_vec(), line1[10..].to_vec(), line2[..cut].to_vec(), line2[cut..].to_vec()];
         let base = serve("200 OK", chunks);
         let mut pieces = Vec::new();
-        let answer = stream_answer(&local_client(), &ask(ProviderKind::OpenAi), &base, None, &AtomicBool::new(false), |t| pieces.push(t.to_string()))
+        let answer = stream_answer(&local_client(), &ask(ProviderKind::OpenAi), &base, None, &Cancel::default(), LIMITS, |t| pieces.push(t.to_string()))
             .await
             .unwrap();
         assert_eq!(answer, "Dober dan, Č");
@@ -696,7 +826,7 @@ mod tests {
             "data: {\"type\":\"content_block_delta\",\"delta\":{\"text\":\"after the end\"}}\n"
         );
         let base = serve("200 OK", vec![body.as_bytes().to_vec()]);
-        let answer = stream_answer(&local_client(), &ask(ProviderKind::Anthropic), &base, Some("k"), &AtomicBool::new(false), |_| {})
+        let answer = stream_answer(&local_client(), &ask(ProviderKind::Anthropic), &base, Some("k"), &Cancel::default(), LIMITS, |_| {})
             .await
             .unwrap();
         assert_eq!(answer, "OK");
@@ -705,13 +835,13 @@ mod tests {
     #[tokio::test]
     async fn a_refusal_is_said_and_an_error_in_the_stream_stops_it() {
         let base = serve("401 Unauthorized", vec![br#"{"error":{"message":"invalid key"}}"#.to_vec()]);
-        let err = stream_answer(&local_client(), &ask(ProviderKind::OpenAi), &base, Some("k"), &AtomicBool::new(false), |_| {})
+        let err = stream_answer(&local_client(), &ask(ProviderKind::OpenAi), &base, Some("k"), &Cancel::default(), LIMITS, |_| {})
             .await
             .unwrap_err();
         assert_eq!(err, "The key was not accepted. It said: invalid key");
 
         let base = serve("200 OK", vec![b"data: {\"error\":{\"message\":\"out of memory\"}}\n".to_vec()]);
-        let err = stream_answer(&local_client(), &ask(ProviderKind::OpenAi), &base, None, &AtomicBool::new(false), |_| {})
+        let err = stream_answer(&local_client(), &ask(ProviderKind::OpenAi), &base, None, &Cancel::default(), LIMITS, |_| {})
             .await
             .unwrap_err();
         assert_eq!(err, "The model stopped with an error: out of memory");
@@ -720,7 +850,7 @@ mod tests {
     #[tokio::test]
     async fn a_cancelled_request_reads_nothing_more() {
         let base = serve("200 OK", vec![b"data: {\"choices\":[{\"delta\":{\"content\":\"never\"}}]}\n".to_vec()]);
-        let answer = stream_answer(&local_client(), &ask(ProviderKind::OpenAi), &base, None, &AtomicBool::new(true), |_| {})
+        let answer = stream_answer(&local_client(), &ask(ProviderKind::OpenAi), &base, None, &cancelled(), LIMITS, |_| {})
             .await
             .unwrap();
         assert_eq!(answer, "");
@@ -730,9 +860,132 @@ mod tests {
     async fn an_address_nothing_listens_on_is_said_as_such() {
         let port = std::net::TcpListener::bind("127.0.0.1:0").unwrap().local_addr().unwrap().port();
         let base = format!("http://127.0.0.1:{port}/v1");
-        let err = stream_answer(&local_client(), &ask(ProviderKind::OpenAi), &base, None, &AtomicBool::new(false), |_| {})
+        let err = stream_answer(&local_client(), &ask(ProviderKind::OpenAi), &base, None, &Cancel::default(), LIMITS, |_| {})
             .await
             .unwrap_err();
         assert_eq!(err, "The model server could not be reached. Is it running, and is the address right?");
+    }
+
+    #[tokio::test]
+    async fn stop_interrupts_a_read_that_is_waiting_and_keeps_what_arrived() {
+        let base = serve_script(Some("200 OK"), vec![(0, openai_text("first")), (3000, openai_text(" never"))]);
+        let cancel = Arc::new(Cancel::default());
+        let stopper = cancel.clone();
+        tokio::spawn(async move {
+            tokio::time::sleep(Duration::from_millis(300)).await;
+            stopper.cancel();
+        });
+        let started = std::time::Instant::now();
+        let answer = stream_answer(&local_client(), &ask(ProviderKind::OpenAi), &base, None, &cancel, LIMITS, |_| {})
+            .await
+            .unwrap();
+        assert_eq!(answer, "first");
+        assert!(started.elapsed() < Duration::from_millis(1500), "{:?}", started.elapsed());
+    }
+
+    #[tokio::test]
+    async fn a_server_that_never_begins_its_answer_is_given_up_on() {
+        let base = serve_script(None, vec![]);
+        let limits = Limits { headers: Duration::from_millis(200), ..LIMITS };
+        let err = stream_answer(&local_client(), &ask(ProviderKind::OpenAi), &base, None, &Cancel::default(), limits, |_| {})
+            .await
+            .unwrap_err();
+        assert_eq!(err, "The model server did not answer in time.");
+    }
+
+    #[tokio::test]
+    async fn a_page_that_is_not_a_stream_is_no_answer() {
+        let base = serve("200 OK", vec![b"<html><body>Welcome to nginx</body></html>\n".to_vec()]);
+        let err = stream_answer(&local_client(), &ask(ProviderKind::OpenAi), &base, None, &Cancel::default(), LIMITS, |_| {})
+            .await
+            .unwrap_err();
+        assert_eq!(err, "The server answered, but not with a model's reply. Check the address and the model.");
+    }
+
+    #[tokio::test]
+    async fn a_line_that_never_ends_and_an_answer_past_the_cap_are_bounded() {
+        let limits = Limits { max_line: 64, ..LIMITS };
+        let base = serve("200 OK", vec![vec![b'x'; 200]]);
+        let err = stream_answer(&local_client(), &ask(ProviderKind::OpenAi), &base, None, &Cancel::default(), limits, |_| {})
+            .await
+            .unwrap_err();
+        assert_eq!(err, "The model server sent something that is not an answer.");
+
+        let limits = Limits { max_answer: 7, ..LIMITS };
+        let mut both = openai_text("Hello");
+        both.extend(openai_text(", wörld"));
+        let base = serve("200 OK", vec![both]);
+        let mut pieces = Vec::new();
+        let answer = stream_answer(&local_client(), &ask(ProviderKind::OpenAi), &base, None, &Cancel::default(), limits, |t| pieces.push(t.to_string()))
+            .await
+            .unwrap();
+        assert_eq!(answer, "Hello, ");
+        assert_eq!(pieces, vec!["Hello", ", "]);
+    }
+
+    #[test]
+    fn clips_without_cutting_a_character() {
+        assert_eq!(clip_bytes("wörld", 2), "w");
+        assert_eq!(clip_bytes("wörld", 3), "wö");
+        assert_eq!(clip_bytes("abc", 10), "abc");
+    }
+
+    #[test]
+    fn a_key_travels_only_over_https_or_to_this_computer() {
+        assert!(key_may_travel("https://api.example.com/v1").is_ok());
+        assert!(key_may_travel("http://localhost:1234/v1").is_ok());
+        assert!(key_may_travel("http://127.0.0.1:1234/v1").is_ok());
+        assert_eq!(
+            key_may_travel("http://192.168.1.5:1234/v1").unwrap_err(),
+            "A key is only sent over https, or to a server on this computer."
+        );
+        assert!(key_for(saved("http://llm.example/v1"), "http://llm.example/v1").is_err());
+        assert_eq!(key_for(None, "http://llm.example/v1").unwrap(), None);
+    }
+
+    #[test]
+    fn a_socks5_proxy_looks_the_name_up_itself() {
+        assert_eq!(assistant_proxy("socks5://127.0.0.1:9050"), "socks5h://127.0.0.1:9050");
+        assert_eq!(assistant_proxy("socks5h://127.0.0.1:9050"), "socks5h://127.0.0.1:9050");
+        assert_eq!(assistant_proxy("http://proxy.example:8080"), "http://proxy.example:8080");
+    }
+
+    #[tokio::test]
+    async fn a_redirect_is_not_followed_and_the_key_goes_nowhere_else() {
+        use std::io::{Read, Write};
+        use std::sync::atomic::AtomicBool;
+        // Where the redirect points: it must never be asked.
+        let elsewhere = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let elsewhere_port = elsewhere.local_addr().unwrap().port();
+        elsewhere.set_nonblocking(true).unwrap();
+        let reached = Arc::new(AtomicBool::new(false));
+        let seen = reached.clone();
+        std::thread::spawn(move || {
+            for _ in 0..50 {
+                if elsewhere.accept().is_ok() {
+                    seen.store(true, Ordering::Relaxed);
+                    return;
+                }
+                std::thread::sleep(Duration::from_millis(20));
+            }
+        });
+        let server = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let port = server.local_addr().unwrap().port();
+        std::thread::spawn(move || {
+            let (mut socket, _) = server.accept().unwrap();
+            let mut buf = [0u8; 4096];
+            let _ = socket.read(&mut buf);
+            let reply = format!(
+                "HTTP/1.1 307 Temporary Redirect\r\nlocation: http://127.0.0.1:{elsewhere_port}/v1/messages\r\ncontent-length: 0\r\nconnection: close\r\n\r\n"
+            );
+            let _ = socket.write_all(reply.as_bytes());
+        });
+        let base = format!("http://127.0.0.1:{port}");
+        let err = stream_answer(&local_client(), &ask(ProviderKind::Anthropic), &base, Some("sk-ant-secret"), &Cancel::default(), LIMITS, |_| {})
+            .await
+            .unwrap_err();
+        assert_eq!(err, "The server sent Vega to another address, which it does not follow with your request. Check the address.");
+        std::thread::sleep(Duration::from_millis(300));
+        assert!(!reached.load(Ordering::Relaxed), "the redirect was followed");
     }
 }

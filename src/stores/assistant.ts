@@ -1,9 +1,6 @@
 import { create } from "zustand";
-import {
-  readAssistantSettings,
-  writeAssistantSettings,
-  type AssistantSettings,
-} from "../lib/assistant/settings";
+import { readAssistantSettings, writeAssistantSettings } from "../lib/assistant/settings";
+import type { AssistantSettings } from "../types/assistant";
 
 /**
  * The assistant's settings, for the components that show or change them. Saved through

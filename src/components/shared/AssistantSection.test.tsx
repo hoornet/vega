@@ -114,4 +114,49 @@ describe("Settings → Assistant", () => {
     fireEvent.click(presetButton("Ollama on this computer"));
     expect((screen.getByLabelText("Model name") as HTMLInputElement).value).toBe("llama3.2");
   });
+
+  it("never saves a key typed for one provider for another", async () => {
+    settings({ enabled: true, preset: "claude" });
+    client.saveAssistantKey.mockResolvedValue(undefined);
+    render(<AssistantSection />);
+    fireEvent.change(await screen.findByLabelText("API key"), { target: { value: "sk-ant-secret" } });
+    fireEvent.click(presetButton("Another server"));
+    fireEvent.change(screen.getByLabelText("Address"), { target: { value: "https://other.example/v1" } });
+    expect((screen.getByLabelText("API key") as HTMLInputElement).value).toBe("");
+    expect(screen.getByRole("button", { name: "Save key" }).hasAttribute("disabled")).toBe(true);
+    expect(client.saveAssistantKey).not.toHaveBeenCalled();
+  });
+
+  it("drops a Test result that arrives after the provider changed", async () => {
+    settings({ enabled: true, model: { ollama: "llama3.2" } });
+    let finish!: (r: unknown) => void;
+    client.testAssistant.mockReturnValue(new Promise((resolve) => { finish = resolve; }));
+    render(<AssistantSection />);
+    fireEvent.click(screen.getByRole("button", { name: "Test" }));
+    fireEvent.click(presetButton("Claude"));
+    finish({ ok: true });
+    await new Promise((r) => setTimeout(r, 0));
+    expect(screen.queryByText(/Connected/)).toBeNull();
+  });
+
+  it("shows a key as saved however its address was written", async () => {
+    settings({ enabled: true, preset: "custom", baseUrl: { custom: "https://API.Example.com:443/v1/" }, model: { custom: "m" } });
+    client.assistantKeyStatus.mockResolvedValue("https://api.example.com/v1");
+    render(<AssistantSection />);
+    expect(await screen.findByText("Saved in your keychain.")).toBeTruthy();
+  });
+
+  it("does not save on the Enter that confirms an input method's text", async () => {
+    settings({ enabled: true, preset: "claude" });
+    client.saveAssistantKey.mockResolvedValue(undefined);
+    render(<AssistantSection />);
+    const field = await screen.findByLabelText("API key");
+    fireEvent.change(field, { target: { value: "sk-ant-x" } });
+    fireEvent.keyDown(field, { key: "Enter", keyCode: 229 });
+    fireEvent.keyDown(field, { key: "Enter", isComposing: true });
+    expect(client.saveAssistantKey).not.toHaveBeenCalled();
+    fireEvent.keyDown(field, { key: "Enter" });
+    await waitFor(() => expect(client.saveAssistantKey).toHaveBeenCalledWith("claude", "https://api.anthropic.com", "sk-ant-x"));
+  });
 });
+

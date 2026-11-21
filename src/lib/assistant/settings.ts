@@ -6,20 +6,7 @@
  * (`src-tauri/src/assistant.rs`), and never reach the webview.
  */
 
-export type ProviderKind = "anthropic" | "openai";
-export type PresetId = "ollama" | "claude" | "custom";
-
-export interface Preset {
-  id: PresetId;
-  label: string;
-  kind: ProviderKind;
-  /** The keychain slot for this provider's key, or null for one that takes none. */
-  keySlot: "claude" | "custom" | null;
-  defaultBaseUrl: string;
-  /** Claude's address is fixed; the others can be changed. */
-  baseUrlEditable: boolean;
-  defaultModel: string;
-}
+import type { ActiveProvider, AssistantSettings, Preset, PresetId } from "../../types/assistant";
 
 export const PRESETS: Record<PresetId, Preset> = {
   ollama: {
@@ -53,20 +40,6 @@ export const PRESETS: Record<PresetId, Preset> = {
 
 export const PRESET_ORDER: PresetId[] = ["ollama", "claude", "custom"];
 
-export interface AssistantSettings {
-  enabled: boolean;
-  preset: PresetId;
-  /** The address and the model chosen for each preset, kept when switching between them. */
-  baseUrl: Partial<Record<PresetId, string>>;
-  model: Partial<Record<PresetId, string>>;
-  /** Send your own recent notes along when asked to draft "in my tone". */
-  useMyNotes: boolean;
-  /** Ask once per provider before anything goes to a model that is not on this computer. */
-  askBeforeCloud: boolean;
-  /** Providers the user said not to be asked about again, by base URL. */
-  trustedProviders: string[];
-}
-
 export const DEFAULT_ASSISTANT_SETTINGS: AssistantSettings = {
   enabled: false,
   preset: "ollama",
@@ -93,8 +66,12 @@ function stringMap(value: unknown): Partial<Record<PresetId, string>> {
   return out;
 }
 
+/** Settings that could not be saved, which hold until the next save works. */
+let unsaved: AssistantSettings | null = null;
+
 /** The saved settings, or the defaults for anything missing or malformed. */
 export function readAssistantSettings(): AssistantSettings {
+  if (unsaved) return unsaved;
   let raw: unknown = null;
   try {
     raw = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "null");
@@ -119,8 +96,11 @@ export function readAssistantSettings(): AssistantSettings {
 export function writeAssistantSettings(settings: AssistantSettings): void {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
+    unsaved = null;
   } catch {
-    /* a full or blocked storage keeps the session's settings only */
+    // A full or blocked storage: these settings hold for this session, for everything that reads
+    // them, the publish guard included. A switch shown on must never read as off there.
+    unsaved = settings;
   }
 }
 
@@ -142,26 +122,31 @@ export function invocationQuestion(text: string): string {
   return text.replace(/^\s*@vega[,.:;!?]?/i, "").trim();
 }
 
-/** Whether an address is on this computer: a model there sees nothing leave it. */
+/**
+ * Whether an address is on this computer: a model there sees nothing leave it. `localhost`, `::1`,
+ * or an IPv4 address in 127.0.0.0/8; a name that merely starts with "127." is somewhere else.
+ * `URL` has already written a numeric address in dotted form.
+ */
 export function isLocalAddress(url: string): boolean {
   try {
     const host = new URL(url).hostname.replace(/^\[|\]$/g, "").toLowerCase();
-    return host === "localhost" || host === "::1" || /^127\./.test(host);
+    return host === "localhost" || host === "::1" || /^127\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(host);
   } catch {
     return false;
   }
 }
 
-/** What a request is sent with: the active preset, its address and model, and its key slot. */
-export interface ActiveProvider {
-  preset: PresetId;
-  label: string;
-  kind: ProviderKind;
-  baseUrl: string;
-  model: string;
-  keySlot: "claude" | "custom" | null;
-  /** On this computer: nothing leaves it. */
-  local: boolean;
+/**
+ * An address as Rust compares it (`normalize_base`): host in lower case, no default port, no
+ * trailing slash. Null when it is not an address.
+ */
+export function normalizeAddress(url: string): string | null {
+  try {
+    const u = new URL(url.trim());
+    return `${u.protocol}//${u.host}${u.pathname}`.replace(/\/+$/, "");
+  } catch {
+    return null;
+  }
 }
 
 export function activeProvider(settings: AssistantSettings): ActiveProvider {
