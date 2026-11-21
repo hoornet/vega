@@ -19,7 +19,9 @@ function reason(err: unknown): string {
  * "Start Vega when I log in": a login entry (`set_autostart` in lib.rs) that starts Vega with
  * `--hidden`, in the tray with no window. It sits with the notifications because they arrive
  * only while Vega runs. The switch shows what the system holds: the entry is read when the
- * section mounts and again after every change, never assumed from the last press.
+ * section mounts and again after every change, never assumed from the last press. A build that
+ * cannot write an entry can still remove one: every build names it "Vega", so a development
+ * build sees the entry the installed Vega wrote.
  */
 export function StartAtLoginSection() {
   const [status, setStatus] = useState<AutostartStatus | null>(null);
@@ -52,18 +54,23 @@ export function StartAtLoginSection() {
   };
 
   const unavailable = status?.unavailable ? WHY_NOT[status.unavailable] : null;
+  const enabled = status?.enabled ?? false;
   const hint = readError
     ? `Couldn't tell whether Vega starts when you log in: ${readError}`
-    : unavailable ?? WHAT_IT_DOES;
+    : unavailable
+      ? enabled
+        ? `${unavailable} You can still turn it off here.`
+        : unavailable
+      : WHAT_IT_DOES;
 
   return (
     <section>
       <Switch
-        checked={status?.enabled ?? false}
+        checked={enabled}
         onChange={change}
         label="Start Vega when I log in"
         hint={hint}
-        disabled={readError !== null || unavailable !== null}
+        disabled={readError !== null || (unavailable !== null && !enabled)}
         busy={busy || (status === null && readError === null)}
       />
       {error && (

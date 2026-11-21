@@ -118,6 +118,22 @@ describe("Start Vega when I log in", () => {
     expect(screen.getByText(/Not in the Flatpak yet/)).toBeTruthy();
   });
 
+  it("lets a build that cannot write an entry remove the one that is there", async () => {
+    // Every build names the entry "Vega", so a development build sees the installed Vega's.
+    autostart.readAutostart.mockResolvedValue({ enabled: true, unavailable: "development" });
+    autostart.setAutostart.mockResolvedValue(false);
+    render(<StartAtLoginSection />);
+    await waitFor(() => expect(toggle().getAttribute("aria-checked")).toBe("true"));
+    expect(toggle().hasAttribute("disabled")).toBe(false);
+    expect(screen.getByText(/Not in a development build.*You can still turn it off here\./)).toBeTruthy();
+    fireEvent.click(toggle());
+    expect(autostart.setAutostart).toHaveBeenCalledWith(false);
+    // Once it is gone, this build cannot put it back.
+    await waitFor(() => expect(toggle().getAttribute("aria-checked")).toBe("false"));
+    expect(toggle().hasAttribute("disabled")).toBe(true);
+    expect(screen.queryByText(/You can still turn it off here/)).toBeNull();
+  });
+
   it("says so when the entry could not be read, and offers nothing to press", async () => {
     autostart.readAutostart.mockRejectedValue("no home directory");
     render(<StartAtLoginSection />);
