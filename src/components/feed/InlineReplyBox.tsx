@@ -12,6 +12,9 @@ import { Button } from "../shared/Button";
 import { Check } from "lucide-react";
 import { explainPublishError } from "../../lib/publishErrors";
 import { useUnsentText } from "../../hooks/useUnsentText";
+import { replySource, useAssistantSource } from "../assistant/source";
+import { useAssistantBox } from "../assistant/useAssistantBox";
+import { AssistantPanel, AskVegaButton } from "../assistant/AssistantPanel";
 
 interface InlineReplyBoxProps {
   event: NDKEvent;
@@ -35,6 +38,12 @@ export function InlineReplyBox({ event, name, rootEvent }: InlineReplyBoxProps) 
   const autoResize = useAutoResize(2, 8);
   const replyRef = useRef<HTMLTextAreaElement>(null);
   const [, adjustReplyCount] = useReplyCount(event.id);
+  // `@vega` asks about the note being answered (on a profile, with that profile's notes).
+  const assistant = useAssistantBox({
+    text: replyText,
+    source: replySource(useAssistantSource(), event),
+    onUse: (draft) => { setReplyText(draft); replyRef.current?.focus(); },
+  });
 
   if (!canSign) return null;
 
@@ -135,6 +144,8 @@ export function InlineReplyBox({ event, name, rootEvent }: InlineReplyBoxProps) 
   };
 
   const handleReplySubmit = async () => {
+    // A question for Vega is never a reply. The publish path refuses it too (`publishToNetwork`).
+    if (assistant.active) return void assistant.ask();
     if ((!replyText.trim() && attachments.length === 0) || replying) return;
     setReplying(true);
     setReplyError(null);
@@ -208,6 +219,7 @@ export function InlineReplyBox({ event, name, rootEvent }: InlineReplyBoxProps) 
         </div>
       )}
 
+      {(assistant.active || assistant.panel.answer.status !== "idle") && <AssistantPanel {...assistant.panel} />}
       {replyError && <p className="text-danger text-caption mb-1">{replyError}</p>}
       {uploadError && <p className="text-danger text-caption mb-1">{uploadError}</p>}
       <div className="flex items-center justify-end gap-2 mt-1">
@@ -243,9 +255,13 @@ export function InlineReplyBox({ event, name, rootEvent }: InlineReplyBoxProps) 
           )}
         </div>
         <span className="text-text-dim text-caption">Ctrl+Enter</span>
-        <Button variant="primary" size="sm" onClick={handleReplySubmit} disabled={!replying && ((!replyText.trim() && attachments.length === 0) || uploading)} busy={replying}>
-          {replySent && <Check />}{replySent ? "Replied" : replying ? "Posting…" : "Reply"}
-        </Button>
+        {assistant.active ? (
+          <AskVegaButton size="sm" onClick={() => void assistant.ask()} busy={assistant.running} />
+        ) : (
+          <Button variant="primary" size="sm" onClick={handleReplySubmit} disabled={!replying && ((!replyText.trim() && attachments.length === 0) || uploading)} busy={replying}>
+            {replySent && <Check />}{replySent ? "Replied" : replying ? "Posting…" : "Reply"}
+          </Button>
+        )}
       </div>
     </div>
   );

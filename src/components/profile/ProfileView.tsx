@@ -25,6 +25,7 @@ import { Mail, VolumeX, Zap } from "lucide-react";
 import { ListState, emptyOr } from "../shared/ListState";
 import { useLoadedList } from "../../hooks/useLoadedList";
 import { copyText } from "../../lib/clipboard";
+import { AssistantSourceProvider, toPackNote } from "../assistant/source";
 
 function TopFollowerAvatar({ pubkey }: { pubkey: string }) {
   const profile = useProfile(pubkey);
@@ -347,9 +348,12 @@ export function ProfileView() {
                   onRetry={notesList.reload}
                 />
               )}
-              {notes.map((event) => (
-                <NoteCard key={event.id} event={event} />
-              ))}
+              {/* `@vega` in a reply under one of these notes asks about this person and their notes. */}
+              <AssistantSourceProvider source={() => ({ kind: "profile", pubkey, about: about ?? "", nip05: nip05 ?? "", notes: notes.map(toPackNote) })}>
+                {notes.map((event) => (
+                  <NoteCard key={event.id} event={event} />
+                ))}
+              </AssistantSourceProvider>
             </>
           )}
 

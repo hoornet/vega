@@ -8,6 +8,7 @@ use tauri::{
     AppHandle, Emitter, Manager, Runtime, WindowEvent,
 };
 
+mod assistant;
 mod launch;
 mod relay;
 
@@ -1170,7 +1171,9 @@ pub fn run() {
     let hidden = launch::starts_hidden(&own_args);
     let pending = launch::PendingLaunch::default();
     pending.push(launch::parse(&own_args));
-    let mut builder = tauri::Builder::default().manage(pending);
+    let mut builder = tauri::Builder::default()
+        .manage(pending)
+        .manage(assistant::Requests::default());
 
     // The first plugin, as the plugin asks: a second launch must reach the running Vega
     // before anything else of its own starts.
@@ -1346,6 +1349,12 @@ pub fn run() {
             take_launch_commands,
             autostart_status,
             set_autostart,
+            assistant::assistant_save_key,
+            assistant::assistant_key_status,
+            assistant::assistant_forget_key,
+            assistant::assistant_ask,
+            assistant::assistant_cancel,
+            assistant::assistant_models,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

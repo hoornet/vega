@@ -20,6 +20,9 @@ import { ListState } from "../shared/ListState";
 import { fetchMark, wentUnanswered } from "../../lib/listLoad";
 import { tellPublish } from "../../lib/publishFeedback";
 import { useUnsentText } from "../../hooks/useUnsentText";
+import { AssistantSourceProvider, replySource, toPackNote, type SourceGetter } from "../assistant/source";
+import { useAssistantBox } from "../assistant/useAssistantBox";
+import { AssistantPanel, AskVegaButton } from "../assistant/AssistantPanel";
 
 export function ThreadView() {
   const { selectedNote, goBack } = useUIStore();
@@ -50,6 +53,22 @@ export function ThreadView() {
   // of replies that arrives replaces what is on screen, and one asked for
   // before a reply was sent does not have it.
   const publishedHere = useRef<{ note: string | null; replies: NDKEvent[] }>({ note: null, replies: [] });
+
+  // What `@vega` in this view's boxes asks about: the thread, root first, then every note in it in
+  // the order it was written.
+  const threadSource: SourceGetter = () => {
+    if (!tree) return null;
+    const root = tree.event;
+    const rest = [...ancestors, ...collectEvents(tree)]
+      .filter((e) => e.id !== root.id)
+      .sort((a, b) => (a.created_at ?? 0) - (b.created_at ?? 0));
+    return { kind: "thread", notes: [root, ...rest].map(toPackNote) };
+  };
+  const rootAssistant = useAssistantBox({
+    text: replyText,
+    source: rootEvent ? replySource(threadSource, rootEvent) : threadSource,
+    onUse: (draft) => { setReplyText(draft); replyRef.current?.focus(); },
+  });
 
   // No note to show (the stack was cleared under this view): go back, from
   // an effect, not during render. The return is below every hook: a return
@@ -186,6 +205,8 @@ export function ThreadView() {
 
   // Root-level reply (reply to the root note)
   const handleRootReply = async () => {
+    // A question for Vega is never a reply. The publish path refuses it too (`publishToNetwork`).
+    if (rootAssistant.active) return void rootAssistant.ask();
     if (!replyText.trim() || replying || !rootEvent) return;
     setReplying(true);
     // No toast when it works: the reply appears in the thread. There was no
@@ -206,6 +227,7 @@ export function ThreadView() {
   };
 
   return (
+    <AssistantSourceProvider source={threadSource}>
     <div className="h-full flex flex-col">
       <ViewHeader title="Thread" onBack={goBack} />
 
@@ -284,10 +306,15 @@ export function ThreadView() {
                     )}
                   </div>
                   <span className="text-text-dim text-caption">Ctrl+Enter</span>
-                  <Button variant="primary" onClick={handleRootReply} disabled={!replyText.trim() && !replying} busy={replying}>
-                    {replySent && <Check />}{replySent ? "Replied" : replying ? "Posting…" : "Reply"}
-                  </Button>
+                  {rootAssistant.active ? (
+                    <AskVegaButton onClick={() => void rootAssistant.ask()} busy={rootAssistant.running} />
+                  ) : (
+                    <Button variant="primary" onClick={handleRootReply} disabled={!replyText.trim() && !replying} busy={replying}>
+                      {replySent && <Check />}{replySent ? "Replied" : replying ? "Posting…" : "Reply"}
+                    </Button>
+                  )}
                 </div>
+                {(rootAssistant.active || rootAssistant.panel.answer.status !== "idle") && <AssistantPanel {...rootAssistant.panel} />}
               </div>
             )}
 
@@ -326,6 +353,7 @@ export function ThreadView() {
         )}
       </div>
     </div>
+    </AssistantSourceProvider>
   );
 }
 

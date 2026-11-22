@@ -56,3 +56,16 @@ export function renderMarkdown(md: string): string {
   const html = marked(md) as string;
   return DOMPurify.sanitize(html, { ADD_ATTR: ["id", "class"] });
 }
+
+/**
+ * A model's answer, as HTML. The same pipeline, with nothing that loads by itself: an answer must
+ * not fetch a tracking pixel, a frame or a stylesheet, whatever the notes it read asked it to
+ * write. Links stay, and open in the browser only when clicked, as everywhere in Vega.
+ */
+export function renderAnswerMarkdown(md: string): string {
+  const html = marked(md) as string;
+  return DOMPurify.sanitize(html, {
+    FORBID_TAGS: ["img", "picture", "source", "video", "audio", "track", "iframe", "object", "embed", "svg", "math", "style", "link", "form", "input", "button"],
+    FORBID_ATTR: ["style", "srcset", "background", "poster"],
+  });
+}

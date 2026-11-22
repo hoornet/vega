@@ -24,6 +24,8 @@ import { ArrowLeft, Bookmark, Check, Heart, Link, MessageCircle, Pencil, Repeat2
 import { copyText } from "../../lib/clipboard";
 import { tellPublish } from "../../lib/publishFeedback";
 import { useUnsentText } from "../../hooks/useUnsentText";
+import { useAssistantBox } from "../assistant/useAssistantBox";
+import { AssistantPanel, AskVegaButton } from "../assistant/AssistantPanel";
 
 // The reader. Its typography lives in index.css under `.reader-page`,
 // `.reader` and `.prose-article`: sizes in em on a fluid base, so the measure
@@ -172,6 +174,13 @@ export function ArticleView() {
   const authorPubkey = event?.pubkey ?? "";
   const authorProfile = useProfile(authorPubkey);
   const authorName = nameOf(authorProfile, authorPubkey);
+  const commentField = useRef<HTMLTextAreaElement>(null);
+  // `@vega` in the comment box asks about this article.
+  const assistant = useAssistantBox({
+    text: commentText,
+    source: () => (event ? { kind: "article", title, summary, pubkey: authorPubkey, publishedAt: publishedAt ?? event.created_at ?? 0, body: event.content ?? "" } : null),
+    onUse: (draft) => { setCommentText(draft); commentField.current?.focus(); },
+  });
 
   const addr = event ? articleAddr(event) : null;
   const bookmarked = addr ? isArticleBookmarked(addr) : (event?.id ? isBookmarked(event.id) : false);
@@ -282,6 +291,8 @@ export function ArticleView() {
 
   const commenting = useRef(false);
   const handleComment = async () => {
+    // A question for Vega is never a comment. The publish path refuses it too (`publishToNetwork`).
+    if (assistant.active) return void assistant.ask();
     if (!event || !commentText.trim()) return;
     const dTag = getTag(event, "d");
     const naddrStr = nip19.naddrEncode({ identifier: dTag, pubkey: event.pubkey, kind: 30023 });
@@ -442,6 +453,7 @@ export function ArticleView() {
               {showComment && (
                 <div ref={commentBox} className="mt-4">
                   <textarea
+                    ref={commentField}
                     value={commentText}
                     onChange={(e) => { setCommentText(e.target.value); autoResize(e); }}
                     onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleComment(); } }}
@@ -453,8 +465,13 @@ export function ArticleView() {
                   />
                   <div className="flex justify-between items-center mt-2">
                     <span className="text-text-muted text-caption">Shift+Enter for new line</span>
-                    <Button variant="primary" onClick={handleComment} disabled={!commentText.trim()}>Post</Button>
+                    {assistant.active ? (
+                      <AskVegaButton onClick={() => void assistant.ask()} busy={assistant.running} />
+                    ) : (
+                      <Button variant="primary" onClick={handleComment} disabled={!commentText.trim()}>Post</Button>
+                    )}
                   </div>
+                  {(assistant.active || assistant.panel.answer.status !== "idle") && <AssistantPanel {...assistant.panel} />}
                 </div>
               )}
 

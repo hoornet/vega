@@ -5,6 +5,7 @@ import { recordFetchOutcome } from "./fetchTotals";
 import { useToastStore, goToView } from "../../stores/toast";
 import { useRelayListShare } from "../../stores/relayListShare";
 import { guardIncomingEvents } from "./authentic";
+import { assistantEnabled, isAssistantInvocation } from "../assistant/settings";
 import {
   beginAuthAttempt,
   clearPendingAuthRelay,
@@ -236,6 +237,12 @@ function ownNetworkRelays(ndk: NDK, builtIn: (url: string) => boolean): NDKRelay
  * the event…"), so callers and `explainPublishError` need no second case.
  */
 export async function publishToNetwork(event: NDKEvent, relaySet?: NDKRelaySet, timeoutMs?: number): Promise<Set<NDKRelay>> {
+  // `@vega …` asks the assistant; with the assistant on it is never a note. Held here, where
+  // every publish passes, so that a box whose mode switch failed cannot put a question to the
+  // assistant on the network under the user's key. Before signing: nothing is signed either.
+  if (assistantEnabled() && isAssistantInvocation(event.content ?? "")) {
+    throw new Error("it starts with @vega, which asks the assistant instead of posting");
+  }
   const ndk = event.ndk ?? getNDK();
   // As NDK does it: signed first, because the relays are worked out from the author.
   if (!event.sig) await event.sign();

@@ -16,6 +16,9 @@ import { explainPublishError } from "../../lib/publishErrors";
 import { useToastStore } from "../../stores/toast";
 import { useUIStore } from "../../stores/ui";
 import { MODAL_SELECTOR } from "../../lib/escapeKey";
+import { useAssistantSource } from "../assistant/source";
+import { useAssistantBox } from "../assistant/useAssistantBox";
+import { AssistantPanel, AskVegaButton } from "../assistant/AssistantPanel";
 
 const COMPOSE_DRAFT_KEY = "wrystr_compose_draft";
 
@@ -48,6 +51,12 @@ export function ComposeBox({ onPublished, onNoteInjected, confirmPosted = false 
   const box = useRef<HTMLDivElement>(null);
   const autoResize = useAutoResize(3, 12);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  // `@vega` at the start asks the assistant about the feed instead of posting.
+  const assistant = useAssistantBox({
+    text,
+    source: useAssistantSource(),
+    onUse: (draft) => { setText(draft); textareaRef.current?.focus(); },
+  });
   // "Write a note" from an empty view: the box opens and takes the keyboard.
   const composeRequest = useUIStore((s) => s.composeRequest);
   // The box grows when it has focus, so focus is all it takes. Only a request
@@ -83,8 +92,10 @@ export function ComposeBox({ onPublished, onNoteInjected, confirmPosted = false 
   const { profile } = useUserStore();
   const avatar = typeof profile?.picture === "string" ? profile.picture : undefined;
 
-  // Auto-save draft with debounce
+  // Auto-save draft with debounce. A question for Vega is not a draft: the last note kept stays kept.
+  const askingVega = assistant.active;
   useEffect(() => {
+    if (askingVega) return;
     const t = setTimeout(() => {
       if (text.trim()) {
         localStorage.setItem(COMPOSE_DRAFT_KEY, text);
@@ -93,7 +104,7 @@ export function ComposeBox({ onPublished, onNoteInjected, confirmPosted = false 
       }
     }, 1000);
     return () => clearTimeout(t);
-  }, [text]);
+  }, [text, askingVega]);
 
   if (!canSign) return null;
 
@@ -233,12 +244,15 @@ export function ComposeBox({ onPublished, onNoteInjected, confirmPosted = false 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
       e.preventDefault();
-      if (canPost) handlePublish();
+      if (assistant.active) void assistant.ask();
+      else if (canPost) handlePublish();
     }
   };
 
   const handlePublish = async () => {
     if (!canPost) return;
+    // A question for Vega is never a note. The publish path refuses it too (`publishToNetwork`).
+    if (assistant.active) return void assistant.ask();
     setPublishing(true);
     setError(null);
     try {
@@ -365,6 +379,8 @@ export function ComposeBox({ onPublished, onNoteInjected, confirmPosted = false 
             <p className="text-danger text-caption mb-2">{error}</p>
           )}
 
+          {(assistant.active || assistant.panel.answer.status !== "idle") && <AssistantPanel {...assistant.panel} />}
+
           {expanded && (
           <div className="flex flex-wrap items-center justify-between gap-y-1 mt-1">
             <span className={`text-caption ${overLimit ? "text-danger" : warnLimit ? "text-warning" : "text-text-dim"}`}>
@@ -374,7 +390,7 @@ export function ComposeBox({ onPublished, onNoteInjected, confirmPosted = false 
                   uploading…
                 </span>
               ) : charCount > 3000 ? `${charCount}` : ""}
-              {!uploading && charCount > 0 && localStorage.getItem(COMPOSE_DRAFT_KEY) && (
+              {!uploading && charCount > 0 && !assistant.active && localStorage.getItem(COMPOSE_DRAFT_KEY) && (
                 <span className="ml-1 text-text-dim">(draft)</span>
               )}
             </span>
@@ -412,9 +428,13 @@ export function ComposeBox({ onPublished, onNoteInjected, confirmPosted = false 
               >
                 &#9634;&#9634;
               </button>
-              <Button variant="primary" onClick={handlePublish} disabled={!canPost && !publishing} busy={publishing}>
-                {publishing ? "Posting…" : isPoll ? "Post poll" : "Post"}
-              </Button>
+              {assistant.active ? (
+                <AskVegaButton onClick={() => void assistant.ask()} busy={assistant.running} />
+              ) : (
+                <Button variant="primary" onClick={handlePublish} disabled={!canPost && !publishing} busy={publishing}>
+                  {publishing ? "Posting…" : isPoll ? "Post poll" : "Post"}
+                </Button>
+              )}
             </div>
           </div>
           )}
