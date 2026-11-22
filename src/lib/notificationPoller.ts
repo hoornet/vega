@@ -4,6 +4,7 @@ import { notifyMention, notifyZap, notifyFollower, notifyDM, getNotificationSett
 import { useNotificationsStore } from "../stores/notifications";
 import { dbSaveNotifications, dbNewestNotificationTs } from "./db";
 import { debug } from "./debug";
+import { mayAnnounce } from "./messageRequests";
 
 const POLL_INTERVAL = 60_000; // 60 seconds
 
@@ -133,6 +134,9 @@ async function pollOnce(pubkey: string) {
       if (newDMs.length > 0) {
         debug.log(`[notif] ${newDMs.length} new DM(s) since ${since}`);
         for (const e of newDMs) {
+          // A stranger's message waits in Message requests without a word: spam from fresh keys
+          // is what lands there, and it is not worth interrupting anyone for.
+          if (!mayAnnounce(pubkey, e.pubkey)) continue;
           const name = await getProfileName(e.pubkey);
           // Sender only — the decrypted body never leaves the DM view.
           notifyDM(name).catch(() => {});

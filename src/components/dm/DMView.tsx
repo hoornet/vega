@@ -15,7 +15,10 @@ import { parseContent } from "../../lib/parsing";
 import { tryHandleUrlInternally, tryOpenNostrEntity, MentionName } from "../feed/TextSegments";
 import { ViewHeader } from "../shared/ViewHeader";
 import { Button } from "../shared/Button";
-import { Plus, MessageSquarePlus } from "lucide-react";
+import { Plus, MessageSquarePlus, ChevronRight, ChevronDown, VolumeX } from "lucide-react";
+import { useMuteStore } from "../../stores/mute";
+import { setMuted } from "../../lib/socialToasts";
+import { isRequest, rememberInbox } from "../../lib/messageRequests";
 import { NewMessageDialog } from "./NewMessageDialog";
 import { explainPublishError } from "../../lib/publishErrors";
 import { useUnsentText } from "../../hooks/useUnsentText";
@@ -91,7 +94,8 @@ function ConvRow({
 
 // ── DM text renderer ─────────────────────────────────────────────────────────
 
-function DMText({ text }: { text: string }) {
+/** `fromStranger`: a picture is shown as its address, not loaded: loading it tells its host your IP address, and a stranger picks the host. */
+function DMText({ text, fromStranger = false }: { text: string; fromStranger?: boolean }) {
   const segments = useMemo(() => parseContent(text), [text]);
   return (
     <span className="whitespace-pre-wrap break-words">
@@ -108,6 +112,18 @@ function DMText({ text }: { text: string }) {
               }}
             >
               {seg.display || seg.value}
+            </a>
+          );
+        }
+        if (seg.type === "image" && fromStranger) {
+          return (
+            <a
+              key={i}
+              href={seg.value}
+              className="text-accent hover:text-accent-hover underline underline-offset-2 decoration-accent/40"
+              onClick={(e) => { e.preventDefault(); openUrl(seg.value).catch(() => {}); }}
+            >
+              {seg.value}
             </a>
           );
         }
@@ -162,7 +178,7 @@ function DMText({ text }: { text: string }) {
 
 // ── Message bubble ────────────────────────────────────────────────────────────
 
-function MessageBubble({ event, myPubkey }: { event: NDKEvent; myPubkey: string }) {
+function MessageBubble({ event, myPubkey, fromStranger = false }: { event: NDKEvent; myPubkey: string; fromStranger?: boolean }) {
   const isMine = event.pubkey === myPubkey;
   const [text, setText] = useState<string | null>(null);
   const [error, setError] = useState(false);
@@ -189,7 +205,7 @@ function MessageBubble({ event, myPubkey }: { event: NDKEvent; myPubkey: string 
         ) : text === null ? (
           <span className="text-text-dim">…</span>
         ) : (
-          <DMText text={text} />
+          <DMText text={text} fromStranger={fromStranger && !isMine} />
         )}
         <div className={`text-caption mt-1 ${isMine ? "text-accent/60" : "text-text-dim"}`}>
           {time}
@@ -205,9 +221,15 @@ export function ThreadPanel({
   partnerPubkey,
   myPubkey,
   focusOnMount = false,
+  request = false,
+  onSent,
 }: {
   partnerPubkey: string;
   myPubkey: string;
+  /** A message request: someone you do not follow and have not written to. */
+  request?: boolean;
+  /** A message went out: the conversation is yours now, not a request. */
+  onSent?: () => void;
   /** A conversation just started from the New message dialog: the box takes focus, so the first thing typed goes into it. */
   focusOnMount?: boolean;
 }) {
@@ -280,6 +302,7 @@ export function ThreadPanel({
       debug.log("[DM-UI] sending to", partnerPubkey.slice(0, 8));
       await sendDM(partnerPubkey, content);
       debug.log("[DM-UI] send completed, re-fetching thread");
+      onSent?.();
       setText("");
       // Clear the inline height autoResize set, or the box stays as tall as the
       // message we just sent, now empty.
@@ -316,10 +339,27 @@ export function ThreadPanel({
         >
           {name}
         </button>
+        {/* Anyone can turn out not to be worth hearing from, a conversation answered long ago included.
+            A request offers Mute in its own box. */}
+        {!request && (
+          <Button size="sm" variant="ghost" tone="danger" className="ml-auto" onClick={() => setMuted(partnerPubkey, name, true)}><VolumeX />Mute</Button>
+        )}
       </div>
 
       {/* Messages */}
       <div className="flex-1 overflow-y-auto px-4 py-3">
+        {request && (
+          <div className="mb-3 rounded-lg border border-border bg-bg-raised px-3 py-2.5">
+            <p className="text-text text-body font-medium">Message request</p>
+            <p className="text-text-muted text-caption mt-0.5">
+              You don't follow {name} and haven't written to them. Replying moves this to your messages.
+            </p>
+            <p className="text-text-muted text-caption mt-0.5">
+              Pictures from strangers aren't loaded. Be careful with links you weren't expecting.
+            </p>
+            <Button size="sm" className="mt-2.5" onClick={() => setMuted(partnerPubkey, name, true)}><VolumeX className="text-danger" />Mute</Button>
+          </div>
+        )}
         {loading && (
           <div className="text-text-dim text-body text-center py-8">Loading messages…</div>
         )}
@@ -329,7 +369,7 @@ export function ThreadPanel({
           </div>
         )}
         {messages.map((e) => (
-          <MessageBubble key={e.id} event={e} myPubkey={myPubkey} />
+          <MessageBubble key={e.id} event={e} myPubkey={myPubkey} fromStranger={request} />
         ))}
         <div ref={bottomRef} />
       </div>
@@ -379,6 +419,12 @@ export function DMView() {
   const [unreachable, setUnreachable] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
   const hasSigner = !!getNDK().signer;
+  const follows = useUserStore((s) => s.follows);
+  const followsLoaded = useUserStore((s) => s.followsStatus === "loaded");
+  const muted = useMuteStore((s) => s.mutedPubkeys);
+  // People written to in this session: their conversation is yours from the moment the message goes out.
+  const [wroteTo, setWroteTo] = useState<ReadonlySet<string>>(new Set());
+  const [showRequests, setShowRequests] = useState(false);
 
   // Handle navigation from ProfileView
   useEffect(() => {
@@ -423,15 +469,16 @@ export function DMView() {
         setConversations((prev) => { const next = new Map(grouped); for (const [pk, msgs] of prev) if (!next.has(pk)) next.set(pk, msgs); return next; });
         // Auto-select the first if none is chosen by then and none is pending: read at that moment, not
         // from this effect's closure, or a conversation picked during the load was swapped for another.
+        // Never a message request or a muted person: opening Messages must not put a stranger's
+        // message in front of anyone. The follow list and mutes are read at this moment.
         if (!pendingDMPubkey && grouped.size > 0) {
-          setSelectedPubkey((cur) => cur ?? Array.from(grouped.keys())[0]);
+          const { follows: fl, followsStatus } = useUserStore.getState();
+          const mutedNow = new Set(useMuteStore.getState().mutedPubkeys);
+          const followSet = new Set(fl);
+          const first = Array.from(grouped.entries()).find(([pk, msgs]) =>
+            !mutedNow.has(pk) && !isRequest({ partner: pk, senders: msgs.map((m) => m.pubkey) }, pubkey, followSet, followsStatus === "loaded"))?.[0];
+          if (first) setSelectedPubkey((cur) => cur ?? first);
         }
-        // Compute DM unread counts
-        const convList = Array.from(grouped.entries()).map(([partnerPubkey, msgs]) => ({
-          partnerPubkey,
-          lastAt: msgs[0]?.created_at ?? 0,
-        }));
-        useNotificationsStore.getState().computeDMUnread(convList);
       } catch (err) {
         debug.error("Failed to fetch DM conversations:", err);
         if (!cancelled) setUnreachable(true);
@@ -442,6 +489,29 @@ export function DMView() {
 
     return () => { cancelled = true; };
   }, [pubkey, hasSigner, reloadKey]);
+
+  const mutedSet = useMemo(() => new Set(muted), [muted]);
+  const requestSet = useMemo(() => {
+    const out = new Set<string>();
+    if (!pubkey) return out;
+    const followSet = new Set(follows);
+    for (const [pk, msgs] of conversations) {
+      if (wroteTo.has(pk)) continue;
+      if (isRequest({ partner: pk, senders: msgs.map((m) => m.pubkey) }, pubkey, followSet, followsLoaded)) out.add(pk);
+    }
+    return out;
+  }, [conversations, follows, followsLoaded, wroteTo, pubkey]);
+
+  // The badge counts your messages only, never requests or muted people, and is counted again when
+  // one is read (it used to wait for the next load). The poller is told who is in your messages, so
+  // a stranger's message raises no desktop notification.
+  const dmLastSeen = useNotificationsStore((s) => s.dmLastSeen);
+  useEffect(() => {
+    if (!pubkey || loading || conversations.size === 0) return;
+    const mine = Array.from(conversations).filter(([pk]) => !mutedSet.has(pk) && !requestSet.has(pk));
+    useNotificationsStore.getState().computeDMUnread(mine.map(([pk, msgs]) => ({ partnerPubkey: pk, lastAt: msgs[0]?.created_at ?? 0 })));
+    if (followsLoaded) rememberInbox(pubkey, mine.map(([pk]) => pk));
+  }, [conversations, requestSet, mutedSet, dmLastSeen, pubkey, loading, followsLoaded]);
 
   if (!loggedIn || !pubkey) {
     return (
@@ -466,9 +536,43 @@ export function DMView() {
     );
   }
 
-  // Build sorted conversation list (newest first)
+  // Build sorted conversation list (newest first), muted people left out, requests apart.
   const sortedPartners = Array.from(conversations.entries())
+    .filter(([pk]) => !mutedSet.has(pk))
     .sort((a, b) => (b[1][0]?.created_at ?? 0) - (a[1][0]?.created_at ?? 0));
+  const inbox = sortedPartners.filter(([pk]) => !requestSet.has(pk));
+  const requests = sortedPartners.filter(([pk]) => requestSet.has(pk));
+  const selectedIsRequest = selectedPubkey !== null && requestSet.has(selectedPubkey);
+  const shownSelected = selectedPubkey !== null && !mutedSet.has(selectedPubkey) ? selectedPubkey : null;
+
+  const rowFor = ([partner, events]: [string, NDKEvent[]]) =>
+    events[0] ? (
+      <ConvRow
+        key={partner}
+        partnerPubkey={partner}
+        lastEvent={events[0]}
+        selected={selectedPubkey === partner}
+        onSelect={() => {
+          setFocusNext(false);
+          setSelectedPubkey(partner);
+          useNotificationsStore.getState().markDMRead(partner);
+        }}
+      />
+    ) : (
+      <button
+        key={partner}
+        onClick={() => { setFocusNext(false); setSelectedPubkey(partner); }}
+        className={`w-full flex items-center gap-2.5 px-3 py-2.5 text-left transition-colors ${
+          selectedPubkey === partner ? "bg-accent/10 border-l-2 border-accent" : "hover:bg-bg-hover border-l-2 border-transparent"
+        }`}
+      >
+        <div className="w-8 h-8 rounded-full bg-bg-raised border border-border flex items-center justify-center text-text-dim text-xs shrink-0"><AvatarInitial profile={null} /></div>
+        <div className="flex-1 min-w-0">
+          <span className="text-text text-body font-medium truncate block">{shortNpub(partner)}</span>
+          <span className="text-text-dim text-caption">New conversation</span>
+        </div>
+      </button>
+    );
 
   return (
     <div className="h-full flex">
@@ -488,51 +592,50 @@ export function DMView() {
               <Button onClick={() => setReloadKey((n) => n + 1)}>Try again</Button>
             </div>
           )}
-          {!loading && !unreachable && conversations.size === 0 && (
+          {!loading && !unreachable && inbox.length === 0 && requests.length === 0 && (
             <div className="px-3 py-6 text-text-dim text-caption text-center">
               No messages yet.
             </div>
           )}
-          {sortedPartners.map(([partner, events]) =>
-            events[0] ? (
-              <ConvRow
-                key={partner}
-                partnerPubkey={partner}
-                lastEvent={events[0]}
-                selected={selectedPubkey === partner}
-                onSelect={() => {
-                  setFocusNext(false);
-                  setSelectedPubkey(partner);
-                  useNotificationsStore.getState().markDMRead(partner);
-                }}
-              />
-            ) : (
+          {inbox.map(rowFor)}
+          {requests.length > 0 && (
+            <>
               <button
-                key={partner}
-                onClick={() => { setFocusNext(false); setSelectedPubkey(partner); }}
-                className={`w-full flex items-center gap-2.5 px-3 py-2.5 text-left transition-colors ${
-                  selectedPubkey === partner ? "bg-accent/10 border-l-2 border-accent" : "hover:bg-bg-hover border-l-2 border-transparent"
-                }`}
+                type="button"
+                onClick={() => setShowRequests((v) => !v)}
+                aria-expanded={showRequests || selectedIsRequest}
+                className="w-full flex items-center gap-1.5 px-3 py-2 text-left text-text-muted text-caption hover:bg-bg-hover border-t border-border-subtle"
               >
-                <div className="w-8 h-8 rounded-full bg-bg-raised border border-border flex items-center justify-center text-text-dim text-xs shrink-0"><AvatarInitial profile={null} /></div>
-                <div className="flex-1 min-w-0">
-                  <span className="text-text text-body font-medium truncate block">{shortNpub(partner)}</span>
-                  <span className="text-text-dim text-caption">New conversation</span>
-                </div>
+                {showRequests || selectedIsRequest ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                <span className="flex-1">Message requests</span>
+                <span>{requests.length}</span>
               </button>
-            )
+              {(showRequests || selectedIsRequest) && (
+                <>
+                  <p className="px-3 pb-2 text-text-dim text-caption">From people you don't follow and haven't written to. Not counted, not announced.</p>
+                  {requests.map(rowFor)}
+                </>
+              )}
+            </>
           )}
         </div>
 
       </div>
 
       {/* Right: thread or empty state */}
-      {selectedPubkey ? (
+      {shownSelected ? (
         // Keyed: each conversation is its own panel. One panel for all of
         // them kept the text typed for one person in the box for the next,
         // and a send that finished after a switch put the old conversation's
         // messages under the new one's name.
-        <ThreadPanel key={`${pubkey}:${selectedPubkey}`} partnerPubkey={selectedPubkey} myPubkey={pubkey} focusOnMount={focusNext} />
+        <ThreadPanel
+          key={`${pubkey}:${shownSelected}`}
+          partnerPubkey={shownSelected}
+          myPubkey={pubkey}
+          focusOnMount={focusNext}
+          request={selectedIsRequest}
+          onSent={() => setWroteTo((prev) => (prev.has(shownSelected) ? prev : new Set(prev).add(shownSelected)))}
+        />
       ) : (
         <div className="flex-1 flex items-center justify-center p-8">
           <div className="max-w-sm text-center">
