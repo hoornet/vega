@@ -2,26 +2,41 @@ import { useEffect, useId, useRef, useState, type KeyboardEvent, type RefObject 
 import type { NDKUserProfile } from "@nostr-dev-kit/ndk";
 import { useUserStore } from "../stores/user";
 import { useAssistantStore } from "../stores/assistant";
+import { useMuteStore } from "../stores/mute";
+import { applyEdit } from "../lib/markdownEdit";
 import { fetchProfiles, searchUsers } from "../lib/nostr";
 import { peekCachedProfile, primeProfileCache } from "./useProfile";
 import { insertMention, mentionAt, rankPeople, type MentionQuery } from "../lib/mentions";
 import { useEscapeToClose } from "./useEscapeToClose";
 
-/** Profiles of the people followed, kept for the session, filled in once per follow list. */
+/**
+ * Profiles of the people followed, kept for the session, filled in once per follow list. Those no
+ * relay returned (an outage, a slow relay) are asked for again on a later mention, at most every
+ * `RETRY_MISSING_MS`; the shared cache may have learned them by then.
+ */
 const followProfiles = new Map<string, NDKUserProfile | null>();
 let loadedFor: string[] | null = null;
 let loading: Promise<void> | null = null;
+let loadedAt = 0;
+const RETRY_MISSING_MS = 30_000;
 
 /** Profiles fetched for suggestions are primed into the shared cache, up to this many (as the New message dialog does). */
 const PRIME_AT_MOST = 400;
 
 function loadFollowProfiles(follows: string[]): Promise<void> {
-  if (loadedFor === follows && loading) return loading;
+  if (loadedFor === follows && loading) {
+    const settled = loadedAt > 0;
+    const someMissing = follows.some((pk) => !followProfiles.has(pk));
+    if (!settled || !someMissing || Date.now() - loadedAt < RETRY_MISSING_MS) return loading;
+  }
+  // A new follow list asks for everyone; the same list again only for those still missing.
+  const asking = loadedFor === follows ? follows.filter((pk) => !followProfiles.has(pk)) : follows;
   loadedFor = follows;
+  loadedAt = 0;
   loading = (async () => {
-    const peeked = await Promise.all(follows.map((pk) => peekCachedProfile(pk).catch(() => undefined)));
+    const peeked = await Promise.all(asking.map((pk) => peekCachedProfile(pk).catch(() => undefined)));
     const missing: string[] = [];
-    follows.forEach((pk, i) => {
+    asking.forEach((pk, i) => {
       if (peeked[i] === undefined) missing.push(pk);
       else followProfiles.set(pk, peeked[i] as NDKUserProfile | null);
     });
@@ -36,7 +51,7 @@ function loadFollowProfiles(follows: string[]): Promise<void> {
     } catch {
       /* suggestions show who has a name */
     }
-  })();
+  })().finally(() => { loadedAt = Date.now(); });
   return loading;
 }
 
@@ -45,6 +60,7 @@ export function forgetFollowProfiles(): void {
   followProfiles.clear();
   loadedFor = null;
   loading = null;
+  loadedAt = 0;
 }
 
 export interface MentionPerson {
@@ -67,10 +83,12 @@ export function useMentions({ textareaRef, text, setText }: Options) {
   const follows = useUserStore((s) => s.follows);
   const me = useUserStore((s) => s.pubkey);
   const assistantOn = useAssistantStore((s) => s.settings.enabled);
+  const muted = useMuteStore((s) => s.mutedPubkeys);
   const [caret, setCaret] = useState<number | null>(null);
   // An `@word` closed with Escape stays closed until the caret leaves it.
   const [dismissed, setDismissed] = useState<number | null>(null);
-  const [active, setActive] = useState(0);
+  // The person highlighted, not a row: rows reorder as names and search results arrive.
+  const [activeKey, setActiveKey] = useState<string | null>(null);
   const [, setVersion] = useState(0);
   const [found, setFound] = useState<{ query: string; people: Array<{ pubkey: string; profile: NDKUserProfile }> }>({ query: "", people: [] });
   const searches = useRef(0);
@@ -94,7 +112,10 @@ export function useMentions({ textareaRef, text, setText }: Options) {
   }, [mentioning, follows]);
 
   const profileOf = (pk: string) => followProfiles.get(pk);
-  const fromFollows = query === null ? [] : rankPeople(follows, profileOf, query, [], me);
+  // Never yourself, never someone you mute (search results included).
+  const skip = new Set(muted);
+  if (me) skip.add(me);
+  const fromFollows = query === null ? [] : rankPeople(follows, profileOf, query, [], skip);
 
   // Not enough among the people followed: ask the search relays, after a pause in typing.
   const wantSearch = query !== null && query.trim().length >= 2 && fromFollows.length < 6;
@@ -110,6 +131,8 @@ export function useMentions({ textareaRef, text, setText }: Options) {
           try {
             const profile = JSON.parse(e.content) as NDKUserProfile;
             if (profile && typeof profile === "object") {
+              // Dated, so that a search relay's older copy cannot replace a newer profile already held.
+              if (typeof e.created_at === "number") profile.created_at = e.created_at;
               primeProfileCache(e.pubkey, profile);
               people.push({ pubkey: e.pubkey, profile });
             }
@@ -126,25 +149,25 @@ export function useMentions({ textareaRef, text, setText }: Options) {
   }, [wantSearch, query]);
 
   const searched = found.query === query ? found.people : [];
-  const ids = query === null ? [] : rankPeople(follows, profileOf, query, searched, me);
+  const ids = query === null ? [] : rankPeople(follows, profileOf, query, searched, skip);
   const people: MentionPerson[] = ids.map((pubkey) => ({ pubkey, profile: followProfiles.get(pubkey) ?? searched.find((p) => p.pubkey === pubkey)?.profile }));
   const shown = open && people.length > 0;
-  const current = Math.min(active, Math.max(people.length - 1, 0));
+  const at_row = activeKey === null ? -1 : people.findIndex((p) => p.pubkey === activeKey);
+  const current = at_row >= 0 ? at_row : 0;
+  const setActive = (i: number) => setActiveKey(people[i]?.pubkey ?? null);
 
-  useEffect(() => setActive(0), [query]);
+  useEffect(() => setActiveKey(null), [query]);
   useEscapeToClose(() => { if (at) setDismissed(at.start); }, shown);
 
   const pick = (pubkey: string) => {
     if (!at) return;
     const next = insertMention(text, at, pubkey);
-    setText(next.text);
     setCaret(next.caret);
-    requestAnimationFrame(() => {
-      const ta = textareaRef.current;
-      if (!ta) return;
-      ta.focus();
-      ta.selectionStart = ta.selectionEnd = next.caret;
-    });
+    const ta = textareaRef.current;
+    if (!ta) { setText(next.text); return; }
+    // As one edit the browser records, so Ctrl+Z takes the pick back, and the box's own change
+    // handler runs (it grows the box); without `execCommand`, the text is set directly.
+    applyEdit(ta, { content: next.text, selectionStart: next.caret, selectionEnd: next.caret, replace: next.replace }, setText);
   };
 
   const readCaret = () => {

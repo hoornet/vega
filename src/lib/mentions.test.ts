@@ -44,6 +44,8 @@ describe("insertMention", () => {
     const at = { start: 3, end: 6, query: "al" };
     const out = insertMention(text, at, ALICE);
     expect(out.text).toBe(`hi nostr:${nip19.npubEncode(ALICE)} nice`);
+    // The range that changed takes the space after the caret, so the edit is the same as the text.
+    expect(text.slice(0, out.replace.start) + out.replace.text + text.slice(out.replace.end)).toBe(out.text);
   });
 });
 
@@ -69,16 +71,18 @@ describe("matchScore and rankPeople", () => {
     expect(matchScore(undefined, "a")).toBe(0);
   });
 
-  it("follows first, newest followed first, best match first, never yourself", () => {
+  it("follows first, newest followed first, best match first, never anyone skipped (yourself, the muted)", () => {
     const follows = [ALICE, BOB, CAROL];
-    expect(rankPeople(follows, profileOf, "", [], null)).toEqual([CAROL, BOB, ALICE]);
-    expect(rankPeople(follows, profileOf, "a", [], null)).toEqual([ALICE, CAROL]);
-    expect(rankPeople(follows, profileOf, "", [], CAROL)).toEqual([BOB, ALICE]);
+    expect(rankPeople(follows, profileOf, "", [], new Set())).toEqual([CAROL, BOB, ALICE]);
+    expect(rankPeople(follows, profileOf, "a", [], new Set())).toEqual([ALICE, CAROL]);
+    expect(rankPeople(follows, profileOf, "", [], new Set([CAROL]))).toEqual([BOB, ALICE]);
   });
 
   it("people found by search come after the follows, once", () => {
     const dave = "d".repeat(64);
     const found = [{ pubkey: dave, profile: { name: "alfred" } as never }, { pubkey: ALICE, profile: { name: "alice" } as never }];
-    expect(rankPeople([ALICE], profileOf, "al", found, null)).toEqual([ALICE, dave]);
+    expect(rankPeople([ALICE], profileOf, "al", found, new Set())).toEqual([ALICE, dave]);
+    // A muted person is skipped whether they come from the follows or from search.
+    expect(rankPeople([ALICE], profileOf, "al", found, new Set([ALICE, dave]))).toEqual([]);
   });
 });

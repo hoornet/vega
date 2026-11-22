@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { render, screen, fireEvent, cleanup, waitFor } from "@testing-library/react";
+import { render, screen, fireEvent, cleanup, waitFor, act } from "@testing-library/react";
 import { nip19 } from "@nostr-dev-kit/ndk";
 
 // `@` in a box suggests people to mention, through the real compose box: follows first, the search
@@ -33,7 +33,9 @@ vi.mock("../../hooks/useProfile", () => ({
 }));
 
 import { ComposeBox } from "./ComposeBox";
-import { publishNote, searchUsers } from "../../lib/nostr";
+import { publishNote, searchUsers, fetchProfiles } from "../../lib/nostr";
+import { primeProfileCache } from "../../hooks/useProfile";
+import { useMuteStore } from "../../stores/mute";
 import { forgetFollowProfiles } from "../../hooks/useMentions";
 import { useAssistantStore } from "../../stores/assistant";
 import { DEFAULT_ASSISTANT_SETTINGS } from "../../lib/assistant/settings";
@@ -55,6 +57,9 @@ beforeEach(() => {
   vi.mocked(publishNote).mockReset();
   vi.mocked(searchUsers).mockReset().mockResolvedValue([]);
   useAssistantStore.setState({ settings: { ...DEFAULT_ASSISTANT_SETTINGS } });
+  useMuteStore.setState({ mutedPubkeys: [] });
+  vi.mocked(fetchProfiles).mockReset().mockResolvedValue(new Map());
+  vi.mocked(primeProfileCache).mockClear();
 });
 afterEach(cleanup);
 
@@ -104,6 +109,84 @@ describe("@ in the compose box", () => {
     type("hi @zo");
     await waitFor(() => expect(options()).toEqual(["zoe"]), { timeout: 2000 });
     expect(searchUsers).toHaveBeenCalledWith("zo", 10);
+  });
+
+  it("primes the cache with a search result's date, so an older copy cannot replace a newer profile", async () => {
+    vi.mocked(searchUsers).mockResolvedValue([{ pubkey: ZOE, created_at: 123, content: JSON.stringify({ name: "zoe" }) }] as never);
+    render(<ComposeBox />);
+    type("hi @zo");
+    await waitFor(() => expect(options()).toEqual(["zoe"]), { timeout: 2000 });
+    expect(primeProfileCache).toHaveBeenCalledWith(ZOE, expect.objectContaining({ name: "zoe", created_at: 123 }));
+  });
+
+  it("never suggests someone you mute, followed or found", async () => {
+    useMuteStore.setState({ mutedPubkeys: [ALICE, ZOE] });
+    vi.mocked(searchUsers).mockResolvedValue([{ pubkey: ZOE, content: JSON.stringify({ name: "alzoe" }) }] as never);
+    render(<ComposeBox />);
+    type("thanks @al");
+    await waitFor(() => expect(options()).toEqual(["albert"]));
+    await new Promise((r) => setTimeout(r, 500));
+    expect(options()).toEqual(["albert"]);
+  });
+
+  it("keeps the person highlighted when the list reorders under it", async () => {
+    // A follow whose name arrives late, after search results are already on screen.
+    const LATE = "c".repeat(64);
+    user.follows = [LATE];
+    let names: (m: Map<string, unknown>) => void = () => {};
+    vi.mocked(fetchProfiles).mockImplementation(() => new Promise((r) => { names = r as never; }));
+    vi.mocked(searchUsers).mockResolvedValue([
+      { pubkey: ZOE, content: JSON.stringify({ name: "alfred" }) },
+      { pubkey: ALBERT, content: JSON.stringify({ name: "alma" }) },
+    ] as never);
+    render(<ComposeBox />);
+    type("@al");
+    await waitFor(() => expect(options()).toEqual(["alfred", "alma"]), { timeout: 2000 });
+    fireEvent.keyDown(box(), { key: "ArrowDown" });
+    await act(async () => { names(new Map([[LATE, { name: "alice" }]])); });
+    await waitFor(() => expect(options()).toEqual(["alice", "alfred", "alma"]));
+    fireEvent.keyDown(box(), { key: "Enter" });
+    expect(box().value).toBe(`nostr:${nip19.npubEncode(ALBERT)} `);
+  });
+
+  it("picks through the browser's edit, so Ctrl+Z takes it back", async () => {
+    const exec = vi.fn(() => false);
+    Object.defineProperty(document, "execCommand", { value: exec, configurable: true });
+    try {
+      render(<ComposeBox />);
+      type("thanks @ali");
+      await waitFor(() => expect(options()).toEqual(["alice, alice@example.com"]));
+      fireEvent.keyDown(box(), { key: "Enter" });
+      expect(exec).toHaveBeenCalledWith("insertText", false, `nostr:${nip19.npubEncode(ALICE)} `);
+      expect(box().value).toBe(`thanks nostr:${nip19.npubEncode(ALICE)} `);
+    } finally {
+      delete (document as { execCommand?: unknown }).execCommand;
+    }
+  });
+
+  it("asks again for names no relay returned, after a while", async () => {
+    const LATE = "c".repeat(64);
+    user.follows = [LATE];
+    vi.mocked(fetchProfiles).mockRejectedValueOnce(new Error("offline"));
+    const now = vi.spyOn(Date, "now");
+    try {
+      now.mockReturnValue(1_000_000);
+      render(<ComposeBox />);
+      type("@");
+      await waitFor(() => expect(fetchProfiles).toHaveBeenCalledTimes(1));
+      type("");
+      type("@");
+      await new Promise((r) => setTimeout(r, 20));
+      expect(fetchProfiles).toHaveBeenCalledTimes(1); // not on every keystroke
+      now.mockReturnValue(1_000_000 + 31_000);
+      vi.mocked(fetchProfiles).mockResolvedValueOnce(new Map([[LATE, { name: "carl" }]]) as never);
+      type("");
+      type("@");
+      await waitFor(() => expect(options()).toEqual(["carl"]));
+      expect(fetchProfiles).toHaveBeenLastCalledWith([LATE]);
+    } finally {
+      now.mockRestore();
+    }
   });
 
   it("@vega at the start stays the assistant's while it is on", async () => {

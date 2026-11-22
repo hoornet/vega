@@ -32,11 +32,15 @@ export function mentionAt(text: string, caret: number, assistantOn: boolean): Me
   return { start, end: caret, query };
 }
 
-/** The text with the `@word` replaced by the person's mention, and where the caret goes after it. */
-export function insertMention(text: string, at: MentionQuery, pubkey: string): { text: string; caret: number } {
+/**
+ * The text with the `@word` replaced by the person's mention, where the caret goes after it, and the
+ * one range that changed (for `applyEdit`, which keeps the pick in the undo history).
+ */
+export function insertMention(text: string, at: MentionQuery, pubkey: string): { text: string; caret: number; replace: { start: number; end: number; text: string } } {
   const mention = `nostr:${nip19.npubEncode(pubkey)} `;
-  const after = text.slice(at.end).replace(/^ /, "");
-  return { text: text.slice(0, at.start) + mention + after, caret: at.start + mention.length };
+  // A space already after the caret is taken into the mention's own, not doubled.
+  const end = text[at.end] === " " ? at.end + 1 : at.end;
+  return { text: text.slice(0, at.start) + mention + text.slice(end), caret: at.start + mention.length, replace: { start: at.start, end, text: mention } };
 }
 
 /** The people a text mentions, in order, once each. */
@@ -78,28 +82,28 @@ export function matchScore(profile: NDKUserProfile | null | undefined, query: st
 
 /**
  * Who to suggest: the people you follow first, the newest followed first, those whose name starts
- * with the query before those it is only inside; then people found by search; never yourself;
- * each once, `max` at most.
+ * with the query before those it is only inside; then people found by search; never anyone in
+ * `skip` (yourself, the people you mute); each once, `max` at most.
  */
 export function rankPeople(
   follows: string[],
   profileOf: (pubkey: string) => NDKUserProfile | null | undefined,
   query: string,
   found: Array<{ pubkey: string; profile: NDKUserProfile }>,
-  me: string | null,
+  skip: ReadonlySet<string>,
   max = 6,
 ): string[] {
   const scored = [...follows]
     .reverse()
     .map((pk, order) => ({ pk, order, score: matchScore(profileOf(pk), query) }))
-    .filter((x) => x.score > 0 && x.pk !== me)
+    .filter((x) => x.score > 0 && !skip.has(x.pk))
     .sort((a, b) => b.score - a.score || a.order - b.order)
     .map((x) => x.pk);
   const out: string[] = [];
   for (const pk of scored) if (!out.includes(pk)) out.push(pk);
   if (query.trim()) {
     for (const { pubkey, profile } of found) {
-      if (pubkey !== me && !out.includes(pubkey) && matchScore(profile, query) > 0) out.push(pubkey);
+      if (!skip.has(pubkey) && !out.includes(pubkey) && matchScore(profile, query) > 0) out.push(pubkey);
     }
   }
   return out.slice(0, max);
