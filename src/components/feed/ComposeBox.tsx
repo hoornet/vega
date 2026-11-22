@@ -19,6 +19,8 @@ import { MODAL_SELECTOR } from "../../lib/escapeKey";
 import { useAssistantSource } from "../assistant/source";
 import { useAssistantBox } from "../assistant/useAssistantBox";
 import { AssistantPanel, AskVegaButton } from "../assistant/AssistantPanel";
+import { useMentions } from "../../hooks/useMentions";
+import { MentionList, MentionedPeople } from "../shared/MentionList";
 
 const COMPOSE_DRAFT_KEY = "wrystr_compose_draft";
 
@@ -57,6 +59,8 @@ export function ComposeBox({ onPublished, onNoteInjected, confirmPosted = false 
     source: useAssistantSource(),
     onUse: (draft) => { setText(draft); textareaRef.current?.focus(); },
   });
+  // `@` and a few letters suggest people to mention.
+  const mentions = useMentions({ textareaRef, text, setText });
   // "Write a note" from an empty view: the box opens and takes the keyboard.
   const composeRequest = useUIStore((s) => s.composeRequest);
   // The box grows when it has focus, so focus is all it takes. Only a request
@@ -241,7 +245,8 @@ export function ComposeBox({ onPublished, onNoteInjected, confirmPosted = false 
     }
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (mentions.onKeyDown(e)) return;
     if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
       e.preventDefault();
       if (assistant.active) void assistant.ask();
@@ -329,6 +334,7 @@ export function ComposeBox({ onPublished, onNoteInjected, confirmPosted = false 
           <textarea
             ref={textareaRef}
             data-compose
+            {...mentions.textareaProps}
             value={text}
             onChange={(e) => { setText(e.target.value); autoResize(e); }}
             onKeyDown={handleKeyDown}
@@ -339,6 +345,9 @@ export function ComposeBox({ onPublished, onNoteInjected, confirmPosted = false 
             rows={expanded ? 3 : 1}
             className="w-full bg-transparent text-text text-body placeholder:text-text-dim resize-none focus:outline-none leading-relaxed"
           />
+
+          {mentions.list && <MentionList {...mentions.list} />}
+          <MentionedPeople text={text} />
 
           {/* Attachment thumbnails */}
           {attachments.length > 0 && (

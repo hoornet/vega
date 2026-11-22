@@ -12,7 +12,7 @@ vi.mock("../../lib/nostr", () => ({
 }));
 vi.mock("../../lib/feedDiagnostics", () => ({ logDiag: vi.fn() }));
 const account = vi.hoisted(() => ({ canSign: false }));
-vi.mock("../../stores/user", () => ({ useCanSign: () => account.canSign }));
+vi.mock("../../stores/user", () => ({ useCanSign: () => account.canSign, useUserStore: (pick: (s: { follows: string[]; pubkey: null }) => unknown) => pick({ follows: [], pubkey: null }) }));
 vi.mock("../../stores/mute", () => ({ useMuteStore: () => ({ mutedPubkeys: [] as string[], contentMatchesMutedKeyword: () => false }) }));
 vi.mock("../../hooks/useAutoResize", () => ({ useAutoResize: () => () => {} }));
 vi.mock("./AncestorChain", () => ({ AncestorChain: () => null }));

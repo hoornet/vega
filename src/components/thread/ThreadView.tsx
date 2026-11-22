@@ -23,6 +23,8 @@ import { useUnsentText } from "../../hooks/useUnsentText";
 import { AssistantSourceProvider, replySource, toPackNote, type SourceGetter } from "../assistant/source";
 import { useAssistantBox } from "../assistant/useAssistantBox";
 import { AssistantPanel, AskVegaButton } from "../assistant/AssistantPanel";
+import { useMentions } from "../../hooks/useMentions";
+import { MentionList, MentionedPeople } from "../shared/MentionList";
 
 export function ThreadView() {
   const { selectedNote, goBack } = useUIStore();
@@ -64,6 +66,7 @@ export function ThreadView() {
       .sort((a, b) => (a.created_at ?? 0) - (b.created_at ?? 0));
     return { kind: "thread", notes: [root, ...rest].map(toPackNote) };
   };
+  const rootMentions = useMentions({ textareaRef: replyRef, text: replyText, setText: setReplyText });
   const rootAssistant = useAssistantBox({
     text: replyText,
     source: rootEvent ? replySource(threadSource, rootEvent) : threadSource,
@@ -221,7 +224,8 @@ export function ThreadView() {
     setTimeout(() => setReplySent(false), 2000);
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (rootMentions.onKeyDown(e)) return;
     if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) handleRootReply();
     if (e.key === "Escape") replyRef.current?.blur();
   };
@@ -271,6 +275,7 @@ export function ThreadView() {
               <div className="border-b border-border-subtle border-l-2 border-l-accent/40 ml-3 px-3 py-2">
                 <textarea
                   ref={replyRef}
+                  {...rootMentions.textareaProps}
                   value={replyText}
                   onChange={(e) => { setReplyText(e.target.value); autoResize(e); }}
                   onKeyDown={handleKeyDown}
@@ -279,6 +284,8 @@ export function ThreadView() {
                   className="w-full bg-transparent text-text text-body placeholder:text-text-dim resize-none focus:outline-none leading-relaxed"
                   autoFocus
                 />
+                {rootMentions.list && <MentionList {...rootMentions.list} />}
+                <MentionedPeople text={replyText} />
                 <div className="flex items-center justify-end gap-2 mt-1">
                   <div className="relative">
                     <button
