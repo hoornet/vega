@@ -18,7 +18,7 @@ import { Button } from "../shared/Button";
 import { Plus, MessageSquarePlus, ChevronRight, ChevronDown, VolumeX } from "lucide-react";
 import { useMuteStore } from "../../stores/mute";
 import { setMuted } from "../../lib/socialToasts";
-import { isRequest, rememberInbox } from "../../lib/messageRequests";
+import { isRequest, rememberInbox, recordAnswered, answeredBy } from "../../lib/messageRequests";
 import { NewMessageDialog } from "./NewMessageDialog";
 import { explainPublishError } from "../../lib/publishErrors";
 import { useUnsentText } from "../../hooks/useUnsentText";
@@ -54,11 +54,14 @@ function ConvRow({
   lastEvent,
   selected,
   onSelect,
+  stranger = false,
 }: {
   partnerPubkey: string;
   lastEvent: NDKEvent;
   selected: boolean;
   onSelect: () => void;
+  /** A message request: the avatar is not loaded (its host would learn your IP address). */
+  stranger?: boolean;
 }) {
   const profile = useProfile(partnerPubkey);
   const name = nameOf(profile, partnerPubkey);
@@ -71,7 +74,7 @@ function ConvRow({
         selected ? "bg-accent/10 border-l-2 border-accent" : "hover:bg-bg-hover border-l-2 border-transparent"
       }`}
     >
-      {profile?.picture ? (
+      {profile?.picture && !stranger ? (
         <img src={profile.picture} alt={`${name}'s avatar`} className="w-8 h-8 rounded-full object-cover shrink-0"
           onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
       ) : (
@@ -302,6 +305,8 @@ export function ThreadPanel({
       debug.log("[DM-UI] sending to", partnerPubkey.slice(0, 8));
       await sendDM(partnerPubkey, content);
       debug.log("[DM-UI] send completed, re-fetching thread");
+      // Recorded here, not by the list: the list may be gone by the time the send finishes.
+      recordAnswered(myPubkey, [partnerPubkey]);
       onSent?.();
       setText("");
       // Clear the inline height autoResize set, or the box stays as tall as the
@@ -330,7 +335,7 @@ export function ThreadPanel({
     <div className="flex-1 flex flex-col min-w-0">
       {/* The conversation's own bar: the same height as the list's header beside it. */}
       <div className="min-h-12 border-b border-border-subtle px-4 flex items-center gap-3 shrink-0">
-        {profile?.picture && (
+        {profile?.picture && !request && (
           <img src={profile.picture} alt={`${name}'s avatar`} className="w-7 h-7 rounded-full object-cover" />
         )}
         <button
@@ -423,7 +428,9 @@ export function DMView() {
   const followsLoaded = useUserStore((s) => s.followsStatus === "loaded");
   const muted = useMuteStore((s) => s.mutedPubkeys);
   // People written to in this session: their conversation is yours from the moment the message goes out.
-  const [wroteTo, setWroteTo] = useState<ReadonlySet<string>>(new Set());
+  const [answered, setAnswered] = useState<ReadonlySet<string>>(() => (pubkey ? answeredBy(pubkey) : new Set()));
+  // A load that worked, as against one still running or failed: only then may the badge read zero.
+  const [loadedOk, setLoadedOk] = useState(false);
   const [showRequests, setShowRequests] = useState(false);
 
   // Handle navigation from ProfileView
@@ -445,6 +452,8 @@ export function DMView() {
     let cancelled = false;
     setLoading(true);
     setUnreachable(false);
+    setLoadedOk(false);
+    setAnswered(answeredBy(pubkey));
 
     (async () => {
       try {
@@ -467,6 +476,12 @@ export function DMView() {
 
         // Merged, not replaced: a conversation started while this load ran keeps its row.
         setConversations((prev) => { const next = new Map(grouped); for (const [pk, msgs] of prev) if (!next.has(pk)) next.set(pk, msgs); return next; });
+        // Everyone whose conversation holds a message of yours is recorded as answered, so it stays
+        // yours when that message later falls outside the window Messages loads.
+        recordAnswered(pubkey, Array.from(grouped).filter(([, msgs]) => msgs.some((m) => m.pubkey === pubkey)).map(([pk]) => pk));
+        const answeredNow = answeredBy(pubkey);
+        setAnswered(answeredNow);
+        setLoadedOk(true);
         // Auto-select the first if none is chosen by then and none is pending: read at that moment, not
         // from this effect's closure, or a conversation picked during the load was swapped for another.
         // Never a message request or a muted person: opening Messages must not put a stranger's
@@ -476,7 +491,7 @@ export function DMView() {
           const mutedNow = new Set(useMuteStore.getState().mutedPubkeys);
           const followSet = new Set(fl);
           const first = Array.from(grouped.entries()).find(([pk, msgs]) =>
-            !mutedNow.has(pk) && !isRequest({ partner: pk, senders: msgs.map((m) => m.pubkey) }, pubkey, followSet, followsStatus === "loaded"))?.[0];
+            !mutedNow.has(pk) && !isRequest({ partner: pk, senders: msgs.map((m) => m.pubkey) }, pubkey, followSet, followsStatus === "loaded", answeredNow))?.[0];
           if (first) setSelectedPubkey((cur) => cur ?? first);
         }
       } catch (err) {
@@ -496,22 +511,22 @@ export function DMView() {
     if (!pubkey) return out;
     const followSet = new Set(follows);
     for (const [pk, msgs] of conversations) {
-      if (wroteTo.has(pk)) continue;
-      if (isRequest({ partner: pk, senders: msgs.map((m) => m.pubkey) }, pubkey, followSet, followsLoaded)) out.add(pk);
+      if (isRequest({ partner: pk, senders: msgs.map((m) => m.pubkey) }, pubkey, followSet, followsLoaded, answered)) out.add(pk);
     }
     return out;
-  }, [conversations, follows, followsLoaded, wroteTo, pubkey]);
+  }, [conversations, follows, followsLoaded, answered, pubkey]);
 
   // The badge counts your messages only, never requests or muted people, and is counted again when
-  // one is read (it used to wait for the next load). The poller is told who is in your messages, so
-  // a stranger's message raises no desktop notification.
+  // one is read (it used to wait for the next load). It is counted only after a load that worked,
+  // which may be an empty one (zero), never after one still running or failed. The poller is told who
+  // is in your messages, so a stranger's message raises no desktop notification.
   const dmLastSeen = useNotificationsStore((s) => s.dmLastSeen);
   useEffect(() => {
-    if (!pubkey || loading || conversations.size === 0) return;
+    if (!pubkey || !loadedOk) return;
     const mine = Array.from(conversations).filter(([pk]) => !mutedSet.has(pk) && !requestSet.has(pk));
     useNotificationsStore.getState().computeDMUnread(mine.map(([pk, msgs]) => ({ partnerPubkey: pk, lastAt: msgs[0]?.created_at ?? 0 })));
     if (followsLoaded) rememberInbox(pubkey, mine.map(([pk]) => pk));
-  }, [conversations, requestSet, mutedSet, dmLastSeen, pubkey, loading, followsLoaded]);
+  }, [conversations, requestSet, mutedSet, dmLastSeen, pubkey, loadedOk, followsLoaded]);
 
   if (!loggedIn || !pubkey) {
     return (
@@ -552,6 +567,7 @@ export function DMView() {
         partnerPubkey={partner}
         lastEvent={events[0]}
         selected={selectedPubkey === partner}
+        stranger={requestSet.has(partner)}
         onSelect={() => {
           setFocusNext(false);
           setSelectedPubkey(partner);
@@ -634,7 +650,7 @@ export function DMView() {
           myPubkey={pubkey}
           focusOnMount={focusNext}
           request={selectedIsRequest}
-          onSent={() => setWroteTo((prev) => (prev.has(shownSelected) ? prev : new Set(prev).add(shownSelected)))}
+          onSent={() => setAnswered((prev) => (prev.has(shownSelected) ? prev : new Set(prev).add(shownSelected)))}
         />
       ) : (
         <div className="flex-1 flex items-center justify-center p-8">

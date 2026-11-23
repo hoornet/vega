@@ -13,7 +13,8 @@ vi.mock("../../lib/nostr", () => ({
   getNDK: () => ({ signer: signer.has ? {} : undefined }), ensureConnected: vi.fn(async () => true), isPoolSilent: () => false,
   fetchProfiles: vi.fn(async () => new Map()), resolveNip05: vi.fn(async () => null),
 }));
-vi.mock("../../hooks/useProfile", () => ({ useProfile: () => null, peekCachedProfile: async () => undefined, primeProfileCache: () => {} }));
+const profiles = vi.hoisted(() => ({ byKey: {} as Record<string, { name?: string; picture?: string }> }));
+vi.mock("../../hooks/useProfile", () => ({ useProfile: (pk: string) => profiles.byKey[pk] ?? null, peekCachedProfile: async () => undefined, primeProfileCache: () => {} }));
 // One stable state object: a new one per call made the dialog's [follows] effect run on every render.
 const user = vi.hoisted(() => ({ pubkey: "me", loggedIn: true, follows: ["alice"], followsStatus: "loaded" }));
 vi.mock("../../stores/user", () => ({ useUserStore: Object.assign(<T,>(pick?: (s: typeof user) => T) => (pick ? pick(user) : user), { getState: () => user }) }));
@@ -26,7 +27,7 @@ vi.mock("../../lib/socialToasts", () => ({ setMuted: vi.fn() }));
 vi.mock("../feed/TextSegments", () => ({ tryHandleUrlInternally: vi.fn(), tryOpenNostrEntity: vi.fn() }));
 
 import { DMView } from "./DMView";
-import { decryptDM, sendDM, fetchDMThread } from "../../lib/nostr";
+import { decryptDM, sendDM, fetchDMThread, ensureConnected } from "../../lib/nostr";
 import { setMuted } from "../../lib/socialToasts";
 
 const settle = () => act(async () => { await Promise.resolve(); await Promise.resolve(); await Promise.resolve(); });
@@ -34,7 +35,7 @@ const answerInbox = (events: unknown[] = []) => act(async () => { inbox.answer?.
 beforeEach(() => {
   signer.has = true; inbox.answer = null; Element.prototype.scrollIntoView = vi.fn();
   user.follows = ["alice"]; user.followsStatus = "loaded"; mutes.mutedPubkeys = [];
-  notif.computeDMUnread.mockReset(); vi.mocked(setMuted).mockReset(); localStorage.clear();
+  notif.computeDMUnread.mockReset(); vi.mocked(setMuted).mockReset(); localStorage.clear(); profiles.byKey = {};
 });
 afterEach(cleanup);
 
@@ -169,5 +170,58 @@ describe("DMView: message requests", () => {
     expect(rows().filter((t) => t.includes("NIP-04"))).toHaveLength(1);
     // Nothing is remembered for the poller from a list that could not be judged.
     expect(localStorage.getItem("wrystr_dm_inbox_me")).toBeNull();
+  });
+
+  it("keeps a conversation you answered as yours when your reply is outside what was loaded", async () => {
+    localStorage.setItem("wrystr_dm_answered_me", JSON.stringify([SPAM]));
+    render(<DMView />);
+    await settle();
+    await answerInbox([msg("s1", SPAM, "me", 3000)]);
+    expect(screen.queryByRole("button", { name: /Message requests/ })).toBeNull();
+  });
+
+  it("records who you answered: from what was loaded, and from a send that ends after Messages has gone", async () => {
+    let finish: () => void = () => {};
+    vi.mocked(sendDM).mockImplementation(() => new Promise<never>((resolve) => { finish = () => resolve(undefined as never); }));
+    profiles.byKey = { [SPAM]: { name: "shop" } };
+    const view = render(<DMView />);
+    await settle();
+    await answerInbox([msg("p1", PEN_PAL, "me", 1000), msg("p2", "me", PEN_PAL, 1500), msg("s1", SPAM, "me", 3000)]);
+    expect(JSON.parse(localStorage.getItem("wrystr_dm_answered_me")!)).toEqual([PEN_PAL]);
+    fireEvent.click(screen.getByRole("button", { name: /Message requests/ }));
+    fireEvent.click(screen.getByTitle("shop").closest("button")!);
+    await settle();
+    fireEvent.change(screen.getByPlaceholderText(/^Message /), { target: { value: "hi" } });
+    fireEvent.click(screen.getByRole("button", { name: "Send" }));
+    view.unmount();
+    await act(async () => { finish(); });
+    expect(JSON.parse(localStorage.getItem("wrystr_dm_answered_me")!).sort()).toEqual([PEN_PAL, SPAM].sort());
+  });
+
+  it("does not load a stranger's avatar, in the list or the conversation's bar", async () => {
+    profiles.byKey = { [SPAM]: { name: "shop", picture: "https://track.example/me.png" }, [FRIEND]: { name: "friend", picture: "https://pics.example/friend.png" } };
+    render(<DMView />);
+    await settle();
+    await answerInbox([msg("s1", SPAM, "me", 3000), msg("f1", FRIEND, "me", 2000)]);
+    fireEvent.click(screen.getByRole("button", { name: /Message requests/ }));
+    fireEvent.click(screen.getByTitle("shop").closest("button")!);
+    await settle();
+    expect(screen.getByText("Message request")).toBeTruthy();
+    expect(document.querySelector('img[src="https://track.example/me.png"]')).toBeNull();
+    expect(document.querySelector('img[src="https://pics.example/friend.png"]')).toBeTruthy();
+  });
+
+  it("clears the badge after a load that found nothing, and leaves it after one that failed", async () => {
+    render(<DMView />);
+    await settle();
+    await answerInbox([]);
+    expect(notif.computeDMUnread).toHaveBeenLastCalledWith([]);
+    cleanup();
+    notif.computeDMUnread.mockReset();
+    vi.mocked(ensureConnected).mockResolvedValueOnce(false);
+    render(<DMView />);
+    await settle();
+    expect(screen.getAllByText(/could not be loaded|Couldn't reach/).length).toBeGreaterThan(0);
+    expect(notif.computeDMUnread).not.toHaveBeenCalled();
   });
 });

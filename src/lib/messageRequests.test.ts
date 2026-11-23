@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import { isRequest, rememberInbox, mayAnnounce } from "./messageRequests";
+import { isRequest, rememberInbox, mayAnnounce, recordAnswered, answeredBy } from "./messageRequests";
 
 const ME = "f".repeat(64);
 const FRIEND = "a".repeat(64);
@@ -16,6 +16,10 @@ describe("isRequest", () => {
   it("is not someone you follow, or someone you wrote to", () => {
     expect(isRequest({ partner: FRIEND, senders: [FRIEND] }, ME, follows, true)).toBe(false);
     expect(isRequest({ partner: PEN_PAL, senders: [PEN_PAL, ME] }, ME, follows, true)).toBe(false);
+  });
+
+  it("is not someone you answered before, when that message is outside what was loaded", () => {
+    expect(isRequest({ partner: STRANGER, senders: [STRANGER] }, ME, follows, true, new Set([STRANGER]))).toBe(false);
   });
 
   it("is never decided while the follow list has not loaded, or for a conversation you just started", () => {
@@ -44,6 +48,23 @@ describe("mayAnnounce", () => {
     expect(mayAnnounce(ME, FRIEND)).toBe(true);
     expect(mayAnnounce(ME, PEN_PAL)).toBe(true);
     expect(mayAnnounce(ME, STRANGER)).toBe(false);
+  });
+
+  it("announces people you answered, and never anyone you mute, followed or not", () => {
+    cacheFollows([FRIEND]);
+    rememberInbox(ME, [PEN_PAL]);
+    recordAnswered(ME, [STRANGER]);
+    expect(mayAnnounce(ME, STRANGER)).toBe(true);
+    expect(mayAnnounce(ME, FRIEND, new Set([FRIEND]))).toBe(false);
+    localStorage.clear();
+    expect(mayAnnounce(ME, FRIEND, new Set([FRIEND]))).toBe(false);
+  });
+
+  it("keeps the answered record per account, and only adds to it", () => {
+    recordAnswered(ME, [STRANGER]);
+    recordAnswered(ME, [PEN_PAL, STRANGER]);
+    expect([...answeredBy(ME)].sort()).toEqual([STRANGER, PEN_PAL].sort());
+    expect(answeredBy(FRIEND).size).toBe(0);
   });
 
   it("reads a broken record as not knowing", () => {
