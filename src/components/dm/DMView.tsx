@@ -528,6 +528,14 @@ export function DMView() {
     if (followsLoaded) rememberInbox(pubkey, mine.map(([pk]) => pk));
   }, [conversations, requestSet, mutedSet, dmLastSeen, pubkey, loadedOk, followsLoaded]);
 
+  // A request opened from elsewhere (a profile's Message button) shows its group; after that the
+  // toggle decides, so the group can be collapsed while the request stays open. Above the returns
+  // below: a hook after them is skipped when signing out, and React then throws.
+  const openedRequest = selectedPubkey !== null && requestSet.has(selectedPubkey);
+  useEffect(() => {
+    if (openedRequest) setShowRequests(true);
+  }, [openedRequest, selectedPubkey]);
+
   if (!loggedIn || !pubkey) {
     return (
       <div className="h-full flex flex-col">
@@ -558,11 +566,6 @@ export function DMView() {
   const inbox = sortedPartners.filter(([pk]) => !requestSet.has(pk));
   const requests = sortedPartners.filter(([pk]) => requestSet.has(pk));
   const selectedIsRequest = selectedPubkey !== null && requestSet.has(selectedPubkey);
-  // A request opened from elsewhere (a profile's Message button) shows its group; after that the
-  // toggle decides, so the group can be collapsed while the request stays open.
-  useEffect(() => {
-    if (selectedIsRequest) setShowRequests(true);
-  }, [selectedIsRequest, selectedPubkey]);
   const shownSelected = selectedPubkey !== null && !mutedSet.has(selectedPubkey) ? selectedPubkey : null;
 
   const rowFor = ([partner, events]: [string, NDKEvent[]]) =>

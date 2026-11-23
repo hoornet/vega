@@ -35,6 +35,7 @@ const settle = () => act(async () => { await Promise.resolve(); await Promise.re
 const answerInbox = (events: unknown[] = []) => act(async () => { inbox.answer?.(events); await Promise.resolve(); await Promise.resolve(); });
 beforeEach(() => {
   signer.has = true; inbox.answer = null; Element.prototype.scrollIntoView = vi.fn();
+  user.pubkey = "me"; user.loggedIn = true;
   user.follows = ["alice"]; user.followsStatus = "loaded"; mutes.mutedPubkeys = []; ui.pendingDMPubkey = null;
   notif.computeDMUnread.mockReset(); vi.mocked(setMuted).mockReset(); localStorage.clear(); profiles.byKey = {};
 });
@@ -167,6 +168,15 @@ describe("DMView: message requests", () => {
     await answerInbox([msg("s1", SPAM, "me", 3000), msg("f1", FRIEND, "me", 2000)]);
     expect(screen.getByText("Message request")).toBeTruthy();
     expect(screen.getByRole("button", { name: /Message requests/ }).getAttribute("aria-expanded")).toBe("true");
+  });
+
+  it("does not break when the account signs out while Messages is open", async () => {
+    const view = render(<DMView />);
+    await settle();
+    await answerInbox([msg("s1", SPAM, "me", 3000), msg("f1", FRIEND, "me", 2000)]);
+    user.loggedIn = false; user.pubkey = "";
+    expect(() => view.rerender(<DMView />)).not.toThrow();
+    expect(screen.getByText(/Log in to send and receive direct messages/)).toBeTruthy();
   });
 
   it("moves a request to your messages once you answer it", async () => {
