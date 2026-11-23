@@ -4,6 +4,8 @@ import { notifyMention, notifyZap, notifyFollower, notifyDM, getNotificationSett
 import { useNotificationsStore } from "../stores/notifications";
 import { dbSaveNotifications, dbNewestNotificationTs } from "./db";
 import { debug } from "./debug";
+import { mayAnnounce } from "./messageRequests";
+import { useMuteStore } from "../stores/mute";
 
 const POLL_INTERVAL = 60_000; // 60 seconds
 
@@ -132,7 +134,13 @@ async function pollOnce(pubkey: string) {
       const newDMs = await fetchNewDMs(pubkey, since, 20);
       if (newDMs.length > 0) {
         debug.log(`[notif] ${newDMs.length} new DM(s) since ${since}`);
+        // The mute list is the store's only while it is this account's.
+        const mutes = useMuteStore.getState();
+        const muted = new Set(mutes.listFor === pubkey ? mutes.mutedPubkeys : []);
         for (const e of newDMs) {
+          // A stranger's message waits in Message requests without a word: spam from fresh keys
+          // is what lands there, and it is not worth interrupting anyone for. Nor is anyone muted.
+          if (!mayAnnounce(pubkey, e.pubkey, muted)) continue;
           const name = await getProfileName(e.pubkey);
           // Sender only — the decrypted body never leaves the DM view.
           notifyDM(name).catch(() => {});

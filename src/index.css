@@ -289,3 +289,11 @@ html.font-readable {
 ::-webkit-scrollbar-thumb:hover {
   background: var(--color-text-dim);
 }
+
+/* WebKitGTK lays out an empty textarea's placeholder as if the box were wider by the text-size zoom
+   (`--ui-zoom`, 15/14 at Normal), so every empty box grew a sideways scrollbar the height of its one
+   line, and the placeholder slid with it ("mind?"). Typed text wraps at the right width; nothing in
+   Vega scrolls a textarea sideways on purpose. Measured in WebKitGTK 2.54 on 2026-11-22. */
+textarea {
+  overflow-x: hidden;
+}

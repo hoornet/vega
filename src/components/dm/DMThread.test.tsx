@@ -13,9 +13,13 @@ vi.mock("../../lib/nostr", () => ({
   isPoolSilent: vi.fn(() => false),
 }));
 vi.mock("../../hooks/useProfile", () => ({ useProfile: (pubkey: string) => ({ name: pubkey.startsWith("33") ? "Chico" : "Zeppo" }) }));
-vi.mock("../../stores/user", () => ({ useUserStore: () => ({ pubkey: "me", loggedIn: true }) }));
+const user = vi.hoisted(() => ({ pubkey: "me", loggedIn: true, follows: [] as string[], followsStatus: "loaded" }));
+vi.mock("../../stores/user", () => ({ useUserStore: Object.assign(<T,>(pick?: (s: typeof user) => T) => (pick ? pick(user) : user), { getState: () => user }) }));
+const mutes = vi.hoisted(() => ({ mutedPubkeys: [] as string[] }));
+vi.mock("../../stores/mute", () => ({ useMuteStore: Object.assign(<T,>(pick: (s: typeof mutes) => T) => pick(mutes), { getState: () => mutes }) }));
 vi.mock("../../stores/ui", () => ({ useUIStore: Object.assign(() => ({ openProfile: vi.fn(), pendingDMPubkey: null }), { setState: vi.fn() }) }));
-vi.mock("../../stores/notifications", () => ({ useNotificationsStore: Object.assign(() => ({}), { getState: () => ({ markDMRead: vi.fn(), computeDMUnread: vi.fn() }) }) }));
+const notif = vi.hoisted(() => ({ dmLastSeen: {}, markDMRead: () => {}, computeDMUnread: () => {} }));
+vi.mock("../../stores/notifications", () => ({ useNotificationsStore: Object.assign(<T,>(pick?: (s: typeof notif) => T) => (pick ? pick(notif) : notif), { getState: () => notif }) }));
 vi.mock("../feed/TextSegments", () => ({
   tryHandleUrlInternally: vi.fn(),
   tryOpenNostrEntity: vi.fn(),
@@ -30,6 +34,8 @@ import { hasUnsentText } from "../../lib/unsentText";
 const ME = "me";
 const ZEPPO = "22".repeat(32);
 const CHICO = "33".repeat(32);
+// Both are followed: conversations with strangers are message requests, and Messages never opens on one.
+user.follows = [ZEPPO, CHICO];
 const message = (id: string, content: string, pubkey = ME) => ({ id, pubkey, content, created_at: 1760000000, tags: [["p", ZEPPO]] }) as unknown as NDKEvent;
 const box = (name = "Zeppo") => screen.getByPlaceholderText(`Message ${name}…`) as HTMLTextAreaElement;
 const send = () => screen.getByRole("button", { name: "Send" });
