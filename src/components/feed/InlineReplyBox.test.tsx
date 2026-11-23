@@ -9,7 +9,7 @@ vi.mock("@tauri-apps/plugin-fs", () => ({ readFile: vi.fn() }));
 vi.mock("../shared/EmojiPicker", () => ({ EmojiPicker: () => null }));
 vi.mock("../../hooks/useAutoResize", () => ({ useAutoResize: () => () => {} }));
 vi.mock("../../hooks/useReplyCount", () => ({ useReplyCount: () => [0, () => {}] }));
-vi.mock("../../stores/user", () => ({ useCanSign: () => true }));
+vi.mock("../../stores/user", () => ({ useCanSign: () => true, useUserStore: (pick: (s: { follows: string[]; pubkey: null }) => unknown) => pick({ follows: [], pubkey: null }) }));
 
 import { InlineReplyBox } from "./InlineReplyBox";
 import { publishReply } from "../../lib/nostr";

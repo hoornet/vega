@@ -12,8 +12,9 @@ vi.mock("../../lib/nostr", () => ({
 }));
 vi.mock("../../lib/feedDiagnostics", () => ({ logDiag: vi.fn() }));
 const account = vi.hoisted(() => ({ canSign: false }));
-vi.mock("../../stores/user", () => ({ useCanSign: () => account.canSign }));
-vi.mock("../../stores/mute", () => ({ useMuteStore: () => ({ mutedPubkeys: [] as string[], contentMatchesMutedKeyword: () => false }) }));
+vi.mock("../../stores/user", () => ({ useCanSign: () => account.canSign, useUserStore: (pick: (s: { follows: string[]; pubkey: null }) => unknown) => pick({ follows: [], pubkey: null }) }));
+const mutes = vi.hoisted(() => ({ mutedPubkeys: [] as string[], contentMatchesMutedKeyword: () => false }));
+vi.mock("../../stores/mute", () => ({ useMuteStore: <T,>(pick?: (s: typeof mutes) => T) => (pick ? pick(mutes) : mutes) }));
 vi.mock("../../hooks/useAutoResize", () => ({ useAutoResize: () => () => {} }));
 vi.mock("./AncestorChain", () => ({ AncestorChain: () => null }));
 vi.mock("./ThreadNode", () => ({ ThreadNodeComponent: ({ node }: { node: ThreadNode }) => <article>{node.event.content}</article> }));

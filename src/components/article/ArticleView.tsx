@@ -26,6 +26,8 @@ import { tellPublish } from "../../lib/publishFeedback";
 import { useUnsentText } from "../../hooks/useUnsentText";
 import { useAssistantBox } from "../assistant/useAssistantBox";
 import { AssistantPanel, AskVegaButton } from "../assistant/AssistantPanel";
+import { useMentions } from "../../hooks/useMentions";
+import { MentionList, MentionedPeople } from "../shared/MentionList";
 
 // The reader. Its typography lives in index.css under `.reader-page`,
 // `.reader` and `.prose-article`: sizes in em on a fluid base, so the measure
@@ -175,6 +177,7 @@ export function ArticleView() {
   const authorProfile = useProfile(authorPubkey);
   const authorName = nameOf(authorProfile, authorPubkey);
   const commentField = useRef<HTMLTextAreaElement>(null);
+  const mentions = useMentions({ textareaRef: commentField, text: commentText, setText: setCommentText });
   // `@vega` in the comment box asks about this article.
   const assistant = useAssistantBox({
     text: commentText,
@@ -454,15 +457,18 @@ export function ArticleView() {
                 <div ref={commentBox} className="mt-4">
                   <textarea
                     ref={commentField}
+                    {...mentions.textareaProps}
                     value={commentText}
                     onChange={(e) => { setCommentText(e.target.value); autoResize(e); }}
-                    onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleComment(); } }}
+                    onKeyDown={(e) => { if (mentions.onKeyDown(e)) return; if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleComment(); } }}
                     placeholder="Write a comment…"
                     aria-label="Comment"
                     rows={3}
                     className="w-full bg-bg-raised border border-border-strong rounded-lg px-3 py-2 text-body font-ui text-text placeholder:text-text-dim resize-none focus:outline-none focus:border-accent leading-relaxed"
                     autoFocus
                   />
+                  {mentions.list && <MentionList {...mentions.list} />}
+                  <MentionedPeople text={commentText} />
                   <div className="flex justify-between items-center mt-2">
                     <span className="text-text-muted text-caption">Shift+Enter for new line</span>
                     {assistant.active ? (

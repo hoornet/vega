@@ -15,6 +15,8 @@ import { useUnsentText } from "../../hooks/useUnsentText";
 import { replySource, useAssistantSource } from "../assistant/source";
 import { useAssistantBox } from "../assistant/useAssistantBox";
 import { AssistantPanel, AskVegaButton } from "../assistant/AssistantPanel";
+import { useMentions } from "../../hooks/useMentions";
+import { MentionList, MentionedPeople } from "../shared/MentionList";
 
 interface InlineReplyBoxProps {
   event: NDKEvent;
@@ -38,6 +40,7 @@ export function InlineReplyBox({ event, name, rootEvent }: InlineReplyBoxProps) 
   const autoResize = useAutoResize(2, 8);
   const replyRef = useRef<HTMLTextAreaElement>(null);
   const [, adjustReplyCount] = useReplyCount(event.id);
+  const mentions = useMentions({ textareaRef: replyRef, text: replyText, setText: setReplyText });
   // `@vega` asks about the note being answered (on a profile, with that profile's notes).
   const assistant = useAssistantBox({
     text: replyText,
@@ -167,7 +170,8 @@ export function InlineReplyBox({ event, name, rootEvent }: InlineReplyBoxProps) 
     }
   };
 
-  const handleReplyKeyDown = (e: React.KeyboardEvent) => {
+  const handleReplyKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (mentions.onKeyDown(e)) return;
     if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) handleReplySubmit();
     if (e.key === "Escape") {
       // Parent controls visibility — just blur
@@ -179,6 +183,7 @@ export function InlineReplyBox({ event, name, rootEvent }: InlineReplyBoxProps) 
     <div className="mt-2 border-l-2 border-border pl-3">
       <textarea
         ref={replyRef}
+        {...mentions.textareaProps}
         value={replyText}
         onChange={(e) => { setReplyText(e.target.value); autoResize(e); }}
         onKeyDown={handleReplyKeyDown}
@@ -188,6 +193,9 @@ export function InlineReplyBox({ event, name, rootEvent }: InlineReplyBoxProps) 
         className="w-full bg-transparent text-text text-body placeholder:text-text-dim resize-none focus:outline-none leading-relaxed"
         autoFocus
       />
+
+      {mentions.list && <MentionList {...mentions.list} />}
+      <MentionedPeople text={replyText} />
 
       {/* Attachment thumbnails */}
       {attachments.length > 0 && (
