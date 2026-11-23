@@ -558,6 +558,11 @@ export function DMView() {
   const inbox = sortedPartners.filter(([pk]) => !requestSet.has(pk));
   const requests = sortedPartners.filter(([pk]) => requestSet.has(pk));
   const selectedIsRequest = selectedPubkey !== null && requestSet.has(selectedPubkey);
+  // A request opened from elsewhere (a profile's Message button) shows its group; after that the
+  // toggle decides, so the group can be collapsed while the request stays open.
+  useEffect(() => {
+    if (selectedIsRequest) setShowRequests(true);
+  }, [selectedIsRequest, selectedPubkey]);
   const shownSelected = selectedPubkey !== null && !mutedSet.has(selectedPubkey) ? selectedPubkey : null;
 
   const rowFor = ([partner, events]: [string, NDKEvent[]]) =>
@@ -619,14 +624,14 @@ export function DMView() {
               <button
                 type="button"
                 onClick={() => setShowRequests((v) => !v)}
-                aria-expanded={showRequests || selectedIsRequest}
+                aria-expanded={showRequests}
                 className="w-full flex items-center gap-1.5 px-3 py-2 text-left text-text-muted text-caption hover:bg-bg-hover border-t border-border-subtle"
               >
-                {showRequests || selectedIsRequest ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                {showRequests ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
                 <span className="flex-1">Message requests</span>
                 <span>{requests.length}</span>
               </button>
-              {(showRequests || selectedIsRequest) && (
+              {showRequests && (
                 <>
                   <p className="px-3 pb-2 text-text-dim text-caption">From people you don't follow and haven't written to. Not counted, not announced.</p>
                   {requests.map(rowFor)}

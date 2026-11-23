@@ -18,7 +18,8 @@ vi.mock("../../hooks/useProfile", () => ({ useProfile: (pk: string) => profiles.
 // One stable state object: a new one per call made the dialog's [follows] effect run on every render.
 const user = vi.hoisted(() => ({ pubkey: "me", loggedIn: true, follows: ["alice"], followsStatus: "loaded" }));
 vi.mock("../../stores/user", () => ({ useUserStore: Object.assign(<T,>(pick?: (s: typeof user) => T) => (pick ? pick(user) : user), { getState: () => user }) }));
-vi.mock("../../stores/ui", () => ({ useUIStore: Object.assign(() => ({ openProfile: vi.fn(), pendingDMPubkey: null }), { setState: vi.fn(), getState: () => ({}) }) }));
+const ui = vi.hoisted(() => ({ pendingDMPubkey: null as string | null }));
+vi.mock("../../stores/ui", () => ({ useUIStore: Object.assign(() => ({ openProfile: vi.fn(), pendingDMPubkey: ui.pendingDMPubkey }), { setState: vi.fn(), getState: () => ({}) }) }));
 const notif = vi.hoisted(() => ({ dmLastSeen: {}, markDMRead: vi.fn(), computeDMUnread: vi.fn() }));
 vi.mock("../../stores/notifications", () => ({ useNotificationsStore: Object.assign(<T,>(pick?: (s: typeof notif) => T) => (pick ? pick(notif) : notif), { getState: () => notif }) }));
 const mutes = vi.hoisted(() => ({ mutedPubkeys: [] as string[] }));
@@ -34,7 +35,7 @@ const settle = () => act(async () => { await Promise.resolve(); await Promise.re
 const answerInbox = (events: unknown[] = []) => act(async () => { inbox.answer?.(events); await Promise.resolve(); await Promise.resolve(); });
 beforeEach(() => {
   signer.has = true; inbox.answer = null; Element.prototype.scrollIntoView = vi.fn();
-  user.follows = ["alice"]; user.followsStatus = "loaded"; mutes.mutedPubkeys = [];
+  user.follows = ["alice"]; user.followsStatus = "loaded"; mutes.mutedPubkeys = []; ui.pendingDMPubkey = null;
   notif.computeDMUnread.mockReset(); vi.mocked(setMuted).mockReset(); localStorage.clear(); profiles.byKey = {};
 });
 afterEach(cleanup);
@@ -140,6 +141,32 @@ describe("DMView: message requests", () => {
     expect(screen.getByRole("link", { name: "https://pics.example/a.png" })).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Mute" }));
     expect(setMuted).toHaveBeenCalledWith(SPAM, expect.any(String), true);
+  });
+
+  it("collapses the requests again while one of them is open", async () => {
+    vi.mocked(fetchDMThread).mockResolvedValueOnce([msg("s1", SPAM, "me", 3000)] as never);
+    render(<DMView />);
+    await settle();
+    await answerInbox([msg("s1", SPAM, "me", 3000)]);
+    const toggle = screen.getByRole("button", { name: /Message requests/ });
+    fireEvent.click(toggle);
+    fireEvent.click(rows().map((t, i) => [t, i] as const).filter(([t]) => t.includes("NIP-04")).map(([, i]) => screen.queryAllByRole("button")[i])[0]);
+    await settle();
+    expect(screen.getByText("Message request")).toBeTruthy();
+    fireEvent.click(toggle);
+    expect(toggle.getAttribute("aria-expanded")).toBe("false");
+    expect(rows().filter((t) => t.includes("NIP-04"))).toHaveLength(0);
+    // The conversation itself stays open.
+    expect(screen.getByText("Message request")).toBeTruthy();
+  });
+
+  it("shows the group of a request opened from elsewhere, such as a profile's Message button", async () => {
+    ui.pendingDMPubkey = SPAM;
+    render(<DMView />);
+    await settle();
+    await answerInbox([msg("s1", SPAM, "me", 3000), msg("f1", FRIEND, "me", 2000)]);
+    expect(screen.getByText("Message request")).toBeTruthy();
+    expect(screen.getByRole("button", { name: /Message requests/ }).getAttribute("aria-expanded")).toBe("true");
   });
 
   it("moves a request to your messages once you answer it", async () => {
