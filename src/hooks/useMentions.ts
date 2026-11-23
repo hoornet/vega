@@ -157,6 +157,13 @@ export function useMentions({ textareaRef, text, setText }: Options) {
   const setActive = (i: number) => setActiveKey(people[i]?.pubkey ?? null);
 
   useEffect(() => setActiveKey(null), [query]);
+  // Before any arrow key the highlight is the person at the top when the list appeared, not "the
+  // first row": a name or a search result that arrives later must not move Enter onto someone else.
+  const top = people[0]?.pubkey ?? null;
+  useEffect(() => {
+    // Through the updater: an arrow key pressed before this effect ran has already chosen.
+    if (activeKey === null && top !== null) setActiveKey((k) => k ?? top);
+  }, [activeKey, top]);
   useEscapeToClose(() => { if (at) setDismissed(at.start); }, shown);
 
   const pick = (pubkey: string) => {

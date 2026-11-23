@@ -149,6 +149,36 @@ describe("@ in the compose box", () => {
     expect(box().value).toBe(`nostr:${nip19.npubEncode(ALBERT)} `);
   });
 
+  it("keeps the first person highlighted when the list reorders before any arrow key", async () => {
+    const LATE = "c".repeat(64);
+    user.follows = [LATE];
+    let names: (m: Map<string, unknown>) => void = () => {};
+    vi.mocked(fetchProfiles).mockImplementation(() => new Promise((r) => { names = r as never; }));
+    vi.mocked(searchUsers).mockResolvedValue([
+      { pubkey: ZOE, content: JSON.stringify({ name: "alfred" }) },
+      { pubkey: ALBERT, content: JSON.stringify({ name: "alma" }) },
+    ] as never);
+    render(<ComposeBox />);
+    type("@al");
+    await waitFor(() => expect(options()).toEqual(["alfred", "alma"]), { timeout: 2000 });
+    await act(async () => { names(new Map([[LATE, { name: "alice" }]])); });
+    await waitFor(() => expect(options()).toEqual(["alice", "alfred", "alma"]));
+    expect(box().getAttribute("aria-activedescendant")).toBe(screen.getAllByRole("option")[1].id);
+    fireEvent.keyDown(box(), { key: "Enter" });
+    expect(box().value).toBe(`nostr:${nip19.npubEncode(ZOE)} `);
+  });
+
+  it("highlights the top of the list again when the query changes", async () => {
+    render(<ComposeBox />);
+    type("thanks @al");
+    await waitFor(() => expect(options()).toHaveLength(2));
+    fireEvent.keyDown(box(), { key: "ArrowDown" });
+    type("thanks @ali");
+    await waitFor(() => expect(options()).toEqual(["alice, alice@example.com"]));
+    fireEvent.keyDown(box(), { key: "Enter" });
+    expect(box().value).toBe(`thanks nostr:${nip19.npubEncode(ALICE)} `);
+  });
+
   it("picks through the browser's edit, so Ctrl+Z takes it back", async () => {
     const exec = vi.fn(() => false);
     Object.defineProperty(document, "execCommand", { value: exec, configurable: true });
