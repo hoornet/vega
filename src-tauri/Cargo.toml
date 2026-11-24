@@ -51,7 +51,7 @@ futures-util = "0.3"
 webkit2gtk = "2.0"
 
 [target.'cfg(any(target_os = "macos", windows, target_os = "linux"))'.dependencies]
-tauri-plugin-single-instance = "2.5.4"
+tauri-plugin-single-instance = "2.5.5"
 tauri-plugin-autostart = "2.7.0"
 
 # Delivers `nostr:` links on macOS, where they arrive as an Apple Event instead of on the command
