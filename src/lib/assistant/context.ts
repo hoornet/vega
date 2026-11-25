@@ -3,9 +3,9 @@
  * (CLAUDE.md, "The assistant"). Pure: the components hand in the notes, the names and the mute
  * test, and this decides what goes in, in what order, and what is left out.
  *
- * Never in a pack: messages (only notes and articles are taken, by kind), the notes of muted
- * people or with muted words, and anything that looks like a key, which is blanked out wherever
- * it appears, the user's own draft included.
+ * Never in a pack: messages (only notes and articles are taken, by kind), anything by a muted
+ * person (their notes, their article, their bio), notes with muted words, and anything that looks
+ * like a key, which is blanked out wherever it appears, the user's own draft included.
  */
 
 import type { ChatMessage, PackNote, PackSource } from "../../types/assistant";
@@ -114,6 +114,9 @@ function plural(n: number, one: string, many: string): string {
 export function buildPack(source: PackSource, options: PackOptions): ContextPack {
   const { nameOf, hidden } = options;
   const shows = (n: PackNote) => TAKEN_KINDS.has(n.kind) && n.kind !== 30023 && !hidden(n.pubkey, n.content) && n.content.trim().length > 0;
+  // An article or a profile open on screen is someone's whole text: a muted author's stays out like
+  // their notes do. Asked with no content, `hidden` tests the author alone.
+  const mutedAuthor = (pubkey: string) => hidden(pubkey, "");
   const items: Item[] = [];
   // The label is worked out once the pack is cut to size, from the notes still in it.
   let label: (notes: number) => string;
@@ -135,6 +138,11 @@ export function buildPack(source: PackSource, options: PackOptions): ContextPack
       break;
     }
     case "article": {
+      if (mutedAuthor(source.pubkey)) {
+        intro = "A long-form article on Nostr, left out: the user mutes its author.";
+        label = () => "Nothing: you mute this article's author";
+        break;
+      }
       const redraw = (room: number) =>
         `<article title="${attr(source.title)}" author="${attr(nameOf(source.pubkey))}" time="${when(source.publishedAt)}">\n${
           source.summary ? `Summary: ${asData(source.summary, 600)}\n\n` : ""
@@ -146,6 +154,11 @@ export function buildPack(source: PackSource, options: PackOptions): ContextPack
     }
     case "profile": {
       const name = nameOf(source.pubkey);
+      if (mutedAuthor(source.pubkey)) {
+        intro = "A profile on Nostr, left out: the user mutes this person.";
+        label = () => "Nothing: you mute this person";
+        break;
+      }
       items.push({
         keep: true,
         note: false,
