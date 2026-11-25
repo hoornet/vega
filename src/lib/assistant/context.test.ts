@@ -40,6 +40,40 @@ describe("buildPack", () => {
     expect(pack.label).toBe("This thread, 1 note");
   });
 
+  it("sends nothing of an article or a profile by a muted person", () => {
+    const hidden = (pk: string) => pk === "bob";
+    const article = buildPack(
+      { kind: "article", title: "Bob's title", summary: "Bob's summary", pubkey: "bob", publishedAt: 1000, body: "Bob's long body" },
+      { nameOf, hidden },
+    );
+    expect(article.text).not.toMatch(/Bob's (title|summary|long body)/);
+    expect(article.text).not.toContain("<article");
+    expect(article.label).toBe("Nothing: you mute this article's author");
+    const profile = buildPack(
+      { kind: "profile", pubkey: "bob", about: "Bob's bio", nip05: "bob@example.com", notes: [note("bob", "Bob's note", 1000)] },
+      { nameOf, hidden },
+    );
+    expect(profile.text).not.toMatch(/Bob's (bio|note)|bob@example\.com|<profile/);
+    expect(profile.notes).toBe(0);
+    expect(profile.label).toBe("Nothing: you mute this person");
+    // Someone else's article and bio still go in whole, a muted word in them included: the user
+    // opened them. Only notes are tested for muted words.
+    const mutesBobAndScam = (pk: string, content: string) => pk === "bob" || content.includes("scam");
+    const fineArticle = buildPack(
+      { kind: "article", title: "Alice's title", summary: "", pubkey: "alice", publishedAt: 1000, body: "how to spot a scam" },
+      { nameOf, hidden: mutesBobAndScam },
+    );
+    expect(fineArticle.text).toContain("Alice's title");
+    expect(fineArticle.text).toContain("how to spot a scam");
+    const fineProfile = buildPack(
+      { kind: "profile", pubkey: "alice", about: "I report every scam I see", nip05: "", notes: [note("alice", "a scam again", 1000), note("alice", "birds today", 1100)] },
+      { nameOf, hidden: mutesBobAndScam },
+    );
+    expect(fineProfile.text).toContain("I report every scam I see");
+    expect(fineProfile.text).toContain("birds today");
+    expect(fineProfile.text).not.toContain("a scam again");
+  });
+
   it("never takes a message, whatever its kind", () => {
     const feed = [note("alice", "a note", 1000), note("bob", "a private message", 1100, 4), note("bob", "a gift wrap", 1200, 1059), note("bob", "a sealed dm", 1300, 14)];
     const pack = buildPack({ kind: "feed", notes: feed }, { nameOf, hidden: nobodyHidden });
